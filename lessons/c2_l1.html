@@ -88,6 +88,7 @@
                             </div>
                             <div>
                                 <h4 class="font-bold mb-2">تمثيل بياني</h4>
+                                <!-- Note: SVG y-axis is inverted (0 is at the top). So (x, y) is plotted at (x, -y) -->
                                 <div class="p-2 bg-white border rounded-lg"><svg viewBox="-6 -6 12 12" class="w-full h-48"><g stroke="#e2e8f0" stroke-width="0.05"><path d="M -5 5 V -5 M -4 5 V -5 M -3 5 V -5 M -2 5 V -5 M -1 5 V -5 M 1 5 V -5 M 2 5 V -5 M 3 5 V -5 M 4 5 V -5 M 5 5 V -5" /><path d="M -5 5 H 5 M -5 4 H 5 M -5 3 H 5 M -5 2 H 5 M -5 1 H 5 M -5 -1 H 5 M -5 -2 H 5 M -5 -3 H 5 M -5 -4 H 5 M -5 -5 H 5" /></g><line x1="-5.5" y1="0" x2="5.5" y2="0" stroke="#a0aec0" stroke-width="0.1"/><line x1="0" y1="-5.5" x2="0" y2="5.5" stroke="#a0aec0" stroke-width="0.1"/><circle cx="2" cy="-5" r="0.2" fill="#ef4444"/><circle cx="-2" cy="-3" r="0.2" fill="#ef4444"/><circle cx="5" cy="2" r="0.2" fill="#ef4444"/><circle cx="-1" cy="2" r="0.2" fill="#ef4444"/></svg></div>
                             </div>
                             <div>
@@ -113,6 +114,7 @@
                              </div>
                              <div>
                                  <h4 class="font-bold mb-2">٢. أضف النقاط</h4>
+                                 <!-- Note: SVG y-axis is inverted. Points to add are (5, -2) and (-1, -2). They are plotted at cy="2" -->
                                  <div class="p-2 bg-white border rounded-lg"><svg id="interactive-graph" viewBox="-6 -6 12 12" class="w-full h-48"><g stroke="#e2e8f0" stroke-width="0.05"><path d="M -5 5 V -5 M -4 5 V -5 M -3 5 V -5 M -2 5 V -5 M -1 5 V -5 M 1 5 V -5 M 2 5 V -5 M 3 5 V -5 M 4 5 V -5 M 5 5 V -5" /><path d="M -5 5 H 5 M -5 4 H 5 M -5 3 H 5 M -5 2 H 5 M -5 1 H 5 M -5 -1 H 5 M -5 -2 H 5 M -5 -3 H 5 M -5 -4 H 5 M -5 -5 H 5" /></g><line x1="-5.5" y1="0" x2="5.5" y2="0" stroke="#a0aec0" stroke-width="0.1"/><line x1="0" y1="-5.5" x2="0" y2="5.5" stroke="#a0aec0" stroke-width="0.1"/><circle cx="2" cy="0" r="0.2" fill="#16a34a"/><circle cx="-2" cy="-3" r="0.2" fill="#16a34a"/><circle id="user-point-1" cx="5" cy="2" r="0.2" fill="#ef4444" class="graph-user-point" opacity="0"/><circle id="user-point-2" cx="-1" cy="2" r="0.2" fill="#ef4444" class="graph-user-point" opacity="0"/><circle data-point-id="user-point-1" cx="5" cy="2" r="0.5" class="graph-target-point"/><circle data-point-id="user-point-2" cx="-1" cy="2" r="0.5" class="graph-target-point"/></svg></div>
                              </div>
                              <div>
@@ -212,7 +214,7 @@
     // --- COMMON VARIABLES & SETUP ---
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
     const MAX_ATTEMPTS = 3;
-    const LESSON_ID = 'c2_l1'; // CORRECTED LESSON ID
+    const LESSON_ID = 'c2_l1';
     let currentQuestions = []; // For the quiz
 
     // --- COMMON FUNCTIONS ---
@@ -468,20 +470,62 @@
     }
 
     // --- SECTION 4: QUIZ ---
+    function saveGrade(lessonId, grade, studentId) {
+        const statusEl = document.getElementById('save-status');
+        statusEl.textContent = 'جاري حفظ نتيجتك...';
+
+        const data = {
+            action: 'saveGrade',
+            studentId: studentId,
+            lessonId: lessonId,
+            grade: grade,
+            timestamp: new Date().toISOString()
+        };
+
+        fetch(SCRIPT_URL, {
+            method: 'POST',
+            redirect: 'follow',
+            body: JSON.stringify(data),
+            headers: {
+                'Content-Type': 'text/plain;charset=utf-8',
+            },
+        })
+        .then(res => {
+            console.log('Grade submission successful.');
+            statusEl.textContent = `تم حفظ نتيجتك بنجاح: ${grade} / 10`;
+            statusEl.style.color = '#16a34a';
+
+            const student = getStudentFromStorage();
+            if (student) {
+                if (!student.lessons) student.lessons = {};
+                const lessonData = student.lessons[lessonId] || { attempts: 0, highestGrade: -1 };
+                lessonData.attempts += 1;
+                lessonData.highestGrade = Math.max(lessonData.highestGrade, grade);
+                student.lessons[lessonId] = lessonData;
+                localStorage.setItem('currentStudent', JSON.stringify(student));
+            }
+        })
+        .catch(error => {
+            console.error('Error saving grade:', error);
+            statusEl.textContent = 'حدث خطأ أثناء حفظ النتيجة. يرجى المحاولة مرة أخرى.';
+            statusEl.style.color = '#dc2626';
+        });
+    }
+    
     function generateQuiz() { 
         const questionBank = [
             { type: 'mcq', level: '⭐', topic: 'domain-range', text: 'ما هو مجال العلاقة <span class="math-eq">{ (١، ٢)، (٣، ٤)، (١، ٥) }</span>؟', options: [ { display: '<span class="math-eq">{١، ٣}</span>', value: '{1, 3}' }, { display: '<span class="math-eq">{٢، ٤، ٥}</span>', value: '{2, 4, 5}' }, { display: '<span class="math-eq">{١، ٢، ٣، ٤، ٥}</span>', value: '{1, 2, 3, 4, 5}' }, { display: '<span class="math-eq">{١، ٣، ١}</span>', value: '{1, 3, 1}' } ], correct: '{1, 3}', explanation: `<p class='mb-2'>المجال هو مجموعة كل الإحداثيات السينية (الأولى) في الأزواج المرتبة، وبدون تكرار.</p><p class='mt-2 p-2 bg-green-100 rounded-md'>الأزواج المرتبة: (<b>١</b>، ٢)، (<b>٣</b>، ٤)، (<b>١</b>، ٥)<br>المجال = {١، ٣}</p>` },
             { type: 'mcq', level: '⭐', topic: 'domain-range', text: 'ما هو مدى العلاقة <span class="math-eq">{ (٠، ٠)، (-١، ٢)، (١، ٢) }</span>؟', options: [ { display: '<span class="math-eq">{٠، -١، ١}</span>', value: '{0, -1, 1}' }, { display: '<span class="math-eq">{٠، ٢، ٢}</span>', value: '{0, 2, 2}' }, { display: '<span class="math-eq">{٠، ٢}</span>', value: '{0, 2}' }, { display: '<span class="math-eq">{٠}</span>', value: '{0}' } ], correct: '{0, 2}', explanation: `<p class='mb-2'>المدى هو مجموعة كل الإحداثيات الصادية (الثانية) في الأزواج المرتبة، وبدون تكرار.</p><p class='mt-2 p-2 bg-green-100 rounded-md'>الأزواج المرتبة: (٠، <b>٠</b>)، (-١، <b>٢</b>)، (١، <b>٢</b>)<br>المدى = {٠، ٢}</p>` },
             { type: 'mcq', level: '⭐⭐', topic: 'variables', text: 'في العلاقة التي تربط عدد ساعات الدراسة (س) بالدرجة في الاختبار (ص)، أي متغير هو التابع؟', options: [ { display: 'عدد ساعات الدراسة', value: 's' }, { display: 'الدرجة في الاختبار', value: 'p' }, { display: 'كلاهما مستقل', value: 'both_ind' }, { display: 'لا يمكن التحديد', value: 'cannot' } ], correct: 'p', explanation: `<p class='mb-2'>الدرجة التي تحصل عليها في الاختبار <strong class="text-green-600">تعتمد</strong> على عدد ساعات دراستك. لذلك، الدرجة (ص) هي المتغير التابع.</p>` },
-            { type: 'graph_mcq', level: '⭐⭐⭐', topic: 'analysis', text: 'يصف التمثيل البياني رحلة شخص ما. أي من التالي هو الوصف الصحيح للرحلة؟', graph: `<svg viewBox="0 0 100 100" class="w-48 h-48 bg-white border rounded-lg p-2"><polyline points="10,80 40,40 60,40 100,80" fill="none" stroke="#ef4444" stroke-width="3" /><text x="50" y="98" text-anchor="middle" font-size="8">الزمن</text><text x="5" y="50" text-anchor="middle" font-size="8" transform="rotate(-90 5 50)">المسافة من المنزل</text><line x1="10" y1="0" x2="10" y2="90" stroke="black" stroke-width="1"/><line x1="10" y1="90" x2="100" y2="90" stroke="black" stroke-width="1"/></svg>`, options: [ { display: 'سار الشخص مبتعداً عن المنزل، ثم توقف، ثم أكمل السير مبتعداً.', value: 'away-stop-away' }, { display: 'سار الشخص مبتعداً عن المنزل، ثم توقف لفترة، ثم عاد باتجاه المنزل.', value: 'away-stop-back' },{ display: 'كان الشخص عائداً للمنزل، ثم توقف، ثم أكمل العودة.', value: 'back-stop-back' },{ display: 'سار الشخص مبتعداً ثم عاد إلى المنزل مباشرة.', value: 'away-back' } ], correct: 'away-stop-back', explanation: `<p class='mb-2'>لنحلل الرسم البياني (المسافة من المنزل مقابل الزمن):</p><ul class='list-disc pr-4 space-y-1'><li><b>الجزء الأول (مائل للأعلى):</b> المسافة من المنزل تزداد مع مرور الزمن، مما يعني أن الشخص يسير مبتعدًا.</li><li><b>الجزء الثاني (أفقي):</b> يمر الزمن ولكن المسافة عن المنزل لا تتغير، مما يعني أن الشخص قد توقف.</li><li><b>الجزء الثالث (مائل للأسفل):</b> المسافة من المنزل تقل مع مرور الزمن، مما يعني أن الشخص يعود باتجاه المنزل.</li></ul><p class='mt-2 p-2 bg-green-100 rounded-md'>إذًا، الوصف الصحيح هو: سار مبتعدًا، توقف، ثم عاد.</p>` },
-            { type: 'graph_mcq', level: '⭐⭐', topic: 'domain-range', text: 'من التمثيل البياني أدناه، ما هو <strong>مجال</strong> العلاقة؟', graph: `<svg viewBox="-5 -5 10 10" class="w-48 h-48 bg-white border rounded-lg"><g stroke="#e2e8f0" stroke-width="0.05"><path d="M -4 4 V -4 M -3 4 V -4 M -2 4 V -4 M -1 4 V -4 M 1 4 V -4 M 2 4 V -4 M 3 4 V -4 M 4 4 V -4" /><path d="M -4 4 H 4 M -4 3 H 4 M -4 2 H 4 M -4 1 H 4 M -4 -1 H 4 M -4 -2 H 4 M -4 -3 H 4 M -4 -4 H 4" /></g><line x1="-4.5" y1="0" x2="4.5" y2="0" stroke="#a0aec0" stroke-width="0.1"/><line x1="0" y1="-4.5" x2="0" y2="4.5" stroke="#a0aec0" stroke-width="0.1"/><circle cx="-3" cy="-2" r="0.2" fill="#ef4444"/><circle cx="-1" cy="4" r="0.2" fill="#ef4444"/><circle cx="0" cy="-1" r="0.2" fill="#ef4444"/><circle cx="3" cy="-2" r="0.2" fill="#ef4444"/></svg>`, options: [ { display: '<span class="math-eq">{-٣, -١, ٠, ٣}</span>', value: '{-3, -1, 0, 3}' }, { display: '<span class="math-eq">{-٢, -١, ٤}</span>', value: '{-2, -1, 4}' }, { display: '<span class="math-eq">{-٤, -٣, -١, ٠, ١, ٢, ٣}</span>', value: '{-4, -3, -1, 0, 1, 2, 3}' }, { display: '<span class="math-eq">{٢, -٤, ١, ٢}</span>', value: '{2, -4, 1, 2}' } ], correct: '{-3, -1, 0, 3}', explanation: `<p class='mb-2'>المجال هو مجموعة قيم <b>س</b> لجميع النقاط. بالنظر إلى الرسم، النقاط هي (-٣, ٢)، (-١, -٤)، (٠, ١)، (٣, ٢). الإحداثيات السينية هي -٣، -١، ٠، ٣.</p><p class='mt-2 p-2 bg-green-100 rounded-md'>المجال = {-٣, -١, ٠, ٣}</p>` },
-            { type: 'graph_mcq', level: '⭐⭐', topic: 'domain-range', text: 'من التمثيل البياني أدناه، ما هو <strong>مدى</strong> العلاقة؟', graph: `<svg viewBox="-5 -5 10 10" class="w-48 h-48 bg-white border rounded-lg"><g stroke="#e2e8f0" stroke-width="0.05"><path d="M -4 4 V -4 M -3 4 V -4 M -2 4 V -4 M -1 4 V -4 M 1 4 V -4 M 2 4 V -4 M 3 4 V -4 M 4 4 V -4" /><path d="M -4 4 H 4 M -4 3 H 4 M -4 2 H 4 M -4 1 H 4 M -4 -1 H 4 M -4 -2 H 4 M -4 -3 H 4 M -4 -4 H 4" /></g><line x1="-4.5" y1="0" x2="4.5" y2="0" stroke="#a0aec0" stroke-width="0.1"/><line x1="0" y1="-4.5" x2="0" y2="4.5" stroke="#a0aec0" stroke-width="0.1"/><circle cx="-4" cy="-2" r="0.2" fill="#3b82f6"/><circle cx="-2" cy="3" r="0.2" fill="#3b82f6"/><circle cx="1" cy="-2" r="0.2" fill="#3b82f6"/><circle cx="4" cy="1" r="0.2" fill="#3b82f6"/></svg>`, options: [ { display: '<span class="math-eq">{-٢, ١, ٣}</span>', value: '{-2, 1, 3}' }, { display: '<span class="math-eq">{-٤, -٢, ١, ٤}</span>', value: '{-4, -2, 1, 4}' }, { display: '<span class="math-eq">{٢, -٣, ٢, -١}</span>', value: '{2, -3, 2, -1}' }, { display: '<span class="math-eq">{-٣, -١, ٢}</span>', value: '{-3, -1, 2}' } ], correct: '{-2, 1, 3}', explanation: `<p class='mb-2'>المدى هو مجموعة قيم <b>ص</b> لجميع النقاط، بدون تكرار. النقاط هي (-٤, ٢)، (-٢, -٣)، (١, ٢)، (٤, -١). الإحداثيات الصادية هي ٢، -٣، ٢، -١.</p><p class='mt-2 p-2 bg-green-100 rounded-md'>المدى = {-٣, -١, ٢}</p>` },
+            { type: 'graph_mcq', level: '⭐⭐⭐', topic: 'analysis', text: 'يصف التمثيل البياني المجاور رحلة شخص ما. أي من التالي هو الوصف الصحيح للرحلة؟', graph: `<svg viewBox="0 0 100 100" class="w-48 h-48 bg-white border rounded-lg p-2"><polyline points="10,80 40,40 60,40 100,80" fill="none" stroke="#ef4444" stroke-width="3" /><text x="50" y="98" text-anchor="middle" font-size="8">الزمن</text><text x="5" y="50" text-anchor="middle" font-size="8" transform="rotate(-90 5 50)">المسافة من المنزل</text><line x1="10" y1="0" x2="10" y2="90" stroke="black" stroke-width="1"/><line x1="10" y1="90" x2="100" y2="90" stroke="black" stroke-width="1"/></svg>`, options: [ { display: 'سار الشخص مبتعداً عن المنزل، ثم توقف، ثم أكمل السير مبتعداً.', value: 'away-stop-away' }, { display: 'سار الشخص مبتعداً عن المنزل، ثم توقف لفترة، ثم عاد باتجاه المنزل.', value: 'away-stop-back' },{ display: 'كان الشخص عائداً للمنزل، ثم توقف، ثم أكمل العودة.', value: 'back-stop-back' },{ display: 'سار الشخص مبتعداً ثم عاد إلى المنزل مباشرة.', value: 'away-back' } ], correct: 'away-stop-back', explanation: `<p class='mb-2'>لنحلل الرسم البياني (المسافة من المنزل مقابل الزمن):</p><ul class='list-disc pr-4 space-y-1'><li><b>الجزء الأول (مائل للأعلى):</b> المسافة من المنزل تزداد مع مرور الزمن، مما يعني أن الشخص يسير مبتعدًا.</li><li><b>الجزء الثاني (أفقي):</b> يمر الزمن ولكن المسافة عن المنزل لا تتغير، مما يعني أن الشخص قد توقف.</li><li><b>الجزء الثالث (مائل للأسفل):</b> المسافة من المنزل تقل مع مرور الزمن، مما يعني أن الشخص يعود باتجاه المنزل.</li></ul><p class='mt-2 p-2 bg-green-100 rounded-md'>إذًا، الوصف الصحيح هو: سار مبتعدًا، توقف، ثم عاد.</p>` },
+            { type: 'graph_mcq', level: '⭐⭐', topic: 'domain-range', text: 'من التمثيل البياني المجاور، ما هو <strong>مجال</strong> العلاقة؟', graph: `<svg viewBox="-5 -5 10 10" class="w-48 h-48 bg-white border rounded-lg"><g stroke="#e2e8f0" stroke-width="0.05"><path d="M -4 4 V -4 M -3 4 V -4 M -2 4 V -4 M -1 4 V -4 M 1 4 V -4 M 2 4 V -4 M 3 4 V -4 M 4 4 V -4" /><path d="M -4 4 H 4 M -4 3 H 4 M -4 2 H 4 M -4 1 H 4 M -4 -1 H 4 M -4 -2 H 4 M -4 -3 H 4 M -4 -4 H 4" /></g><line x1="-4.5" y1="0" x2="4.5" y2="0" stroke="#a0aec0" stroke-width="0.1"/><line x1="0" y1="-4.5" x2="0" y2="4.5" stroke="#a0aec0" stroke-width="0.1"/><circle cx="-3" cy="-2" r="0.2" fill="#ef4444"/><circle cx="-1" cy="4" r="0.2" fill="#ef4444"/><circle cx="0" cy="-1" r="0.2" fill="#ef4444"/><circle cx="3" cy="-2" r="0.2" fill="#ef4444"/></svg>`, options: [ { display: '<span class="math-eq">{-٣, -١, ٠, ٣}</span>', value: '{-3, -1, 0, 3}' }, { display: '<span class="math-eq">{-٢, -١, ٤}</span>', value: '{-2, -1, 4}' }, { display: '<span class="math-eq">{-٤, -٣, -١, ٠, ١, ٢, ٣}</span>', value: '{-4, -3, -1, 0, 1, 2, 3}' }, { display: '<span class="math-eq">{٢, -٤, ١, ٢}</span>', value: '{2, -4, 1, 2}' } ], correct: '{-3, -1, 0, 3}', explanation: `<p class='mb-2'>المجال هو مجموعة قيم <b>س</b> لجميع النقاط. بالنظر إلى الرسم، النقاط هي (-٣, -٢)، (-١, ٤)، (٠, -١)، (٣, -٢). الإحداثيات السينية هي -٣، -١، ٠، ٣.</p><p class='mt-2 p-2 bg-green-100 rounded-md'>المجال = {-٣, -١, ٠, ٣}</p>` },
+            { type: 'graph_mcq', level: '⭐⭐', topic: 'domain-range', text: 'من التمثيل البياني المجاور، ما هو <strong>مدى</strong> العلاقة؟', graph: `<svg viewBox="-5 -5 10 10" class="w-48 h-48 bg-white border rounded-lg"><g stroke="#e2e8f0" stroke-width="0.05"><path d="M -4 4 V -4 M -3 4 V -4 M -2 4 V -4 M -1 4 V -4 M 1 4 V -4 M 2 4 V -4 M 3 4 V -4 M 4 4 V -4" /><path d="M -4 4 H 4 M -4 3 H 4 M -4 2 H 4 M -4 1 H 4 M -4 -1 H 4 M -4 -2 H 4 M -4 -3 H 4 M -4 -4 H 4" /></g><line x1="-4.5" y1="0" x2="4.5" y2="0" stroke="#a0aec0" stroke-width="0.1"/><line x1="0" y1="-4.5" x2="0" y2="4.5" stroke="#a0aec0" stroke-width="0.1"/><circle cx="-4" cy="2" r="0.2" fill="#3b82f6"/><circle cx="-2" cy="-3" r="0.2" fill="#3b82f6"/><circle cx="1" cy="2" r="0.2" fill="#3b82f6"/><circle cx="4" cy="-1" r="0.2" fill="#3b82f6"/></svg>`, options: [ { display: '<span class="math-eq">{-٣, -١, ٢}</span>', value: '{-3, -1, 2}' }, { display: '<span class="math-eq">{-٤, -٢, ١, ٤}</span>', value: '{-4, -2, 1, 4}' }, { display: '<span class="math-eq">{٢, -٣, ٢, -١}</span>', value: '{2, -3, 2, -1}' }, { display: '<span class="math-eq">{-٢, ١, ٣}</span>', value: '{-2, 1, 3}' } ], correct: '{-3, -1, 2}', explanation: `<p class='mb-2'>المدى هو مجموعة قيم <b>ص</b> لجميع النقاط، بدون تكرار. بالنظر إلى الرسم، النقاط هي (-٤, ٢)، (-٢, -٣)، (١, ٢)، (٤, -١). الإحداثيات الصادية هي ٢، -٣، ٢، -١.</p><p class='mt-2 p-2 bg-green-100 rounded-md'>المدى (مرتباً وبدون تكرار) = {-٣, -١, ٢}</p>` },
             { type: 'mcq', level: '⭐', topic: 'domain-range', text: 'ما هو مدى العلاقة <span class="math-eq">{ (٥، -١)، (٠، -١)، (٢، ٤) }</span>؟', options: [ { display: '<span class="math-eq">{٥, ٠, ٢}</span>', value: '{5, 0, 2}' }, { display: '<span class="math-eq">{-١, ٤}</span>', value: '{-1, 4}' }, { display: '<span class="math-eq">{-١, -١, ٤}</span>', value: '{-1, -1, 4}' }, { display: '<span class="math-eq">{٥, -١, ٠, ٢, ٤}</span>', value: '{5, -1, 0, 2, 4}' } ], correct: '{-1, 4}', explanation: `<p class='mb-2'>المدى هو مجموعة كل الإحداثيات الصادية (الثانية) في الأزواج المرتبة، وبدون تكرار.</p><p class='mt-2 p-2 bg-green-100 rounded-md'>الأزواج المرتبة: (٥، <b>-١</b>)، (٠، <b>-١</b>)، (٢، <b>٤</b>)<br>المدى = {-١, ٤}</p>` },
             { type: 'mcq', level: '⭐⭐', topic: 'variables', text: 'تكلفة تعبئة الوقود تعتمد على عدد اللترات التي تشتريها. أي متغير هو المستقل؟', options: [ { display: 'تكلفة الوقود', value: 'cost' }, { display: 'عدد اللترات', value: 'liters' }, { display: 'كلاهما تابع', value: 'both_dep' }, { display: 'نوع السيارة', value: 'car_type' } ], correct: 'liters', explanation: `<p class='mb-2'>التكلفة الإجمالية <strong class="text-green-600">تعتمد</strong> على عدد اللترات. أنت تختار عدد اللترات أولاً (المتغير المستقل)، وبناءً عليه تُحسب التكلفة (المتغير التابع).</p>` },
             { type: 'mcq', level: '⭐⭐', topic: 'variables', text: 'عند شراء التفاح من المتجر، تعتمد التكلفة الإجمالية على عدد كيلوغرامات التفاح التي تشتريها. أي متغير هو المتغير المستقل؟', options: [ { display: 'التكلفة الإجمالية', value: 'cost' }, { display: 'عدد الكيلوغرامات', value: 'kg' }, { display: 'نوع التفاح', value: 'type' }, { display: 'اسم المتجر', value: 'store' } ], correct: 'kg', explanation: `<p class='mb-2'>التكلفة الإجمالية <strong class="text-green-600">تعتمد</strong> على الكمية التي تشتريها. أنت تختار عدد الكيلوغرامات (المستقل) أولاً، وبناءً عليه تُحسب التكلفة (التابع).</p>` },
             { type: 'mcq', level: '⭐', topic: 'domain-range', text: 'ما هو مجال العلاقة <span class="math-eq">{ (-٢, ٠), (٣, ١), (٤, ٠) }</span>؟', options: [ { display: '<span class="math-eq">{٠, ١}</span>', value: '{0,1}' }, { display: '<span class="math-eq">{-٢, ٣, ٤}</span>', value: '{-2,3,4}' }, { display: '<span class="math-eq">{٠, ١, ٠}</span>', value: '{0,1,0}' }, { display: '<span class="math-eq">{-٢, ٠, ١, ٣, ٤}</span>', value: '{-2,0,1,3,4}' } ], correct: '{-2,3,4}', explanation: `<p class='mb-2'>المجال هو مجموعة كل الإحداثيات السينية (الأولى) في الأزواج المرتبة.</p><p class='mt-2 p-2 bg-green-100 rounded-md'>الأزواج المرتبة: (<b>-٢</b>, ٠), (<b>٣</b>, ١), (<b>٤</b>, ٠)<br>المجال = {-٢, ٣, ٤}</p>` },
-            { type: 'graph_mcq', level: '⭐⭐', topic: 'domain-range', text: 'من التمثيل البياني أدناه، ما هو <strong>مدى</strong> العلاقة؟', graph: `<svg viewBox="-5 -5 10 10" class="w-48 h-48 bg-white border rounded-lg"><g stroke="#e2e8f0" stroke-width="0.05"><path d="M -4 4 V -4 M -3 4 V -4 M -2 4 V -4 M -1 4 V -4 M 1 4 V -4 M 2 4 V -4 M 3 4 V -4 M 4 4 V -4" /><path d="M -4 4 H 4 M -4 3 H 4 M -4 2 H 4 M -4 1 H 4 M -4 -1 H 4 M -4 -2 H 4 M -4 -3 H 4 M -4 -4 H 4" /></g><line x1="-4.5" y1="0" x2="4.5" y2="0" stroke="#a0aec0" stroke-width="0.1"/><line x1="0" y1="-4.5" x2="0" y2="4.5" stroke="#a0aec0" stroke-width="0.1"/><circle cx="-3" cy="3" r="0.2" fill="#c026d3"/><circle cx="1" cy="1" r="0.2" fill="#c026d3"/><circle cx="4" cy="-2" r="0.2" fill="#c026d3"/></svg>`, options: [ { display: '<span class="math-eq">{-٣, ١, ٤}</span>', value: '{-3, 1, 4}' }, { display: '<span class="math-eq">{-٢, ١, ٣}</span>', value: '{-2, 1, 3}' }, { display: '<span class="math-eq">{-٣, -١, ١, ٢, ٤}</span>', value: '{-3, -1, 1, 2, 4}' }, { display: '<span class="math-eq">{-٣, ١}</span>', value: '{-3, 1}' } ], correct: '{-2, 1, 3}', explanation: `<p class='mb-2'>المدى هو مجموعة قيم <b>ص</b> لجميع النقاط، بدون تكرار. النقاط هي (-٣, -٣)، (١, -١)، (٤, ٢). الإحداثيات الصادية هي -٣، -١، ٢.</p><p class='mt-2 p-2 bg-green-100 rounded-md'>المدى = {-٣, -١, ٢}</p>` },
-            { type: 'graph_mcq', level: '⭐⭐⭐', topic: 'analysis', text: 'يمثل الرسم البياني مستوى الماء في خزان أثناء ملئه. أي وصف هو الصحيح؟', graph: `<svg viewBox="0 0 100 100" class="w-48 h-48 bg-white border rounded-lg p-2"><polyline points="10,90 40,60 60,60 90,10" fill="none" stroke="#0891b2" stroke-width="3" /><text x="50" y="98" text-anchor="middle" font-size="8">الزمن</text><text x="5" y="50" text-anchor="middle" font-size="8" transform="rotate(-90 5 50)">مستوى الماء</text><line x1="10" y1="0" x2="10" y2="90" stroke="black" stroke-width="1"/><line x1="10" y1="90" x2="100" y2="90" stroke="black" stroke-width="1"/></svg>`, options: [ { display: 'بدأ الملء ثم توقف ثم استمر بنفس المعدل.', value: 'fill-stop-fill' }, { display: 'بدأ الملء بسرعة، ثم أبطأ، ثم توقف.', value: 'fast-slow-stop' }, { display: 'بدأ الملء بمعدل ثابت، ثم توقف لفترة، ثم استمر بمعدل أسرع.', value: 'fill-stop-faster' }, { display: 'كان الخزان يفرغ ثم امتلأ.', value: 'empty-fill' } ], correct: 'fill-stop-faster', explanation: `<p class='mb-2'>لنحلل الرسم البياني:</p><ul class='list-disc pr-4 space-y-1'><li><b>الجزء الأول (مائل للأعلى):</b> مستوى الماء يرتفع بمعدل ثابت.</li><li><b>الجزء الثاني (أفقي):</b> يمر الزمن ومستوى الماء لا يتغير، مما يعني أن الملء توقف.</li><li><b>الجزء الثالث (أكثر انحدارًا):</b> مستوى الماء يرتفع مرة أخرى ولكن بشكل أسرع من المرة الأولى.</li></ul><p class='mt-2 p-2 bg-green-100 rounded-md'>إذًا، الوصف الصحيح هو: بدأ الملء، ثم توقف، ثم استمر بمعدل أسرع.</p>` }
+            { type: 'graph_mcq', level: '⭐⭐', topic: 'domain-range', text: 'من التمثيل البياني المجاور، ما هو <strong>مدى</strong> العلاقة؟', graph: `<svg viewBox="-5 -5 10 10" class="w-48 h-48 bg-white border rounded-lg"><g stroke="#e2e8f0" stroke-width="0.05"><path d="M -4 4 V -4 M -3 4 V -4 M -2 4 V -4 M -1 4 V -4 M 1 4 V -4 M 2 4 V -4 M 3 4 V -4 M 4 4 V -4" /><path d="M -4 4 H 4 M -4 3 H 4 M -4 2 H 4 M -4 1 H 4 M -4 -1 H 4 M -4 -2 H 4 M -4 -3 H 4 M -4 -4 H 4" /></g><line x1="-4.5" y1="0" x2="4.5" y2="0" stroke="#a0aec0" stroke-width="0.1"/><line x1="0" y1="-4.5" x2="0" y2="4.5" stroke="#a0aec0" stroke-width="0.1"/><circle cx="-3" cy="3" r="0.2" fill="#c026d3"/><circle cx="1" cy="1" r="0.2" fill="#c026d3"/><circle cx="4" cy="-2" r="0.2" fill="#c026d3"/></svg>`, options: [ { display: '<span class="math-eq">{-٣, -١, ٢}</span>', value: '{-3, -1, 2}' }, { display: '<span class="math-eq">{-٢, ١, ٣}</span>', value: '{-2, 1, 3}' }, { display: '<span class="math-eq">{-٣, ١, ٤}</span>', value: '{-3, 1, 4}' }, { display: '<span class="math-eq">{-٣, ١}</span>', value: '{-3, 1}' } ], correct: '{-3, -1, 2}', explanation: `<p class='mb-2'>المدى هو مجموعة قيم <b>ص</b> لجميع النقاط، بدون تكرار. بالنظر إلى الرسم، النقاط هي (-٣, -٣)، (١, -١)، (٤, ٢). الإحداثيات الصادية هي -٣، -١، ٢.</p><p class='mt-2 p-2 bg-green-100 rounded-md'>المدى (مرتباً) = {-٣, -١, ٢}</p>` },
+            { type: 'graph_mcq', level: '⭐⭐⭐', topic: 'analysis', text: 'يمثل الرسم البياني المجاور مستوى الماء في خزان أثناء ملئه. أي وصف هو الصحيح؟', graph: `<svg viewBox="0 0 100 100" class="w-48 h-48 bg-white border rounded-lg p-2"><polyline points="10,90 40,60 60,60 90,10" fill="none" stroke="#0891b2" stroke-width="3" /><text x="50" y="98" text-anchor="middle" font-size="8">الزمن</text><text x="5" y="50" text-anchor="middle" font-size="8" transform="rotate(-90 5 50)">مستوى الماء</text><line x1="10" y1="0" x2="10" y2="90" stroke="black" stroke-width="1"/><line x1="10" y1="90" x2="100" y2="90" stroke="black" stroke-width="1"/></svg>`, options: [ { display: 'بدأ الملء ثم توقف ثم استمر بنفس المعدل.', value: 'fill-stop-fill' }, { display: 'بدأ الملء بسرعة، ثم أبطأ، ثم توقف.', value: 'fast-slow-stop' }, { display: 'بدأ الملء بمعدل ثابت، ثم توقف لفترة، ثم استمر بمعدل أسرع.', value: 'fill-stop-faster' }, { display: 'كان الخزان يفرغ ثم امتلأ.', value: 'empty-fill' } ], correct: 'fill-stop-faster', explanation: `<p class='mb-2'>لنحلل الرسم البياني:</p><ul class='list-disc pr-4 space-y-1'><li><b>الجزء الأول (مائل للأعلى):</b> مستوى الماء يرتفع بمعدل ثابت.</li><li><b>الجزء الثاني (أفقي):</b> يمر الزمن ومستوى الماء لا يتغير، مما يعني أن الملء توقف.</li><li><b>الجزء الثالث (أكثر انحدارًا):</b> مستوى الماء يرتفع مرة أخرى ولكن بشكل أسرع من المرة الأولى.</li></ul><p class='mt-2 p-2 bg-green-100 rounded-md'>إذًا، الوصف الصحيح هو: بدأ الملء، ثم توقف، ثم استمر بمعدل أسرع.</p>` }
         ];
         const shuffled = [...questionBank].sort(() => 0.5 - Math.random()); 
         const questionCount = Math.min(shuffled.length, 5); 
@@ -508,16 +552,16 @@
             attemptsCounter.innerHTML = `المحاولات المتبقية: <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded-full">${attemptsLeft}</span>`;
         }
         const quizHtml = questions.map((q, index) => {
-            const optionsHTML = q.options.map((opt, optIndex) => `<div><input type="radio" name="q${index}" value="${opt.value}" id="q${index}_opt${optIndex}" class="hidden"><label for="q${index}_opt${optIndex}" class="option-label">${opt.display}</label></div>`).join('');
+            const optionsHTML = q.options.map((opt, optIndex) => {
+                let content = opt.display;
+                return `<div><input type="radio" name="q${index}" value="${opt.value}" id="q${index}_opt${optIndex}" class="hidden"><label for="q${index}_opt${optIndex}" class="option-label">${content}</label></div>`;
+            }).join('');
             
-            let questionContent = `<p class="font-bold">${index + 1}. <span class="text-yellow-500">${q.level}</span> ${q.text}</p>`;
-            if (q.type === 'graph_mcq') {
-                questionContent = `<div class="quiz-graph-container">${q.graph}</div>` + questionContent;
-            }
+            const questionText = q.type === 'graph_mcq' ? `<div class="flex flex-col md:flex-row items-center gap-4"><div class="flex-1"><p class="font-bold">${index + 1}. <span class="text-yellow-500">${q.level}</span> ${q.text}</p></div><div class="flex-shrink-0">${q.graph}</div></div>` : `<p class="font-bold">${index + 1}. <span class="text-yellow-500">${q.level}</span> ${q.text}</p>`;
 
-            return `<div class="p-4 border-2 border-gray-200 rounded-lg">${questionContent}<div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">${optionsHTML}</div><div id="feedback-q${index}" class="mt-2 text-sm font-bold"></div><button type="button" id="explain-btn-${index}" class="hidden mt-2 text-xs text-blue-600 hover:underline">اعرف لماذا؟</button></div>`;
+            return `<div class="p-4 border-2 border-gray-200 rounded-lg">${questionText}<div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">${optionsHTML}</div><div id="feedback-q${index}" class="mt-2 text-sm font-bold"></div><button type="button" id="explain-btn-${index}" class="hidden mt-2 text-xs text-blue-600 hover:underline">اعرف لماذا؟</button></div>`;
         }).join('');
-        
+
         quizForm.innerHTML = quizHtml + `<button type="submit" id="submit-quiz-btn" class="w-full text-white bg-green-600 hover:bg-green-700 font-medium rounded-lg text-lg px-5 py-3 mt-8">تحقق من إجاباتي</button>`;
         
         questions.forEach((q, index) => {
@@ -530,8 +574,14 @@
             submitBtn.textContent = 'لا توجد محاولات متبقية';
             submitBtn.classList.add('bg-gray-400', 'hover:bg-gray-400');
         }
+        
         quizForm.onsubmit = (e) => {
             e.preventDefault();
+            const student = getStudentFromStorage();
+            const resultsDiv = document.getElementById('quiz-results');
+            const saveStatusEl = document.getElementById('save-status');
+
+            // 1. Calculate score and provide feedback for all users
             let score = 0;
             questions.forEach((q, index) => {
                 const userAnswer = e.target.elements[`q${index}`]?.value;
@@ -546,66 +596,77 @@
                 }
                 document.getElementById(`explain-btn-${index}`).classList.remove('hidden');
             });
+
+            // 2. Display the final score for all users
             const finalGrade = Math.round((score / questions.length) * 10);
-            const resultsDiv = document.getElementById('quiz-results');
             resultsDiv.classList.remove('hidden');
             document.getElementById('quiz-score').textContent = `${finalGrade} / 10`;
-            if (studentData) {
-                saveGrade(lessonId, finalGrade, studentData.id);
-                if (attemptsLeft - 1 > 0) {
+
+            // 3. Handle saving and retake logic based on login status
+            if (student) {
+                saveGrade(LESSON_ID, finalGrade, student.id);
+                const studentLessonData = student.lessons?.[LESSON_ID] || { attempts: 0 };
+                const attemptsMade = studentLessonData.attempts; // attempts before this one
+                if (MAX_ATTEMPTS - (attemptsMade + 1) > 0) {
                     document.getElementById('retake-quiz-btn').classList.remove('hidden');
                 }
             } else {
-                document.getElementById('save-status').textContent = 'تم عرض نتيجتك. سجل الدخول لحفظ تقدمك.';
+                saveStatusEl.textContent = 'تم عرض نتيجتك. سجل الدخول لحفظ تقدمك.';
+                saveStatusEl.style.color = '#1d4ed8'; // blue info color
             }
+            
+            // 4. Disable submit button
             e.target.querySelector('#submit-quiz-btn').disabled = true;
         };
     }
 
     // --- INITIALIZATION ---
-    const student = getStudentFromStorage();
-    const lessonTitleElement = document.getElementById('lesson-title');
-    const lessonTitle = lessonTitleElement ? lessonTitleElement.textContent : null;
-    buildHeader(student, lessonTitle);
-    buildFooter();
+    document.addEventListener('DOMContentLoaded', () => {
+        const student = getStudentFromStorage();
+        const lessonTitleElement = document.getElementById('lesson-title');
+        const lessonTitle = lessonTitleElement ? lessonTitleElement.textContent : null;
+        buildHeader(student, lessonTitle);
+        buildFooter();
 
-    // Attach listeners for interactive representations
-    const interactiveCheckBtn = document.getElementById('check-interactive-btn');
-    const interactiveSolutionBtn = document.getElementById('show-solution-btn');
-    const interactiveGraph = document.getElementById('interactive-graph');
-    const interactiveMapping = document.getElementById('interactive-mapping');
-    if (interactiveCheckBtn) interactiveCheckBtn.addEventListener('click', checkInteractiveAnswers);
-    if (interactiveSolutionBtn) interactiveSolutionBtn.addEventListener('click', showInteractiveSolution);
-    if (interactiveGraph) interactiveGraph.addEventListener('click', handleGraphClick);
-    if (interactiveMapping) interactiveMapping.addEventListener('click', handleMappingClick);
+        // Attach listeners for interactive representations
+        const interactiveCheckBtn = document.getElementById('check-interactive-btn');
+        const interactiveSolutionBtn = document.getElementById('show-solution-btn');
+        const interactiveGraph = document.getElementById('interactive-graph');
+        const interactiveMapping = document.getElementById('interactive-mapping');
 
-    // Attach listeners for interactive variables
-    const varNextBtn = document.getElementById('next-example-btn');
-    const varPrevBtn = document.getElementById('prev-example-btn');
-    const varResetBtn = document.getElementById('reset-vars-btn');
-    if(varNextBtn) varNextBtn.addEventListener('click', handleVarNext);
-    if(varPrevBtn) varPrevBtn.addEventListener('click', handleVarPrev);
-    if(varResetBtn) varResetBtn.addEventListener('click', handleVarReset);
+        if (interactiveCheckBtn) interactiveCheckBtn.addEventListener('click', checkInteractiveAnswers);
+        if (interactiveSolutionBtn) interactiveSolutionBtn.addEventListener('click', showInteractiveSolution);
+        if (interactiveGraph) interactiveGraph.addEventListener('click', handleGraphClick);
+        if (interactiveMapping) interactiveMapping.addEventListener('click', handleMappingClick);
 
-    // Attach listeners for interactive analysis
-    const analysisNextBtn = document.getElementById('next-analysis-btn');
-    const analysisPrevBtn = document.getElementById('prev-analysis-btn');
-    const analysisResetBtn = document.getElementById('reset-analysis-btn');
-    if(analysisNextBtn) analysisNextBtn.addEventListener('click', handleAnalysisNext);
-    if(analysisPrevBtn) analysisPrevBtn.addEventListener('click', handleAnalysisPrev);
-    if(analysisResetBtn) analysisResetBtn.addEventListener('click', handleAnalysisReset);
+        // Attach listeners for interactive variables
+        const varNextBtn = document.getElementById('next-example-btn');
+        const varPrevBtn = document.getElementById('prev-example-btn');
+        const varResetBtn = document.getElementById('reset-vars-btn');
+        if(varNextBtn) varNextBtn.addEventListener('click', handleVarNext);
+        if(varPrevBtn) varPrevBtn.addEventListener('click', handleVarPrev);
+        if(varResetBtn) varResetBtn.addEventListener('click', handleVarReset);
 
-    // Attach listeners for quiz
-    const questions = generateQuiz();
-    initializeQuiz(LESSON_ID, questions, student);
-    const retakeBtn = document.getElementById('retake-quiz-btn');
-    if(retakeBtn) { retakeBtn.addEventListener('click', () => { window.location.reload(); }); }
-    const closeModalBtn = document.getElementById('closeModalBtn');
-    if(closeModalBtn) { closeModalBtn.addEventListener('click', closeModal); }
-    
-    // --- INITIALIZE DYNAMIC SECTIONS ---
-    renderVariableStep();
-    renderAnalysisStep();
+        // Attach listeners for interactive analysis
+        const analysisNextBtn = document.getElementById('next-analysis-btn');
+        const analysisPrevBtn = document.getElementById('prev-analysis-btn');
+        const analysisResetBtn = document.getElementById('reset-analysis-btn');
+        if(analysisNextBtn) analysisNextBtn.addEventListener('click', handleAnalysisNext);
+        if(analysisPrevBtn) analysisPrevBtn.addEventListener('click', handleAnalysisPrev);
+        if(analysisResetBtn) analysisResetBtn.addEventListener('click', handleAnalysisReset);
+
+        // Attach listeners for quiz
+        const questions = generateQuiz();
+        initializeQuiz(LESSON_ID, questions, student);
+        const retakeBtn = document.getElementById('retake-quiz-btn');
+        if(retakeBtn) { retakeBtn.addEventListener('click', () => { window.location.reload(); }); }
+        const closeModalBtn = document.getElementById('closeModalBtn');
+        if(closeModalBtn) { closeModalBtn.addEventListener('click', closeModal); }
+        
+        // --- INITIALIZE DYNAMIC SECTIONS ---
+        renderVariableStep();
+        renderAnalysisStep();
+    });
     </script>
 </body>
 </html>

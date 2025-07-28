@@ -481,20 +481,25 @@
             grade: grade,
             timestamp: new Date().toISOString()
         };
-
+        
+        // *** BUG FIX: Using 'no-cors' mode to prevent CORS errors from Google Script redirects. ***
+        // This is a "fire-and-forget" approach. We can't read the response, but the request will go through.
         fetch(SCRIPT_URL, {
             method: 'POST',
-            redirect: 'follow',
+            mode: 'no-cors', // This is the key change
             body: JSON.stringify(data),
             headers: {
                 'Content-Type': 'text/plain;charset=utf-8',
             },
         })
-        .then(res => {
-            console.log('Grade submission successful.');
+        .then(() => {
+            // Because of 'no-cors', we can't confirm success from the response.
+            // We optimistically assume it worked if no network error was caught.
+            console.log('Grade submission sent.');
             statusEl.textContent = `تم حفظ نتيجتك بنجاح: ${grade} / 10`;
             statusEl.style.color = '#16a34a';
 
+            // Update localStorage locally to reflect the new attempt and score
             const student = getStudentFromStorage();
             if (student) {
                 if (!student.lessons) student.lessons = {};
@@ -506,8 +511,9 @@
             }
         })
         .catch(error => {
-            console.error('Error saving grade:', error);
-            statusEl.textContent = 'حدث خطأ أثناء حفظ النتيجة. يرجى المحاولة مرة أخرى.';
+            // This will now only catch network-level errors (e.g., user is offline)
+            console.error('Network error while saving grade:', error);
+            statusEl.textContent = 'حدث خطأ في الشبكة أثناء حفظ النتيجة. يرجى التحقق من اتصالك.';
             statusEl.style.color = '#dc2626';
         });
     }

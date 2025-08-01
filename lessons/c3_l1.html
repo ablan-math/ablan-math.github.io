@@ -343,9 +343,108 @@
     function getStudentFromStorage() { const studentDataString = localStorage.getItem('currentStudent'); if (studentDataString) { try { return JSON.parse(studentDataString); } catch (e) { return null; } } return null; }
     function buildHeader(studentData, lessonTitle = null) { const headerContainer = document.getElementById('main-header'); if (!headerContainer) return; let titleHtml; if (lessonTitle) { titleHtml = `<div><h2 class="text-sm text-gray-500 leading-tight">منصة الرياضيات التفاعلية</h2><h1 class="text-xl font-bold text-indigo-700 leading-tight">${lessonTitle}</h1></div>`; } else { titleHtml = `<a href="../index.html" target="_top"><h1 class="text-2xl font-bold text-blue-800">منصة الرياضيات التفاعلية</h1></a>`; } let userInfoHtml = ''; if (studentData) { userInfoHtml = `<div class="flex items-center gap-4"><span class="font-semibold">أهلاً، ${studentData.name}</span><a href="../index.html" target="_top" id="logout-link" class="bg-red-500 text-white py-1 px-3 rounded-lg hover:bg-red-600">خروج</a></div>`; } else { userInfoHtml = `<p class="text-lg text-gray-600">زائر</p>`; } headerContainer.innerHTML = `<div class="container mx-auto px-6 py-4 flex justify-between items-center">${titleHtml}${userInfoHtml}</div>`; const logoutLink = headerContainer.querySelector('#logout-link'); if(logoutLink) { logoutLink.addEventListener('click', () => { localStorage.removeItem('currentStudent'); }); } }
     function buildFooter() { const footerContainer = document.getElementById('main-footer'); if (!footerContainer) return; footerContainer.innerHTML = `<div class="container mx-auto px-6"><p class="text-center text-gray-600 text-sm">© 2024 جميع الحقوق محفوظة | تصميم وتطوير: أ. عبدالعزيز خالد العبلان</p></div>`; }
-    function initializeQuiz(lessonId, questions, studentData) { currentQuestions = questions; const quizForm = document.getElementById('quizForm'); if (!quizForm) return; if (questions.length === 0) { quizForm.innerHTML = `<p class="text-center text-gray-600">لا توجد أسئلة متاحة لهذا الدرس حالياً.</p>`; return; } let attemptsLeft; if (studentData) { const studentLessonData = studentData.lessons?.[lessonId] || { attempts: 0 }; attemptsLeft = MAX_ATTEMPTS - studentLessonData.attempts; } else { attemptsLeft = 1; } const attemptsCounter = document.getElementById('attempts-counter'); if (attemptsCounter) { attemptsCounter.innerHTML = `المحاولات المتبقية: <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded-full">${attemptsLeft}</span>`; } const quizHtml = questions.map((q, index) => { const optionsHTML = q.options.map((opt, optIndex) => `<div><input type="radio" name="q${index}" value="${opt.value}" id="q${index}_opt${optIndex}" class="hidden"><label for="q${index}_opt${optIndex}" class="option-label">${opt.display}</label></div>`).join(''); return `<div class="p-4 border-2 border-gray-200 rounded-lg"><p class="font-bold">${index + 1}. <span class="text-yellow-500">${q.level}</span> ${q.text}</p><div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">${optionsHTML}</div><div id="feedback-q${index}" class="mt-2 text-sm font-bold"></div><button type="button" id="explain-btn-${index}" class="hidden mt-2 text-xs text-blue-600 hover:underline">اعرف لماذا؟</button></div>`; }).join(''); quizForm.innerHTML = quizHtml + `<button type="submit" id="submit-quiz-btn" class="w-full text-white bg-green-600 hover:bg-green-700 font-medium rounded-lg text-lg px-5 py-3 mt-8">تحقق من إجاباتي</button>`; questions.forEach((q, index) => { const explainBtn = document.getElementById(`explain-btn-${index}`); if(explainBtn) explainBtn.addEventListener('click', () => showExplanation(index)); }); if (attemptsLeft <= 0) { const submitBtn = quizForm.querySelector('#submit-quiz-btn'); submitBtn.disabled = true; submitBtn.textContent = 'لا توجد محاولات متبقية'; submitBtn.classList.add('bg-gray-400', 'hover:bg-gray-400'); } quizForm.onsubmit = (e) => { e.preventDefault(); let score = 0; questions.forEach((q, index) => { const userAnswer = e.target.elements[`q${index}`]?.value; const feedbackEl = document.getElementById(`feedback-q${index}`); if (userAnswer === q.correct) { score++; feedbackEl.textContent = '✔ إجابة صحيحة!'; feedbackEl.className = 'mt-2 text-sm font-bold text-green-600'; } else { feedbackEl.textContent = `❌ إجابة خاطئة.`; feedbackEl.className = 'mt-2 text-sm font-bold text-red-600'; } document.getElementById(`explain-btn-${index}`).classList.remove('hidden');}); const finalGrade = Math.round((score / questions.length) * 10); const resultsDiv = document.getElementById('quiz-results'); resultsDiv.classList.remove('hidden'); document.getElementById('quiz-score').textContent = `${finalGrade} / 10`; if (studentData) { saveGrade(lessonId, finalGrade, studentData.id); if (attemptsLeft - 1 > 0) { document.getElementById('retake-quiz-btn').classList.remove('hidden'); } } else { document.getElementById('save-status').textContent = 'تم عرض نتيجتك. سجل الدخول لحفظ تقدمك.'; } e.target.querySelector('#submit-quiz-btn').disabled = true; }; }
+    function initializeQuiz(lessonId, questions, studentData) {
+        currentQuestions = questions;
+        const quizForm = document.getElementById('quizForm');
+        if (!quizForm) return;
+        if (questions.length === 0) {
+            quizForm.innerHTML = `<p class="text-center text-gray-600">لا توجد أسئلة متاحة لهذا الدرس حالياً.</p>`;
+            return;
+        }
+        let attemptsLeft;
+        if (studentData) {
+            const studentLessonData = studentData.lessons?.[lessonId] || { attempts: 0 };
+            attemptsLeft = MAX_ATTEMPTS - studentLessonData.attempts;
+        } else {
+            attemptsLeft = 1;
+        }
+        const attemptsCounter = document.getElementById('attempts-counter');
+        if (attemptsCounter) {
+            attemptsCounter.innerHTML = `المحاولات المتبقية: <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded-full">${attemptsLeft}</span>`;
+        }
+        const quizHtml = questions.map((q, index) => {
+            const optionsHTML = q.options.map((opt, optIndex) => `<div><input type="radio" name="q${index}" value="${opt.value}" id="q${index}_opt${optIndex}" class="hidden"><label for="q${index}_opt${optIndex}" class="option-label">${opt.display}</label></div>`).join('');
+            return `<div class="p-4 border-2 border-gray-200 rounded-lg">
+                        <p class="font-bold">${index + 1}. <span class="text-yellow-500">${q.level}</span> ${q.text}</p>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">${optionsHTML}</div>
+                        <div id="feedback-q${index}" class="mt-2 text-sm font-bold"></div>
+                        <div id="explanation-buttons-${index}" class="hidden mt-2 space-x-4 rtl:space-x-reverse"></div>
+                    </div>`;
+        }).join('');
+        quizForm.innerHTML = quizHtml + `<button type="submit" id="submit-quiz-btn" class="w-full text-white bg-green-600 hover:bg-green-700 font-medium rounded-lg text-lg px-5 py-3 mt-8">تحقق من إجاباتي</button>`;
+        
+        if (attemptsLeft <= 0) {
+            const submitBtn = quizForm.querySelector('#submit-quiz-btn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'لا توجد محاولات متبقية';
+            submitBtn.classList.add('bg-gray-400', 'hover:bg-gray-400');
+        }
+        quizForm.onsubmit = (e) => {
+            e.preventDefault();
+            let score = 0;
+            questions.forEach((q, index) => {
+                const userAnswer = e.target.elements[`q${index}`]?.value;
+                const feedbackEl = document.getElementById(`feedback-q${index}`);
+                const buttonsContainer = document.getElementById(`explanation-buttons-${index}`);
+                buttonsContainer.innerHTML = ''; // Clear previous buttons
+
+                if (userAnswer === q.correct) {
+                    score++;
+                    feedbackEl.textContent = '✔ إجابة صحيحة!';
+                    feedbackEl.className = 'mt-2 text-sm font-bold text-green-600';
+                } else {
+                    feedbackEl.textContent = `❌ إجابة خاطئة.`;
+                    feedbackEl.className = 'mt-2 text-sm font-bold text-red-600';
+                }
+
+                buttonsContainer.classList.remove('hidden');
+                
+                const standardBtn = document.createElement('button');
+                standardBtn.type = 'button';
+                standardBtn.textContent = 'اعرف لماذا؟';
+                standardBtn.className = 'text-xs text-blue-600 hover:underline';
+                standardBtn.onclick = () => window.showExplanation(index, 'standard');
+                buttonsContainer.appendChild(standardBtn);
+
+                if (q.smartExplanation) {
+                    const smartBtn = document.createElement('button');
+                    smartBtn.type = 'button';
+                    smartBtn.innerHTML = '🧠 الحل الذكي';
+                    smartBtn.className = 'text-xs text-purple-600 hover:underline font-bold';
+                    smartBtn.onclick = () => window.showExplanation(index, 'smart');
+                    buttonsContainer.appendChild(smartBtn);
+                }
+            });
+            const finalGrade = Math.round((score / questions.length) * 10);
+            const resultsDiv = document.getElementById('quiz-results');
+            resultsDiv.classList.remove('hidden');
+            document.getElementById('quiz-score').textContent = `${finalGrade} / 10`;
+            if (studentData) {
+                saveGrade(lessonId, finalGrade, studentData.id);
+                if (attemptsLeft - 1 > 0) {
+                    document.getElementById('retake-quiz-btn').classList.remove('hidden');
+                }
+            } else {
+                document.getElementById('save-status').textContent = 'تم عرض نتيجتك. سجل الدخول لحفظ تقدمك.';
+            }
+            e.target.querySelector('#submit-quiz-btn').disabled = true;
+        };
+    }
     function saveGrade(lessonId, grade, studentId) { if (!studentId) return; const saveStatus = document.getElementById('save-status'); saveStatus.textContent = 'جارٍ حفظ نتيجتك...'; const url = `${SCRIPT_URL}?action=saveGrade&studentId=${studentId}&lessonId=${lessonId}&grade=${grade}`; fetch(url) .then(res => res.json()) .then(result => { if (result.status === 'success') { saveStatus.textContent = '✔ تم حفظ نتيجتك بنجاح! ستظهر في لوحة التحكم عند العودة.'; const studentData = JSON.parse(localStorage.getItem('currentStudent')); if (!studentData.lessons) studentData.lessons = {}; if (!studentData.lessons[lessonId] || studentData.lessons[lessonId].grade < grade) { studentData.lessons[lessonId] = { grade: grade, attempts: (studentData.lessons[lessonId]?.attempts || 0) + 1 }; } else { studentData.lessons[lessonId].attempts++; } localStorage.setItem('currentStudent', JSON.stringify(studentData)); } else { throw new Error(result.message); } }) .catch(error => { saveStatus.textContent = '❌ حدث خطأ أثناء حفظ الدرجة.'; console.error("Save Grade Error:", error); }); }
-    function showExplanation(questionIndex) { const modal = document.getElementById('explanationModal'); const explanationText = document.getElementById('explanationText'); if(modal && explanationText && currentQuestions[questionIndex] && currentQuestions[questionIndex].explanation) { explanationText.innerHTML = currentQuestions[questionIndex].explanation; modal.classList.remove('hidden'); } }
+    window.showExplanation = function(questionIndex, type) {
+        const modal = document.getElementById('explanationModal');
+        const explanationText = document.getElementById('explanationText');
+        const question = currentQuestions[questionIndex];
+        if (!modal || !explanationText || !question) return;
+        let htmlContent = '';
+        if (type === 'smart' && question.smartExplanation) {
+            htmlContent = `<p>${question.smartExplanation}</p>`;
+        } else if (type === 'standard' && question.explanation) {
+            htmlContent = `<p>${question.explanation}</p>`;
+        }
+        explanationText.innerHTML = htmlContent;
+        modal.classList.remove('hidden');
+    }
     function closeModal() { const modal = document.getElementById('explanationModal'); if(modal) modal.classList.add('hidden'); }
     
     // ==================================================
@@ -362,12 +461,12 @@
             { type: 'mcq', level: '⭐', topic: 'identify', text: 'في المعادلة ص = -س + ٧، ما هو الميل؟', options: [ { display: '١', value: 'A' }, { display: '-١', value: 'B' }, { display: '٧', value: 'C' }, { display: '-٧', value: 'D' } ], correct: 'B', explanation: '<p>في صيغة الميل والمقطع (ص = م س + ب)، يمثل الرمز (م) الميل. في هذه المعادلة، ص = (-١)س + ٧، إذن الميل م = -١.</p>' },
             { type: 'mcq', level: '⭐⭐', topic: 'write-equation', text: 'اكتب معادلة المستقيم الذي ميله ٢ ومقطعه الصادي -٤.', options: [ { display: 'ص = -٤س + ٢', value: 'A' }, { display: 'ص = ٢س - ٤', value: 'B' }, { display: 'ص = ٢س + ٤', value: 'C' }, { display: 'ص = ٤س - ٢', value: 'D' } ], correct: 'B', explanation: '<p>نعوض مباشرة في الصيغة ص = م س + ب. مع م = ٢ و ب = -٤، نحصل على ص = ٢س - ٤.</p>' },
             { type: 'mcq', level: '⭐⭐', topic: 'write-equation', text: 'ما هي معادلة المستقيم الذي ميله <span class="fraction"><span>١</span><span>٢</span></span> ومقطعه الصادي ٣؟', options: [ { display: 'ص = ٣س + <span class="fraction"><span>١</span><span>٢</span></span>', value: 'A' }, { display: 'ص = س + <span class="fraction"><span>٣</span><span>٢</span></span>', value: 'B' }, { display: 'ص = <span class="fraction"><span>١</span><span>٢</span></span> س + ٣', value: 'C' }, { display: 'ص = <span class="fraction"><span>١</span><span>٢</span></span> س - ٣', value: 'D' } ], correct: 'C', explanation: '<p>نعوض مباشرة في الصيغة ص = م س + ب. مع م = <span class="fraction"><span>١</span><span>٢</span></span> و ب = ٣، نحصل على ص = <span class="fraction"><span>١</span><span>٢</span></span> س + ٣.</p>' },
-            { type: 'mcq', level: '⭐⭐⭐', topic: 'application', text: 'تبلغ تكلفة الاشتراك في نادٍ رياضي ١٠٠ ريال شهرياً، بالإضافة إلى ٥٠ ريالاً كرسم تسجيل لمرة واحدة. أي معادلة تمثل التكلفة (ص) لعدد (س) من الشهور؟', options: [ { display: 'ص = ٥٠س + ١٠٠', value: 'A' }, { display: 'ص = ١٠٠س + ٥٠', value: 'B' }, { display: 'ص = ١٥٠س', value: 'C' }, { display: 'ص = ٥٠س - ١٠٠', value: 'D' } ], correct: 'B', explanation: '<p>رسم التسجيل هو مبلغ ثابت يُدفع مرة واحدة، لذا فهو المقطع الصادي (ب = ٥٠). التكلفة الشهرية هي معدل التغير، لذا هي الميل (م = ١٠٠). المعادلة هي ص = ١٠٠س + ٥٠.</p>' },
-            { type: 'mcq', level: '⭐⭐⭐', topic: 'graph-to-equation', text: 'مستقيم يمر بالنقطة (٠، ١) والنقطة (٢، ٥). ما هي معادلته؟', options: [ { display: 'ص = ٢س + ١', value: 'A' }, { display: 'ص = س + ٢', value: 'B' }, { display: 'ص = -٢س + ١', value: 'C' }, { display: 'ص = ٥س + ٢', value: 'D' } ], correct: 'A', explanation: '<p>أولاً، نحدد المقطع الصادي من النقطة (٠، ١)، إذن ب = ١. ثانياً، نحسب الميل: م = <span class="fraction"><span>٥-١</span><span>٢-٠</span></span> = <span class="fraction"><span>٤</span><span>٢</span></span> = ٢. إذن المعادلة هي ص = ٢س + ١.</p>' },
+            { type: 'mcq', level: '⭐⭐⭐', topic: 'application', text: 'تبلغ تكلفة الاشتراك في نادٍ رياضي ١٠٠ ريال شهرياً، بالإضافة إلى ٥٠ ريالاً كرسم تسجيل لمرة واحدة. أي معادلة تمثل التكلفة (ص) لعدد (س) من الشهور؟', options: [ { display: 'ص = ٥٠س + ١٠٠', value: 'A' }, { display: 'ص = ١٠٠س + ٥٠', value: 'B' }, { display: 'ص = ١٥٠س', value: 'C' }, { display: 'ص = ٥٠س - ١٠٠', value: 'D' } ], correct: 'B', explanation: '<p>رسم التسجيل هو مبلغ ثابت يُدفع مرة واحدة، لذا فهو المقطع الصادي (ب = ٥٠). التكلفة الشهرية هي معدل التغير، لذا هي الميل (م = ١٠٠). المعادلة هي ص = ١٠٠س + ٥٠.</p>', smartExplanation: 'كلمة "شهرياً" تعني أن الرقم ١٠٠ سيضرب في المتغير (س). وكلمة "رسم تسجيل" هي القيمة الثابتة (المقطع). إذن المعادلة هي ١٠٠س + ٥٠.' },
+            { type: 'mcq', level: '⭐⭐⭐', topic: 'graph-to-equation', text: 'مستقيم يمر بالنقطة (٠، ١) والنقطة (٢، ٥). ما هي معادلته؟', options: [ { display: 'ص = ٢س + ١', value: 'A' }, { display: 'ص = س + ٢', value: 'B' }, { display: 'ص = -٢س + ١', value: 'C' }, { display: 'ص = ٥س + ٢', value: 'D' } ], correct: 'A', explanation: '<p>أولاً، نحدد المقطع الصادي من النقطة (٠، ١)، إذن ب = ١. ثانياً، نحسب الميل: م = <span class="fraction"><span>٥-١</span><span>٢-٠</span></span> = <span class="fraction"><span>٤</span><span>٢</span></span> = ٢. إذن المعادلة هي ص = ٢س + ١.</p>', smartExplanation: 'النقطة (٠، ١) تخبرنا مباشرة أن المقطع الصادي هو ١، وهذا يستبعد الخيارين (ب) و (د). بتجربة النقطة (٢، ٥) في الخيار (أ): ص = ٢(٢) + ١ = ٥. إذن هو الجواب الصحيح.' },
             { type: 'mcq', level: '⭐⭐', topic: 'write-equation', text: 'ما معادلة المستقيم الذي ميله ٤ ومقطعه الصادي -٢؟', options: [ { display: 'ص = ٤س - ٢', value: 'A' }, { display: 'ص = -٢س + ٤', value: 'B' }, { display: 'ص = ٤س + ٢', value: 'C' }, { display: 'ص = ٢س - ٤', value: 'D' } ], correct: 'A', explanation: '<p>بتطبيق صيغة الميل والمقطع ص = م س + ب، نعوض عن م بـ ٤ وعن ب بـ -٢ لنحصل على ص = ٤س - ٢.</p>' },
-            { type: 'mcq', level: '⭐⭐⭐', topic: 'write-equation-rearranged', text: 'أي معادلة تمثل مستقيماً ميله -٢ ومقطعه الصادي ٣؟', options: [ { display: 'ص + ٢س = ٣', value: 'A' }, { display: 'ص - ٢س = ٣', value: 'B' }, { display: '٢ص + س = ٦', value: 'C' }, { display: 'ص + ٣ = -٢س', value: 'D' } ], correct: 'A', explanation: '<p>المعادلة هي ص = -٢س + ٣. بنقل -٢س إلى الطرف الآخر، تصبح المعادلة ص + ٢س = ٣.</p>' },
+            { type: 'mcq', level: '⭐⭐⭐', topic: 'write-equation-rearranged', text: 'أي معادلة تمثل مستقيماً ميله -٢ ومقطعه الصادي ٣؟', options: [ { display: 'ص + ٢س = ٣', value: 'A' }, { display: 'ص - ٢س = ٣', value: 'B' }, { display: '٢ص + س = ٦', value: 'C' }, { display: 'ص + ٣ = -٢س', value: 'D' } ], correct: 'A', explanation: '<p>المعادلة هي ص = -٢س + ٣. بنقل -٢س إلى الطرف الآخر، تصبح المعادلة ص + ٢س = ٣.</p>', smartExplanation: 'المعادلة الأصلية هي ص = -٢س + ٣. بمجرد النظر، نرى أن نقل "-٢س" للطرف الآخر سيجعلها "+٢س"، وهو ما يتوافق مع الخيار (أ) فقط.' },
             { type: 'mcq', level: '⭐⭐⭐', topic: 'graph-to-equation', text: 'مستقيم مقطعه الصادي عند (٠، -١) وميله <span class="fraction"><span>٢</span><span>٣</span></span>. ما هي معادلته؟', options: [ { display: 'ص = <span class="fraction"><span>٢</span><span>٣</span></span>س - ١', value: 'A' }, { display: 'ص = <span class="fraction"><span>٣</span><span>٢</span></span>س - ١', value: 'B' }, { display: 'ص = -س + <span class="fraction"><span>٢</span><span>٣</span></span>', value: 'C' }, { display: 'ص = <span class="fraction"><span>٢</span><span>٣</span></span>س + ١', value: 'D' } ], correct: 'A', explanation: '<p>بما أن المقطع الصادي ب = -١ والميل م = <span class="fraction"><span>٢</span><span>٣</span></span>، فإن المعادلة هي ص = <span class="fraction"><span>٢</span><span>٣</span></span>س - ١.</p>' },
-            { type: 'mcq', level: '⭐⭐⭐', topic: 'identify-from-rearranged', text: 'ما هو ميل المستقيم الذي معادلته ٣ص - ٦س = ٩؟', options: [ { display: '-٢', value: 'A' }, { display: '٦', value: 'B' }, { display: '٣', value: 'C' }, { display: '٢', value: 'D' } ], correct: 'D', explanation: '<p>يجب أولاً وضع المعادلة على صيغة الميل والمقطع (ص = م س + ب). ٣ص = ٦س + ٩. ثم نقسم على ٣: ص = ٢س + ٣. إذن الميل (م) هو ٢.</p>' },
+            { type: 'mcq', level: '⭐⭐⭐', topic: 'identify-from-rearranged', text: 'ما هو ميل المستقيم الذي معادلته ٣ص - ٦س = ٩؟', options: [ { display: '-٢', value: 'A' }, { display: '٦', value: 'B' }, { display: '٣', value: 'C' }, { display: '٢', value: 'D' } ], correct: 'D', explanation: '<p>يجب أولاً وضع المعادلة على صيغة الميل والمقطع (ص = م س + ب). ٣ص = ٦س + ٩. ثم نقسم على ٣: ص = ٢س + ٣. إذن الميل (م) هو ٢.</p>', smartExplanation: 'ذهنياً: انقل "-٦س" فتصبح "+٦س". اقسم كل المعادلة على معامل ص وهو ٣. ميل الحد "٦س" بعد القسمة على ٣ هو ٢.' },
             { type: 'mcq', level: '⭐⭐⭐', topic: 'application', text: 'باستخدام معادلة سيارة الأجرة ص = ٢س + ٤، ما تكلفة رحلة لمسافة ١٠ كيلومترات؟', options: [ { display: '٢٤ ريال', value: 'A' }, { display: '١٦ ريال', value: 'B' }, { display: '٢٠ ريال', value: 'C' }, { display: '١٤ ريال', value: 'D' } ], correct: 'A', explanation: '<p>نعوض عن س (المسافة) بـ ١٠ في المعادلة: ص = ٢(١٠) + ٤ = ٢٠ + ٤ = ٢٤ ريال.</p>' },
             { type: 'mcq', level: '⭐⭐⭐', topic: 'application', text: 'باستخدام معادلة البطارية ص = -١٥س + ١٠٠، كم ستكون نسبة الشحن بعد ٣ ساعات؟', options: [ { display: '٤٥٪', value: 'A' }, { display: '٥٥٪', value: 'B' }, { display: '٧٠٪', value: 'C' }, { display: '٨٥٪', value: 'D' } ], correct: 'B', explanation: '<p>نعوض عن س (الساعات) بـ ٣ في المعادلة: ص = -١٥(٣) + ١٠٠ = -٤٥ + ١٠٠ = ٥٥٪.</p>' }
         ];

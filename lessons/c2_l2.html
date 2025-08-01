@@ -294,7 +294,7 @@
     <div id="explanationModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden z-50">
         <div class="bg-white rounded-lg shadow-2xl p-6 max-w-lg w-full">
             <div class="flex justify-between items-center mb-4">
-                <h3 class="text-xl font-bold">💡 شرح الإجابة</h3>
+                <h3 id="modal-title" class="text-xl font-bold">💡 شرح الإجابة</h3>
                 <button id="closeModalBtn" class="p-2 -m-2 rounded-full hover:bg-gray-200">
                     <svg class="h-6 w-6 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
@@ -310,9 +310,9 @@
     function getStudentFromStorage() { const studentDataString = localStorage.getItem('currentStudent'); if (studentDataString) { try { return JSON.parse(studentDataString); } catch (e) { return null; } } return null; }
     function buildHeader(studentData, lessonTitle = null) { const headerContainer = document.getElementById('main-header'); if (!headerContainer) return; let titleHtml; if (lessonTitle) { titleHtml = `<div><h2 class="text-sm text-gray-500 leading-tight">منصة الرياضيات التفاعلية</h2><h1 class="text-xl font-bold text-indigo-700 leading-tight">${lessonTitle}</h1></div>`; } else { titleHtml = `<a href="../index.html" target="_top"><h1 class="text-2xl font-bold text-blue-800">منصة الرياضيات التفاعلية</h1></a>`; } let userInfoHtml = ''; if (studentData) { userInfoHtml = `<div class="flex items-center gap-4"><span class="font-semibold">أهلاً، ${studentData.name}</span><a href="../index.html" target="_top" id="logout-link" class="bg-red-500 text-white py-1 px-3 rounded-lg hover:bg-red-600">خروج</a></div>`; } else { userInfoHtml = `<p class="text-lg text-gray-600">زائر</p>`; } headerContainer.innerHTML = `<div class="container mx-auto px-6 py-4 flex justify-between items-center">${titleHtml}${userInfoHtml}</div>`; const logoutLink = headerContainer.querySelector('#logout-link'); if(logoutLink) { logoutLink.addEventListener('click', () => { localStorage.removeItem('currentStudent'); }); } }
     function buildFooter() { const footerContainer = document.getElementById('main-footer'); if (!footerContainer) return; footerContainer.innerHTML = `<div class="container mx-auto px-6"><p class="text-center text-gray-600 text-sm">© 2024 جميع الحقوق محفوظة | تصميم وتطوير: أ. عبدالعزيز خالد العبلان</p></div>`; }
-    function initializeQuiz(lessonId, questions, studentData) { currentQuestions = questions; const quizForm = document.getElementById('quizForm'); if (!quizForm) return; if (questions.length === 0) { quizForm.innerHTML = `<p class="text-center text-gray-600">لا توجد أسئلة متاحة لهذا الدرس حالياً.</p>`; return; } let attemptsLeft; if (studentData) { const studentLessonData = studentData.lessons?.[lessonId] || { attempts: 0 }; attemptsLeft = MAX_ATTEMPTS - studentLessonData.attempts; } else { attemptsLeft = 1; } const attemptsCounter = document.getElementById('attempts-counter'); if (attemptsCounter) { attemptsCounter.innerHTML = `المحاولات المتبقية: <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded-full">${attemptsLeft}</span>`; } const quizHtml = questions.map((q, index) => { const optionsHTML = q.options.map((opt, optIndex) => `<div><input type="radio" name="q${index}" value="${opt.value}" id="q${index}_opt${optIndex}" class="hidden"><label for="q${index}_opt${optIndex}" class="option-label">${opt.display}</label></div>`).join(''); return `<div class="p-4 border-2 border-gray-200 rounded-lg bg-white"><p class="font-bold text-lg">${index + 1}. <span class="text-yellow-500">${q.level}</span> ${q.text}</p>${q.graph || ''}<div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">${optionsHTML}</div><div id="feedback-q${index}" class="mt-2 text-sm font-bold"></div><button type="button" id="explain-btn-${index}" class="hidden mt-2 text-xs text-blue-600 hover:underline">اعرف لماذا؟</button></div>`; }).join(''); quizForm.innerHTML = quizHtml + `<button type="submit" id="submit-quiz-btn" class="w-full text-white bg-green-600 hover:bg-green-700 font-medium rounded-lg text-lg px-5 py-3 mt-8">تحقق من إجاباتي</button>`; questions.forEach((q, index) => { const explainBtn = document.getElementById(`explain-btn-${index}`); if(explainBtn) explainBtn.addEventListener('click', () => showExplanation(index)); }); if (attemptsLeft <= 0) { const submitBtn = quizForm.querySelector('#submit-quiz-btn'); submitBtn.disabled = true; submitBtn.textContent = 'لا توجد محاولات متبقية'; submitBtn.classList.add('bg-gray-400', 'hover:bg-gray-400'); } quizForm.onsubmit = (e) => { e.preventDefault(); let score = 0; questions.forEach((q, index) => { const userAnswer = e.target.elements[`q${index}`]?.value; const feedbackEl = document.getElementById(`feedback-q${index}`); if (userAnswer === q.correct) { score++; feedbackEl.textContent = '✔ إجابة صحيحة!'; feedbackEl.className = 'mt-2 text-sm font-bold text-green-600'; } else { feedbackEl.textContent = `❌ إجابة خاطئة.`; feedbackEl.className = 'mt-2 text-sm font-bold text-red-600'; } document.getElementById(`explain-btn-${index}`).classList.remove('hidden');}); const finalGrade = Math.round((score / questions.length) * 10); const resultsDiv = document.getElementById('quiz-results'); resultsDiv.classList.remove('hidden'); document.getElementById('quiz-score').textContent = `${finalGrade} / 10`; if (studentData) { saveGrade(lessonId, finalGrade, studentData.id); if (attemptsLeft - 1 > 0) { document.getElementById('retake-quiz-btn').classList.remove('hidden'); } } else { document.getElementById('save-status').textContent = 'تم عرض نتيجتك. سجل الدخول لحفظ تقدمك.'; } e.target.querySelector('#submit-quiz-btn').disabled = true; }; }
+    function initializeQuiz(lessonId, questions, studentData) { currentQuestions = questions; const quizForm = document.getElementById('quizForm'); if (!quizForm) return; if (questions.length === 0) { quizForm.innerHTML = `<p class="text-center text-gray-600">لا توجد أسئلة متاحة لهذا الدرس حالياً.</p>`; return; } let attemptsLeft; if (studentData) { const studentLessonData = studentData.lessons?.[lessonId] || { attempts: 0 }; attemptsLeft = MAX_ATTEMPTS - studentLessonData.attempts; } else { attemptsLeft = 1; } const attemptsCounter = document.getElementById('attempts-counter'); if (attemptsCounter) { attemptsCounter.innerHTML = `المحاولات المتبقية: <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded-full">${attemptsLeft}</span>`; } const quizHtml = questions.map((q, index) => { const optionsHTML = q.options.map((opt, optIndex) => `<div><input type="radio" name="q${index}" value="${opt.value}" id="q${index}_opt${optIndex}" class="hidden"><label for="q${index}_opt${optIndex}" class="option-label">${opt.display}</label></div>`).join(''); const smartExplanationButton = q.smartExplanation ? `<button type="button" id="smart-explain-btn-${index}" class="hidden mt-2 text-xs text-purple-600 font-bold hover:underline">الحل الذكي 🧠</button>` : ''; return `<div class="p-4 border-2 border-gray-200 rounded-lg bg-white"><p class="font-bold text-lg">${index + 1}. <span class="text-yellow-500">${q.level}</span> ${q.text}</p>${q.graph || ''}<div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">${optionsHTML}</div><div id="feedback-q${index}" class="mt-2 text-sm font-bold"></div><div class="flex items-center space-x-4">${smartExplanationButton}<button type="button" id="explain-btn-${index}" class="hidden mt-2 text-xs text-blue-600 hover:underline">اعرف لماذا؟</button></div></div>`; }).join(''); quizForm.innerHTML = quizHtml + `<button type="submit" id="submit-quiz-btn" class="w-full text-white bg-green-600 hover:bg-green-700 font-medium rounded-lg text-lg px-5 py-3 mt-8">تحقق من إجاباتي</button>`; questions.forEach((q, index) => { const explainBtn = document.getElementById(`explain-btn-${index}`); if(explainBtn) explainBtn.addEventListener('click', () => showExplanation(index, 'regular')); const smartExplainBtn = document.getElementById(`smart-explain-btn-${index}`); if(smartExplainBtn) smartExplainBtn.addEventListener('click', () => showExplanation(index, 'smart')); }); if (attemptsLeft <= 0) { const submitBtn = quizForm.querySelector('#submit-quiz-btn'); submitBtn.disabled = true; submitBtn.textContent = 'لا توجد محاولات متبقية'; submitBtn.classList.add('bg-gray-400', 'hover:bg-gray-400'); } quizForm.onsubmit = (e) => { e.preventDefault(); let score = 0; questions.forEach((q, index) => { const userAnswer = e.target.elements[`q${index}`]?.value; const feedbackEl = document.getElementById(`feedback-q${index}`); if (userAnswer === q.correct) { score++; feedbackEl.textContent = '✔ إجابة صحيحة!'; feedbackEl.className = 'mt-2 text-sm font-bold text-green-600'; } else { feedbackEl.textContent = `❌ إجابة خاطئة.`; feedbackEl.className = 'mt-2 text-sm font-bold text-red-600'; } document.getElementById(`explain-btn-${index}`).classList.remove('hidden'); const smartBtn = document.getElementById(`smart-explain-btn-${index}`); if(smartBtn) smartBtn.classList.remove('hidden'); }); const finalGrade = Math.round((score / questions.length) * 10); const resultsDiv = document.getElementById('quiz-results'); resultsDiv.classList.remove('hidden'); document.getElementById('quiz-score').textContent = `${finalGrade} / 10`; if (studentData) { saveGrade(lessonId, finalGrade, studentData.id); if (attemptsLeft - 1 > 0) { document.getElementById('retake-quiz-btn').classList.remove('hidden'); } } else { document.getElementById('save-status').textContent = 'تم عرض نتيجتك. سجل الدخول لحفظ تقدمك.'; } e.target.querySelector('#submit-quiz-btn').disabled = true; }; }
     function saveGrade(lessonId, grade, studentId) { if (!studentId) return; const saveStatus = document.getElementById('save-status'); saveStatus.textContent = 'جارٍ حفظ نتيجتك...'; const url = `${SCRIPT_URL}?action=saveGrade&studentId=${studentId}&lessonId=${lessonId}&grade=${grade}`; fetch(url) .then(res => res.json()) .then(result => { if (result.status === 'success') { saveStatus.textContent = '✔ تم حفظ نتيجتك بنجاح! ستظهر في لوحة التحكم عند العودة.'; const studentData = JSON.parse(localStorage.getItem('currentStudent')); if (!studentData.lessons) studentData.lessons = {}; if (!studentData.lessons[lessonId] || studentData.lessons[lessonId].grade < grade) { studentData.lessons[lessonId] = { grade: grade, attempts: (studentData.lessons[lessonId]?.attempts || 0) + 1 }; } else { studentData.lessons[lessonId].attempts++; } localStorage.setItem('currentStudent', JSON.stringify(studentData)); } else { throw new Error(result.message); } }) .catch(error => { saveStatus.textContent = '❌ حدث خطأ أثناء حفظ الدرجة.'; console.error("Save Grade Error:", error); }); }
-    function showExplanation(questionIndex) { const modal = document.getElementById('explanationModal'); const explanationText = document.getElementById('explanationText'); if(modal && explanationText && currentQuestions[questionIndex] && currentQuestions[questionIndex].explanation) { explanationText.innerHTML = currentQuestions[questionIndex].explanation; modal.classList.remove('hidden'); } }
+    function showExplanation(questionIndex, type = 'regular') { const modal = document.getElementById('explanationModal'); const modalTitle = document.getElementById('modal-title'); const explanationText = document.getElementById('explanationText'); const question = currentQuestions[questionIndex]; if(modal && explanationText && modalTitle && question) { if (type === 'smart' && question.smartExplanation) { modalTitle.textContent = '🧠 الحل الذكي'; explanationText.innerHTML = question.smartExplanation; } else { modalTitle.textContent = '💡 شرح الإجابة'; explanationText.innerHTML = question.explanation; } modal.classList.remove('hidden'); } }
     function closeModal() { const modal = document.getElementById('explanationModal'); if(modal) modal.classList.add('hidden'); }
     
     // --- مشغل الكود الخاص بالدرس ---
@@ -327,17 +327,20 @@
                       { display: '<span class="math-eq">ص = <span class="fraction"><span>١</span><span class="frac-bar"></span><span>س</span></span></span>', value: 'D' }
                   ], 
                   correct: 'A', 
-                  explanation: `<p class='mb-2'>الدالة الخطية هي التي يكون فيها المتغير 'س' مرفوعاً للأس ١ (أو ٠). المعادلة <span class='math-eq'>ص = ٥س - ٢</span> هي دالة خطية. أما الخيارات الأخرى (<span class='math-eq'>ص = س<sup>٢</sup></span>، <span class='math-eq'>ص = |س|</span>، و <span class='math-eq'>ص = <span class="fraction"><span>١</span><span class="frac-bar"></span><span>س</span></span></span>) فليست خطية لأنها تمثل دالة تربيعية، دالة القيمة المطلقة، ودالة المقلوب على التوالي.</p>` 
+                  explanation: `<p class='mb-2'>الدالة الخطية هي التي يكون فيها المتغير 'س' مرفوعاً للأس ١ (أو ٠). المعادلة <span class='math-eq'>ص = ٥س - ٢</span> هي دالة خطية. أما الخيارات الأخرى (<span class='math-eq'>ص = س<sup>٢</sup></span>، <span class='math-eq'>ص = |س|</span>، و <span class='math-eq'>ص = <span class="fraction"><span>١</span><span class="frac-bar"></span><span>س</span></span></span>) فليست خطية.</p>`,
+                  smartExplanation: `<p>ببساطة، الدالة الخطية لا تحتوي على أسس (مثل س<sup>٢</sup>) أو رموز خاصة (مثل |س|) أو متغير في المقام. الخيار (أ) هو الوحيد الذي يحقق هذا الشرط.</p>`
                 },
                 { type: 'mcq', level: '⭐⭐', topic: 'linear-function', text: 'أي من المعادلات التالية <strong>لا</strong> تمثل دالة خطية؟', 
                   options: [ { display: '<span class="math-eq">ص = س + ٧</span>', value: 'A' }, { display: '<span class="math-eq">ص = س<sup>٣</sup> + ١</span>', value: 'B' }, { display: '<span class="math-eq">ص = ٣س</span>', value: 'C' }, { display: '<span class="math-eq">ص = ١٠</span>', value: 'D' } ], 
                   correct: 'B', 
-                  explanation: `<p class='mb-2'>الدالة <span class='math-eq'>ص = س<sup>٣</sup> + ١</span> ليست خطية لأن المتغير 'س' مرفوع للأس ٣ (دالة تكعيبية). باقي الخيارات تمثل دوالاً خطية.</p>` 
+                  explanation: `<p class='mb-2'>الدالة <span class='math-eq'>ص = س<sup>٣</sup> + ١</span> ليست خطية لأن المتغير 'س' مرفوع للأس ٣ (دالة تكعيبية). باقي الخيارات تمثل دوالاً خطية.</p>`,
+                  smartExplanation: `<p>ابحث عن المعادلة التي تحتوي على أس أعلى من ١. الخيار (ب) يحتوي على س<sup>٣</sup>، إذن هي ليست دالة خطية.</p>`
                 },
                 { type: 'mcq', level: '⭐', topic: 'is-function', text: 'هل العلاقة <span class="math-eq">{ (٥، ٣)، (٧، ٢)، (٥، ١) }</span> تمثل دالة؟', 
                   options: [ { display: 'نعم', value: 'نعم' }, { display: 'لا', value: 'لا' } ], 
                   correct: 'لا', 
-                  explanation: `<p class='mb-2'>لا، لأن العنصر <span class="math-eq">٥</span> في المجال ارتبط بعنصرين مختلفين في المدى (<span class="math-eq">٣</span> و <span class="math-eq">١</span>).</p>` 
+                  explanation: `<p class='mb-2'>لا، لأن العنصر <span class="math-eq">٥</span> في المجال ارتبط بعنصرين مختلفين في المدى (<span class="math-eq">٣</span> و <span class="math-eq">١</span>).</p>`,
+                  smartExplanation: `<p>بمجرد النظر، نلاحظ تكرار الرقم ٥ في الإحداثي الأول (السيني) مع إحداثي ثانٍ (صادي) مختلف. إذن هي ليست دالة.</p>`
                 },
                  { type: 'mcq', level: '⭐⭐', topic: 'vertical-line-test', text: 'أي من التمثيلات البيانية التالية لا يمثل دالة؟', 
                   graph: `<div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center mt-6">
@@ -361,12 +364,14 @@
                 { type: 'mcq', level: '⭐⭐⭐', topic: 'function-value', text: 'إذا كانت <span class="math-eq">د(س) = ٢س - ٨</span>، فما قيمة <span class="math-eq">د(٦)</span>؟', 
                   options: [ { display: '<span class="math-eq">٤</span>', value: '٤' }, { display: '<span class="math-eq">١٢</span>', value: '١٢' }, { display: '<span class="math-eq">-٤</span>', value: '-٤' }, { display: '<span class="math-eq">٢٠</span>', value: '٢٠' } ], 
                   correct: '٤', 
-                  explanation: `<p class='mb-2'>لإيجاد قيمة د(٦)، نعوض عن كل <span class="math-eq">س</span> بالرقم <span class="math-eq">٦</span> في المعادلة.</p><div class='text-right space-y-2 p-2 bg-gray-100 rounded-md'><p>المعادلة: <span class='math-eq'>د(س) = ٢س - ٨</span></p><p>التعويض: <span class='math-eq'>د(٦) = ٢(٦) - ٨</span></p><p>الضرب: <span class='math-eq'>د(٦) = ١٢ - ٨</span></p><p>الناتج: <span class='math-eq'>د(٦) = ٤</span></p></div>` 
+                  explanation: `<p class='mb-2'>لإيجاد قيمة د(٦)، نعوض عن كل <span class="math-eq">س</span> بالرقم <span class="math-eq">٦</span> في المعادلة.</p><div class='text-right space-y-2 p-2 bg-gray-100 rounded-md'><p>المعادلة: <span class='math-eq'>د(س) = ٢س - ٨</span></p><p>التعويض: <span class='math-eq'>د(٦) = ٢(٦) - ٨</span></p><p>الضرب: <span class='math-eq'>د(٦) = ١٢ - ٨</span></p><p>الناتج: <span class='math-eq'>د(٦) = ٤</span></p></div>`,
+                  smartExplanation: `<p>ذهنياً: ٢ ضرب ٦ يساوي ١٢، ثم ١٢ ناقص ٨ يساوي ٤.</p>`
                 },
                 { type: 'mcq', level: '⭐⭐', topic: 'is-function', text: 'أي الجداول التالية يمثل دالة؟', 
                   options: [ { display: '<table class="w-full text-center border"><thead><tr><th class="border p-1">س</th><th class="border p-1">ص</th></tr></thead><tbody><tr><td class="border p-1">١</td><td class="border p-1">٣</td></tr><tr><td class="border p-1">٢</td><td class="border p-1">٤</td></tr><tr><td class="border p-1">١</td><td class="border p-1">٥</td></tr></tbody></table>', value: 'A' }, { display: '<table class="w-full text-center border"><thead><tr><th class="border p-1">س</th><th class="border p-1">ص</th></tr></thead><tbody><tr><td class="border p-1">-١</td><td class="border p-1">٥</td></tr><tr><td class="border p-1">٠</td><td class="border p-1">٥</td></tr><tr><td class="border p-1">١</td><td class="border p-1">٥</td></tr></tbody></table>', value: 'B' } ], 
                   correct: 'B', 
-                  explanation: `<p class='mb-2'>الجدول (ب) يمثل دالة لأن كل قيمة لـ س (المجال) لها قيمة واحدة فقط لـ ص (المدى). أما في الجدول (أ)، القيمة ١ في المجال ارتبطت بقيمتين مختلفتين (٣ و ٥).</p>` 
+                  explanation: `<p class='mb-2'>الجدول (ب) يمثل دالة لأن كل قيمة لـ س (المجال) لها قيمة واحدة فقط لـ ص (المدى). أما في الجدول (أ)، القيمة ١ في المجال ارتبطت بقيمتين مختلفتين (٣ و ٥).</p>`,
+                  smartExplanation: `<p>ابحث عن تكرار في عمود 'س'. الجدول (أ) يكرر الرقم ١، إذن هو ليس دالة. الجدول (ب) لا يكرر أي رقم في عمود 'س'، إذن هو دالة.</p>`
                 },
                 { type: 'mcq', level: '⭐', topic: 'domain-range', text: 'ما هو مدى الدالة <span class="math-eq">{ (٠, ١), (١, ٢), (٢, ٣) }</span>؟',
                     options: [ 
@@ -424,12 +429,14 @@
                 { type: 'mcq', level: '⭐⭐⭐', topic: 'real-life', text: "إذا كانت تكلفة استئجار سيارة تُحسب بالمعادلة <span class='math-eq'>ت(ي) = ٩٠ي + ٥٠</span>، حيث <span class='math-eq'>ت</span> هي التكلفة الإجمالية بالريال و <span class='math-eq'>ي</span> هو عدد الأيام. ما هي تكلفة استئجار السيارة لمدة ٣ أيام؟",
                   options: [ { display: '٣٢٠ ريال', value: '320' }, { display: '٢٧٠ ريال', value: '270' }, { display: '١٤٠ ريال', value: '140' }, { display: '٣٦٠ ريال', value: '360' } ],
                   correct: '320',
-                  explanation: `<p class='mb-2'>لإيجاد التكلفة، نعوض عن عدد الأيام (ي) بالرقم ٣ في المعادلة: <span class='math-eq'>ت(٣) = ٩٠(٣) + ٥٠</span>. أولاً، نضرب ٩٠ في ٣ لنحصل على ٢٧٠. ثم نضيف ٥٠. <span class='math-eq'>٢٧٠ + ٥٠ = ٣٢٠</span>. إذن، التكلفة هي ٣٢٠ ريال.</p>`
+                  explanation: `<p class='mb-2'>لإيجاد التكلفة، نعوض عن عدد الأيام (ي) بالرقم ٣ في المعادلة: <span class='math-eq'>ت(٣) = ٩٠(٣) + ٥٠</span>. أولاً، نضرب ٩٠ في ٣ لنحصل على ٢٧٠. ثم نضيف ٥٠. <span class='math-eq'>٢٧٠ + ٥٠ = ٣٢٠</span>. إذن، التكلفة هي ٣٢٠ ريال.</p>`,
+                  smartExplanation: `<p>ذهنياً: تكلفة ٣ أيام هي (٣ × ٩٠) = ٢٧٠، زائد الرسوم الثابتة ٥٠، المجموع ٣٢٠.</p>`
                 },
                 { type: 'mcq', level: '⭐⭐⭐', topic: 'real-life', text: "تستخدم الدالة <span class='math-eq'>ف(س) = ١.٨س + ٣٢</span> لتحويل درجة الحرارة من مئوية (س) إلى فهرنهايت (ف). إذا كانت درجة الحرارة ٢٠ درجة مئوية، فكم تكون بالفهرنهايت؟",
                   options: [ { display: '٦٨° ف', value: '68' }, { display: '٥٢° ف', value: '52' }, { display: '٣٦° ف', value: '36' }, { display: '٧٢° ف', value: '72' } ],
                   correct: '68',
-                  explanation: `<p class='mb-2'>نعوض عن درجة الحرارة المئوية (س) بالرقم ٢٠: <span class='math-eq'>ف(٢٠) = ١.٨(٢٠) + ٣٢</span>. نضرب ١.٨ في ٢٠ لنحصل على ٣٦. ثم نضيف ٣٢. <span class='math-eq'>٣٦ + ٣٢ = ٦٨</span>. إذن، درجة الحرارة هي ٦٨° فهرنهايت.</p>`
+                  explanation: `<p class='mb-2'>نعوض عن درجة الحرارة المئوية (س) بالرقم ٢٠: <span class='math-eq'>ف(٢٠) = ١.٨(٢٠) + ٣٢</span>. نضرب ١.٨ في ٢٠ لنحصل على ٣٦. ثم نضيف ٣٢. <span class='math-eq'>٣٦ + ٣٢ = ٦٨</span>. إذن، درجة الحرارة هي ٦٨° فهرنهايت.</p>`,
+                  smartExplanation: `<p>ذهنياً: ١.٨ ضرب ٢٠ هو نفسه ١٨ ضرب ٢ = ٣٦. ثم ٣٦ زائد ٣٢ يساوي ٦٨.</p>`
                 }
         ];
         const shuffled = [...questionBank].sort(() => 0.5 - Math.random());
@@ -469,60 +476,45 @@
                     ]
                 };
                 const updateView = () => {
+                    if (state.currentIndex === -1) {
+                        state.placeholder.classList.remove('hidden');
+                        container.querySelectorAll('.example-diagram').forEach(el => el.classList.add('hidden'));
+                    } else {
+                        state.placeholder.classList.add('hidden');
+                        container.querySelectorAll('.example-diagram').forEach(el => el.classList.remove('hidden'));
+                    }
+
                     state.steps.forEach((step, index) => {
                         const colEl = container.querySelector(step.target.replace('-analysis', '-col').replace('-initial', '-col'));
                         
-                        if (index > state.currentIndex) {
-                            if (step.action === 'show') {
-                                const el = container.querySelector(step.target);
-                                if (el) {
-                                    if(step.target.includes('-col')) {
-                                        el.classList.remove('active');
-                                        el.classList.add('dimmed');
-                                    }
-                                    else el.classList.add('hidden');
-                                }
-                            } else if (step.action === 'toggle') {
-                                const initial = container.querySelector(step.target);
-                                const analysis = container.querySelector(step.analysis);
-                                if (initial) initial.classList.remove('hidden');
-                                if (analysis) analysis.classList.add('hidden');
-                            }
-                        }
-                    });
-
-                    if (state.currentIndex > -1) {
-                         state.placeholder.classList.add('hidden');
-                         for(let i=0; i<=state.currentIndex; i++){
-                            const step = state.steps[i];
-                            const colEl = container.querySelector(step.target.replace('-analysis', '-col').replace('-initial', '-col'));
-                            if(colEl) {
-                                colEl.classList.remove('dimmed');
-                                colEl.classList.add('active');
-                            }
+                        if (index <= state.currentIndex) {
+                            if(colEl) colEl.classList.remove('dimmed');
                             if (step.action === 'show' && step.target.includes('-analysis')) {
                                 container.querySelector(step.target).classList.remove('hidden');
                             } else if (step.action === 'toggle') {
                                 container.querySelector(step.target).classList.add('hidden');
                                 container.querySelector(step.analysis).classList.remove('hidden');
                             }
-                         }
-                    } else {
-                        state.placeholder.classList.remove('hidden');
-                    }
+                        } else {
+                            if(colEl) colEl.classList.add('dimmed');
+                             if (step.action === 'show' && step.target.includes('-analysis')) {
+                                container.querySelector(step.target).classList.add('hidden');
+                            } else if (step.action === 'toggle') {
+                                container.querySelector(step.target).classList.remove('hidden');
+                                container.querySelector(step.analysis).classList.add('hidden');
+                            }
+                        }
+                    });
                     updateButtons();
                 };
                 const resetExample = () => {
                     state.currentIndex = -1;
-                    container.querySelectorAll('.example-diagram').forEach(el => {
-                        el.classList.add('dimmed');
-                        el.classList.remove('active');
-                    });
-                     container.querySelectorAll('[id$="-analysis"]').forEach(el => el.classList.add('hidden'));
-                     const ex2initial = container.querySelector('#ex2-initial');
-                     const ex2analysis = container.querySelector('#ex2-analysis');
-                     if(ex2initial) ex2initial.classList.remove('hidden');
-                     if(ex2analysis) ex2analysis.classList.add('hidden');
+                    container.querySelectorAll('.example-diagram').forEach(el => el.classList.add('hidden'));
+                    container.querySelectorAll('[id$="-analysis"]').forEach(el => el.classList.add('hidden'));
+                    const ex2initial = container.querySelector('#ex2-initial');
+                    const ex2analysis = container.querySelector('#ex2-analysis');
+                    if(ex2initial) ex2initial.classList.remove('hidden');
+                    if(ex2analysis) ex2analysis.classList.add('hidden');
                     state.placeholder.classList.remove('hidden');
                     updateButtons();
                 };

@@ -241,7 +241,7 @@
     function getStudentFromStorage() { const studentDataString = localStorage.getItem('currentStudent'); if (studentDataString) { try { return JSON.parse(studentDataString); } catch (e) { return null; } } return null; }
     function buildHeader(studentData, lessonTitle = null) { const headerContainer = document.getElementById('main-header'); if (!headerContainer) return; let titleHtml; if (lessonTitle) { titleHtml = `<div><h2 class="text-sm text-gray-500 leading-tight">منصة الرياضيات التفاعلية</h2><h1 class="text-xl font-bold text-indigo-700 leading-tight">${lessonTitle}</h1></div>`; } else { titleHtml = `<a href="../index.html" target="_top"><h1 class="text-2xl font-bold text-blue-800">منصة الرياضيات التفاعلية</h1></a>`; } let userInfoHtml = ''; if (studentData) { userInfoHtml = `<div class="flex items-center gap-4"><span class="font-semibold">أهلاً، ${studentData.name}</span><a href="../index.html" target="_top" id="logout-link" class="bg-red-500 text-white py-1 px-3 rounded-lg hover:bg-red-600">خروج</a></div>`; } else { userInfoHtml = `<p class="text-lg text-gray-600">زائر</p>`; } headerContainer.innerHTML = `<div class="container mx-auto px-6 py-4 flex justify-between items-center">${titleHtml}${userInfoHtml}</div>`; const logoutLink = headerContainer.querySelector('#logout-link'); if(logoutLink) { logoutLink.addEventListener('click', () => { localStorage.removeItem('currentStudent'); }); } }
     function buildFooter() { const footerContainer = document.getElementById('main-footer'); if (!footerContainer) return; footerContainer.innerHTML = `<div class="container mx-auto px-6"><p class="text-center text-gray-600 text-sm">© 2024 جميع الحقوق محفوظة | تصميم وتطوير: أ. عبدالعزيز خالد العبلان</p></div>`; }
-    function initializeQuiz(lessonId, questions, studentData) { currentQuestions = questions; const quizForm = document.getElementById('quizForm'); if (!quizForm) return; if (questions.length === 0) { quizForm.innerHTML = `<p class="text-center text-gray-600">لا توجد أسئلة متاحة لهذا الدرس حالياً.</p>`; return; } let attemptsLeft; if (studentData) { const studentLessonData = studentData.lessons?.[lessonId] || { attempts: 0 }; attemptsLeft = MAX_ATTEMPTS - studentLessonData.attempts; } else { attemptsLeft = 1; } const attemptsCounter = document.getElementById('attempts-counter'); if (attemptsCounter) { attemptsCounter.innerHTML = `المحاولات المتبقية: <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded-full">${attemptsLeft}</span>`; } const quizHtml = questions.map((q, index) => { const optionsHTML = q.options.map((opt, optIndex) => `<div><input type="radio" name="q${index}" value="${opt.value}" id="q${index}_opt${optIndex}" class="hidden"><label for="q${index}_opt${optIndex}" class="option-label">${opt.display}</label></div>`).join(''); return `<div class="p-4 border-2 border-gray-200 rounded-lg"><p class="font-bold">${index + 1}. <span class="text-yellow-500">${q.level}</span> ${q.text}</p><div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">${optionsHTML}</div><div id="feedback-container-${index}" class="mt-2 flex justify-start"></div></div>`; }).join(''); quizForm.innerHTML = quizHtml + `<button type="submit" id="submit-quiz-btn" class="w-full text-white bg-green-600 hover:bg-green-700 font-medium rounded-lg text-lg px-5 py-3 mt-8">تحقق من إجاباتي</button>`; if (attemptsLeft <= 0) { const submitBtn = quizForm.querySelector('#submit-quiz-btn'); submitBtn.disabled = true; submitBtn.textContent = 'لا توجد محاولات متبقية'; submitBtn.classList.add('bg-gray-400', 'hover:bg-gray-400'); } quizForm.onsubmit = (e) => { e.preventDefault(); let score = 0; questions.forEach((q, index) => { const userAnswer = e.target.elements[`q${index}`]?.value; const feedbackContainer = document.getElementById(`feedback-container-${index}`); feedbackContainer.innerHTML = ''; const resultWrapper = document.createElement('div'); resultWrapper.className = 'flex flex-col items-start gap-1'; const feedbackEl = document.createElement('div'); if (userAnswer === q.correct) { score++; feedbackEl.textContent = '✔ إجابة صحيحة!'; feedbackEl.className = 'text-sm font-bold text-green-600'; } else { feedbackEl.textContent = `❌ إجابة خاطئة.`; feedbackEl.className = 'text-sm font-bold text-red-600'; } resultWrapper.appendChild(feedbackEl); const explanationContainer = document.createElement('div'); explanationContainer.className = 'flex items-center gap-4'; const detailedBtn = document.createElement('button'); detailedBtn.type = 'button'; detailedBtn.textContent = 'اعرف لماذا؟'; detailedBtn.className = 'text-xs text-blue-600 hover:underline'; detailedBtn.onclick = () => showExplanation(index, 'detailed'); if (q.smartExplanation) { const smartBtn = document.createElement('button'); smartBtn.type = 'button'; smartBtn.innerHTML = '🧠 الحل الذكي'; smartBtn.className = 'text-xs text-purple-600 hover:underline font-bold'; smartBtn.onclick = () => showExplanation(index, 'smart'); explanationContainer.appendChild(smartBtn); } explanationContainer.appendChild(detailedBtn); resultWrapper.appendChild(explanationContainer); feedbackContainer.appendChild(resultWrapper); }); const finalGrade = Math.round((score / questions.length) * 10); const resultsDiv = document.getElementById('quiz-results'); resultsDiv.classList.remove('hidden'); document.getElementById('quiz-score').textContent = `${finalGrade} / 10`; if (studentData) { saveGrade(lessonId, finalGrade, studentData.id); if (attemptsLeft - 1 > 0) { document.getElementById('retake-quiz-btn').classList.remove('hidden'); } } else { document.getElementById('save-status').textContent = 'تم عرض نتيجتك. سجل الدخول لحفظ تقدمك.'; } e.target.querySelector('#submit-quiz-btn').disabled = true; }; }
+    function initializeQuiz(lessonId, questions, studentData) { currentQuestions = questions; const quizForm = document.getElementById('quizForm'); if (!quizForm) return; if (questions.length === 0) { quizForm.innerHTML = `<p class="text-center text-gray-600">لا توجد أسئلة متاحة لهذا الدرس حالياً.</p>`; return; } let attemptsLeft; if (studentData) { const studentLessonData = studentData.lessons?.[lessonId] || { attempts: 0 }; attemptsLeft = MAX_ATTEMPTS - studentLessonData.attempts; } else { attemptsLeft = 1; } const attemptsCounter = document.getElementById('attempts-counter'); if (attemptsCounter) { attemptsCounter.innerHTML = `المحاولات المتبقية: <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded-full">${attemptsLeft}</span>`; } const quizHtml = questions.map((q, index) => { const optionsHTML = q.options.map((opt, optIndex) => `<div><input type="radio" name="q${index}" value="${opt.value}" id="q${index}_opt${optIndex}" class="hidden"><label for="q${index}_opt${optIndex}" class="option-label">${opt.display}</label></div>`).join(''); return `<div class="p-4 border-2 border-gray-200 rounded-lg"><p class="font-bold">${index + 1}. <span class="text-yellow-500">${q.level}</span> ${q.text}</p><div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">${optionsHTML}</div><div id="feedback-container-${index}" class="mt-2"></div></div>`; }).join(''); quizForm.innerHTML = quizHtml + `<button type="submit" id="submit-quiz-btn" class="w-full text-white bg-green-600 hover:bg-green-700 font-medium rounded-lg text-lg px-5 py-3 mt-8">تحقق من إجاباتي</button>`; if (attemptsLeft <= 0) { const submitBtn = quizForm.querySelector('#submit-quiz-btn'); submitBtn.disabled = true; submitBtn.textContent = 'لا توجد محاولات متبقية'; submitBtn.classList.add('bg-gray-400', 'hover:bg-gray-400'); } quizForm.onsubmit = (e) => { e.preventDefault(); let score = 0; questions.forEach((q, index) => { const userAnswer = e.target.elements[`q${index}`]?.value; const feedbackContainer = document.getElementById(`feedback-container-${index}`); feedbackContainer.innerHTML = ''; feedbackContainer.className = 'mt-2 flex flex-col items-start gap-1'; const feedbackEl = document.createElement('div'); if (userAnswer === q.correct) { score++; feedbackEl.textContent = '✔ إجابة صحيحة!'; feedbackEl.className = 'text-sm font-bold text-green-600'; } else { feedbackEl.textContent = `❌ إجابة خاطئة.`; feedbackEl.className = 'text-sm font-bold text-red-600'; } feedbackContainer.appendChild(feedbackEl); const explanationContainer = document.createElement('div'); explanationContainer.className = 'flex items-center gap-4'; const detailedBtn = document.createElement('button'); detailedBtn.type = 'button'; detailedBtn.textContent = 'اعرف لماذا؟'; detailedBtn.className = 'text-xs text-blue-600 hover:underline'; detailedBtn.onclick = () => showExplanation(index, 'detailed'); if (q.smartExplanation) { const smartBtn = document.createElement('button'); smartBtn.type = 'button'; smartBtn.innerHTML = '🧠 الحل الذكي'; smartBtn.className = 'text-xs text-purple-600 hover:underline font-bold'; smartBtn.onclick = () => showExplanation(index, 'smart'); explanationContainer.appendChild(smartBtn); } explanationContainer.appendChild(detailedBtn); feedbackContainer.appendChild(explanationContainer); }); const finalGrade = Math.round((score / questions.length) * 10); const resultsDiv = document.getElementById('quiz-results'); resultsDiv.classList.remove('hidden'); document.getElementById('quiz-score').textContent = `${finalGrade} / 10`; if (studentData) { saveGrade(lessonId, finalGrade, studentData.id); if (attemptsLeft - 1 > 0) { document.getElementById('retake-quiz-btn').classList.remove('hidden'); } } else { document.getElementById('save-status').textContent = 'تم عرض نتيجتك. سجل الدخول لحفظ تقدمك.'; } e.target.querySelector('#submit-quiz-btn').disabled = true; }; }
     function saveGrade(lessonId, grade, studentId) { if (!studentId) return; const saveStatus = document.getElementById('save-status'); saveStatus.textContent = 'جارٍ حفظ نتيجتك...'; const url = `${SCRIPT_URL}?action=saveGrade&studentId=${studentId}&lessonId=${lessonId}&grade=${grade}`; fetch(url) .then(res => res.json()) .then(result => { if (result.status === 'success') { saveStatus.textContent = '✔ تم حفظ نتيجتك بنجاح! ستظهر في لوحة التحكم عند العودة.'; const studentData = JSON.parse(localStorage.getItem('currentStudent')); if (!studentData.lessons) studentData.lessons = {}; if (!studentData.lessons[lessonId] || studentData.lessons[lessonId].grade < grade) { studentData.lessons[lessonId] = { grade: grade, attempts: (studentData.lessons[lessonId]?.attempts || 0) + 1 }; } else { studentData.lessons[lessonId].attempts++; } localStorage.setItem('currentStudent', JSON.stringify(studentData)); } else { throw new Error(result.message); } }) .catch(error => { saveStatus.textContent = '❌ حدث خطأ أثناء حفظ الدرجة.'; console.error("Save Grade Error:", error); }); }
     function showExplanation(questionIndex, type) { const modal = document.getElementById('explanationModal'); const explanationText = document.getElementById('explanationText'); if(modal && explanationText && currentQuestions[questionIndex]) { const explanationContent = (type === 'smart' && currentQuestions[questionIndex].smartExplanation) ? currentQuestions[questionIndex].smartExplanation : currentQuestions[questionIndex].explanation; explanationText.innerHTML = explanationContent; modal.classList.remove('hidden'); } }
     function closeModal() { const modal = document.getElementById('explanationModal'); if(modal) modal.classList.add('hidden'); }
@@ -256,7 +256,7 @@
                 { 
                     type: 'mcq',
                     level: '⭐',
-                    text: 'ما معادلة المستقيم الذي ميله ٣ ويمر بالنقطة (٢، ١)؟',
+                    text: 'ما معادلة المستقيم الذي ميله <span class="text-red-600 font-bold">٣</span> ويمر بالنقطة (<span class="text-red-600 font-bold">٢</span>، <span class="text-blue-600 font-bold">١</span>)؟',
                     options: [ 
                         { display: 'ص = ٣س - ٥', value: 'A' }, 
                         { display: 'ص = ٣س + ١', value: 'B' }, 
@@ -285,7 +285,7 @@
                 { 
                     type: 'mcq', 
                     level: '⭐⭐', 
-                    text: 'ما معادلة المستقيم المار بالنقطتين (١، ٦) و (٣، ١٠)؟', 
+                    text: 'ما معادلة المستقيم المار بالنقطتين (<span class="text-red-600 font-bold">١</span>، <span class="text-blue-600 font-bold">٦</span>) و (<span class="text-red-600 font-bold">٣</span>، <span class="text-blue-600 font-bold">١٠</span>)؟', 
                     options: [ 
                         { display: 'ص = س + ٥', value: 'A' }, 
                         { display: 'ص = ٢س + ٤', value: 'B' }, 
@@ -311,7 +311,7 @@
                 { 
                     type: 'mcq', 
                     level: '⭐⭐⭐', 
-                    text: 'إذا كانت تكلفة استئجار سيارة ليوم واحد هي ٩٠ ريالاً، بالإضافة إلى ريالين لكل كيلومتر مقطوع. ما المعادلة التي تمثل التكلفة (ص) لقطع (س) كيلومتر؟', 
+                    text: 'إذا كانت تكلفة استئجار سيارة ليوم واحد هي <span class="text-blue-600 font-bold">٩٠ ريالاً</span>، بالإضافة إلى <span class="text-red-600 font-bold">ريالين</span> لكل كيلومتر مقطوع. ما المعادلة التي تمثل التكلفة (ص) لقطع (س) كيلومتر؟', 
                     options: [ 
                         { display: 'ص = ٩٠س + ٢', value: 'A' }, 
                         { display: 'ص = ٢س + ٩٠', value: 'B' }, 
@@ -330,7 +330,7 @@
                 {
                     type: 'mcq',
                     level: '⭐',
-                    text: 'ما معادلة المستقيم الذي ميله -١ ويمر بالنقطة (٥، -٢)؟',
+                    text: 'ما معادلة المستقيم الذي ميله <span class="text-red-600 font-bold">-١</span> ويمر بالنقطة (<span class="text-red-600 font-bold">٥</span>، <span class="text-blue-600 font-bold">-٢</span>)؟',
                     options: [
                         { display: 'ص = -س + ٣', value: 'A' },
                         { display: 'ص = -س - ٧', value: 'B' },
@@ -350,7 +350,7 @@
                 {
                     type: 'mcq',
                     level: '⭐',
-                    text: 'ما معادلة المستقيم الذي ميله <span class="fraction"><span>١</span><span>٢</span></span> ويمر بالنقطة (٤، ١)؟',
+                    text: 'ما معادلة المستقيم الذي ميله <span class="fraction"><span>١</span><span>٢</span></span> ويمر بالنقطة (<span class="text-red-600 font-bold">٤</span>، <span class="text-blue-600 font-bold">١</span>)؟',
                     options: [
                         { display: 'ص = ٢س - ٧', value: 'A' },
                         { display: 'ص = <span class="fraction"><span>١</span><span>٢</span></span>س + ١', value: 'B' },
@@ -370,7 +370,7 @@
                 {
                     type: 'mcq',
                     level: '⭐⭐',
-                    text: 'ما معادلة المستقيم المار بنقطة الأصل (٠، ٠) والنقطة (٢، ٦)؟',
+                    text: 'ما معادلة المستقيم المار بنقطة الأصل (<span class="text-red-600 font-bold">٠</span>، <span class="text-blue-600 font-bold">٠</span>) والنقطة (<span class="text-red-600 font-bold">٢</span>، <span class="text-blue-600 font-bold">٦</span>)؟',
                     options: [
                         { display: 'ص = ٦س + ٢', value: 'A' },
                         { display: 'ص = ٣س', value: 'B' },
@@ -390,7 +390,7 @@
                 {
                     type: 'mcq',
                     level: '⭐⭐',
-                    text: 'ما معادلة المستقيم المار بالنقطتين (-٢، ٤) و (١، -٢)؟',
+                    text: 'ما معادلة المستقيم المار بالنقطتين (<span class="text-red-600 font-bold">-٢</span>، <span class="text-blue-600 font-bold">٤</span>) و (<span class="text-red-600 font-bold">١</span>، <span class="text-blue-600 font-bold">-٢</span>)؟',
                     options: [
                         { display: 'ص = ٢س + ٨', value: 'A' },
                         { display: 'ص = -٢س - ٨', value: 'B' },
@@ -411,7 +411,7 @@
                 {
                     type: 'mcq',
                     level: '⭐⭐',
-                    text: 'ما معادلة المستقيم المار بالنقطتين (-٤، ٢) و (١، ٧)؟',
+                    text: 'ما معادلة المستقيم المار بالنقطتين (<span class="text-red-600 font-bold">-٤</span>، <span class="text-blue-600 font-bold">٢</span>) و (<span class="text-red-600 font-bold">١</span>، <span class="text-blue-600 font-bold">٧</span>)؟',
                     options: [
                         { display: 'ص = س + ٦', value: 'A' },
                         { display: 'ص = س - ٦', value: 'B' },
@@ -424,7 +424,7 @@
                 {
                     type: 'mcq',
                     level: '⭐⭐⭐',
-                    text: 'باقة جوال تكلفتها الشهرية الثابتة ٥٠ ريالاً، بالإضافة إلى نصف ريال لكل دقيقة اتصال إضافية. ما المعادلة التي تمثل التكلفة (ص) لـ (س) دقيقة إضافية؟',
+                    text: 'باقة جوال تكلفتها الشهرية الثابتة <span class="text-blue-600 font-bold">٥٠ ريالاً</span>، بالإضافة إلى <span class="text-red-600 font-bold">نصف ريال</span> لكل دقيقة اتصال إضافية. ما المعادلة التي تمثل التكلفة (ص) لـ (س) دقيقة إضافية؟',
                     options: [
                         { display: 'ص = ٥٠س + <span class="fraction"><span>١</span><span>٢</span></span>', value: 'A' },
                         { display: 'ص = <span class="fraction"><span>١</span><span>٢</span></span>س + ٥٠', value: 'B' },
@@ -437,7 +437,7 @@
                 {
                     type: 'mcq',
                     level: '⭐⭐⭐',
-                    text: 'طول نبتة ١٠ سم، وتنمو بمعدل ٢ سم كل أسبوع. ما المعادلة التي تمثل طولها (ص) بعد (س) أسبوع؟',
+                    text: 'طول نبتة <span class="text-blue-600 font-bold">١٠ سم</span>، وتنمو بمعدل <span class="text-red-600 font-bold">٢ سم</span> كل أسبوع. ما المعادلة التي تمثل طولها (ص) بعد (س) أسبوع؟',
                     options: [
                         { display: 'ص = ١٠س + ٢', value: 'A' },
                         { display: 'ص = ١٢س', value: 'B' },
@@ -450,7 +450,7 @@
                  {
                     type: 'mcq',
                     level: '⭐⭐⭐',
-                    text: 'بعد ساعة من بدء رحلة، قطعت سيارة مسافة ٨٠ كم. وبعد ٣ ساعات، قطعت ٢٤٠ كم. افترض أن السرعة ثابتة، ما المعادلة التي تربط المسافة (ص) بالزمن (س)؟',
+                    text: 'بعد <span class="text-red-600 font-bold">ساعة</span> من بدء رحلة، قطعت سيارة مسافة <span class="text-blue-600 font-bold">٨٠ كم</span>. وبعد <span class="text-red-600 font-bold">٣ ساعات</span>، قطعت <span class="text-blue-600 font-bold">٢٤٠ كم</span>. افترض أن السرعة ثابتة، ما المعادلة التي تربط المسافة (ص) بالزمن (س)؟',
                     options: [
                         { display: 'ص = ٨٠س', value: 'A' },
                         { display: 'ص = ١٦٠س - ٨٠', value: 'B' },
@@ -463,7 +463,7 @@
                 {
                     type: 'mcq',
                     level: '⭐⭐⭐',
-                    text: 'مكتبة عامة تحتوي على ٢٠٠٠ كتاب. وتخطط المكتبة لشراء ١٥٠ كتاباً جديداً كل عام. ما المعادلة التي تمثل عدد الكتب (ص) بعد (س) سنة؟',
+                    text: 'مكتبة عامة تحتوي على <span class="text-blue-600 font-bold">٢٠٠٠ كتاب</span>. وتخطط المكتبة لشراء <span class="text-red-600 font-bold">١٥٠ كتاباً</span> جديداً كل عام. ما المعادلة التي تمثل عدد الكتب (ص) بعد (س) سنة؟',
                     options: [
                         { display: 'ص = ٢٠٠٠س + ١٥٠', value: 'A' },
                         { display: 'ص = ١٥٠س - ٢٠٠٠', value: 'B' },

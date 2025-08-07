@@ -9,16 +9,17 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Cairo', sans-serif; background-color: #f0f4f8; }
+        /* Make body transparent so it doesn't flash a white background in the iframe */
+        body { font-family: 'Cairo', sans-serif; background-color: transparent; }
         .loader { border: 4px solid #f3f3f3; border-top: 4px solid #3b82f6; border-radius: 50%; width: 16px; height: 16px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
-<body class="flex items-center justify-center min-h-screen">
+<body class="flex items-center justify-center min-h-screen p-4">
 
     <div id="game-container" class="w-full max-w-2xl mx-auto p-6 bg-white rounded-xl shadow-lg text-center">
         
-        <div id="student-info" class="mb-6 text-gray-600">جاري تحميل بيانات الطالب...</div>
+        <div id="student-info" class="mb-6 text-gray-600">جاري تحميل بيانات المستخدم...</div>
 
         <h1 class="text-3xl font-bold text-blue-800 mb-4">لعبة المعادلات (g1_1_1)</h1>
         <p class="text-gray-700 mb-8">هذه الصفحة هي قالب للعبة. يمكنك إضافة تصميم اللعبة هنا.</p>
@@ -38,7 +39,7 @@
                 <span>/ 5</span>
             </div>
             <button id="submit-score-btn" class="bg-green-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-green-700 text-lg flex justify-center items-center w-full transition-all duration-300 transform hover:scale-105">
-                <span id="submit-text">حفظ النتيجة والعودة</span>
+                <span id="submit-text">إنهاء اللعبة</span>
                 <div id="submit-loader" class="loader hidden mr-2"></div>
             </button>
         </div>
@@ -62,75 +63,55 @@
         const submitText = document.getElementById('submit-text');
         const submitLoader = document.getElementById('submit-loader');
 
-        let currentStudent = null;
+        let currentUser = null; // Can be a student object or a generic visitor object
 
-        /**
-         * Retrieves student data from localStorage.
-         */
-        function getStudentFromStorage() {
-            const studentDataString = localStorage.getItem('currentStudent');
-            return studentDataString ? JSON.parse(studentDataString) : null;
-        }
-
-        /**
-         * Saves the game result to Google Sheets.
-         */
-        function saveGameResult(score) {
-            if (!currentStudent) {
-                showStatus('خطأ: لا يمكن العثور على بيانات الطالب. يرجى تسجيل الدخول مرة أخرى.', 'error');
-                return;
-            }
-
-            // Validate score
+        function saveOrFinishGame(score) {
             const finalScore = Math.max(0, Math.min(MAX_SCORE, parseInt(score, 10)));
             if (isNaN(finalScore)) {
                 showStatus('خطأ: الدرجة المدخلة غير صحيحة.', 'error');
                 return;
             }
 
-            // Show loading state
             submitLoader.classList.remove('hidden');
-            submitText.textContent = 'جاري الحفظ...';
             submitBtn.disabled = true;
 
-            const params = new URLSearchParams({
-                action: 'saveGrade',
-                studentId: currentStudent.id,
-                itemId: GAME_ID, // Use the generic 'itemId' parameter
-                grade: finalScore
-            });
-
-            fetch(`${SCRIPT_URL}?${params.toString()}`)
-                .then(res => res.json())
-                .then(result => {
-                    if (result.status === 'success') {
-                        showStatus('تم حفظ النتيجة بنجاح! سيتم إغلاق الصفحة.', 'success');
-                        // Redirect back to the main page after a delay
-                        setTimeout(() => {
-                            // Use window.top.location to exit the iframe if it's embedded
-                            if (window.top !== window.self) {
-                                window.top.location.href = '../index.html'; // Adjust path if needed
-                            } else {
-                                window.location.href = '../index.html'; // Adjust path if needed
-                            }
-                        }, 2000);
-                    } else {
-                        throw new Error(result.message || 'حدث خطأ غير معروف.');
-                    }
-                })
-                .catch(err => {
-                    console.error("Save Error:", err);
-                    showStatus(`خطأ في الحفظ: ${err.message}`, 'error');
-                    // Restore button state on error
-                    submitLoader.classList.add('hidden');
-                    submitText.textContent = 'حفظ النتيجة والعودة';
-                    submitBtn.disabled = false;
+            // Check if the user is a registered student (they will have an 'id')
+            if (currentUser && currentUser.id) {
+                submitText.textContent = 'جاري الحفظ...';
+                const params = new URLSearchParams({
+                    action: 'saveGrade',
+                    studentId: currentUser.id,
+                    itemId: GAME_ID,
+                    grade: finalScore
                 });
+
+                fetch(`${SCRIPT_URL}?${params.toString()}`)
+                    .then(res => res.json())
+                    .then(result => {
+                        if (result.status === 'success') {
+                            showStatus('تم حفظ النتيجة بنجاح!', 'success');
+                            // Send a message to the parent window to close the modal
+                            setTimeout(() => window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*'), 1500);
+                        } else {
+                            throw new Error(result.message || 'حدث خطأ غير معروف.');
+                        }
+                    })
+                    .catch(err => {
+                        console.error("Save Error:", err);
+                        showStatus(`خطأ في الحفظ: ${err.message}`, 'error');
+                        submitLoader.classList.add('hidden');
+                        submitText.textContent = 'إنهاء اللعبة';
+                        submitBtn.disabled = false;
+                    });
+            } else {
+                // This is a visitor, just show the score and close
+                submitText.textContent = 'أحسنت!';
+                showStatus(`لقد أنهيت اللعبة بدرجة ${finalScore} / ${MAX_SCORE}`, 'success');
+                // Send a message to the parent window to close the modal and increment attempts
+                setTimeout(() => window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*'), 1500);
+            }
         }
 
-        /**
-         * Displays a status message to the user.
-         */
         function showStatus(message, type = 'info') {
             statusMessage.textContent = message;
             statusMessage.className = 'mt-4 p-4 rounded-lg text-center'; // Reset classes
@@ -146,19 +127,25 @@
 
         // --- INITIALIZATION ---
         document.addEventListener('DOMContentLoaded', () => {
-            currentStudent = getStudentFromStorage();
-
-            if (currentStudent) {
-                studentInfoDiv.textContent = `الطالب: ${currentStudent.name} | رقم الهوية: ${currentStudent.id}`;
-            } else {
-                studentInfoDiv.textContent = 'لم يتم العثور على طالب مسجل. يرجى العودة للصفحة الرئيسية وتسجيل الدخول.';
-                submitBtn.disabled = true;
-                submitBtn.classList.add('opacity-50', 'cursor-not-allowed');
-            }
+            // Listen for user data from the parent window
+            window.addEventListener('message', (event) => {
+                if (event.data && event.data.event === 'userData') {
+                    currentUser = event.data.data;
+                    if (currentUser.id) {
+                        studentInfoDiv.textContent = `الطالب: ${currentUser.name} | رقم الهوية: ${currentUser.id}`;
+                    } else {
+                        studentInfoDiv.textContent = `أهلاً بك أيها الزائر!`;
+                    }
+                }
+            });
 
             submitBtn.addEventListener('click', () => {
+                if (!currentUser) {
+                    showStatus('لم يتم تحميل بيانات المستخدم بعد. يرجى الانتظار قليلاً.', 'error');
+                    return;
+                }
                 const score = scoreInput.value;
-                saveGameResult(score);
+                saveOrFinishGame(score);
             });
         });
 

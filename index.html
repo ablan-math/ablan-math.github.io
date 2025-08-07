@@ -526,7 +526,28 @@
         const modalCloseBtn = document.getElementById('modal-close-btn');
 
         /**
-         * REFACTORED: Central function to switch between views using direct style manipulation.
+         * **THE FIX IS HERE**: This function now robustly handles numbers and strings with commas.
+         */
+        function robustParseFloat(value, itemIdForLogging) {
+            // Added for debugging
+            console.log(`[Debug] Processing grade for ${itemIdForLogging}. Raw value:`, value, `(Type: ${typeof value})`);
+
+            if (value === null || value === undefined || value === "") {
+                return 0;
+            }
+            // Force the value to a string to handle both numbers and strings consistently
+            const stringValue = String(value);
+            // Replace comma with a period for universal parsing
+            const sanitizedValue = stringValue.replace(',', '.').trim();
+            const parsed = parseFloat(sanitizedValue);
+            
+            const result = isNaN(parsed) ? 0 : parsed;
+            console.log(`[Debug] Parsed grade for ${itemIdForLogging} is: ${result}`);
+            return result;
+        }
+
+        /**
+         * Central function to switch between views using direct style manipulation.
          */
         function switchView(viewName) {
             if (viewName === 'login') {
@@ -667,7 +688,7 @@
 
                 const lessonsHtml = chapter.lessons.map(lesson => {
                     let lessonGradeData = studentLessons[lesson.id];
-                    let grade = lessonGradeData ? lessonGradeData.grade : null;
+                    let grade = lessonGradeData ? robustParseFloat(lessonGradeData.grade, lesson.id) : null;
                     let maxScore = lesson.maxScore || 10;
                     let isCompleted = grade === maxScore;
 
@@ -678,11 +699,10 @@
 
                     const gamesHtml = (lesson.games || []).map(game => {
                         let gameGradeData = studentGames[game.id];
-                        let gameGrade = gameGradeData ? gameGradeData.grade : null;
+                        let gameGrade = gameGradeData ? robustParseFloat(gameGradeData.grade, game.id) : null;
                         let gameMaxScore = game.maxScore || 5;
                         let gameCompleted = gameGrade === gameMaxScore;
 
-                        // ** MODIFIED: Use a div and onclick to open the modal **
                         return `
                         <div onclick="openGameModal('${game.id}')" class="game-card">
                             <div class="game-title">${game.title}</div>
@@ -772,12 +792,12 @@
                 chapter.lessons.forEach(lesson => {
                     chapterMaxLessonScore += lesson.maxScore || 10;
                     if ((studentData.lessons || {})[lesson.id]) {
-                        chapterStudentLessonScore += studentData.lessons[lesson.id].grade;
+                        chapterStudentLessonScore += robustParseFloat(studentData.lessons[lesson.id].grade, lesson.id);
                     }
                     (lesson.games || []).forEach(game => {
                         chapterMaxGameScore += game.maxScore || 5;
                         if ((studentData.games || {})[game.id]) {
-                            chapterStudentGameScore += studentData.games[game.id].grade;
+                            chapterStudentGameScore += robustParseFloat(studentData.games[game.id].grade, game.id);
                         }
                     });
                 });
@@ -872,7 +892,6 @@
             }
             
             gameIframe.src = `games/${gameId}.html`;
-            // FIX: Send user data to iframe after it loads to prevent cross-origin errors
             gameIframe.onload = () => {
                 const userPayload = student || { name: 'زائر' };
                 if (gameIframe.contentWindow) {

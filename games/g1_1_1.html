@@ -1,1 +1,168 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لعبة المعادلات</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Cairo', sans-serif; background-color: #f0f4f8; }
+        .loader { border: 4px solid #f3f3f3; border-top: 4px solid #3b82f6; border-radius: 50%; width: 16px; height: 16px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen">
 
+    <div id="game-container" class="w-full max-w-2xl mx-auto p-6 bg-white rounded-xl shadow-lg text-center">
+        
+        <div id="student-info" class="mb-6 text-gray-600">جاري تحميل بيانات الطالب...</div>
+
+        <h1 class="text-3xl font-bold text-blue-800 mb-4">لعبة المعادلات (g1_1_1)</h1>
+        <p class="text-gray-700 mb-8">هذه الصفحة هي قالب للعبة. يمكنك إضافة تصميم اللعبة هنا.</p>
+
+        <!-- ابدأ تصميم اللعبة هنا -->
+        <div class="bg-gray-100 p-8 rounded-lg min-h-[200px] flex items-center justify-center">
+            <p class="text-gray-500">محتوى اللعبة يوضع هنا</p>
+        </div>
+        <!-- نهاية تصميم اللعبة -->
+
+
+        <div class="mt-8">
+            <p class="mb-2">محاكاة نتيجة اللعبة (للتجربة):</p>
+            <div class="flex justify-center items-center gap-2 mb-4">
+                <label for="score-input">الدرجة:</label>
+                <input type="number" id="score-input" min="0" max="5" value="5" class="w-20 text-center border rounded-lg p-2">
+                <span>/ 5</span>
+            </div>
+            <button id="submit-score-btn" class="bg-green-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-green-700 text-lg flex justify-center items-center w-full transition-all duration-300 transform hover:scale-105">
+                <span id="submit-text">حفظ النتيجة والعودة</span>
+                <div id="submit-loader" class="loader hidden mr-2"></div>
+            </button>
+        </div>
+
+        <div id="status-message" class="mt-4 p-4 rounded-lg text-center hidden"></div>
+
+    </div>
+
+    <script>
+    (function() {
+        // --- CONFIGURATION ---
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
+        const GAME_ID = 'g1_1_1'; // !! مهم: قم بتغيير هذا المعرف لكل لعبة !!
+        const MAX_SCORE = 5;
+
+        // --- DOM ELEMENTS ---
+        const studentInfoDiv = document.getElementById('student-info');
+        const submitBtn = document.getElementById('submit-score-btn');
+        const scoreInput = document.getElementById('score-input');
+        const statusMessage = document.getElementById('status-message');
+        const submitText = document.getElementById('submit-text');
+        const submitLoader = document.getElementById('submit-loader');
+
+        let currentStudent = null;
+
+        /**
+         * Retrieves student data from localStorage.
+         */
+        function getStudentFromStorage() {
+            const studentDataString = localStorage.getItem('currentStudent');
+            return studentDataString ? JSON.parse(studentDataString) : null;
+        }
+
+        /**
+         * Saves the game result to Google Sheets.
+         */
+        function saveGameResult(score) {
+            if (!currentStudent) {
+                showStatus('خطأ: لا يمكن العثور على بيانات الطالب. يرجى تسجيل الدخول مرة أخرى.', 'error');
+                return;
+            }
+
+            // Validate score
+            const finalScore = Math.max(0, Math.min(MAX_SCORE, parseInt(score, 10)));
+            if (isNaN(finalScore)) {
+                showStatus('خطأ: الدرجة المدخلة غير صحيحة.', 'error');
+                return;
+            }
+
+            // Show loading state
+            submitLoader.classList.remove('hidden');
+            submitText.textContent = 'جاري الحفظ...';
+            submitBtn.disabled = true;
+
+            const params = new URLSearchParams({
+                action: 'saveGrade',
+                studentId: currentStudent.id,
+                itemId: GAME_ID, // Use the generic 'itemId' parameter
+                grade: finalScore
+            });
+
+            fetch(`${SCRIPT_URL}?${params.toString()}`)
+                .then(res => res.json())
+                .then(result => {
+                    if (result.status === 'success') {
+                        showStatus('تم حفظ النتيجة بنجاح! سيتم إغلاق الصفحة.', 'success');
+                        // Redirect back to the main page after a delay
+                        setTimeout(() => {
+                            // Use window.top.location to exit the iframe if it's embedded
+                            if (window.top !== window.self) {
+                                window.top.location.href = '../index.html'; // Adjust path if needed
+                            } else {
+                                window.location.href = '../index.html'; // Adjust path if needed
+                            }
+                        }, 2000);
+                    } else {
+                        throw new Error(result.message || 'حدث خطأ غير معروف.');
+                    }
+                })
+                .catch(err => {
+                    console.error("Save Error:", err);
+                    showStatus(`خطأ في الحفظ: ${err.message}`, 'error');
+                    // Restore button state on error
+                    submitLoader.classList.add('hidden');
+                    submitText.textContent = 'حفظ النتيجة والعودة';
+                    submitBtn.disabled = false;
+                });
+        }
+
+        /**
+         * Displays a status message to the user.
+         */
+        function showStatus(message, type = 'info') {
+            statusMessage.textContent = message;
+            statusMessage.className = 'mt-4 p-4 rounded-lg text-center'; // Reset classes
+            if (type === 'success') {
+                statusMessage.classList.add('bg-green-100', 'text-green-800');
+            } else if (type === 'error') {
+                statusMessage.classList.add('bg-red-100', 'text-red-800');
+            } else {
+                statusMessage.classList.add('bg-blue-100', 'text-blue-800');
+            }
+            statusMessage.classList.remove('hidden');
+        }
+
+        // --- INITIALIZATION ---
+        document.addEventListener('DOMContentLoaded', () => {
+            currentStudent = getStudentFromStorage();
+
+            if (currentStudent) {
+                studentInfoDiv.textContent = `الطالب: ${currentStudent.name} | رقم الهوية: ${currentStudent.id}`;
+            } else {
+                studentInfoDiv.textContent = 'لم يتم العثور على طالب مسجل. يرجى العودة للصفحة الرئيسية وتسجيل الدخول.';
+                submitBtn.disabled = true;
+                submitBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            }
+
+            submitBtn.addEventListener('click', () => {
+                const score = scoreInput.value;
+                saveGameResult(score);
+            });
+        });
+
+    })();
+    </script>
+</body>
+</html>

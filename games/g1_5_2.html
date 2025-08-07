@@ -1,0 +1,1221 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>حارس الرياضيات</title>
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            font-family: 'Cairo', sans-serif;
+            color: white;
+            background-color: #1a1a1a;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        #info {
+            position: absolute;
+            top: 10px;
+            width: 100%;
+            z-index: 100;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 2vw;
+            box-sizing: border-box;
+            flex-wrap: wrap;
+        }
+        .hud-box {
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 1.5vh 3vw;
+            border-radius: 15px;
+            border: 2px solid #FFD700;
+            font-size: clamp(1em, 2.5vw, 1.8em);
+            font-weight: bold;
+            margin: 5px;
+        }
+        #gameTitle {
+            font-size: 2em;
+        }
+        @keyframes score-pop {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.4); color: #4CAF50; }
+            100% { transform: scale(1); }
+        }
+        .score-updated {
+            display: inline-block;
+            animation: score-pop 0.5s ease-in-out;
+        }
+        .game-message {
+            position: absolute;
+            top: 40%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: clamp(4em, 12vw, 8em);
+            font-weight: bold;
+            text-shadow: 4px 4px 8px rgba(0,0,0,0.6);
+            z-index: 200;
+            display: none;
+            pointer-events: none;
+        }
+        #goalMessage { color: #FFD700; }
+        #saveMessage { color: #f44336; }
+        #mathContainer {
+            position: absolute;
+            bottom: 3vh;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            z-index: 100;
+        }
+        #question {
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 1.5vh 4vw;
+            border-radius: 15px;
+            font-size: clamp(2em, 5vw, 3em);
+            font-weight: bold;
+            border: 2px solid #fff;
+        }
+        #question .abs-bars {
+            color: #FFD700;
+            font-weight: bold;
+            margin: 0 5px;
+        }
+        #optionsContainer {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .option-button {
+            background-color: #2196F3;
+            border: 2px solid #fff;
+            color: white;
+            padding: 1.5vh 4vw;
+            text-align: center;
+            font-size: clamp(1.5em, 4vw, 2.2em);
+            margin: 4px 10px;
+            cursor: pointer;
+            border-radius: 12px;
+            font-family: 'Cairo', sans-serif;
+            font-weight: bold;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            transition: background-color 0.3s, transform 0.2s;
+        }
+        .option-button:hover:not(:disabled) { background-color: #1976D2; transform: scale(1.05); }
+        .option-button:disabled { background-color: #9E9E9E; cursor: not-allowed; opacity: 0.6; }
+        .correct-answer {
+            background-color: #4CAF50 !important;
+            border-color: #fff !important;
+        }
+
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.85);
+            z-index: 300;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 20px;
+            box-sizing: border-box;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.5s ease-in-out;
+        }
+        .overlay.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .overlay h2 { font-size: clamp(2.5em, 6vw, 3.5em); margin-bottom: 20px; color: #FFD700; }
+        .overlay p { font-size: clamp(1em, 3vw, 1.5em); max-width: 90%; line-height: 1.8; }
+        .overlay .start-button {
+            margin-top: 40px;
+            padding: 2vh 8vw;
+            font-size: clamp(1.5em, 4vw, 2em);
+            background-color: #4CAF50;
+        }
+        .stage-transition h2 {
+            transform: scale(0.5);
+            opacity: 0;
+            animation: pop-in 1s forwards;
+        }
+        @keyframes pop-in {
+            0% { transform: scale(0.5); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        #solutionScreen {
+            justify-content: flex-start;
+            padding-top: 5vh;
+        }
+        #solutionContainer {
+            background-color: rgba(40, 40, 40, 0.9);
+            padding: 20px;
+            border-radius: 20px;
+            border: 2px solid #FFD700;
+            width: 90%;
+            max-width: 900px;
+        }
+        #solutionContainer h2 {
+            font-size: 2.8em;
+            margin-bottom: 15px;
+        }
+        #solutionQuestion {
+            font-size: 2em;
+            margin-bottom: 20px;
+        }
+        #solutionSteps {
+            min-height: 150px;
+            line-height: 1.8;
+            padding: 0 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .solution-step {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            width: 100%;
+        }
+        .solution-eq {
+            font-size: 1.8em;
+            font-weight: bold;
+            text-align: right;
+            flex-basis: 50%;
+        }
+        .solution-comment {
+            font-size: 1.2em;
+            color: #ccc;
+            margin-right: 20px;
+            flex-basis: 50%;
+            text-align: left;
+        }
+        .highlight-math {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+        #nextStepButton {
+            font-size: 1.5em !important;
+            padding: 10px 30px !important;
+        }
+        #knowWhyButton {
+            position: absolute;
+            bottom: 3vh;
+            right: 3vh;
+            font-size: 1.5em;
+            background-color: #ff9800;
+            visibility: hidden;
+            z-index: 101;
+        }
+        #timerDisplay {
+            transition: color 0.5s, transform 0.2s;
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+            20%, 40%, 60%, 80% { transform: translateX(5px); }
+        }
+        #timerDisplay.warning {
+            color: #f44336;
+            animation: shake 0.5s infinite;
+        }
+        @keyframes screen-shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            10% { transform: translate(-1px, -2px) rotate(-1deg); }
+            20% { transform: translate(-3px, 0px) rotate(1deg); }
+            30% { transform: translate(3px, 2px) rotate(0deg); }
+            40% { transform: translate(1px, -1px) rotate(1deg); }
+            50% { transform: translate(-1px, 2px) rotate(-1deg); }
+            60% { transform: translate(-3px, 1px) rotate(0deg); }
+            70% { transform: translate(3px, 1px) rotate(-1deg); }
+            80% { transform: translate(-1px, -1px) rotate(1deg); }
+            90% { transform: translate(1px, 2px) rotate(0deg); }
+            100% { transform: translate(1px, -2px) rotate(-1deg); }
+        }
+        .screen-shake {
+            animation: screen-shake 0.5s;
+        }
+        
+        /* Media Query for smaller screens */
+        @media (max-width: 768px) {
+            .hud-box {
+                padding: 1vh 2vw;
+                font-size: clamp(0.8em, 2vw, 1.2em);
+            }
+            #question {
+                font-size: clamp(1.5em, 4vw, 2.5em);
+            }
+            .option-button {
+                font-size: clamp(1.2em, 3.5vw, 1.8em);
+            }
+            .game-message {
+                font-size: clamp(3em, 10vw, 6em);
+            }
+            .overlay h2 { font-size: clamp(2em, 5vw, 3em); }
+            .overlay p { font-size: clamp(0.9em, 2.5vw, 1.2em); }
+        }
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
+</head>
+<body>
+
+    <div id="info" style="visibility: hidden;">
+        <div id="scoreDisplay" class="hud-box">النتيجة: <span id="scoreValue">٠</span></div>
+        <div id="stageInfo" class="hud-box">المرحلة ١ - السؤال ١ / ٥</div>
+        <div id="timerDisplay" class="hud-box">الوقت: <span id="timerValue">١٥</span></div>
+    </div>
+
+    <div id="goalMessage" class="game-message">هدف</div>
+    <div id="saveMessage" class="game-message">ضائعة</div>
+    <div id="mathContainer" style="visibility: hidden;">
+        <div id="question"></div>
+        <div id="optionsContainer"></div>
+    </div>
+    <button id="knowWhyButton" class="option-button">اعرف لماذا؟</button>
+
+    <div id="welcomeScreen" class="overlay visible">
+        <h2>أهلاً بك في لعبة حارس الرياضيات</h2>
+        <p>معكم المعلم/ عبد العزيز خالد العبلان</p>
+        <p style="color: #FFD700; font-size: 1.8em; margin: 20px 0;">القيمة المطلقة هي المسافة بين العدد والصفر على خط الأعداد، وهي دائمًا قيمة موجبة.</p>
+        <p><strong>طريقة اللعب:</strong> أجب عن المسألة بشكل صحيح لتسديد الكرة وتسجيل هدف. إذا كانت إجابتك خاطئة، سيتصدى الحارس للكرة!</p>
+        <button id="startButton" class="option-button start-button">ابدأ اللعب</button>
+    </div>
+
+    <div id="stageTransitionScreen" class="overlay stage-transition">
+        <h2 id="stageTransitionText"></h2>
+    </div>
+
+    <div id="finalScoreScreen" class="overlay">
+        <h2>انتهت اللعبة!</h2>
+        <p id="feedbackText" style="font-size: 1.8em;"></p>
+        <div id="final-result-display" class="text-center text-xl mt-4" style="font-size: 1.5em; color: white;"></div>
+        <button id="playAgainButton" class="option-button start-button">العب مرة أخرى</button>
+    </div>
+
+    <div id="solutionScreen" class="overlay">
+        <div id="solutionContainer">
+            <h2>طريقة الحل</h2>
+            <p id="solutionQuestion"></p>
+            <div id="solutionSteps"></div>
+            <button id="nextStepButton" class="option-button">التالي</button>
+        </div>
+    </div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        let scene, camera, renderer, controls;
+        let ball, ballVelocity, isBallShot = false, goalScored = false;
+        let keeperGroup, keeperTarget, isKeeperReacting = false, keeperSaved = false;
+        let leftArm, rightArm, initialLeftArmRot, initialRightArmRot;
+        let net, originalNetVertices;
+        let collisionAura, auraBoundingBox;
+        let leftPost, rightPost, crossbar;
+        
+        let goalMessageElement, saveMessageElement;
+        let questionElement, optionsContainer, stageInfoElement, scoreDisplayElement, scoreValueElement;
+        let welcomeScreen, startButton, stageTransitionScreen, stageTransitionText, finalScoreScreen, finalScoreText, playAgainButton, feedbackText;
+        let infoContainer, mathContainer, knowWhyButton;
+        let solutionScreen, solutionContainer, solutionQuestion, solutionSteps, nextStepButton;
+        let timerDisplay, timerValueElement;
+        
+        let currentStage = 1;
+        let questionIndex = 0;
+        const problemsPerStage = [5, 5];
+        let currentProblem = {};
+        let shotTypeGlobal = '';
+        let hasHitNet = false;
+        let score = 0;
+        let solutionStepsArray = [];
+        let currentStepIndex = 0;
+        let timerInterval;
+        let timeLeft = 15;
+        const TIME_PER_QUESTION = 15;
+        let resetTimeoutId = null;
+        let isResetting = false;
+        let confettiGroup, confettiParticles = [];
+        let stage1ProblemTypes = [];
+
+        let initialKeeperPosition = new THREE.Vector3();
+
+        const ballRadius = 0.15;
+        const gravity = new THREE.Vector3(0, -0.015, 0);
+        const goalLineZ = 0.5;
+        const goalWidth = 7.32;
+        const goalHeight = 2.44;
+        const netDepth = 2;
+        const postRadius = 0.08;
+        
+        const crowdCheer = new Tone.NoiseSynth({
+            noise: { type: 'pink' },
+            envelope: { attack: 0.2, decay: 1.5, sustain: 0, release: 1 }
+        }).toDestination();
+        crowdCheer.volume.value = -12;
+
+        const netSound = new Tone.NoiseSynth({
+            noise: { type: 'white' },
+            envelope: { attack: 0.005, decay: 0.1, sustain: 0 }
+        }).toDestination();
+        netSound.volume.value = -6;
+
+        const saveSound = new Tone.MembraneSynth({
+            pitchDecay: 0.08,
+            octaves: 4,
+            envelope: { attack: 0.001, decay: 0.3, sustain: 0.01, release: 0.5 }
+        }).toDestination();
+        saveSound.volume.value = -6;
+
+        const whistle = new Tone.Synth({
+            oscillator: { type: 'triangle' },
+            envelope: { attack: 0.01, decay: 0.1, sustain: 0.1, release: 0.2 }
+        }).toDestination();
+        const vibrato = new Tone.LFO("20hz", 400, 450).start();
+        vibrato.connect(whistle.frequency);
+
+        const excellentFeedback = [
+            "رائع! أنت نجم الرياضيات، فهمك للقيمة المطلقة ممتاز.",
+            "عمل مذهل! لقد أتقنت المهارة، استمر في هذا التفوق.",
+            "أحسنت! نتيجتك تدل على تركيز وفهم عميق للدرس."
+        ];
+        const goodFeedback = [
+            "جيد جدًا! أنت على الطريق الصحيح لفهم القيمة المطلقة بشكل كامل.",
+            "عمل رائع! بعض الأخطاء البسيطة لا تقلل من مجهودك. حاول مرة أخرى للوصول للعلامة الكاملة.",
+            "أحسنت! لقد فهمت الفكرة الأساسية، والقليل من المراجعة سيجعلك محترفًا."
+        ];
+        const needsImprovementFeedback = [
+            "بداية جيدة! كل خطأ هو فرصة للتعلم. استخدم زر 'اعرف لماذا؟' لمراجعة الحلول.",
+            "لا تستسلم! القيمة المطلقة تحتاج للقليل من التدريب. أنا واثق أنك ستتقنها في المرة القادمة.",
+            "مجهود طيب! حاول التركيز على ترتيب العمليات، وستجد أن المسائل أصبحت أسهل."
+        ];
+        const lowFeedback = [
+            "للاسف مستواك ضعيف ! ومع ذلك كل خطأ هو فرصة للتعلم. استخدم زر 'اعرف لماذا؟' لمراجعة الحلول.",
+            "لا تستسلم! القيمة المطلقة تحتاج للكثير من التدريب. أنا واثق أنك ستتقنها في المرة القادمة.",
+            "حاول مرة اخرى ! حاول التركيز على ترتيب العمليات، وستجد أن المسائل أصبحت أسهل."
+        ];
+
+
+        function init() {
+            goalMessageElement = document.getElementById('goalMessage');
+            saveMessageElement = document.getElementById('saveMessage');
+            questionElement = document.getElementById('question');
+            optionsContainer = document.getElementById('optionsContainer');
+            stageInfoElement = document.getElementById('stageInfo');
+            scoreDisplayElement = document.getElementById('scoreDisplay');
+            scoreValueElement = document.getElementById('scoreValue');
+            welcomeScreen = document.getElementById('welcomeScreen');
+            startButton = document.getElementById('startButton');
+            stageTransitionScreen = document.getElementById('stageTransitionScreen');
+            stageTransitionText = document.getElementById('stageTransitionText');
+            finalScoreScreen = document.getElementById('finalScoreScreen');
+            finalScoreText = document.getElementById('finalScoreText');
+            playAgainButton = document.getElementById('playAgainButton');
+            feedbackText = document.getElementById('feedbackText');
+            infoContainer = document.getElementById('info');
+            mathContainer = document.getElementById('mathContainer');
+            knowWhyButton = document.getElementById('knowWhyButton');
+            solutionScreen = document.getElementById('solutionScreen');
+            solutionContainer = document.getElementById('solutionContainer');
+            solutionQuestion = document.getElementById('solutionQuestion');
+            solutionSteps = document.getElementById('solutionSteps');
+            nextStepButton = document.getElementById('nextStepButton');
+            timerDisplay = document.getElementById('timerDisplay');
+            timerValueElement = document.getElementById('timerValue');
+            
+            startButton.addEventListener('click', startGame);
+            playAgainButton.addEventListener('click', restartGame);
+            knowWhyButton.addEventListener('click', showSolution);
+            nextStepButton.addEventListener('click', showNextSolutionStep);
+
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x87ceeb);
+            scene.fog = new THREE.Fog(0x87ceeb, 10, 60);
+
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 3.5, 10);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            document.body.appendChild(renderer.domElement);
+
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.target.set(0, 2, 0);
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 1.5);
+            directionalLight.position.set(5, 10, 7.5);
+            directionalLight.castShadow = true;
+            scene.add(directionalLight);
+
+            createFieldAndGoal();
+            createGoalkeeper();
+            createBall();
+            
+            confettiGroup = new THREE.Group();
+            scene.add(confettiGroup);
+            
+            window.addEventListener('resize', onWindowResize);
+            animate();
+        }
+        
+        function createFieldAndGoal() {
+            const groundGeometry = new THREE.PlaneGeometry(100, 100);
+            const groundMaterial = new THREE.MeshStandardMaterial({ color: 0x228B22 });
+            const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+            ground.rotation.x = -Math.PI / 2;
+            ground.receiveShadow = true;
+            scene.add(ground);
+
+            const goalMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0.2, roughness: 0.1 });
+            leftPost = new THREE.Mesh(new THREE.CylinderGeometry(postRadius, postRadius, goalHeight, 32), goalMaterial);
+            leftPost.position.set(-goalWidth / 2, goalHeight / 2, 0);
+            leftPost.castShadow = true;
+            scene.add(leftPost);
+            rightPost = new THREE.Mesh(new THREE.CylinderGeometry(postRadius, postRadius, goalHeight, 32), goalMaterial);
+            rightPost.position.set(goalWidth / 2, goalHeight / 2, 0);
+            rightPost.castShadow = true;
+            scene.add(rightPost);
+            crossbar = new THREE.Mesh(new THREE.CylinderGeometry(postRadius, postRadius, goalWidth, 32), goalMaterial);
+            crossbar.position.set(0, goalHeight, 0);
+            crossbar.rotation.z = Math.PI / 2;
+            crossbar.castShadow = true;
+            scene.add(crossbar);
+
+            const canvas = document.createElement('canvas');
+            canvas.width = 64;
+            canvas.height = 64;
+            const context = canvas.getContext('2d');
+            context.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+            context.lineWidth = 5;
+            context.strokeRect(0, 0, 64, 64);
+            const netTexture = new THREE.CanvasTexture(canvas);
+            netTexture.wrapS = THREE.RepeatWrapping;
+            netTexture.wrapT = THREE.RepeatWrapping;
+            
+            const netMaterial = new THREE.MeshBasicMaterial({
+                map: netTexture,
+                transparent: true,
+                side: THREE.DoubleSide,
+                alphaTest: 0.1
+            });
+
+            const netGeometry = new THREE.PlaneGeometry(goalWidth, goalHeight, 20, 10);
+            originalNetVertices = netGeometry.attributes.position.array.slice();
+            net = new THREE.Mesh(netGeometry, netMaterial);
+            net.position.set(0, goalHeight / 2, -netDepth);
+            netTexture.repeat.set(15, 5);
+            scene.add(net);
+            
+            const topNetGeometry = new THREE.PlaneGeometry(goalWidth, netDepth, 20, 5);
+            const topNet = new THREE.Mesh(topNetGeometry, netMaterial.clone());
+            topNet.material.map = netTexture.clone();
+            topNet.material.map.repeat.set(15, 2);
+            topNet.rotation.x = -Math.PI / 2;
+            topNet.position.set(0, goalHeight, -netDepth / 2);
+            scene.add(topNet);
+
+            const sideNetGeometry = new THREE.PlaneGeometry(netDepth, goalHeight, 5, 10);
+            const leftNet = new THREE.Mesh(sideNetGeometry, netMaterial.clone());
+            leftNet.material.map = netTexture.clone();
+            leftNet.material.map.repeat.set(2, 5);
+            leftNet.rotation.y = Math.PI / 2;
+            leftNet.position.set(-goalWidth / 2, goalHeight / 2, -netDepth / 2);
+            scene.add(leftNet);
+
+            const rightNet = new THREE.Mesh(sideNetGeometry, netMaterial.clone());
+            rightNet.material.map = netTexture.clone();
+            rightNet.material.map.repeat.set(2, 5);
+            rightNet.rotation.y = -Math.PI / 2;
+            rightNet.position.set(goalWidth / 2, goalHeight / 2, -netDepth / 2);
+            scene.add(rightNet);
+        }
+
+        function createGoalkeeper() {
+            keeperGroup = new THREE.Group();
+            keeperGroup.position.set(0, 0, goalLineZ);
+            initialKeeperPosition.copy(keeperGroup.position);
+            keeperTarget = new THREE.Vector3();
+            scene.add(keeperGroup);
+
+            const torsoMaterial = new THREE.MeshStandardMaterial({ color: 0xff8c00 });
+            const shortsMaterial = new THREE.MeshStandardMaterial({ color: 0x1e1e1e });
+            const skinMaterial = new THREE.MeshStandardMaterial({ color: 0xDEB887 });
+            const glovesMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
+
+            const torso = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.7, 0.3), torsoMaterial);
+            torso.position.y = 1;
+            keeperGroup.add(torso);
+            
+            const head = new THREE.Mesh(new THREE.SphereGeometry(0.2, 32, 32), skinMaterial);
+            head.position.y = 1.55;
+            keeperGroup.add(head);
+
+            const pelvis = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.2, 0.3), shortsMaterial);
+            pelvis.position.y = 0.55;
+            keeperGroup.add(pelvis);
+            
+            const legAngle = -0.2;
+            const rightLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.08, 0.9), shortsMaterial);
+            rightLeg.position.set(-0.15, 0.1, 0);
+            rightLeg.rotation.z = -legAngle;
+            keeperGroup.add(rightLeg);
+            
+            const leftLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.08, 0.9), shortsMaterial);
+            leftLeg.position.set(0.15, 0.1, 0);
+            leftLeg.rotation.z = legAngle;
+            keeperGroup.add(leftLeg);
+
+            const armLength = 0.6;
+            rightArm = new THREE.Object3D();
+            rightArm.position.set(-0.25, 0.3, 0);
+            torso.add(rightArm);
+            const rightArmMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.06, armLength), torsoMaterial);
+            rightArmMesh.position.y = -armLength / 2;
+            rightArm.add(rightArmMesh);
+            const rightGlove = new THREE.Mesh(new THREE.SphereGeometry(0.12, 16, 16), glovesMaterial);
+            rightGlove.position.y = -armLength / 2;
+            rightArmMesh.add(rightGlove);
+
+            leftArm = new THREE.Object3D();
+            leftArm.position.set(0.25, 0.3, 0);
+            torso.add(leftArm);
+            const leftArmMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.06, armLength), torsoMaterial);
+            leftArmMesh.position.y = -armLength / 2;
+            leftArm.add(leftArmMesh);
+            const leftGlove = new THREE.Mesh(new THREE.SphereGeometry(0.12, 16, 16), glovesMaterial);
+            leftGlove.position.y = -armLength / 2;
+            leftArmMesh.add(leftGlove);
+
+            const armAngle = 1.2;
+            rightArm.rotation.z = -armAngle;
+            leftArm.rotation.z = armAngle;
+
+            initialLeftArmRot = leftArm.rotation.clone();
+            initialRightArmRot = rightArm.rotation.clone();
+
+            const auraGeometry = new THREE.BoxGeometry(2.5, 2.5, 0.5);
+            const auraMaterial = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.0 });
+            collisionAura = new THREE.Mesh(auraGeometry, auraMaterial);
+            collisionAura.position.y = 1; 
+            keeperGroup.add(collisionAura);
+            auraBoundingBox = new THREE.Box3().setFromObject(collisionAura);
+        }
+
+        function createBall() {
+            const ballGeometry = new THREE.SphereGeometry(ballRadius, 32, 32);
+            const canvas = document.createElement('canvas');
+            canvas.width = 256;
+            canvas.height = 128;
+            const context = canvas.getContext('2d');
+            context.fillStyle = '#FFFFFF';
+            context.fillRect(0, 0, canvas.width, canvas.height);
+            context.fillStyle = '#000000';
+            function drawHexagon(x, y, size) {
+                context.beginPath();
+                for (let i = 0; i < 6; i++) {
+                    context.lineTo(x + size * Math.cos(i * Math.PI / 3), y + size * Math.sin(i * Math.PI / 3));
+                }
+                context.closePath();
+                context.fill();
+            }
+            drawHexagon(64, 40, 22);
+            drawHexagon(192, 40, 22);
+            drawHexagon(128, 95, 22);
+            drawHexagon(250, 95, 22);
+            drawHexagon(6, 95, 22);
+            const ballTexture = new THREE.CanvasTexture(canvas);
+            const ballMaterial = new THREE.MeshStandardMaterial({ map: ballTexture, metalness: 0.1, roughness: 0.5 });
+            ball = new THREE.Mesh(ballGeometry, ballMaterial);
+            ball.castShadow = true;
+            ball.receiveShadow = true;
+            ballVelocity = new THREE.Vector3();
+            resetGame(true);
+            scene.add(ball);
+        }
+
+        async function startGame() {
+            await Tone.start();
+            welcomeScreen.classList.remove('visible');
+            showStageIntro(1);
+        }
+
+        function restartGame() {
+            finalScoreScreen.classList.remove('visible');
+            showStageIntro(1);
+        }
+
+        function showStageIntro(stage) {
+            stageTransitionText.innerText = `المرحلة ${toArabicNumerals(stage)}`;
+            stageTransitionScreen.classList.add('visible');
+            setTimeout(() => {
+                stageTransitionScreen.classList.remove('visible');
+                infoContainer.style.visibility = 'visible';
+                mathContainer.style.visibility = 'visible';
+                startStage(stage);
+            }, 2500);
+        }
+
+        function startStage(stage) {
+            currentStage = stage;
+            questionIndex = 0;
+            if (stage === 1) {
+                score = 0;
+                stage1ProblemTypes = ['abs_negative', 'subtraction', 'subtraction', 'subtraction', 'subtraction'];
+                stage1ProblemTypes.sort(() => Math.random() - 0.5);
+            }
+            updateScoreDisplay(true);
+            displayNewQuestion();
+        }
+
+        function toArabicNumerals(num) {
+            const arabicNumerals = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+            const sign = num < 0 ? '−' : '';
+            const numStr = String(Math.abs(num));
+            return sign + numStr.replace(/[0-9]/g, d => arabicNumerals[parseInt(d)]);
+        }
+
+        function displayNewQuestion() {
+            stageInfoElement.innerText = `المرحلة ${toArabicNumerals(currentStage)} - السؤال ${toArabicNumerals(questionIndex + 1)} / ${toArabicNumerals(problemsPerStage[currentStage - 1])}`;
+            currentProblem = generateProblem(currentStage);
+            questionElement.innerHTML = currentProblem.html;
+
+            const options = generateOptions(currentProblem.answer);
+            optionsContainer.innerHTML = '';
+            options.forEach(option => {
+                const button = document.createElement('button');
+                button.className = 'option-button';
+                button.innerText = toArabicNumerals(option);
+                button.onclick = () => checkAnswer(option);
+                optionsContainer.appendChild(button);
+            });
+            startTimer();
+            whistle.triggerAttackRelease("A5", "0.3");
+        }
+        
+        function generateProblem(stage) {
+            let num1, num2, num3, num4;
+            let html, answer, steps;
+
+            if (stage === 1) {
+                const problemType = stage1ProblemTypes[questionIndex];
+                if (problemType === 'subtraction') { 
+                    num1 = Math.floor(Math.random() * 20) + 1;
+                    num2 = Math.floor(Math.random() * 20) + 1;
+                    html = `<span class="abs-bars">|</span> ${toArabicNumerals(num1)} - ${toArabicNumerals(num2)} <span class="abs-bars">|</span>`;
+                    answer = Math.abs(num1 - num2);
+                    steps = [
+                        { eq: `<span class="abs-bars">|</span> <span class="highlight-math">${toArabicNumerals(num1)} - ${toArabicNumerals(num2)}</span> <span class="abs-bars">|</span>`, comment: "نحل ما بداخل القيمة المطلقة" },
+                        { eq: `<span class="abs-bars">|</span> <span class="highlight-math">${toArabicNumerals(num1 - num2)}</span> <span class="abs-bars">|</span>`, comment: "نوجد القيمة المطلقة" },
+                        { eq: `<span class="highlight-math">${toArabicNumerals(answer)}</span>`, comment: "النتيجة النهائية" }
+                    ];
+                } else { 
+                    num1 = -(Math.floor(Math.random() * 20) + 1);
+                    html = `<span class="abs-bars">|</span> ${toArabicNumerals(num1)} <span class="abs-bars">|</span>`;
+                    answer = Math.abs(num1);
+                    steps = [
+                        { eq: `<span class="abs-bars">|</span> <span class="highlight-math">${toArabicNumerals(num1)}</span> <span class="abs-bars">|</span>`, comment: "القيمة المطلقة لعدد سالب هي نظيره الموجب" },
+                        { eq: `<span class="highlight-math">${toArabicNumerals(answer)}</span>`, comment: "النتيجة النهائية" }
+                    ];
+                }
+            } else { 
+                const problemType = Math.random();
+                if (problemType < 0.33) { 
+                    num1 = Math.floor(Math.random() * 9) + 1;
+                    num2 = Math.floor(Math.random() * 9) + 1;
+                    num3 = Math.floor(Math.random() * 9) + 1;
+                    html = `<span class="abs-bars">|</span> ${toArabicNumerals(num1)} - ${toArabicNumerals(num2)} <span class="abs-bars">|</span> + ${toArabicNumerals(num3)}`;
+                    answer = Math.abs(num1 - num2) + num3;
+                     steps = [
+                        { eq: `<span class="abs-bars">|</span> <span class="highlight-math">${toArabicNumerals(num1)} - ${toArabicNumerals(num2)}</span> <span class="abs-bars">|</span> + ${toArabicNumerals(num3)}`, comment: "نبدأ بالقيمة المطلقة" },
+                        { eq: `<span class="highlight-math">${toArabicNumerals(Math.abs(num1 - num2))}</span> + ${toArabicNumerals(num3)}`, comment: "ثم نجمع" },
+                        { eq: `<span class="highlight-math">${toArabicNumerals(answer)}</span>`, comment: "النتيجة النهائية" }
+                    ];
+                } else if (problemType < 0.66) { 
+                    num3 = Math.floor(Math.random() * 9) + 1; 
+                    num4 = Math.floor(Math.random() * 9) + 1;
+                    num2 = Math.floor(Math.random() * 4) + 1;
+                    const product = num2 * Math.abs(num3 - num4);
+                    num1 = Math.floor(Math.random() * (product + 10)); 
+                    html = `${toArabicNumerals(num1)} - ${toArabicNumerals(num2)} × <span class="abs-bars">|</span> ${toArabicNumerals(num3)} - ${toArabicNumerals(num4)} <span class="abs-bars">|</span>`;
+                    answer = num1 - product;
+                    steps = [
+                        { eq: `${toArabicNumerals(num1)} - ${toArabicNumerals(num2)} × <span class="abs-bars">|</span> <span class="highlight-math">${toArabicNumerals(num3)} - ${toArabicNumerals(num4)}</span> <span class="abs-bars">|</span>`, comment: "نبدأ بالقيمة المطلقة" },
+                        { eq: `${toArabicNumerals(num1)} - <span class="highlight-math">${toArabicNumerals(num2)} × ${toArabicNumerals(Math.abs(num3 - num4))}</span>`, comment: "ثم نقوم بالضرب" },
+                        { eq: `<span class="highlight-math">${toArabicNumerals(num1)} - ${toArabicNumerals(product)}</span>`, comment: "أخيرًا نطرح" },
+                        { eq: `<span class="highlight-math">${toArabicNumerals(answer)}</span>`, comment: "النتيجة النهائية" }
+                    ];
+                } else {
+                    num1 = Math.floor(Math.random() * 9) + 1;
+                    num2 = Math.floor(Math.random() * 9) + 1;
+                    num3 = Math.floor(Math.random() * 15) + 5;
+                    html = `<span class="abs-bars">|</span> ${toArabicNumerals(num1)} + ${toArabicNumerals(num2)} <span class="abs-bars">|</span> - ${toArabicNumerals(num3)}`;
+                    answer = Math.abs(num1 + num2) - num3;
+                    steps = [
+                        { eq: `<span class="abs-bars">|</span> <span class="highlight-math">${toArabicNumerals(num1)} + ${toArabicNumerals(num2)}</span> <span class="abs-bars">|</span> - ${toArabicNumerals(num3)}`, comment: "نبدأ بالقيمة المطلقة" },
+                        { eq: `<span class="highlight-math">${toArabicNumerals(Math.abs(num1 + num2))}</span> - ${toArabicNumerals(num3)}`, comment: "ثم نطرح" },
+                        { eq: `<span class="highlight-math">${toArabicNumerals(answer)}</span>`, comment: "النتيجة النهائية" }
+                    ];
+                }
+            }
+            return { html, answer, steps };
+        }
+
+        function generateOptions(correctAnswer) {
+            let options = [correctAnswer];
+            while (options.length < 4) {
+                let wrongAnswer;
+                const offset = Math.floor(Math.random() * 5) + 1;
+                if (Math.random() < 0.5) {
+                    wrongAnswer = correctAnswer + offset;
+                } else {
+                    wrongAnswer = correctAnswer - offset;
+                }
+                if (!options.includes(wrongAnswer)) {
+                    options.push(wrongAnswer);
+                }
+            }
+            return options.sort(() => Math.random() - 0.5);
+        }
+
+        function checkAnswer(selectedAnswer) {
+            stopTimer();
+            document.querySelectorAll('#optionsContainer .option-button').forEach(b => b.disabled = true);
+            knowWhyButton.style.visibility = 'visible';
+
+            if (selectedAnswer === currentProblem.answer) {
+                score++;
+                updateScoreDisplay();
+                shootBall('goal');
+                goalMessageElement.style.display = 'block';
+            } else {
+                shootBall('save');
+                saveMessageElement.style.display = 'block';
+                document.querySelectorAll('#optionsContainer .option-button').forEach(b => {
+                    if (parseInt(b.innerText.replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d))) === currentProblem.answer) {
+                        b.classList.add('correct-answer');
+                    }
+                });
+            }
+        }
+
+        function showSolution() {
+            clearTimeout(resetTimeoutId);
+            resetTimeoutId = null;
+            solutionQuestion.innerHTML = currentProblem.html;
+            solutionStepsArray = currentProblem.steps;
+            currentStepIndex = 0;
+            solutionSteps.innerHTML = '';
+            nextStepButton.innerText = 'التالي';
+            showNextSolutionStep();
+            solutionScreen.classList.add('visible');
+        }
+
+        function showNextSolutionStep() {
+            if (currentStepIndex < solutionStepsArray.length) {
+                const step = solutionStepsArray[currentStepIndex];
+                const stepDiv = document.createElement('div');
+                stepDiv.className = 'solution-step';
+                stepDiv.innerHTML = `<span class="solution-eq">${step.eq}</span><span class="solution-comment">${step.comment}</span>`;
+                solutionSteps.appendChild(stepDiv);
+                currentStepIndex++;
+                if (currentStepIndex === solutionStepsArray.length) {
+                    nextStepButton.innerText = 'إغلاق';
+                }
+            } else {
+                solutionScreen.classList.remove('visible');
+                setTimeout(() => resetGame(false), 500);
+            }
+        }
+
+        function updateScoreDisplay(isReset = false) {
+            scoreValueElement.innerText = toArabicNumerals(score);
+            if (!isReset) {
+                scoreValueElement.classList.add('score-updated');
+                setTimeout(() => {
+                    scoreValueElement.classList.remove('score-updated');
+                }, 500);
+            }
+        }
+
+        function startTimer() {
+            timeLeft = TIME_PER_QUESTION;
+            timerValueElement.innerText = toArabicNumerals(timeLeft);
+            timerDisplay.classList.remove('warning');
+
+            clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                timerValueElement.innerText = toArabicNumerals(timeLeft);
+                if (timeLeft <= 5) {
+                    timerDisplay.classList.add('warning');
+                }
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    checkAnswer(null);
+                }
+            }, 1000);
+        }
+
+        function stopTimer() {
+            clearInterval(timerInterval);
+        }
+
+        function shootBall(type) {
+            if (isBallShot) return;
+            isBallShot = true;
+            isKeeperReacting = true;
+            shotTypeGlobal = type;
+            
+            let shotTarget = new THREE.Vector3();
+
+            if (type === 'goal') {
+                const goalSide = Math.random() < 0.5 ? -1 : 1;
+                shotTarget.set((goalWidth / 2 * 0.8) * goalSide, goalHeight * 0.8, goalLineZ - 0.5);
+                keeperTarget.set(shotTarget.x * -1, shotTarget.y, goalLineZ);
+                ballVelocity = shotTarget.clone().sub(ball.position).normalize().multiplyScalar(0.75);
+                triggerGoalEffects();
+            } else { // 'save'
+                const diveX = THREE.MathUtils.randFloat(-2.0, 2.0);
+                const diveY = THREE.MathUtils.randFloat(0.5, 1.8);
+                keeperTarget.set(diveX, diveY, goalLineZ);
+                shotTarget.copy(keeperTarget).y += 0.2;
+                ballVelocity = shotTarget.clone().sub(ball.position).normalize().multiplyScalar(0.6);
+            }
+        }
+
+        function resetGame(isInitial = false) {
+            clearTimeout(resetTimeoutId);
+            resetTimeoutId = null;
+            isResetting = false;
+
+            if (goalMessageElement) goalMessageElement.style.display = 'none';
+            if (saveMessageElement) saveMessageElement.style.display = 'none';
+
+            isBallShot = false;
+            isKeeperReacting = false;
+            keeperSaved = false;
+            goalScored = false;
+            hasHitNet = false;
+            ball.position.set(0, ballRadius, 7);
+            ballVelocity.set(0, 0, 0);
+            keeperGroup.position.copy(initialKeeperPosition);
+            knowWhyButton.style.visibility = 'hidden';
+            
+            if (!isInitial) {
+                questionIndex++;
+                if (questionIndex >= problemsPerStage[currentStage - 1]) {
+                    if (currentStage < 2) {
+                        infoContainer.style.visibility = 'hidden';
+                        mathContainer.style.visibility = 'hidden';
+                        showStageIntro(2);
+                    } else {
+                        showFinalScore();
+                    }
+                } else {
+                    displayNewQuestion();
+                }
+            }
+        }
+
+        function showFinalScore() {
+            infoContainer.style.visibility = 'hidden';
+            mathContainer.style.visibility = 'hidden';
+            
+            let feedback = '';
+            if (score >= 9) {
+                feedback = excellentFeedback[Math.floor(Math.random() * excellentFeedback.length)];
+            } else if (score >= 6) {
+                feedback = goodFeedback[Math.floor(Math.random() * goodFeedback.length)];
+            } else if (score >= 3) {
+                feedback = needsImprovementFeedback[Math.floor(Math.random() * needsImprovementFeedback.length)];
+            } else {
+                feedback = lowFeedback[Math.floor(Math.random() * lowFeedback.length)];
+            }
+            feedbackText.innerText = feedback;
+            
+            finalScoreScreen.classList.add('visible');
+            saveOrFinishGame(score);
+        }
+
+        function handleCollision() {
+            saveSound.triggerAttackRelease("C2", "0.5");
+            keeperSaved = true;
+            isKeeperReacting = false;
+            const reboundDirection = new THREE.Vector3(
+                THREE.MathUtils.randFloat(-1, 1),
+                THREE.MathUtils.randFloat(0.5, 1.2),
+                THREE.MathUtils.randFloat(0.8, 1.5)
+            );
+            reboundDirection.normalize();
+            ballVelocity.copy(reboundDirection).multiplyScalar(0.8);
+        }
+        
+        function triggerGoalEffects() {
+            document.body.classList.add('screen-shake');
+            setTimeout(() => document.body.classList.remove('screen-shake'), 500);
+            flashGoalposts();
+            createConfetti();
+            crowdCheer.triggerAttackRelease("2.5s");
+        }
+
+        function flashGoalposts() {
+            const posts = [leftPost, rightPost, crossbar];
+            const originalEmissive = posts[0].material.emissive.getHex();
+            
+            let flashes = 0;
+            const maxFlashes = 4;
+            const flashInterval = setInterval(() => {
+                posts.forEach(p => {
+                    p.material.emissive.setHex(flashes % 2 === 0 ? 0xFFFF00 : originalEmissive);
+                });
+                flashes++;
+                if (flashes >= maxFlashes) {
+                    clearInterval(flashInterval);
+                }
+            }, 150);
+        }
+
+        function createConfetti() {
+            const confettiCount = 150;
+            const confettiGeometry = new THREE.PlaneGeometry(0.1, 0.1);
+            const colors = [0xffd700, 0xff69b4, 0x00bfff, 0x7cfc00, 0xff4500];
+
+            for (let i = 0; i < confettiCount; i++) {
+                const confettiMaterial = new THREE.MeshBasicMaterial({ color: colors[Math.floor(Math.random() * colors.length)], side: THREE.DoubleSide });
+                const confetti = new THREE.Mesh(confettiGeometry, confettiMaterial);
+                
+                confetti.position.set(
+                    THREE.MathUtils.randFloatSpread(15),
+                    THREE.MathUtils.randFloat(10, 15),
+                    THREE.MathUtils.randFloatSpread(5)
+                );
+
+                const particle = {
+                    mesh: confetti,
+                    velocity: new THREE.Vector3(
+                        THREE.MathUtils.randFloatSpread(0.02),
+                        -0.05 - Math.random() * 0.05,
+                        THREE.MathUtils.randFloatSpread(0.02)
+                    ),
+                    rotationSpeed: new THREE.Vector3(
+                        Math.random() * 0.1,
+                        Math.random() * 0.1,
+                        Math.random() * 0.1
+                    )
+                };
+                confettiParticles.push(particle);
+                confettiGroup.add(confetti);
+            }
+        }
+
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+
+            for (let i = confettiParticles.length - 1; i >= 0; i--) {
+                const particle = confettiParticles[i];
+                particle.mesh.position.add(particle.velocity);
+                particle.mesh.rotation.x += particle.rotationSpeed.x;
+                particle.mesh.rotation.y += particle.rotationSpeed.y;
+                particle.mesh.rotation.z += particle.rotationSpeed.z;
+
+                if (particle.mesh.position.y < -2) {
+                    confettiGroup.remove(particle.mesh);
+                    confettiParticles.splice(i, 1);
+                }
+            }
+
+            if (isKeeperReacting && !keeperSaved && !goalScored) {
+                keeperGroup.position.lerp(keeperTarget, 0.08);
+                const ballSphere = new THREE.Sphere(ball.position, ballRadius);
+                auraBoundingBox.setFromObject(collisionAura);
+                if (auraBoundingBox.intersectsSphere(ballSphere)) {
+                    if (shotTypeGlobal !== 'goal') {
+                         handleCollision();
+                    }
+                }
+            }
+            
+            if (isBallShot) {
+                if (!goalScored && !keeperSaved) {
+                    if (ball.position.z <= ballRadius && ball.position.z >= -ballRadius) {
+                        if (Math.abs(ball.position.x - leftPost.position.x) < postRadius + ballRadius ||
+                            Math.abs(ball.position.x - rightPost.position.x) < postRadius + ballRadius) {
+                            if (ball.position.y < goalHeight) {
+                                ballVelocity.x *= -0.8;
+                            }
+                        }
+                        if (Math.abs(ball.position.y - crossbar.position.y) < postRadius + ballRadius) {
+                            if (Math.abs(ball.position.x) < goalWidth / 2) {
+                                ballVelocity.y *= -0.8;
+                            }
+                        }
+                    }
+
+                    if (ball.position.z <= 0 + ballRadius && Math.abs(ball.position.x) < goalWidth / 2 && ball.position.y < goalHeight) {
+                        goalScored = true;
+                    }
+                }
+                
+                if (goalScored && !hasHitNet) {
+                    if (ball.position.z <= -netDepth + ballRadius) {
+                        hasHitNet = true;
+                        netSound.triggerAttackRelease("8n");
+                        ballVelocity.multiplyScalar(1.0 - 0.88);
+                        ballVelocity.z *= -1;
+                    }
+                    if (Math.abs(ball.position.x) >= goalWidth / 2 - ballRadius) {
+                         ballVelocity.x *= -0.8;
+                    }
+                     if (ball.position.y >= goalHeight - ballRadius) {
+                         ballVelocity.y *= -0.8;
+                    }
+                }
+
+                const horizontalVelocity = new THREE.Vector3(ballVelocity.x, 0, ballVelocity.z);
+                const speed = horizontalVelocity.length();
+                if (speed > 0.001) {
+                    const distance = speed;
+                    const rotationAngle = distance / ballRadius;
+                    const rotationAxis = new THREE.Vector3().crossVectors(horizontalVelocity, new THREE.Vector3(0, 1, 0)).normalize();
+                    const quaternion = new THREE.Quaternion();
+                    quaternion.setFromAxisAngle(rotationAxis, rotationAngle);
+                    ball.quaternion.premultiply(quaternion);
+                }
+
+                ballVelocity.add(gravity);
+                ball.position.add(ballVelocity);
+
+                if (ball.position.y < ballRadius) {
+                    ball.position.y = ballRadius;
+                    ballVelocity.y *= -0.4; 
+                    ballVelocity.x *= 0.96; 
+                    ballVelocity.z *= 0.96;
+                }
+            }
+
+            const outOfBounds = ball.position.z < -netDepth - 2 || ball.position.z > 15 || Math.abs(ball.position.x) > 15;
+            const goalRollStopped = goalScored && ball.position.y <= ballRadius && ballVelocity.length() < 0.02;
+            if (isBallShot && !isResetting && (outOfBounds || (keeperSaved && ball.position.z > 10) || goalRollStopped)) {
+                isResetting = true;
+                resetTimeoutId = setTimeout(() => {
+                    resetGame(false);
+                }, 3000);
+            }
+
+            renderer.render(scene, camera);
+        }
+        
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+        
+        init();
+    </script>
+    
+    <!-- --- START OF CONNECTION ENGINE --- -->
+    <script>
+    (function() {
+        // --- CONFIGURATION ---
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
+        const GAME_ID = 'g1_5_1';
+        const GAME_MAX_POINTS = 10;
+        const PLATFORM_MAX_GRADE = 5;
+
+        let currentUser = null; 
+
+        function toArabicNumerals(num) {
+            const arabicNumerals = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+            const sign = num < 0 ? '−' : '';
+            const numStr = String(Math.abs(num));
+            const parts = numStr.split('.');
+            const integerPart = parts[0].replace(/[0-9]/g, d => arabicNumerals[parseInt(d)]);
+            if (parts.length > 1) {
+                const decimalPart = parts[1].replace(/[0-9]/g, d => arabicNumerals[parseInt(d)]);
+                return sign + integerPart + '٫' + decimalPart;
+            }
+            return sign + integerPart;
+        }
+
+        window.saveOrFinishGame = function(points) {
+            const finalPoints = parseInt(points, 10) || 0;
+            const finalGrade = (finalPoints / GAME_MAX_POINTS) * PLATFORM_MAX_GRADE;
+
+            const resultDisplay = document.getElementById('final-result-display');
+            if (resultDisplay) {
+                resultDisplay.innerHTML = `
+                    <p style="white-space: nowrap;">النقاط: <span style="font-weight: bold;">${toArabicNumerals(finalPoints)} / ${toArabicNumerals(GAME_MAX_POINTS)}</span></p>
+                    <p style="white-space: nowrap;">الدرجة في المنصة: <span style="font-weight: bold; color: #2196F3;">${toArabicNumerals(finalGrade.toLocaleString('ar-EG', {minimumFractionDigits: 0, maximumFractionDigits: 1}))} / ${toArabicNumerals(PLATFORM_MAX_GRADE)}</span></p>
+                `;
+            }
+
+            if (currentUser && currentUser.id) {
+                console.log(`Saving grade ${finalGrade} for student ${currentUser.id}`);
+                const params = new URLSearchParams({
+                    action: 'saveGrade',
+                    studentId: currentUser.id,
+                    itemId: GAME_ID,
+                    grade: finalGrade
+                });
+
+                fetch(`${SCRIPT_URL}?${params.toString()}`)
+                    .then(res => res.json())
+                    .then(result => {
+                        if (result.status === 'success') {
+                            console.log('Score saved successfully!');
+                            setTimeout(() => window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*'), 2500);
+                        } else { throw new Error(result.message); }
+                    })
+                    .catch(err => console.error("Save Error:", err));
+            } else {
+                console.log(`Visitor finished with score ${finalPoints}`);
+                setTimeout(() => window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*'), 2500);
+            }
+        }
+
+        window.addEventListener('message', (event) => {
+            if (event.data && event.data.event === 'userData') {
+                currentUser = event.data.data;
+                console.log('User data received:', currentUser);
+            }
+        });
+    })();
+    </script>
+    <!-- --- END OF CONNECTION ENGINE --- -->
+</body>
+</html>

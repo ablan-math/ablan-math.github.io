@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مغامرة سفينة الكنز</title>
+    
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts for a nice Arabic font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+    
+    <style>
+        /* Apply the Cairo font to the body */
+        body {
+            font-family: 'Cairo', sans-serif;
+            overscroll-behavior: none; /* Prevents pull-to-refresh */
+        }
+        /* Custom styling for the canvas for better interaction */
+        canvas {
+            cursor: crosshair;
+            touch-action: none; /* Disable panning on touch devices */
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        /* Layout for the game screen */
+        .game-container {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        @media (min-width: 768px) { /* md breakpoint */
+            .game-container {
+                flex-direction: row;
+            }
+            .controls-panel {
+                flex: 2; /* Takes 2 parts of the space */
+            }
+            .canvas-container {
+                flex: 3; /* Takes 3 parts of the space */
+            }
+        }
+        /* FIX: Correct transition handling for screens */
+        .screen {
+            transition: opacity 0.5s ease-in-out;
+            opacity: 0; /* Screens are invisible by default */
+        }
+        /* Tailwind's 'hidden' class will set display: none */
+    </style>
+</head>
+<body class="bg-blue-50">
+
+    <div id="app-container" class="container mx-auto p-2 sm:p-4 max-w-6xl">
+
+        <!-- ============== START SCREEN ============== -->
+        <div id="start-screen" class="screen hidden text-center">
+            <header class="my-6 md:my-8">
+                <h1 class="text-3xl md:text-5xl font-bold text-blue-800">🏴‍☠️ مغامرة سفينة الكنز 🏴‍☠️</h1>
+                <p class="text-base md:text-lg text-gray-600 mt-4">
+                    تصميم وبرمجة: الأستاذ عبد العزيز خالد العبلان
+                </p>
+            </header>
+            
+            <div class="my-8 md:my-12">
+                <button id="start-game-button" class="bg-yellow-500 text-yellow-900 font-bold text-xl md:text-2xl py-3 px-6 md:py-4 md:px-8 rounded-xl hover:bg-yellow-600 transition-transform transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-yellow-400 shadow-lg">
+                    ابدأ المغامرة!
+                </button>
+            </div>
+
+            <div class="mt-12 md:mt-16 bg-white p-4 rounded-xl shadow-md border">
+                <h2 class="text-lg md:text-xl font-bold text-blue-900">آخر نتيجة محفوظة</h2>
+                <p id="saved-score-display" class="text-2xl md:text-3xl font-bold text-red-600 mt-2">
+                    لم تلعب بعد
+                </p>
+                <p class="text-sm text-gray-500 mt-1">(النتيجة تحفظ في متصفحك)</p>
+            </div>
+        </div>
+
+        <!-- ============== GAME SCREEN ============== -->
+        <div id="game-screen" class="screen hidden">
+            <div class="game-container">
+                <!-- Game Controls and Info Panel -->
+                <div class="controls-panel bg-yellow-50 border-2 border-yellow-300 rounded-xl p-3 md:p-4 shadow-lg h-fit">
+                    
+                    <!-- MODIFICATION: Header moved inside the control panel -->
+                    <header class="text-center mb-4">
+                        <h1 class="text-xl md:text-2xl font-bold text-blue-800">🏴‍☠️ ابحث عن موقع الكنز 🏴‍☠️</h1>
+                        <p class="text-xs md:text-sm text-gray-600 mt-1">انقر على الموقع الصحيح ثم شاهد السفينة تبحر!</p>
+                    </header>
+
+                    <h2 id="target-title" class="text-base md:text-lg font-bold text-yellow-900 mb-2 border-b-2 border-yellow-200 pb-2">الكنز رقم: ١</h2>
+                    <div id="target-coords" class="text-3xl sm:text-4xl font-bold text-center text-red-600 bg-white rounded-lg p-2 my-2 md:p-3 md:my-3 shadow-inner">
+                        (-,-)
+                    </div>
+
+                    <h2 class="text-base md:text-lg font-bold text-yellow-900 mt-3 md:mt-4 mb-2 border-b-2 border-yellow-200 pb-2">الكنوز الصحيحة</h2>
+                    <div id="score" class="text-base md:text-lg font-semibold text-gray-700">٠</div>
+                    
+                    <div id="message-box" class="mt-4 p-3 rounded-lg text-center font-bold text-sm md:text-base transition-all duration-300 min-h-[5rem] flex items-center justify-center">
+                        <!-- Messages will appear here -->
+                    </div>
+                </div>
+
+                <!-- Game Map (Canvas) -->
+                <div class="canvas-container bg-white rounded-xl shadow-lg overflow-hidden border-4 border-blue-300">
+                    <canvas id="game-canvas"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============== RESULT SCREEN ============== -->
+        <div id="result-screen" class="screen hidden text-center">
+             <header class="my-6 md:my-8">
+                <h1 class="text-3xl md:text-5xl font-bold text-green-800">🎉 انتهت المغامرة! 🎉</h1>
+                <p class="text-base md:text-lg text-gray-600 mt-4">
+                    هذه هي نتيجتك النهائية.
+                </p>
+            </header>
+
+            <div class="bg-white p-4 md:p-6 rounded-xl shadow-2xl border-2 border-green-300 max-w-md mx-auto">
+                <h2 class="text-xl md:text-2xl font-bold text-gray-800 mb-4">النتيجة النهائية</h2>
+                
+                <div id="final-result-display" class="text-center text-lg md:text-xl mt-4 space-y-2">
+                    <!-- This will be populated by the connection engine -->
+                </div>
+
+            </div>
+
+            <div class="my-8 md:my-12">
+                <button id="play-again-button" class="bg-blue-600 text-white font-bold text-xl md:text-2xl py-3 px-6 md:py-4 md:px-8 rounded-xl hover:bg-blue-700 transition-transform transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-blue-400 shadow-lg">
+                    العب مرة أخرى
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- Screen Elements ---
+            const startScreen = document.getElementById('start-screen');
+            const gameScreen = document.getElementById('game-screen');
+            const resultScreen = document.getElementById('result-screen');
+
+            // --- Button Elements ---
+            const startGameButton = document.getElementById('start-game-button');
+            const playAgainButton = document.getElementById('play-again-button');
+
+            // --- Display Elements ---
+            const savedScoreDisplay = document.getElementById('saved-score-display');
+
+            // --- Game Elements ---
+            const canvas = document.getElementById('game-canvas');
+            const ctx = canvas.getContext('2d');
+            const targetCoordsEl = document.getElementById('target-coords');
+            const scoreEl = document.getElementById('score');
+            const messageBoxEl = document.getElementById('message-box');
+            const targetTitleEl = document.getElementById('target-title');
+
+            // --- Game State Variables ---
+            const gridSize = 30; 
+            const numGridLines = 8;
+            let origin = {};
+            let treasures = [];
+            let foundTreasures = [];
+            let currentTarget = null;
+            let score = 0;
+            const totalTreasures = 10;
+            let attemptsMade = 0;
+            let lastWrongGuess = null;
+            let wronglyAnsweredTreasures = [];
+            let isAnimating = false;
+
+            const ship = {
+                x: 0, y: 0, targetX: 0, targetY: 0,
+                movingAxis: 'none', speed: 0.1
+            };
+
+            const possibleLocations = [
+                {x: 3, y: 5}, {x: -4, y: -6}, {x: 7, y: -2}, {x: -6, y: 7}, 
+                {x: 5, y: 5}, {x: -3, y: -3}, {x: 0, y: -7}, {x: 6, y: 0},
+                {x: -5, y: 2}, {x: 4, y: -4}, {x: -2, y: 6}, {x: 1, y: -5},
+                {x: -7, y: -1}, {x: 2, y: 2}, {x: -1, y: 7}, {x: 7, y: 1},
+                {x: 4, y: -6}, {x: -5, y: -5}, {x: 0, y: 4}, {x: -3, y: 0},
+                {x: 0, y: 6}, {x: -7, y: 0}, {x: 0, y: -5}, {x: 4, y: 0}
+            ];
+
+            // --- Helper Functions ---
+            
+            function switchScreen(fromScreen, toScreen) {
+                if (fromScreen) {
+                    fromScreen.style.opacity = 0;
+                    setTimeout(() => {
+                        fromScreen.classList.add('hidden');
+                        toScreen.classList.remove('hidden');
+                        setTimeout(() => {
+                            toScreen.style.opacity = 1;
+                        }, 20);
+                    }, 500);
+                } else {
+                    toScreen.classList.remove('hidden');
+                    setTimeout(() => {
+                        toScreen.style.opacity = 1;
+                    }, 20);
+                }
+            }
+
+            function toArabicNumerals(num) {
+                const arabicNumerals = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+                return String(num).replace(/[0-9.-]/g, d => {
+                    if (d === '-') return '-';
+                    if (d === '.') return ',';
+                    return arabicNumerals[parseInt(d)];
+                });
+            }
+
+            function shuffleArray(array) {
+                for (let i = array.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [array[i], array[j]] = [array[j], array[i]];
+                }
+            }
+            
+            function loadSavedScore() {
+                const savedScore = localStorage.getItem('treasureHuntScore');
+                if (savedScore !== null) {
+                    savedScoreDisplay.textContent = `${toArabicNumerals(parseFloat(savedScore).toFixed(1))} / ${toArabicNumerals(5)}`;
+                } else {
+                    savedScoreDisplay.textContent = 'لم تلعب بعد';
+                }
+            }
+
+            // --- Game Flow ---
+            function initGame() {
+                score = 0;
+                attemptsMade = 0;
+                foundTreasures = [];
+                lastWrongGuess = null;
+                wronglyAnsweredTreasures = [];
+                isAnimating = false;
+                ship.x = 0; ship.y = 0; ship.movingAxis = 'none';
+                
+                const zeroAxisLocations = possibleLocations.filter(loc => loc.x === 0 || loc.y === 0);
+                const standardLocations = possibleLocations.filter(loc => loc.x !== 0 && loc.y !== 0);
+
+                shuffleArray(standardLocations);
+                shuffleArray(zeroAxisLocations);
+
+                const firstSeven = standardLocations.slice(0, 7);
+                const lastThree = zeroAxisLocations.slice(0, 3);
+                
+                treasures = [...firstSeven, ...lastThree];
+                
+                setupCanvas();
+                setNextTarget();
+                showMessage('تم تجهيز خريطة جديدة! أين الكنز الأول؟', 'info');
+                switchScreen(startScreen, gameScreen);
+            }
+
+            function setNextTarget() {
+                lastWrongGuess = null;
+                if (attemptsMade < totalTreasures) {
+                    currentTarget = treasures[attemptsMade];
+                    updateUI();
+                } else {
+                    endGame();
+                }
+            }
+
+            function endGame() {
+                currentTarget = null;
+                ship.movingAxis = 'none';
+                isAnimating = true;
+
+                saveOrFinishGame(score);
+                
+                switchScreen(gameScreen, resultScreen);
+            }
+
+            // --- UI Update Functions ---
+            function updateUI() {
+                scoreEl.textContent = toArabicNumerals(score);
+                if (currentTarget) {
+                    const arabicX = toArabicNumerals(currentTarget.x);
+                    const arabicY = toArabicNumerals(currentTarget.y);
+                    targetCoordsEl.textContent = `(${arabicX}, ${arabicY})`;
+                    targetTitleEl.textContent = `الكنز رقم: ${toArabicNumerals(attemptsMade + 1)}`;
+                }
+            }
+
+            function showMessage(text, type) {
+                messageBoxEl.innerHTML = text;
+                messageBoxEl.className = 'mt-4 p-3 rounded-lg text-center font-bold text-sm md:text-base transition-all duration-300 min-h-[5rem] flex items-center justify-center';
+                if (type === 'success') {
+                    messageBoxEl.classList.add('bg-green-100', 'text-green-800');
+                } else if (type === 'error') {
+                    messageBoxEl.classList.add('bg-red-100', 'text-red-800');
+                } else {
+                    messageBoxEl.classList.add('bg-blue-100', 'text-blue-800');
+                }
+            }
+
+            // --- Canvas Drawing Functions ---
+            function draw() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = '#a8d8f0';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                drawLand();
+                drawGrid();
+                drawWronglyAnsweredHints();
+                drawFoundTreasures();
+                if (lastWrongGuess) drawWrongGuessMarker();
+                if (ship.movingAxis !== 'none' || (isAnimating && !currentTarget)) {
+                    drawShip();
+                }
+            }
+            
+            function drawLand() {
+                ctx.fillStyle = '#f5e1a8';
+                ctx.strokeStyle = '#d4b97a';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(0, canvas.height * 0.7);
+                ctx.bezierCurveTo(canvas.width * 0.2, canvas.height * 0.9, canvas.width * 0.3, canvas.height * 0.5, canvas.width * 0.5, canvas.height * 0.6);
+                ctx.bezierCurveTo(canvas.width * 0.7, canvas.height * 0.7, canvas.width * 0.8, canvas.height * 0.3, canvas.width, canvas.height * 0.4);
+                ctx.lineTo(canvas.width, canvas.height);
+                ctx.lineTo(0, canvas.height);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+            }
+
+            function drawGrid() {
+                ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
+                ctx.lineWidth = 1;
+                ctx.font = `${gridSize * 0.4}px Cairo`;
+                ctx.fillStyle = 'black';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+
+                for (let i = -(numGridLines - 1); i <= (numGridLines - 1); i++) {
+                    if (i === 0) continue;
+                    const x = origin.x + i * gridSize;
+                    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+                    ctx.fillText(toArabicNumerals(i), x, origin.y + gridSize * 0.6);
+                    
+                    const y = origin.y + i * gridSize;
+                    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+                    ctx.fillText(toArabicNumerals(-i), origin.x - gridSize * 0.7, y);
+                }
+                
+                ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
+                ctx.lineWidth = 2;
+                ctx.font = `bold ${gridSize * 0.7}px Cairo`;
+                
+                ctx.beginPath(); ctx.moveTo(0, origin.y); ctx.lineTo(canvas.width, origin.y); ctx.stroke();
+                ctx.fillText('س', canvas.width - gridSize * 0.8, origin.y - gridSize * 0.8);
+
+                ctx.beginPath(); ctx.moveTo(origin.x, 0); ctx.lineTo(origin.x, canvas.height); ctx.stroke();
+                ctx.fillText('ص', origin.x + gridSize * 0.8, gridSize * 0.8);
+            }
+            
+            function drawFoundTreasures() {
+                ctx.globalAlpha = 1.0;
+                ctx.font = `${gridSize}px sans-serif`;
+                foundTreasures.forEach(t => {
+                    const pixelPos = gridToPixel(t.x, t.y);
+                    ctx.fillText('💎', pixelPos.x, pixelPos.y);
+                });
+            }
+
+            function drawWrongGuessMarker() {
+                const pixelPos = gridToPixel(lastWrongGuess.x, lastWrongGuess.y);
+                ctx.font = `${gridSize}px sans-serif`;
+                ctx.fillText('❌', pixelPos.x, pixelPos.y);
+            }
+
+            function drawWronglyAnsweredHints() {
+                ctx.globalAlpha = 0.4;
+                ctx.font = `${gridSize}px sans-serif`;
+                wronglyAnsweredTreasures.forEach(t => {
+                    const pixelPos = gridToPixel(t.x, t.y);
+                    ctx.fillText('💎', pixelPos.x, pixelPos.y);
+                });
+                ctx.globalAlpha = 1.0;
+            }
+
+            function drawShip() {
+                const pixelPos = gridToPixel(ship.x, ship.y);
+                ctx.font = `${gridSize * 1.2}px sans-serif`;
+                ctx.save();
+                ctx.translate(pixelPos.x, pixelPos.y);
+                if (ship.movingAxis === 'x') {
+                    if (ship.targetX < ship.x) ctx.scale(-1, 1);
+                } else if (ship.movingAxis === 'y') {
+                    ctx.rotate(ship.targetY > ship.y ? Math.PI / 2 : -Math.PI / 2);
+                }
+                ctx.fillText('🏴‍☠️', 0, 0);
+                ctx.restore();
+            }
+
+            function pixelToGrid(pixelX, pixelY) {
+                const gridX = Math.round((pixelX - origin.x) / gridSize);
+                const gridY = Math.round((origin.y - pixelY) / gridSize);
+                return { x: gridX, y: gridY };
+            }
+
+            function gridToPixel(gridX, gridY) {
+                const pixelX = origin.x + gridX * gridSize;
+                const pixelY = origin.y - gridY * gridSize;
+                return { x: pixelX, y: pixelY };
+            }
+
+            // --- Event Handlers & Game Loop ---
+            function handleCanvasClick(event) {
+                if (!currentTarget || isAnimating) return;
+                
+                const rect = canvas.getBoundingClientRect();
+                const scaleX = canvas.width / rect.width;
+                const scaleY = canvas.height / rect.height;
+                const mouseX = (event.clientX - rect.left) * scaleX;
+                const mouseY = (event.clientY - rect.top) * scaleY;
+                const clickedGridPos = pixelToGrid(mouseX, mouseY);
+
+                isAnimating = true;
+                ship.targetX = currentTarget.x;
+                ship.targetY = currentTarget.y;
+                ship.movingAxis = 'x';
+                
+                const isCorrect = clickedGridPos.x === currentTarget.x && clickedGridPos.y === currentTarget.y;
+
+                if (isCorrect) {
+                    showMessage('إجابة صحيحة! 💎', 'success');
+                    score++;
+                } else {
+                    const wrongX = toArabicNumerals(clickedGridPos.x);
+                    const wrongY = toArabicNumerals(clickedGridPos.y);
+                    showMessage(`خطأ! لقد اخترت (${wrongX}, ${wrongY}).`, 'error');
+                    lastWrongGuess = clickedGridPos;
+                }
+                
+                gameLoop(isCorrect);
+            }
+
+            function gameLoop(isCorrect) {
+                if (ship.movingAxis === 'x') {
+                    if (Math.abs(ship.targetX - ship.x) < ship.speed) {
+                        ship.x = ship.targetX;
+                        ship.movingAxis = 'y';
+                    } else {
+                        ship.x += Math.sign(ship.targetX - ship.x) * ship.speed;
+                    }
+                } else if (ship.movingAxis === 'y') {
+                     if (Math.abs(ship.targetY - ship.y) < ship.speed) {
+                        ship.y = ship.targetY;
+                        ship.movingAxis = 'none';
+                    } else {
+                        ship.y += Math.sign(ship.targetY - ship.y) * ship.speed;
+                    }
+                }
+
+                draw();
+
+                if (ship.movingAxis !== 'none') {
+                    requestAnimationFrame(() => gameLoop(isCorrect));
+                } else {
+                    if (isCorrect) {
+                        foundTreasures.push(currentTarget);
+                    } else {
+                        wronglyAnsweredTreasures.push(currentTarget);
+                    }
+                    draw();
+                    
+                    setTimeout(() => {
+                        attemptsMade++;
+                        ship.x = 0; ship.y = 0;
+                        setNextTarget();
+                        if(currentTarget) isAnimating = false;
+                    }, 1500);
+                }
+            }
+            
+            function setupCanvas() {
+                const container = canvas.parentElement;
+                if (!container) return;
+                const containerWidth = container.clientWidth;
+                const effectiveSize = Math.min(containerWidth, 600);
+                
+                canvas.width = effectiveSize;
+                canvas.height = effectiveSize;
+                origin = { x: canvas.width / 2, y: canvas.height / 2 };
+                draw();
+            }
+
+            // --- Initializer ---
+            function initializeApp() {
+                startGameButton.addEventListener('click', initGame);
+                playAgainButton.addEventListener('click', () => {
+                    loadSavedScore();
+                    switchScreen(resultScreen, startScreen);
+                });
+
+                canvas.addEventListener('click', handleCanvasClick);
+                
+                const observer = new ResizeObserver(() => {
+                    window.requestAnimationFrame(() => {
+                        if (canvas.parentElement) {
+                            setupCanvas();
+                        }
+                    });
+                });
+                observer.observe(canvas.parentElement);
+                
+                loadSavedScore();
+                switchScreen(null, startScreen);
+            }
+
+            initializeApp();
+        });
+    </script>
+    
+    <!-- Connection Engine -->
+    <script>
+    // --- START OF CONNECTION ENGINE ---
+    (function() {
+        // --- CONFIGURATION ---
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
+        const GAME_ID = 'g1_1_1'; // Game ID
+        const GAME_MAX_POINTS = 10; // Max points in this game
+        const PLATFORM_MAX_GRADE = 5;
+
+        let currentUser = null; 
+
+        // This function is called when the game ends
+        window.saveOrFinishGame = function(points) {
+            // 1. Calculate the grade out of 5 safely
+            const finalPoints = parseFloat(points) || 0;
+            const maxPoints = parseFloat(GAME_MAX_POINTS) || 1;
+            const finalGrade = (finalPoints / maxPoints) * PLATFORM_MAX_GRADE;
+
+            // 2. Display the result to the user
+            const resultDisplay = document.getElementById('final-result-display');
+            if (resultDisplay) {
+                // MODIFICATION: Simplified the result display as requested
+                resultDisplay.innerHTML = `
+                    <p>الكنوز: <span class="font-bold">${toArabicNumerals(finalPoints)} / ${toArabicNumerals(maxPoints)}</span></p>
+                    <p>الدرجة: <span class="font-bold text-blue-600 text-lg">${toArabicNumerals(finalGrade.toFixed(1))} / ${toArabicNumerals(PLATFORM_MAX_GRADE)}</span></p>
+                `;
+            }
+            
+            // Also save to localStorage for the start screen
+            localStorage.setItem('treasureHuntScore', finalGrade.toFixed(1));
+
+            // 3. Save the grade if it's a registered student
+            if (currentUser && currentUser.id) {
+                console.log(`Saving grade ${finalGrade} for student ${currentUser.id}`);
+                const params = new URLSearchParams({
+                    action: 'saveGrade',
+                    studentId: currentUser.id,
+                    itemId: GAME_ID,
+                    grade: finalGrade.toFixed(2)
+                });
+
+                fetch(`${SCRIPT_URL}?${params.toString()}`)
+                    .then(res => res.json())
+                    .then(result => {
+                        if (result.status === 'success') {
+                            console.log('Score saved successfully!');
+                            setTimeout(() => window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*'), 2500);
+                        } else { throw new Error(result.message); }
+                    })
+                    .catch(err => console.error("Save Error:", err));
+            } else {
+                console.log(`Visitor finished with score ${finalPoints}`);
+                setTimeout(() => window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*'), 2500);
+            }
+        }
+        
+        // This function needs to be accessible to the connection engine
+        function toArabicNumerals(num) {
+            const arabicNumerals = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+            return String(num).replace(/[0-9.-]/g, d => {
+                if (d === '-') return '-';
+                if (d === '.') return ',';
+                return arabicNumerals[parseInt(d)];
+            });
+        }
+
+        window.addEventListener('message', (event) => {
+            if (event.data && event.data.event === 'userData') {
+                currentUser = event.data.data;
+                console.log('User data received:', currentUser);
+            }
+        });
+    })();
+    // --- END OF CONNECTION ENGINE ---
+    </script>
+</body>
+</html>

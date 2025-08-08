@@ -3,1198 +3,731 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>حارس الرياضيات</title>
+    <title>مصنع المعادلات - واجهة مدمجة</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
     <style>
         html, body {
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-            width: 100%;
             height: 100%;
+            overflow: hidden; /* Prevent scrolling on the body */
+        }
+        body {
             font-family: 'Cairo', sans-serif;
-            color: white;
-            background-color: #1a1a1a;
-        }
-        canvas {
-            display: block;
-            width: 100%;
-            height: 100%;
-        }
-        #info {
-            position: absolute;
-            top: 10px;
-            width: 100%;
-            z-index: 100;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0 2vw;
-            box-sizing: border-box;
-            flex-wrap: wrap;
-        }
-        .hud-box {
-            background-color: rgba(0, 0, 0, 0.7);
-            padding: 1vh 2.5vw;
-            border-radius: 15px;
-            border: 2px solid #FFD700;
-            font-size: clamp(0.8em, 2vw, 1.5em);
-            font-weight: bold;
-            margin: 5px;
-            flex-shrink: 1;
-        }
-        @keyframes score-pop {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.4); color: #4CAF50; }
-            100% { transform: scale(1); }
-        }
-        .score-updated {
-            display: inline-block;
-            animation: score-pop 0.5s ease-in-out;
-        }
-        .game-message {
-            position: absolute;
-            top: 40%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: clamp(3em, 10vw, 8em);
-            font-weight: bold;
-            text-shadow: 4px 4px 8px rgba(0,0,0,0.6);
-            z-index: 200;
-            display: none;
-            pointer-events: none;
-        }
-        #goalMessage { color: #FFD700; }
-        #saveMessage { color: #f44336; }
-        #mathContainer {
-            position: absolute;
-            bottom: 2vh;
-            width: 100%;
+            background-color: #f0f4f8;
             display: flex;
             flex-direction: column;
-            align-items: center;
-            gap: 1.5vh;
-            z-index: 100;
         }
-        #question {
-            background-color: rgba(0, 0, 0, 0.7);
-            padding: 1.5vh 4vw;
-            border-radius: 15px;
-            font-size: clamp(1.8em, 4vw, 3em);
+        main {
+            flex-grow: 1;
+            overflow-y: auto; /* Allow main content to scroll if needed on small screens */
+        }
+        .factory-container {
+            background: linear-gradient(to bottom, #dbeafe, #bfdbfe);
+            border: 4px solid #60a5fa;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+            position: relative;
+            transition: background 0.5s ease; /* Added transition for background */
+        }
+        .machine {
+            background-color: #93c5fd;
+            border: 8px groove #60a5fa;
+            transition: transform 0.2s ease-in-out;
+            min-height: 10rem; /* Reduced height */
+        }
+        .pipe {
+            background: #bfdbfe;
+            border: 2px solid #93c5fd;
+            height: 40px; /* Reduced height */
+        }
+        .conveyor-belt {
+            background-image: linear-gradient(45deg, #a5b4fc 25%, transparent 25%), linear-gradient(-45deg, #a5b4fc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #a5b4fc 75%), linear-gradient(-45deg, transparent 75%, #a5b4fc 75%);
+            background-size: 20px 20px;
+            background-position: 0 0;
+            animation: move-belt 1s linear infinite;
+            height: 20px;
+            border-top: 2px solid #818cf8;
+            border-bottom: 2px solid #818cf8;
+        }
+        @keyframes move-belt {
+            from { background-position: 0 0; }
+            to { background-position: -20px 0; }
+        }
+        .item {
+            transition: all 0.5s ease-in-out;
+            font-size: 1.5rem; /* Reduced size */
             font-weight: bold;
-            border: 2px solid #fff;
-        }
-        #question .abs-bars {
-            color: #FFD700;
-            font-weight: bold;
-            margin: 0 5px;
-        }
-        #optionsContainer {
+            color: #4338ca;
+            background-color: #e0e7ff;
+            border: 2px solid #a5b4fc;
+            width: 60px; /* Reduced size */
+            height: 60px; /* Reduced size */
             display: flex;
-            gap: 1vw;
+            align-items: center;
             justify-content: center;
-            flex-wrap: wrap;
         }
-        .option-button {
-            background-color: #2196F3;
-            border: 2px solid #fff;
-            color: white;
-            padding: 1.5vh 4vw;
-            text-align: center;
-            font-size: clamp(1.2em, 3.5vw, 2.2em);
-            margin: 0.5vh 1vw;
-            cursor: pointer;
-            border-radius: 12px;
-            font-family: 'Cairo', sans-serif;
-            font-weight: bold;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-            transition: background-color 0.3s, transform 0.2s;
+        
+        .gear-svg {
+            width: 50px;
+            height: 50px;
+            animation: rotate 4s linear infinite;
         }
-        .option-button:hover:not(:disabled) { background-color: #1976D2; transform: scale(1.05); }
-        .option-button:disabled { background-color: #9E9E9E; cursor: not-allowed; opacity: 0.6; }
-        .correct-answer {
-            background-color: #4CAF50 !important;
-            border-color: #fff !important;
+        .gear-svg path {
+            fill: #60a5fa;
+            opacity: 0.7;
+            filter: drop-shadow(1px 1px 1px rgba(0,0,0,0.2));
         }
+        @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
-        .overlay {
+        .shake-normal { animation: shake 0.8s cubic-bezier(.36,.07,.19,.97) both; }
+        .shake-intense { animation: shake-hard 0.6s ease-in-out both; }
+        
+        @keyframes shake { 10%, 90% { transform: translate3d(-1px, 0, 0); } 20%, 80% { transform: translate3d(2px, 0, 0); } 30%, 50%, 70% { transform: translate3d(-4px, 0, 0); } 40%, 60% { transform: translate3d(4px, 0, 0); } }
+        @keyframes shake-hard { 0%, 100% { transform: translateX(0); } 10% { transform: translateX(-10px) rotate(-3deg); } 20% { transform: translateX(10px) rotate(3deg); } 30% { transform: translateX(-10px) rotate(-3deg); } 40% { transform: translateX(10px) rotate(3deg); } 50% { transform: translateX(-10px) rotate(-3deg); } 60% { transform: translateX(10px) rotate(3deg); } 70% { transform: translateX(0) rotate(0); } }
+        
+        #equation-display {
+            display: flex;
+            flex-direction: column; /* Stacks steps vertically */
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+        .calculation-step { 
+            opacity: 0; 
+            transition: opacity 0.5s ease-in-out; 
+            font-weight: bold; 
+            color: white; 
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+            white-space: nowrap;
+            line-height: 1.5; /* Adds space between steps */
+        }
+        .calculation-step.visible { opacity: 1; }
+        
+        .fraction { display: inline-flex; flex-direction: column; align-items: center; vertical-align: middle; margin: 0 0.2em; line-height: 1; }
+        .numerator { padding-bottom: 0.1em; }
+        .denominator { border-top: 2px solid; padding-top: 0.1em; }
+        #equation-display .denominator { border-top-color: white; }
+        #results-table .denominator { border-top-color: #4b5563; }
+
+        #coordinate-display { transition: opacity 0.5s, transform 0.5s; }
+
+        .btn { font-weight: bold; padding: 0.5rem 1rem; border-radius: 0.5rem; text-lg; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: all 0.3s; }
+        .btn-primary { background-color: #4f46e5; color: white; }
+        .btn-primary:hover { background-color: #4338ca; transform: translateY(-2px); }
+        .btn-secondary { background-color: #10b981; color: white; }
+        .btn-secondary:hover { background-color: #059669; transform: translateY(-2px); }
+        .btn-warning { background-color: #f59e0b; color: white; }
+        .btn-warning:hover { background-color: #d97706; transform: translateY(-2px); }
+        .btn-disabled { background-color: #9ca3af; cursor: not-allowed; transform: none; box-shadow: none;}
+        .table-header { background-color: #60a5fa; color: white; position: sticky; top: 0; z-index: 10; }
+
+        .results-container {
+            position: relative;
+        }
+        .results-container::before {
+            content: '';
             position: absolute;
             top: 0;
             left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23e0e7ff'%3E%3Cpath d='M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24-.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: center;
+            background-size: 60%;
+            opacity: 0.3;
+            pointer-events: none;
+        }
+
+        /* Crane Animation */
+        #crane-jib-group {
+            animation: rotate-jib 20s ease-in-out infinite alternate;
+            transform-origin: 100px 20px;
+        }
+        #crane-hook-group {
+            animation: move-hook 12s ease-in-out infinite alternate;
+        }
+        @keyframes rotate-jib {
+            from { transform: rotate(-2deg); }
+            to { transform: rotate(2deg); }
+        }
+        @keyframes move-hook {
+            from { transform: translateX(-20px); }
+            to { transform: translateX(50px); }
+        }
+
+        /* Box Stacking Animation */
+        .box-stack-container {
+            width: 100px;
+            height: 60px;
+            position: absolute;
+            bottom: -4.5rem; /* Positioned further below */
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 0;
+            opacity: 0.3;
+        }
+        .box-stack {
+            position: relative;
             width: 100%;
             height: 100%;
-            background-color: rgba(0, 0, 0, 0.85);
-            z-index: 300;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            text-align: center;
-            padding: 20px;
-            box-sizing: border-box;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.5s ease-in-out;
         }
-        .overlay.visible {
-            opacity: 1;
-            pointer-events: auto;
-        }
-        .overlay h2 { font-size: clamp(2em, 6vw, 3.5em); margin-bottom: 2vh; color: #FFD700; }
-        .overlay p { font-size: clamp(0.9em, 2.5vw, 1.5em); max-width: 90%; line-height: 1.6; }
-        .overlay .start-button {
-            margin-top: 3vh;
-            padding: 1.5vh 6vw;
-            font-size: clamp(1.2em, 4vw, 2em);
-            background-color: #4CAF50;
-        }
-        .stage-transition h2 {
-            transform: scale(0.5);
-            opacity: 0;
-            animation: pop-in 1s forwards;
-        }
-        @keyframes pop-in {
-            0% { transform: scale(0.5); opacity: 0; }
-            100% { transform: scale(1); opacity: 1; }
-        }
-
-        #solutionScreen {
-            justify-content: flex-start;
-            padding-top: 5vh;
-        }
-        #solutionContainer {
-            background-color: rgba(40, 40, 40, 0.9);
-            padding: 2vh;
-            border-radius: 20px;
-            border: 2px solid #FFD700;
-            width: 90%;
-            max-width: 900px;
-        }
-        #solutionContainer h2 {
-            font-size: clamp(1.8em, 5vw, 2.8em);
-            margin-bottom: 1vh;
-        }
-        #solutionQuestion {
-            font-size: clamp(1.2em, 4vw, 2em);
-            margin-bottom: 2vh;
-        }
-        #solutionSteps {
-            min-height: 10vh;
-            line-height: 1.8;
-            padding: 0 2vw;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        .solution-step {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1vh;
-            width: 100%;
-        }
-        .solution-eq {
-            font-size: clamp(1em, 3.5vw, 1.8em);
-            font-weight: bold;
-            text-align: right;
-            flex-basis: 50%;
-        }
-        .solution-comment {
-            font-size: clamp(0.8em, 2.5vw, 1.2em);
-            color: #ccc;
-            margin-right: 20px;
-            flex-basis: 50%;
-            text-align: left;
-        }
-        .highlight-math {
-            color: #4CAF50;
-            font-weight: bold;
-        }
-        #nextStepButton {
-            font-size: clamp(1em, 3vw, 1.5em) !important;
-            padding: 1vh 5vw !important;
-        }
-        #knowWhyButton {
+        .box {
             position: absolute;
-            bottom: 3vh;
-            right: 3vh;
-            font-size: clamp(1em, 3vw, 1.5em);
-            background-color: #ff9800;
-            visibility: hidden;
-            z-index: 101;
+            width: 20px;
+            height: 20px;
+            background-color: #a5b4fc;
+            border: 1px solid #818cf8;
+            border-radius: 2px;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
         }
-        #timerDisplay {
-            transition: color 0.5s, transform 0.2s;
+        .box.appear {
+            opacity: 1;
+            transform: translateY(0);
         }
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
-            20%, 40%, 60%, 80% { transform: translateX(5px); }
-        }
-        #timerDisplay.warning {
-            color: #f44336;
-            animation: shake 0.5s infinite;
-        }
-        @keyframes screen-shake {
-            0% { transform: translate(1px, 1px) rotate(0deg); }
-            10% { transform: translate(-1px, -2px) rotate(-1deg); }
-            20% { transform: translate(-3px, 0px) rotate(1deg); }
-            30% { transform: translate(3px, 2px) rotate(0deg); }
-            40% { transform: translate(1px, -1px) rotate(1deg); }
-            50% { transform: translate(-1px, 2px) rotate(-1deg); }
-            60% { transform: translate(-3px, 1px) rotate(0deg); }
-            70% { transform: translate(3px, 1px) rotate(-1deg); }
-            80% { transform: translate(-1px, -1px) rotate(1deg); }
-            90% { transform: translate(1px, 2px) rotate(0deg); }
-            100% { transform: translate(1px, -2px) rotate(-1deg); }
-        }
-        .screen-shake {
-            animation: screen-shake 0.5s;
+        .negative-sign {
+            vertical-align: middle;
+            margin-left: 0.1em;
         }
     </style>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
 </head>
-<body>
+<body class="p-2 md:p-4">
 
-    <div id="info" style="visibility: hidden;">
-        <div id="scoreDisplay" class="hud-box">النتيجة: <span id="scoreValue">٠</span></div>
-        <div id="stageInfo" class="hud-box">المرحلة ١ - السؤال ١ / ٥</div>
-        <div id="timerDisplay" class="hud-box">الوقت: <span id="timerValue">١٥</span></div>
-    </div>
+    <header class="text-center mb-2">
+        <h1 class="text-3xl md:text-4xl font-extrabold text-blue-800">🏭 مصنع المعادلات 🏭</h1>
+    </header>
 
-    <div id="goalMessage" class="game-message">هدف</div>
-    <div id="saveMessage" class="game-message">ضائعة</div>
-    <div id="mathContainer" style="visibility: hidden;">
-        <div id="question"></div>
-        <div id="optionsContainer"></div>
-    </div>
-    <button id="knowWhyButton" class="option-button">اعرف لماذا؟</button>
-
-    <div id="welcomeScreen" class="overlay visible">
-        <h2>أهلاً بك في لعبة حارس الرياضيات</h2>
-        <p>معكم المعلم/ عبد العزيز خالد العبلان</p>
-        <p style="color: #FFD700; font-size: 1.8em; margin: 20px 0;">القيمة المطلقة هي المسافة بين العدد والصفر على خط الأعداد، وهي دائمًا قيمة موجبة.</p>
-        <p><strong>طريقة اللعب:</strong> أجب عن المسألة بشكل صحيح لتسديد الكرة وتسجيل هدف. إذا كانت إجابتك خاطئة، سيتصدى الحارس للكرة!</p>
-        <button id="startButton" class="option-button start-button">ابدأ اللعب</button>
-    </div>
-
-    <div id="stageTransitionScreen" class="overlay stage-transition">
-        <h2 id="stageTransitionText"></h2>
-    </div>
-
-    <div id="finalScoreScreen" class="overlay">
-        <h2>انتهت اللعبة!</h2>
-        <p id="feedbackText" style="font-size: 1.8em;"></p>
-        <div id="final-result-display" class="text-center text-xl mt-4" style="font-size: 1.5em; color: white;"></div>
-        <button id="playAgainButton" class="option-button start-button">العب مرة أخرى</button>
-    </div>
-
-    <div id="solutionScreen" class="overlay">
-        <div id="solutionContainer">
-            <h2>طريقة الحل</h2>
-            <p id="solutionQuestion"></p>
-            <div id="solutionSteps"></div>
-            <button id="nextStepButton" class="option-button">التالي</button>
+    <main class="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-grow">
+        <!-- Left Column: Score & Results -->
+        <div class="flex flex-col gap-4 bg-white/50 p-4 rounded-xl shadow-inner h-full">
+            <div id="score-board" class="flex flex-col md:flex-row justify-center gap-2 text-base font-bold text-center">
+                <div id="score-easy" class="flex-1 bg-green-100 text-green-800 p-2 rounded-lg shadow">المستوى السهل: ٠ / ٣</div>
+                <div id="score-medium" class="flex-1 bg-yellow-100 text-yellow-800 p-2 rounded-lg shadow">المستوى المتوسط: ٠ / ٣</div>
+                <div id="score-hard" class="flex-1 bg-red-100 text-red-800 p-2 rounded-lg shadow">المستوى الصعب: ٠ / ٣</div>
+            </div>
+            <div class="flex-grow bg-white rounded-lg shadow-lg overflow-hidden flex flex-col results-container">
+                 <h2 class="text-xl font-bold text-center text-blue-800 p-2 bg-blue-100">📋 جدول النتائج 📋</h2>
+                 <div class="overflow-y-auto flex-grow">
+                    <table class="w-full text-center relative z-10">
+                        <thead class="table-header text-base">
+                            <tr>
+                                <th class="p-2">المدخل</th>
+                                <th class="p-2">المعادلة</th>
+                                <th class="p-2">المخرج</th>
+                                <th class="p-2">النقطة</th>
+                            </tr>
+                        </thead>
+                        <tbody id="results-table" class="text-gray-700 text-lg"></tbody>
+                    </table>
+                 </div>
+            </div>
+            <div id="level-progression-controls" class="hidden flex justify-center gap-4">
+                <button id="next-level-btn" class="btn btn-warning">الانتقال للمستوى التالي</button>
+                <button id="replay-level-btn" class="btn btn-secondary">إعادة المستوى الحالي</button>
+            </div>
         </div>
-    </div>
 
-    <script type="importmap">
-        {
-            "imports": {
-                "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
-            }
-        }
-    </script>
+        <!-- Right Column: Factory & Controls -->
+        <div class="flex flex-col gap-4 h-full">
+            <div class="factory-container rounded-2xl p-4 flex-grow">
+                <div id="coordinate-display" class="absolute top-2 left-1/2 -translate-x-1/2 bg-indigo-600 text-white font-bold text-2xl p-2 rounded-xl shadow-lg opacity-0 scale-90 z-20"></div>
+                <div class="flex items-center justify-between h-full">
+                    <div class="w-1/4 flex flex-col items-center justify-center relative">
+                         <!-- Animated Tower Crane SVG Background -->
+                        <div class="absolute -top-10 -right-28 opacity-20 z-0 pointer-events-none">
+                           <svg width="250" height="200" viewBox="0 0 250 200" xmlns="http://www.w3.org/2000/svg">
+                                <g stroke="#60a5fa" stroke-width="4" fill="#93c5fd">
+                                    <path d="M 110 200 L 110 30 L 115 30 L 115 20 L 85 20 L 85 30 L 90 30 L 90 200 Z" />
+                                    <path d="M 90 30 L 110 45 L 90 60 L 110 75 L 90 90 L 110 105 L 90 120 L 110 135 L 90 150 L 110 165 L 90 180 L 110 195" stroke-width="2" fill="none"/>
+                                    <path d="M 110 30 L 90 45 L 110 60 L 90 75 L 110 90 L 90 105 L 110 120 L 90 135 L 110 150 L 90 165 L 110 180 L 90 195" stroke-width="2" fill="none"/>
+                                </g>
+                                <g id="crane-jib-group">
+                                    <g stroke="#60a5fa" stroke-width="4" fill="#93c5fd">
+                                        <path d="M 140 20 L -40 20 L -40 10 L 140 10 Z" />
+                                        <path d="M 135 10 L 120 20 L 105 10 L 90 20 L 75 10 L 60 20 L 45 10 L 30 20 L 15 10 L 0 20 L -15 10 L -30 20" stroke-width="2" fill="none"/>
+                                        <path d="M 135 20 L 120 10 L 105 20 L 90 10 L 75 20 L 60 10 L 45 20 L 30 10 L 15 20 L 0 10 L -15 20 L -30 10" stroke-width="2" fill="none"/>
+                                    </g>
+                                    <g id="crane-hook-group">
+                                        <path d="M 20 20 L 20 60" stroke="#4b5563" stroke-width="2" fill="none"/>
+                                        <path d="M 10 70 L 30 70 L 25 60 L 15 60 Z" fill="#a5b4fc" stroke="#4b5563" stroke-width="2"/>
+                                    </g>
+                                </g>
+                            </svg>
+                        </div>
+                        <h2 class="text-xl font-bold text-blue-700 mb-2 z-10">س</h2>
+                        <div id="input-box" class="item rounded-full shadow-lg z-10">؟</div>
+                    </div>
+                    <div class="w-1/2 flex-grow flex flex-col items-center justify-center mx-2">
+                        <div class="w-full pipe my-2 rounded-md"></div>
+                        <div id="machine-box" class="machine w-full rounded-2xl flex flex-col items-center justify-center p-2 shadow-2xl relative overflow-hidden">
+                            <div class="absolute top-1 right-1">
+                                <svg class="gear-svg" style="animation-duration: 4s;" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24-.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/></svg>
+                            </div>
+                            <div class="absolute bottom-1 left-1">
+                                <svg class="gear-svg" style="animation-duration: 6s; animation-direction: reverse;" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24-.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/></svg>
+                            </div>
+                            <div id="equation-display" class="text-2xl md:text-3xl text-center z-10"></div>
+                        </div>
+                        <div class="conveyor-belt w-full mt-2"></div>
+                    </div>
+                    <div class="w-1/4 flex flex-col items-center justify-center relative">
+                        <h2 class="text-xl font-bold text-blue-700 mb-2 z-10">ص</h2>
+                        <div id="output-box" class="item rounded-lg shadow-lg z-10">؟</div>
+                        <div class="box-stack-container">
+                            <div class="box-stack"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white p-4 rounded-2xl shadow-lg text-center">
+                 <div id="difficulty-display" class="text-xl font-bold text-indigo-600 mb-2">المستوى: سهل</div>
+                <h3 id="question-title" class="text-xl font-bold text-gray-800 mb-3 h-12 flex items-center justify-center"></h3>
+                <div id="interactive-area" class="hidden flex-col sm:flex-row items-center justify-center gap-2">
+                    <label for="user-answer" class="text-lg">قيمة ص:</label>
+                    <input type="number" id="user-answer" class="text-center text-xl font-bold border-4 border-indigo-300 rounded-lg w-24 h-12 focus:border-indigo-500 focus:ring-indigo-500 transition">
+                    <button id="check-btn" class="btn btn-primary">تحقق</button>
+                </div>
+                <div class="mt-2">
+                     <button id="show-example-btn" class="btn btn-secondary">شاهد مثالاً</button>
+                </div>
+                <div id="message-box" class="mt-2 text-xl font-bold h-7"></div>
+            </div>
+        </div>
+    </main>
 
-    <script type="module">
-        import * as THREE from 'three';
-        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-
-        let scene, camera, renderer, controls;
-        let ball, ballVelocity, isBallShot = false, goalScored = false;
-        let keeperGroup, keeperTarget, isKeeperReacting = false, keeperSaved = false;
-        let leftArm, rightArm, initialLeftArmRot, initialRightArmRot;
-        let net, originalNetVertices;
-        let collisionAura, auraBoundingBox;
-        let leftPost, rightPost, crossbar;
-        
-        let goalMessageElement, saveMessageElement;
-        let questionElement, optionsContainer, stageInfoElement, scoreDisplayElement, scoreValueElement;
-        let welcomeScreen, startButton, stageTransitionScreen, stageTransitionText, finalScoreScreen, finalScoreText, playAgainButton, feedbackText;
-        let infoContainer, mathContainer, knowWhyButton;
-        let solutionScreen, solutionContainer, solutionQuestion, solutionSteps, nextStepButton;
-        let timerDisplay, timerValueElement;
-        
-        let currentStage = 1;
-        let questionIndex = 0;
-        const problemsPerStage = [5, 5];
-        let currentProblem = {};
-        let shotTypeGlobal = '';
-        let hasHitNet = false;
-        let score = 0;
-        let solutionStepsArray = [];
-        let currentStepIndex = 0;
-        let timerInterval;
-        let timeLeft = 15;
-        const TIME_PER_QUESTION = 15;
-        let resetTimeoutId = null;
-        let isResetting = false;
-        let confettiGroup, confettiParticles = [];
-        let stage1ProblemTypes = [];
-
-        let initialKeeperPosition = new THREE.Vector3();
-
-        const ballRadius = 0.15;
-        const gravity = new THREE.Vector3(0, -0.015, 0);
-        const goalLineZ = 0.5;
-        const goalWidth = 7.32;
-        const goalHeight = 2.44;
-        const netDepth = 2;
-        const postRadius = 0.08;
-        
-        const crowdCheer = new Tone.NoiseSynth({
-            noise: { type: 'pink' },
-            envelope: { attack: 0.2, decay: 1.5, sustain: 0, release: 1 }
-        }).toDestination();
-        crowdCheer.volume.value = -12;
-
-        const netSound = new Tone.NoiseSynth({
-            noise: { type: 'white' },
-            envelope: { attack: 0.005, decay: 0.1, sustain: 0 }
-        }).toDestination();
-        netSound.volume.value = -6;
-
-        const saveSound = new Tone.MembraneSynth({
-            pitchDecay: 0.08,
-            octaves: 4,
-            envelope: { attack: 0.001, decay: 0.3, sustain: 0.01, release: 0.5 }
-        }).toDestination();
-        saveSound.volume.value = -6;
-
-        const whistle = new Tone.Synth({
-            oscillator: { type: 'triangle' },
-            envelope: { attack: 0.01, decay: 0.1, sustain: 0.1, release: 0.2 }
-        }).toDestination();
-        const vibrato = new Tone.LFO("20hz", 400, 450).start();
-        vibrato.connect(whistle.frequency);
-
-        const excellentFeedback = [
-            "رائع! أنت نجم الرياضيات، فهمك للقيمة المطلقة ممتاز.",
-            "عمل مذهل! لقد أتقنت المهارة، استمر في هذا التفوق.",
-            "أحسنت! نتيجتك تدل على تركيز وفهم عميق للدرس."
-        ];
-        const goodFeedback = [
-            "جيد جدًا! أنت على الطريق الصحيح لفهم القيمة المطلقة بشكل كامل.",
-            "عمل رائع! بعض الأخطاء البسيطة لا تقلل من مجهودك. حاول مرة أخرى للوصول للعلامة الكاملة.",
-            "أحسنت! لقد فهمت الفكرة الأساسية، والقليل من المراجعة سيجعلك محترفًا."
-        ];
-        const needsImprovementFeedback = [
-            "بداية جيدة! كل خطأ هو فرصة للتعلم. استخدم زر 'اعرف لماذا؟' لمراجعة الحلول.",
-            "لا تستسلم! القيمة المطلقة تحتاج للقليل من التدريب. أنا واثق أنك ستتقنها في المرة القادمة.",
-            "مجهود طيب! حاول التركيز على ترتيب العمليات، وستجد أن المسائل أصبحت أسهل."
-        ];
-        const lowFeedback = [
-            "للاسف مستواك ضعيف ! ومع ذلك كل خطأ هو فرصة للتعلم. استخدم زر 'اعرف لماذا؟' لمراجعة الحلول.",
-            "لا تستسلم! القيمة المطلقة تحتاج للكثير من التدريب. أنا واثق أنك ستتقنها في المرة القادمة.",
-            "حاول مرة اخرى ! حاول التركيز على ترتيب العمليات، وستجد أن المسائل أصبحت أسهل."
-        ];
-
-
-        function init() {
-            goalMessageElement = document.getElementById('goalMessage');
-            saveMessageElement = document.getElementById('saveMessage');
-            questionElement = document.getElementById('question');
-            optionsContainer = document.getElementById('optionsContainer');
-            stageInfoElement = document.getElementById('stageInfo');
-            scoreDisplayElement = document.getElementById('scoreDisplay');
-            scoreValueElement = document.getElementById('scoreValue');
-            welcomeScreen = document.getElementById('welcomeScreen');
-            startButton = document.getElementById('startButton');
-            stageTransitionScreen = document.getElementById('stageTransitionScreen');
-            stageTransitionText = document.getElementById('stageTransitionText');
-            finalScoreScreen = document.getElementById('finalScoreScreen');
-            finalScoreText = document.getElementById('finalScoreText');
-            playAgainButton = document.getElementById('playAgainButton');
-            feedbackText = document.getElementById('feedbackText');
-            infoContainer = document.getElementById('info');
-            mathContainer = document.getElementById('mathContainer');
-            knowWhyButton = document.getElementById('knowWhyButton');
-            solutionScreen = document.getElementById('solutionScreen');
-            solutionContainer = document.getElementById('solutionContainer');
-            solutionQuestion = document.getElementById('solutionQuestion');
-            solutionSteps = document.getElementById('solutionSteps');
-            nextStepButton = document.getElementById('nextStepButton');
-            timerDisplay = document.getElementById('timerDisplay');
-            timerValueElement = document.getElementById('timerValue');
-            
-            startButton.addEventListener('click', startGame);
-            playAgainButton.addEventListener('click', restartGame);
-            knowWhyButton.addEventListener('click', showSolution);
-            nextStepButton.addEventListener('click', showNextSolutionStep);
-
-            scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x87ceeb);
-            scene.fog = new THREE.Fog(0x87ceeb, 10, 60);
-
-            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.set(0, 3.5, 10);
-
-            renderer = new THREE.WebGLRenderer({ antialias: true });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.shadowMap.enabled = true;
-            document.body.appendChild(renderer.domElement);
-
-            controls = new OrbitControls(camera, renderer.domElement);
-            controls.enableDamping = true;
-            controls.target.set(0, 2, 0);
-
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-            scene.add(ambientLight);
-            const directionalLight = new THREE.DirectionalLight(0xffffff, 1.5);
-            directionalLight.position.set(5, 10, 7.5);
-            directionalLight.castShadow = true;
-            scene.add(directionalLight);
-
-            createFieldAndGoal();
-            createGoalkeeper();
-            createBall();
-            
-            confettiGroup = new THREE.Group();
-            scene.add(confettiGroup);
-            
-            window.addEventListener('resize', onWindowResize);
-            animate();
-        }
-        
-        function createFieldAndGoal() {
-            const groundGeometry = new THREE.PlaneGeometry(100, 100);
-            const groundMaterial = new THREE.MeshStandardMaterial({ color: 0x228B22 });
-            const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-            ground.rotation.x = -Math.PI / 2;
-            ground.receiveShadow = true;
-            scene.add(ground);
-
-            const goalMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0.2, roughness: 0.1 });
-            leftPost = new THREE.Mesh(new THREE.CylinderGeometry(postRadius, postRadius, goalHeight, 32), goalMaterial);
-            leftPost.position.set(-goalWidth / 2, goalHeight / 2, 0);
-            leftPost.castShadow = true;
-            scene.add(leftPost);
-            rightPost = new THREE.Mesh(new THREE.CylinderGeometry(postRadius, postRadius, goalHeight, 32), goalMaterial);
-            rightPost.position.set(goalWidth / 2, goalHeight / 2, 0);
-            rightPost.castShadow = true;
-            scene.add(rightPost);
-            crossbar = new THREE.Mesh(new THREE.CylinderGeometry(postRadius, postRadius, goalWidth, 32), goalMaterial);
-            crossbar.position.set(0, goalHeight, 0);
-            crossbar.rotation.z = Math.PI / 2;
-            crossbar.castShadow = true;
-            scene.add(crossbar);
-
-            const canvas = document.createElement('canvas');
-            canvas.width = 64;
-            canvas.height = 64;
-            const context = canvas.getContext('2d');
-            context.strokeStyle = 'rgba(255, 255, 255, 0.7)';
-            context.lineWidth = 5;
-            context.strokeRect(0, 0, 64, 64);
-            const netTexture = new THREE.CanvasTexture(canvas);
-            netTexture.wrapS = THREE.RepeatWrapping;
-            netTexture.wrapT = THREE.RepeatWrapping;
-            
-            const netMaterial = new THREE.MeshBasicMaterial({
-                map: netTexture,
-                transparent: true,
-                side: THREE.DoubleSide,
-                alphaTest: 0.1
-            });
-
-            const netGeometry = new THREE.PlaneGeometry(goalWidth, goalHeight, 20, 10);
-            originalNetVertices = netGeometry.attributes.position.array.slice();
-            net = new THREE.Mesh(netGeometry, netMaterial);
-            net.position.set(0, goalHeight / 2, -netDepth);
-            netTexture.repeat.set(15, 5);
-            scene.add(net);
-            
-            const topNetGeometry = new THREE.PlaneGeometry(goalWidth, netDepth, 20, 5);
-            const topNet = new THREE.Mesh(topNetGeometry, netMaterial.clone());
-            topNet.material.map = netTexture.clone();
-            topNet.material.map.repeat.set(15, 2);
-            topNet.rotation.x = -Math.PI / 2;
-            topNet.position.set(0, goalHeight, -netDepth / 2);
-            scene.add(topNet);
-
-            const sideNetGeometry = new THREE.PlaneGeometry(netDepth, goalHeight, 5, 10);
-            const leftNet = new THREE.Mesh(sideNetGeometry, netMaterial.clone());
-            leftNet.material.map = netTexture.clone();
-            leftNet.material.map.repeat.set(2, 5);
-            leftNet.rotation.y = Math.PI / 2;
-            leftNet.position.set(-goalWidth / 2, goalHeight / 2, -netDepth / 2);
-            scene.add(leftNet);
-
-            const rightNet = new THREE.Mesh(sideNetGeometry, netMaterial.clone());
-            rightNet.material.map = netTexture.clone();
-            rightNet.material.map.repeat.set(2, 5);
-            rightNet.rotation.y = -Math.PI / 2;
-            rightNet.position.set(goalWidth / 2, goalHeight / 2, -netDepth / 2);
-            scene.add(rightNet);
-        }
-
-        function createGoalkeeper() {
-            keeperGroup = new THREE.Group();
-            keeperGroup.position.set(0, 0, goalLineZ);
-            initialKeeperPosition.copy(keeperGroup.position);
-            keeperTarget = new THREE.Vector3();
-            scene.add(keeperGroup);
-
-            const torsoMaterial = new THREE.MeshStandardMaterial({ color: 0xff8c00 });
-            const shortsMaterial = new THREE.MeshStandardMaterial({ color: 0x1e1e1e });
-            const skinMaterial = new THREE.MeshStandardMaterial({ color: 0xDEB887 });
-            const glovesMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
-
-            const torso = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.7, 0.3), torsoMaterial);
-            torso.position.y = 1;
-            keeperGroup.add(torso);
-            
-            const head = new THREE.Mesh(new THREE.SphereGeometry(0.2, 32, 32), skinMaterial);
-            head.position.y = 1.55;
-            keeperGroup.add(head);
-
-            const pelvis = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.2, 0.3), shortsMaterial);
-            pelvis.position.y = 0.55;
-            keeperGroup.add(pelvis);
-            
-            const legAngle = -0.2;
-            const rightLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.08, 0.9), shortsMaterial);
-            rightLeg.position.set(-0.15, 0.1, 0);
-            rightLeg.rotation.z = -legAngle;
-            keeperGroup.add(rightLeg);
-            
-            const leftLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.08, 0.9), shortsMaterial);
-            leftLeg.position.set(0.15, 0.1, 0);
-            leftLeg.rotation.z = legAngle;
-            keeperGroup.add(leftLeg);
-
-            const armLength = 0.6;
-            rightArm = new THREE.Object3D();
-            rightArm.position.set(-0.25, 0.3, 0);
-            torso.add(rightArm);
-            const rightArmMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.06, armLength), torsoMaterial);
-            rightArmMesh.position.y = -armLength / 2;
-            rightArm.add(rightArmMesh);
-            const rightGlove = new THREE.Mesh(new THREE.SphereGeometry(0.12, 16, 16), glovesMaterial);
-            rightGlove.position.y = -armLength / 2;
-            rightArmMesh.add(rightGlove);
-
-            leftArm = new THREE.Object3D();
-            leftArm.position.set(0.25, 0.3, 0);
-            torso.add(leftArm);
-            const leftArmMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.06, armLength), torsoMaterial);
-            leftArmMesh.position.y = -armLength / 2;
-            leftArm.add(leftArmMesh);
-            const leftGlove = new THREE.Mesh(new THREE.SphereGeometry(0.12, 16, 16), glovesMaterial);
-            leftGlove.position.y = -armLength / 2;
-            leftArmMesh.add(leftGlove);
-
-            const armAngle = 1.2;
-            rightArm.rotation.z = -armAngle;
-            leftArm.rotation.z = armAngle;
-
-            initialLeftArmRot = leftArm.rotation.clone();
-            initialRightArmRot = rightArm.rotation.clone();
-
-            const auraGeometry = new THREE.BoxGeometry(2.5, 2.5, 0.5);
-            const auraMaterial = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.0 });
-            collisionAura = new THREE.Mesh(auraGeometry, auraMaterial);
-            collisionAura.position.y = 1; 
-            keeperGroup.add(collisionAura);
-            auraBoundingBox = new THREE.Box3().setFromObject(collisionAura);
-        }
-
-        function createBall() {
-            const ballGeometry = new THREE.SphereGeometry(ballRadius, 32, 32);
-            const canvas = document.createElement('canvas');
-            canvas.width = 256;
-            canvas.height = 128;
-            const context = canvas.getContext('2d');
-            context.fillStyle = '#FFFFFF';
-            context.fillRect(0, 0, canvas.width, canvas.height);
-            context.fillStyle = '#000000';
-            function drawHexagon(x, y, size) {
-                context.beginPath();
-                for (let i = 0; i < 6; i++) {
-                    context.lineTo(x + size * Math.cos(i * Math.PI / 3), y + size * Math.sin(i * Math.PI / 3));
-                }
-                context.closePath();
-                context.fill();
-            }
-            drawHexagon(64, 40, 22);
-            drawHexagon(192, 40, 22);
-            drawHexagon(128, 95, 22);
-            drawHexagon(250, 95, 22);
-            drawHexagon(6, 95, 22);
-            const ballTexture = new THREE.CanvasTexture(canvas);
-            const ballMaterial = new THREE.MeshStandardMaterial({ map: ballTexture, metalness: 0.1, roughness: 0.5 });
-            ball = new THREE.Mesh(ballGeometry, ballMaterial);
-            ball.castShadow = true;
-            ball.receiveShadow = true;
-            ballVelocity = new THREE.Vector3();
-            resetGame(true);
-            scene.add(ball);
-        }
-
-        async function startGame() {
-            await Tone.start();
-            welcomeScreen.classList.remove('visible');
-            showStageIntro(1);
-        }
-
-        function restartGame() {
-            finalScoreScreen.classList.remove('visible');
-            showStageIntro(1);
-        }
-
-        function showStageIntro(stage) {
-            stageTransitionText.innerText = `المرحلة ${toArabicNumerals(stage)}`;
-            stageTransitionScreen.classList.add('visible');
-            setTimeout(() => {
-                stageTransitionScreen.classList.remove('visible');
-                infoContainer.style.visibility = 'visible';
-                mathContainer.style.visibility = 'visible';
-                startStage(stage);
-            }, 2500);
-        }
-
-        function startStage(stage) {
-            currentStage = stage;
-            questionIndex = 0;
-            if (stage === 1) {
-                score = 0;
-                stage1ProblemTypes = ['abs_negative', 'subtraction', 'subtraction', 'subtraction', 'subtraction'];
-                stage1ProblemTypes.sort(() => Math.random() - 0.5);
-            }
-            updateScoreDisplay(true);
-            displayNewQuestion();
-        }
-
-        function toArabicNumerals(num) {
-            const arabicNumerals = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
-            const sign = num < 0 ? '−' : '';
-            const numStr = String(Math.abs(num));
-            return sign + numStr.replace(/[0-9]/g, d => arabicNumerals[parseInt(d)]);
-        }
-
-        function displayNewQuestion() {
-            stageInfoElement.innerText = `المرحلة ${toArabicNumerals(currentStage)} - السؤال ${toArabicNumerals(questionIndex + 1)} / ${toArabicNumerals(problemsPerStage[currentStage - 1])}`;
-            currentProblem = generateProblem(currentStage);
-            questionElement.innerHTML = currentProblem.html;
-
-            const options = generateOptions(currentProblem.answer);
-            optionsContainer.innerHTML = '';
-            options.forEach(option => {
-                const button = document.createElement('button');
-                button.className = 'option-button';
-                button.innerText = toArabicNumerals(option);
-                button.onclick = () => checkAnswer(option);
-                optionsContainer.appendChild(button);
-            });
-            startTimer();
-            whistle.triggerAttackRelease("A5", "0.3");
-        }
-        
-        function generateProblem(stage) {
-            let num1, num2, num3, num4;
-            let html, answer, steps;
-
-            if (stage === 1) {
-                const problemType = stage1ProblemTypes[questionIndex];
-                if (problemType === 'subtraction') { 
-                    num1 = Math.floor(Math.random() * 20) + 1;
-                    num2 = Math.floor(Math.random() * 20) + 1;
-                    html = `<span class="abs-bars">|</span> ${toArabicNumerals(num1)} - ${toArabicNumerals(num2)} <span class="abs-bars">|</span>`;
-                    answer = Math.abs(num1 - num2);
-                    steps = [
-                        { eq: `<span class="abs-bars">|</span> <span class="highlight-math">${toArabicNumerals(num1)} - ${toArabicNumerals(num2)}</span> <span class="abs-bars">|</span>`, comment: "نحل ما بداخل القيمة المطلقة" },
-                        { eq: `<span class="abs-bars">|</span> <span class="highlight-math">${toArabicNumerals(num1 - num2)}</span> <span class="abs-bars">|</span>`, comment: "نوجد القيمة المطلقة" },
-                        { eq: `<span class="highlight-math">${toArabicNumerals(answer)}</span>`, comment: "النتيجة النهائية" }
-                    ];
-                } else { 
-                    num1 = -(Math.floor(Math.random() * 20) + 1);
-                    html = `<span class="abs-bars">|</span> ${toArabicNumerals(num1)} <span class="abs-bars">|</span>`;
-                    answer = Math.abs(num1);
-                    steps = [
-                        { eq: `<span class="abs-bars">|</span> <span class="highlight-math">${toArabicNumerals(num1)}</span> <span class="abs-bars">|</span>`, comment: "القيمة المطلقة لعدد سالب هي نظيره الموجب" },
-                        { eq: `<span class="highlight-math">${toArabicNumerals(answer)}</span>`, comment: "النتيجة النهائية" }
-                    ];
-                }
-            } else { 
-                const problemType = Math.random();
-                if (problemType < 0.33) { 
-                    num1 = Math.floor(Math.random() * 9) + 1;
-                    num2 = Math.floor(Math.random() * 9) + 1;
-                    num3 = Math.floor(Math.random() * 9) + 1;
-                    html = `<span class="abs-bars">|</span> ${toArabicNumerals(num1)} - ${toArabicNumerals(num2)} <span class="abs-bars">|</span> + ${toArabicNumerals(num3)}`;
-                    answer = Math.abs(num1 - num2) + num3;
-                     steps = [
-                        { eq: `<span class="abs-bars">|</span> <span class="highlight-math">${toArabicNumerals(num1)} - ${toArabicNumerals(num2)}</span> <span class="abs-bars">|</span> + ${toArabicNumerals(num3)}`, comment: "نبدأ بالقيمة المطلقة" },
-                        { eq: `<span class="highlight-math">${toArabicNumerals(Math.abs(num1 - num2))}</span> + ${toArabicNumerals(num3)}`, comment: "ثم نجمع" },
-                        { eq: `<span class="highlight-math">${toArabicNumerals(answer)}</span>`, comment: "النتيجة النهائية" }
-                    ];
-                } else if (problemType < 0.66) { 
-                    num3 = Math.floor(Math.random() * 9) + 1; 
-                    num4 = Math.floor(Math.random() * 9) + 1;
-                    num2 = Math.floor(Math.random() * 4) + 1;
-                    const product = num2 * Math.abs(num3 - num4);
-                    num1 = Math.floor(Math.random() * (product + 10)); 
-                    html = `${toArabicNumerals(num1)} - ${toArabicNumerals(num2)} × <span class="abs-bars">|</span> ${toArabicNumerals(num3)} - ${toArabicNumerals(num4)} <span class="abs-bars">|</span>`;
-                    answer = num1 - product;
-                    steps = [
-                        { eq: `${toArabicNumerals(num1)} - ${toArabicNumerals(num2)} × <span class="abs-bars">|</span> <span class="highlight-math">${toArabicNumerals(num3)} - ${toArabicNumerals(num4)}</span> <span class="abs-bars">|</span>`, comment: "نبدأ بالقيمة المطلقة" },
-                        { eq: `${toArabicNumerals(num1)} - <span class="highlight-math">${toArabicNumerals(num2)} × ${toArabicNumerals(Math.abs(num3 - num4))}</span>`, comment: "ثم نقوم بالضرب" },
-                        { eq: `<span class="highlight-math">${toArabicNumerals(num1)} - ${toArabicNumerals(product)}</span>`, comment: "أخيرًا نطرح" },
-                        { eq: `<span class="highlight-math">${toArabicNumerals(answer)}</span>`, comment: "النتيجة النهائية" }
-                    ];
-                } else {
-                    num1 = Math.floor(Math.random() * 9) + 1;
-                    num2 = Math.floor(Math.random() * 9) + 1;
-                    num3 = Math.floor(Math.random() * 15) + 5;
-                    html = `<span class="abs-bars">|</span> ${toArabicNumerals(num1)} + ${toArabicNumerals(num2)} <span class="abs-bars">|</span> - ${toArabicNumerals(num3)}`;
-                    answer = Math.abs(num1 + num2) - num3;
-                    steps = [
-                        { eq: `<span class="abs-bars">|</span> <span class="highlight-math">${toArabicNumerals(num1)} + ${toArabicNumerals(num2)}</span> <span class="abs-bars">|</span> - ${toArabicNumerals(num3)}`, comment: "نبدأ بالقيمة المطلقة" },
-                        { eq: `<span class="highlight-math">${toArabicNumerals(Math.abs(num1 + num2))}</span> - ${toArabicNumerals(num3)}`, comment: "ثم نطرح" },
-                        { eq: `<span class="highlight-math">${toArabicNumerals(answer)}</span>`, comment: "النتيجة النهائية" }
-                    ];
-                }
-            }
-            return { html, answer, steps };
-        }
-
-        function generateOptions(correctAnswer) {
-            let options = [correctAnswer];
-            while (options.length < 4) {
-                let wrongAnswer;
-                const offset = Math.floor(Math.random() * 5) + 1;
-                if (Math.random() < 0.5) {
-                    wrongAnswer = correctAnswer + offset;
-                } else {
-                    wrongAnswer = correctAnswer - offset;
-                }
-                if (!options.includes(wrongAnswer)) {
-                    options.push(wrongAnswer);
-                }
-            }
-            return options.sort(() => Math.random() - 0.5);
-        }
-
-        function checkAnswer(selectedAnswer) {
-            stopTimer();
-            document.querySelectorAll('#optionsContainer .option-button').forEach(b => b.disabled = true);
-            knowWhyButton.style.visibility = 'visible';
-
-            if (selectedAnswer === currentProblem.answer) {
-                score++;
-                updateScoreDisplay();
-                shootBall('goal');
-                goalMessageElement.style.display = 'block';
-            } else {
-                shootBall('save');
-                saveMessageElement.style.display = 'block';
-                document.querySelectorAll('#optionsContainer .option-button').forEach(b => {
-                    if (parseInt(b.innerText.replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d))) === currentProblem.answer) {
-                        b.classList.add('correct-answer');
-                    }
-                });
-            }
-        }
-
-        function showSolution() {
-            clearTimeout(resetTimeoutId);
-            resetTimeoutId = null;
-            solutionQuestion.innerHTML = currentProblem.html;
-            solutionStepsArray = currentProblem.steps;
-            currentStepIndex = 0;
-            solutionSteps.innerHTML = '';
-            nextStepButton.innerText = 'التالي';
-            showNextSolutionStep();
-            solutionScreen.classList.add('visible');
-        }
-
-        function showNextSolutionStep() {
-            if (currentStepIndex < solutionStepsArray.length) {
-                const step = solutionStepsArray[currentStepIndex];
-                const stepDiv = document.createElement('div');
-                stepDiv.className = 'solution-step';
-                stepDiv.innerHTML = `<span class="solution-eq">${step.eq}</span><span class="solution-comment">${step.comment}</span>`;
-                solutionSteps.appendChild(stepDiv);
-                currentStepIndex++;
-                if (currentStepIndex === solutionStepsArray.length) {
-                    nextStepButton.innerText = 'إغلاق';
-                }
-            } else {
-                solutionScreen.classList.remove('visible');
-                setTimeout(() => resetGame(false), 500);
-            }
-        }
-
-        function updateScoreDisplay(isReset = false) {
-            scoreValueElement.innerText = toArabicNumerals(score);
-            if (!isReset) {
-                scoreValueElement.classList.add('score-updated');
-                setTimeout(() => {
-                    scoreValueElement.classList.remove('score-updated');
-                }, 500);
-            }
-        }
-
-        function startTimer() {
-            timeLeft = TIME_PER_QUESTION;
-            timerValueElement.innerText = toArabicNumerals(timeLeft);
-            timerDisplay.classList.remove('warning');
-
-            clearInterval(timerInterval);
-            timerInterval = setInterval(() => {
-                timeLeft--;
-                timerValueElement.innerText = toArabicNumerals(timeLeft);
-                if (timeLeft <= 5) {
-                    timerDisplay.classList.add('warning');
-                }
-                if (timeLeft <= 0) {
-                    clearInterval(timerInterval);
-                    checkAnswer(null);
-                }
-            }, 1000);
-        }
-
-        function stopTimer() {
-            clearInterval(timerInterval);
-        }
-
-        function shootBall(type) {
-            if (isBallShot) return;
-            isBallShot = true;
-            isKeeperReacting = true;
-            shotTypeGlobal = type;
-            
-            let shotTarget = new THREE.Vector3();
-
-            if (type === 'goal') {
-                const goalSide = Math.random() < 0.5 ? -1 : 1;
-                shotTarget.set((goalWidth / 2 * 0.8) * goalSide, goalHeight * 0.8, goalLineZ - 0.5);
-                keeperTarget.set(shotTarget.x * -1, shotTarget.y, goalLineZ);
-                ballVelocity = shotTarget.clone().sub(ball.position).normalize().multiplyScalar(0.75);
-                triggerGoalEffects();
-            } else { // 'save'
-                const diveX = THREE.MathUtils.randFloat(-2.0, 2.0);
-                const diveY = THREE.MathUtils.randFloat(0.5, 1.8);
-                keeperTarget.set(diveX, diveY, goalLineZ);
-                shotTarget.copy(keeperTarget).y += 0.2;
-                ballVelocity = shotTarget.clone().sub(ball.position).normalize().multiplyScalar(0.6);
-            }
-        }
-
-        function resetGame(isInitial = false) {
-            clearTimeout(resetTimeoutId);
-            resetTimeoutId = null;
-            isResetting = false;
-
-            if (goalMessageElement) goalMessageElement.style.display = 'none';
-            if (saveMessageElement) saveMessageElement.style.display = 'none';
-
-            isBallShot = false;
-            isKeeperReacting = false;
-            keeperSaved = false;
-            goalScored = false;
-            hasHitNet = false;
-            ball.position.set(0, ballRadius, 7);
-            ballVelocity.set(0, 0, 0);
-            keeperGroup.position.copy(initialKeeperPosition);
-            knowWhyButton.style.visibility = 'hidden';
-            
-            if (!isInitial) {
-                questionIndex++;
-                if (questionIndex >= problemsPerStage[currentStage - 1]) {
-                    if (currentStage < 2) {
-                        infoContainer.style.visibility = 'hidden';
-                        mathContainer.style.visibility = 'hidden';
-                        showStageIntro(2);
-                    } else {
-                        showFinalScore();
-                    }
-                } else {
-                    displayNewQuestion();
-                }
-            }
-        }
-
-        function showFinalScore() {
-            infoContainer.style.visibility = 'hidden';
-            mathContainer.style.visibility = 'hidden';
-            
-            let feedback = '';
-            if (score >= 9) {
-                feedback = excellentFeedback[Math.floor(Math.random() * excellentFeedback.length)];
-            } else if (score >= 6) {
-                feedback = goodFeedback[Math.floor(Math.random() * goodFeedback.length)];
-            } else if (score >= 3) {
-                feedback = needsImprovementFeedback[Math.floor(Math.random() * needsImprovementFeedback.length)];
-            } else {
-                feedback = lowFeedback[Math.floor(Math.random() * lowFeedback.length)];
-            }
-            feedbackText.innerText = feedback;
-            
-            finalScoreScreen.classList.add('visible');
-            saveOrFinishGame(score);
-        }
-
-        function handleCollision() {
-            saveSound.triggerAttackRelease("C2", "0.5");
-            keeperSaved = true;
-            isKeeperReacting = false;
-            const reboundDirection = new THREE.Vector3(
-                THREE.MathUtils.randFloat(-1, 1),
-                THREE.MathUtils.randFloat(0.5, 1.2),
-                THREE.MathUtils.randFloat(0.8, 1.5)
-            );
-            reboundDirection.normalize();
-            ballVelocity.copy(reboundDirection).multiplyScalar(0.8);
-        }
-        
-        function triggerGoalEffects() {
-            document.body.classList.add('screen-shake');
-            setTimeout(() => document.body.classList.remove('screen-shake'), 500);
-            flashGoalposts();
-            createConfetti();
-            crowdCheer.triggerAttackRelease("2.5s");
-        }
-
-        function flashGoalposts() {
-            const posts = [leftPost, rightPost, crossbar];
-            const originalEmissive = posts[0].material.emissive.getHex();
-            
-            let flashes = 0;
-            const maxFlashes = 4;
-            const flashInterval = setInterval(() => {
-                posts.forEach(p => {
-                    p.material.emissive.setHex(flashes % 2 === 0 ? 0xFFFF00 : originalEmissive);
-                });
-                flashes++;
-                if (flashes >= maxFlashes) {
-                    clearInterval(flashInterval);
-                }
-            }, 150);
-        }
-
-        function createConfetti() {
-            const confettiCount = 150;
-            const confettiGeometry = new THREE.PlaneGeometry(0.1, 0.1);
-            const colors = [0xffd700, 0xff69b4, 0x00bfff, 0x7cfc00, 0xff4500];
-
-            for (let i = 0; i < confettiCount; i++) {
-                const confettiMaterial = new THREE.MeshBasicMaterial({ color: colors[Math.floor(Math.random() * colors.length)], side: THREE.DoubleSide });
-                const confetti = new THREE.Mesh(confettiGeometry, confettiMaterial);
-                
-                confetti.position.set(
-                    THREE.MathUtils.randFloatSpread(15),
-                    THREE.MathUtils.randFloat(10, 15),
-                    THREE.MathUtils.randFloatSpread(5)
-                );
-
-                const particle = {
-                    mesh: confetti,
-                    velocity: new THREE.Vector3(
-                        THREE.MathUtils.randFloatSpread(0.02),
-                        -0.05 - Math.random() * 0.05,
-                        THREE.MathUtils.randFloatSpread(0.02)
-                    ),
-                    rotationSpeed: new THREE.Vector3(
-                        Math.random() * 0.1,
-                        Math.random() * 0.1,
-                        Math.random() * 0.1
-                    )
-                };
-                confettiParticles.push(particle);
-                confettiGroup.add(confetti);
-            }
-        }
-
-
-        function animate() {
-            requestAnimationFrame(animate);
-            controls.update();
-
-            for (let i = confettiParticles.length - 1; i >= 0; i--) {
-                const particle = confettiParticles[i];
-                particle.mesh.position.add(particle.velocity);
-                particle.mesh.rotation.x += particle.rotationSpeed.x;
-                particle.mesh.rotation.y += particle.rotationSpeed.y;
-                particle.mesh.rotation.z += particle.rotationSpeed.z;
-
-                if (particle.mesh.position.y < -2) {
-                    confettiGroup.remove(particle.mesh);
-                    confettiParticles.splice(i, 1);
-                }
-            }
-
-            if (isKeeperReacting && !keeperSaved && !goalScored) {
-                keeperGroup.position.lerp(keeperTarget, 0.08);
-                const ballSphere = new THREE.Sphere(ball.position, ballRadius);
-                auraBoundingBox.setFromObject(collisionAura);
-                if (auraBoundingBox.intersectsSphere(ballSphere)) {
-                    if (shotTypeGlobal !== 'goal') {
-                         handleCollision();
-                    }
-                }
-            }
-            
-            if (isBallShot) {
-                if (!goalScored && !keeperSaved) {
-                    if (ball.position.z <= ballRadius && ball.position.z >= -ballRadius) {
-                        if (Math.abs(ball.position.x - leftPost.position.x) < postRadius + ballRadius ||
-                            Math.abs(ball.position.x - rightPost.position.x) < postRadius + ballRadius) {
-                            if (ball.position.y < goalHeight) {
-                                ballVelocity.x *= -0.8;
-                            }
-                        }
-                        if (Math.abs(ball.position.y - crossbar.position.y) < postRadius + ballRadius) {
-                            if (Math.abs(ball.position.x) < goalWidth / 2) {
-                                ballVelocity.y *= -0.8;
-                            }
-                        }
-                    }
-
-                    if (ball.position.z <= 0 + ballRadius && Math.abs(ball.position.x) < goalWidth / 2 && ball.position.y < goalHeight) {
-                        goalScored = true;
-                    }
-                }
-                
-                if (goalScored && !hasHitNet) {
-                    if (ball.position.z <= -netDepth + ballRadius) {
-                        hasHitNet = true;
-                        netSound.triggerAttackRelease("8n");
-                        ballVelocity.multiplyScalar(1.0 - 0.88);
-                        ballVelocity.z *= -1;
-                    }
-                    if (Math.abs(ball.position.x) >= goalWidth / 2 - ballRadius) {
-                         ballVelocity.x *= -0.8;
-                    }
-                     if (ball.position.y >= goalHeight - ballRadius) {
-                         ballVelocity.y *= -0.8;
-                    }
-                }
-
-                const horizontalVelocity = new THREE.Vector3(ballVelocity.x, 0, ballVelocity.z);
-                const speed = horizontalVelocity.length();
-                if (speed > 0.001) {
-                    const distance = speed;
-                    const rotationAngle = distance / ballRadius;
-                    const rotationAxis = new THREE.Vector3().crossVectors(horizontalVelocity, new THREE.Vector3(0, 1, 0)).normalize();
-                    const quaternion = new THREE.Quaternion();
-                    quaternion.setFromAxisAngle(rotationAxis, rotationAngle);
-                    ball.quaternion.premultiply(quaternion);
-                }
-
-                ballVelocity.add(gravity);
-                ball.position.add(ballVelocity);
-
-                if (ball.position.y < ballRadius) {
-                    ball.position.y = ballRadius;
-                    ballVelocity.y *= -0.4; 
-                    ballVelocity.x *= 0.96; 
-                    ballVelocity.z *= 0.96;
-                }
-            }
-
-            const outOfBounds = ball.position.z < -netDepth - 2 || ball.position.z > 15 || Math.abs(ball.position.x) > 15;
-            const goalRollStopped = goalScored && ball.position.y <= ballRadius && ballVelocity.length() < 0.02;
-            if (isBallShot && !isResetting && (outOfBounds || (keeperSaved && ball.position.z > 10) || goalRollStopped)) {
-                isResetting = true;
-                resetTimeoutId = setTimeout(() => {
-                    resetGame(false);
-                }, 3000);
-            }
-
-            renderer.render(scene, camera);
-        }
-        
-        function onWindowResize() {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        }
-        
-        init();
-    </script>
-    
-    <!-- --- START OF CONNECTION ENGINE --- -->
     <script>
-    (function() {
-        // --- CONFIGURATION ---
-        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
-        const GAME_ID = 'g1_5_1';
-        const GAME_MAX_POINTS = 10;
-        const PLATFORM_MAX_GRADE = 5;
+        const elements = {
+            inputBox: document.getElementById('input-box'),
+            outputBox: document.getElementById('output-box'),
+            machineBox: document.getElementById('machine-box'),
+            factoryContainer: document.querySelector('.factory-container'),
+            equationDisplay: document.getElementById('equation-display'),
+            questionTitle: document.getElementById('question-title'),
+            interactiveArea: document.getElementById('interactive-area'),
+            userAnswerInput: document.getElementById('user-answer'),
+            checkBtn: document.getElementById('check-btn'),
+            showExampleBtn: document.getElementById('show-example-btn'),
+            messageBox: document.getElementById('message-box'),
+            resultsTable: document.getElementById('results-table'),
+            difficultyDisplay: document.getElementById('difficulty-display'),
+            scoreEasy: document.getElementById('score-easy'),
+            scoreMedium: document.getElementById('score-medium'),
+            scoreHard: document.getElementById('score-hard'),
+            coordinateDisplay: document.getElementById('coordinate-display'),
+            levelProgressionControls: document.getElementById('level-progression-controls'),
+            nextLevelBtn: document.getElementById('next-level-btn'),
+            replayLevelBtn: document.getElementById('replay-level-btn'),
+            boxStack: document.querySelector('.box-stack'),
+        };
 
-        let currentUser = null; 
+        const difficultyNames = { easy: 'السهل', medium: 'المتوسط', hard: 'الصعب' };
 
-        function toArabicNumerals(num) {
-            const arabicNumerals = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
-            const sign = num < 0 ? '−' : '';
-            const numStr = String(Math.abs(num));
-            const parts = numStr.split('.');
-            const integerPart = parts[0].replace(/[0-9]/g, d => arabicNumerals[parseInt(d)]);
-            if (parts.length > 1) {
-                const decimalPart = parts[1].replace(/[0-9]/g, d => arabicNumerals[parseInt(d)]);
-                return sign + integerPart + '٫' + decimalPart;
+        let state = {
+            difficultyLevels: {
+                easy: [
+                    { text: 'ص = س + ٥', func: s => s + 5, steps: s => [`ص = ${toA(s)} + ٥`, `ص = ${toA(s + 5)}`] },
+                    { text: 'ص = س - ٣', func: s => s - 3, steps: s => [`ص = ${toA(s)} - ٣`, `ص = ${toA(s - 3)}`] },
+                    { text: 'ص = ٢س', func: s => 2 * s, steps: s => [`ص = ٢ × ${toA(s)}`, `ص = ${toA(2 * s)}`] },
+                ],
+                medium: [
+                    { text: 'ص = ٢س + ٣', func: s => 2 * s + 3, steps: s => [`ص = ٢ × ${toA(s)} + ٣`, `ص = ${toA(2 * s)} + ٣`, `ص = ${toA(2 * s + 3)}`] },
+                    { text: 'ص = ٣س - ١', func: s => 3 * s - 1, steps: s => [`ص = ٣ × ${toA(s)} - ١`, `ص = ${toA(3 * s)} - ١`, `ص = ${toA(3 * s - 1)}`] },
+                    { text: 'ص = <span class="fraction"><span class="numerator">س</span><span class="denominator">٢</span></span> + ١', func: s => s / 2 + 1, evenOnly: true, steps: s => [`ص = <span class="fraction"><span class="numerator">${toA(s)}</span><span class="denominator">٢</span></span> + ١`, `ص = ${toA(s / 2)} + ١`, `ص = ${toA(s / 2 + 1)}`] },
+                ],
+                hard: [
+                    { text: 'ص = س² + ١', func: s => s * s + 1, steps: s => [`ص = ${toA(s)}² + ١`, `ص = ${toA(s * s)} + ١`, `ص = ${toA(s * s + 1)}`] },
+                    { text: 'ص = ٣(س + ٢)', func: s => 3 * (s + 2), steps: s => [`ص = ٣(${toA(s)} + ٢)`, `ص = ٣ × ${toA(s + 2)}`, `ص = ${toA(3 * (s + 2))}`] },
+                    { text: 'ص = ١٥ - ٢س', func: s => 15 - 2 * s, steps: s => [`ص = ١٥ - ٢ × ${toA(s)}`, `ص = ١٥ - ${toA(2 * s)}`, `ص = ${toA(15 - 2 * s)}`] },
+                ]
+            },
+            currentDifficulty: 'easy',
+            equationsPerLevel: 1,
+            interactiveRoundsPerEquation: 3,
+            equationsCompletedInLevel: 0,
+            scores: { easy: 0, medium: 0, hard: 0 },
+            lastEquationIndex: -1,
+            currentEquation: null,
+            exampleInputs: [],
+            interactiveInputs: [],
+            examplesShown: 0,
+            interactiveRoundsCompleted: 0,
+            currentS: 0,
+            correctY: 0,
+            attemptsLeft: 2,
+            flashIntervalId: null,
+            isAnimating: false,
+        };
+
+        const toA = (num) => {
+            if (num === null || num === undefined) return '';
+            const arabic = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+            const numStr = Math.abs(num).toString().split('').map(digit => arabic[digit] || digit).join('');
+            return num < 0 ? `<span class="negative-sign">−</span>${numStr}` : numStr;
+        }
+        
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
             }
-            return sign + integerPart;
+            return array;
         }
 
-        window.saveOrFinishGame = function(points) {
-            const finalPoints = parseInt(points, 10) || 0;
-            const finalGrade = (finalPoints / GAME_MAX_POINTS) * PLATFORM_MAX_GRADE;
+        function startNewLevel() {
+            state.equationsCompletedInLevel = 0;
+            startNewEquation();
+        }
 
-            const resultDisplay = document.getElementById('final-result-display');
-            if (resultDisplay) {
-                resultDisplay.innerHTML = `
-                    <p style="white-space: nowrap;">النقاط: <span style="font-weight: bold;">${toArabicNumerals(finalPoints)} / ${toArabicNumerals(GAME_MAX_POINTS)}</span></p>
-                    <p style="white-space: nowrap;">الدرجة في المنصة: <span style="font-weight: bold; color: #2196F3;">${toArabicNumerals(finalGrade.toLocaleString('ar-EG', {minimumFractionDigits: 0, maximumFractionDigits: 1}))} / ${toArabicNumerals(PLATFORM_MAX_GRADE)}</span></p>
-                `;
+        function startNewEquation() {
+            elements.difficultyDisplay.textContent = `المستوى: ${difficultyNames[state.currentDifficulty]}`;
+
+            const availableEquations = state.difficultyLevels[state.currentDifficulty];
+            let newIndex;
+            do {
+                newIndex = Math.floor(Math.random() * availableEquations.length);
+            } while (availableEquations.length > 1 && newIndex === state.lastEquationIndex);
+            
+            state.lastEquationIndex = newIndex;
+            state.currentEquation = availableEquations[newIndex];
+            
+            let positivePool = shuffleArray([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+            let negativePool = shuffleArray([-1, -2, -3, -4, -5]);
+
+            if (state.currentEquation.evenOnly) {
+                positivePool = shuffleArray([2, 4, 6, 8, 10, 12]);
+                negativePool = shuffleArray([-2, -4, -6, -8]);
             }
+            state.interactiveInputs = [positivePool.pop(), positivePool.pop(), negativePool.pop()];
+            shuffleArray(state.interactiveInputs);
 
-            if (currentUser && currentUser.id) {
-                console.log(`Saving grade ${finalGrade} for student ${currentUser.id}`);
-                const params = new URLSearchParams({
-                    action: 'saveGrade',
-                    studentId: currentUser.id,
-                    itemId: GAME_ID,
-                    grade: finalGrade
-                });
+            state.exampleInputs = [positivePool.pop(), negativePool.pop()];
 
-                fetch(`${SCRIPT_URL}?${params.toString()}`)
-                    .then(res => res.json())
-                    .then(result => {
-                        if (result.status === 'success') {
-                            console.log('Score saved successfully!');
-                            setTimeout(() => window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*'), 2500);
-                        } else { throw new Error(result.message); }
-                    })
-                    .catch(err => console.error("Save Error:", err));
+            state.examplesShown = 0;
+            state.interactiveRoundsCompleted = 0;
+            elements.resultsTable.innerHTML = '';
+            
+            loadInteractiveRound();
+        }
+
+        function loadInteractiveRound() {
+            if (state.interactiveRoundsCompleted >= state.interactiveInputs.length) {
+                state.equationsCompletedInLevel++;
+                updateScoreDisplay();
+
+                if (state.equationsCompletedInLevel >= state.equationsPerLevel) {
+                    showMessage('مستوى مكتمل! أحسنت!', 'green');
+                    elements.questionTitle.textContent = 'اختر خطوتك التالية.';
+                    elements.interactiveArea.classList.add('hidden');
+                    elements.showExampleBtn.classList.add('hidden');
+                    showLevelProgressionControls();
+                } else {
+                    startNewEquation();
+                }
+                return;
+            }
+            resetUI();
+            
+            state.currentS = state.interactiveInputs[state.interactiveRoundsCompleted];
+            state.correctY = state.currentEquation.func(state.currentS);
+            state.attemptsLeft = 2;
+            
+            const roundNum = toA(state.interactiveRoundsCompleted + 1);
+            const totalRounds = toA(state.interactiveInputs.length);
+            elements.questionTitle.innerHTML = `<span class="text-indigo-600 font-extrabold">الجولة ${roundNum} من ${totalRounds}:</span> <span class="text-gray-800 font-bold">عندما س = ${toA(state.currentS)}، ما قيمة ص؟</span>`;
+            elements.interactiveArea.classList.remove('hidden');
+            elements.inputBox.innerHTML = toA(state.currentS);
+            elements.userAnswerInput.focus();
+        }
+        
+        function showLevelProgressionControls() {
+            elements.levelProgressionControls.classList.remove('hidden');
+            elements.replayLevelBtn.textContent = `إعادة المستوى ${difficultyNames[state.currentDifficulty]}`;
+            
+            if (state.currentDifficulty === 'hard') {
+                elements.nextLevelBtn.textContent = 'إنهاء اللعبة';
+                elements.nextLevelBtn.classList.add('btn-disabled');
+                elements.nextLevelBtn.disabled = true;
             } else {
-                console.log(`Visitor finished with score ${finalPoints}`);
-                setTimeout(() => window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*'), 2500);
+                const nextDifficultyName = state.currentDifficulty === 'easy' ? difficultyNames.medium : difficultyNames.hard;
+                elements.nextLevelBtn.textContent = `الانتقال للمستوى ${nextDifficultyName}`;
+                elements.nextLevelBtn.disabled = false;
+                elements.nextLevelBtn.classList.remove('btn-disabled');
             }
         }
 
-        window.addEventListener('message', (event) => {
-            if (event.data && event.data.event === 'userData') {
-                currentUser = event.data.data;
-                console.log('User data received:', currentUser);
+        function showExample() {
+            if (state.isAnimating || state.examplesShown >= state.exampleInputs.length) return;
+            
+            state.isAnimating = true;
+            toggleInteractiveControls(false);
+
+            const exampleS = state.exampleInputs[state.examplesShown];
+            const exampleY = state.currentEquation.func(exampleS);
+            
+            const originalInput = elements.inputBox.innerHTML;
+            elements.inputBox.innerHTML = toA(exampleS);
+            
+            showMessage('شاهد وتعلم...', 'blue');
+            elements.factoryContainer.style.background = '#a7f3d0';
+
+            animateProcessing(exampleS);
+            const animationDuration = state.currentEquation.steps(exampleS).length * 1200;
+
+            setTimeout(() => {
+                elements.outputBox.innerHTML = toA(exampleY);
+                elements.outputBox.style.backgroundColor = '#d1fae5';
+                showCoordinatePoint(exampleS, exampleY);
+                addResultToTable('💡', exampleS, exampleY);
+                state.examplesShown++;
+                
+                setTimeout(() => {
+                    resetUI();
+                    elements.inputBox.innerHTML = originalInput;
+                    const roundNum = toA(state.interactiveRoundsCompleted + 1);
+                    const totalRounds = toA(state.interactiveInputs.length);
+                    elements.questionTitle.innerHTML = `<span class="text-indigo-600 font-extrabold">الجولة ${roundNum} من ${totalRounds}:</span> <span class="text-gray-800 font-bold">عندما س = ${toA(state.currentS)}، ما قيمة ص؟</span>`;
+                    elements.interactiveArea.classList.remove('hidden');
+                    state.isAnimating = false;
+                    toggleInteractiveControls(true);
+                }, 2000);
+
+            }, animationDuration + 500);
+        }
+
+        function checkAnswer() {
+            if (state.isAnimating) return;
+            const userAnswer = parseFloat(elements.userAnswerInput.value);
+            if (isNaN(userAnswer)) {
+                showMessage('الرجاء إدخال رقم!', 'orange');
+                return;
             }
+            
+            state.isAnimating = true;
+            toggleInteractiveControls(false);
+
+            if (userAnswer === state.correctY) {
+                state.scores[state.currentDifficulty]++;
+                elements.factoryContainer.style.background = '#a7f3d0';
+                animateProcessing(state.currentS);
+                const animationDuration = state.currentEquation.steps(state.currentS).length * 1200;
+                setTimeout(() => {
+                    showMessage('إجابة صحيحة! رائع!', 'green');
+                    flashOutput('⭐', toA(state.correctY), true);
+                    showCoordinatePoint(state.currentS, state.correctY);
+                    addResultToTable('✅', state.currentS, state.correctY);
+                    state.interactiveRoundsCompleted++;
+                    setTimeout(loadInteractiveRound, 2500);
+                }, animationDuration);
+            } else {
+                state.attemptsLeft--;
+                elements.factoryContainer.style.background = '#fecaca';
+                animateExplosion();
+                setTimeout(() => {
+                    flashOutput('💥', toA(userAnswer), false);
+                    if (state.attemptsLeft > 0) {
+                        showMessage(`إجابة خاطئة! لديك محاولة أخرى.`, 'red');
+                        state.isAnimating = false;
+                        toggleInteractiveControls(true);
+                        elements.userAnswerInput.focus();
+                        elements.userAnswerInput.select();
+                        elements.factoryContainer.style.background = 'linear-gradient(to bottom, #dbeafe, #bfdbfe)';
+                    } else {
+                        showMessage(`للأسف، الإجابة الصحيحة هي ${toA(state.correctY)}`, 'red');
+                        addResultToTable('❌', state.currentS, state.correctY);
+                        state.interactiveRoundsCompleted++;
+                        setTimeout(loadInteractiveRound, 2500);
+                    }
+                }, 1000);
+            }
+        }
+        
+        function animateProcessing(s_value) {
+            elements.machineBox.classList.add('shake-normal');
+            const steps = state.currentEquation.steps(s_value);
+            elements.equationDisplay.innerHTML = '';
+
+            steps.forEach((step, index) => {
+                setTimeout(() => {
+                    const stepDiv = document.createElement('div');
+                    stepDiv.className = 'calculation-step';
+                    stepDiv.innerHTML = step;
+                    elements.equationDisplay.appendChild(stepDiv);
+                    setTimeout(() => stepDiv.classList.add('visible'), 50);
+                }, index * 1200);
+            });
+
+            setTimeout(() => {
+                elements.machineBox.classList.remove('shake-normal');
+            }, steps.length * 1200);
+        }
+
+        function animateExplosion() {
+            elements.machineBox.classList.add('shake-intense');
+            setTimeout(() => elements.machineBox.classList.remove('shake-intense'), 800);
+        }
+
+        function flashOutput(icon, numberHTML, isCorrect) {
+            let count = 0;
+            elements.outputBox.style.backgroundColor = isCorrect ? '#d1fae5' : '#fee2e2';
+            state.flashIntervalId = setInterval(() => {
+                elements.outputBox.innerHTML = (count % 2 === 0) ? numberHTML : icon;
+                count++;
+                if (count > 5) {
+                    clearInterval(state.flashIntervalId);
+                    elements.outputBox.innerHTML = isCorrect ? '⭐' : '💥';
+                }
+            }, 300);
+        }
+        
+        function showCoordinatePoint(s, y) {
+            const coordEl = elements.coordinateDisplay;
+            coordEl.innerHTML = `(${toA(s)}، ${toA(y)})`;
+            coordEl.classList.remove('opacity-0', 'scale-90');
+            coordEl.classList.add('opacity-100', 'scale-100');
+            
+            setTimeout(() => {
+                 coordEl.classList.remove('opacity-100', 'scale-100');
+                 coordEl.classList.add('opacity-0', 'scale-90');
+            }, 2000);
+        }
+
+        function resetUI() {
+            if (state.flashIntervalId) clearInterval(state.flashIntervalId);
+            state.isAnimating = false;
+            toggleInteractiveControls(true);
+            elements.levelProgressionControls.classList.add('hidden');
+            elements.showExampleBtn.classList.remove('hidden');
+            showMessage('', '');
+            elements.factoryContainer.style.background = 'linear-gradient(to bottom, #dbeafe, #bfdbfe)';
+            elements.equationDisplay.innerHTML = `<div class="calculation-step visible">${state.currentEquation.text}</div>`;
+            elements.userAnswerInput.value = '';
+            elements.inputBox.textContent = '؟';
+            elements.outputBox.textContent = '؟';
+            elements.outputBox.style.backgroundColor = '#e0e7ff';
+        }
+        
+        function toggleInteractiveControls(enable) {
+            elements.checkBtn.disabled = !enable;
+            elements.showExampleBtn.disabled = !enable || (state.examplesShown >= state.exampleInputs.length);
+
+            if(enable) {
+                elements.checkBtn.classList.remove('btn-disabled');
+                if (state.examplesShown < state.exampleInputs.length) {
+                    elements.showExampleBtn.classList.remove('btn-disabled');
+                } else {
+                    elements.showExampleBtn.classList.add('btn-disabled');
+                }
+            } else {
+                elements.checkBtn.classList.add('btn-disabled');
+                elements.showExampleBtn.classList.add('btn-disabled');
+            }
+        }
+
+        function addResultToTable(status, s_val, y_val) {
+            const newRow = elements.resultsTable.insertRow(0);
+            newRow.className = 'border-b';
+            const [cellS, cellEq, cellY, cellCoord] = [newRow.insertCell(0), newRow.insertCell(1), newRow.insertCell(2), newRow.insertCell(3)];
+            
+            cellS.innerHTML = `${status} ${toA(s_val)}`;
+            cellEq.innerHTML = state.currentEquation.text;
+            cellY.innerHTML = toA(y_val);
+            cellCoord.innerHTML = `(${toA(s_val)}، ${toA(y_val)})`;
+            
+            cellS.className = 'p-2';
+            cellEq.className = 'p-2';
+            cellY.className = 'p-2 font-bold text-indigo-600';
+            cellCoord.className = 'p-2 text-purple-600';
+        }
+        
+        function updateScoreDisplay() {
+            const totalScorePerLevel = state.interactiveRoundsPerEquation;
+            elements.scoreEasy.innerHTML = `المستوى السهل: ${toA(state.scores.easy)} / ${toA(totalScorePerLevel)}`;
+            elements.scoreMedium.innerHTML = `المستوى المتوسط: ${toA(state.scores.medium)} / ${toA(totalScorePerLevel)}`;
+            elements.scoreHard.innerHTML = `المستوى الصعب: ${toA(state.scores.hard)} / ${toA(totalScorePerLevel)}`;
+        }
+
+        function showMessage(text, color) {
+            const colorClasses = {
+                green: 'text-green-600',
+                red: 'text-red-600',
+                orange: 'text-orange-500',
+                blue: 'text-blue-600'
+            };
+            elements.messageBox.className = `mt-2 text-xl font-bold h-7 ${colorClasses[color] || 'text-gray-700'}`;
+            elements.messageBox.textContent = text;
+        }
+        
+        function createBoxStack() {
+            elements.boxStack.innerHTML = '';
+            for (let i = 0; i < 12; i++) {
+                const box = document.createElement('div');
+                box.className = 'box';
+                const row = Math.floor(i / 4);
+                const col = i % 4;
+                box.style.bottom = `${row * 20}px`;
+                box.style.left = `${col * 22}px`;
+                elements.boxStack.appendChild(box);
+            }
+        }
+
+        function runBoxAnimationCycle() {
+            const boxes = elements.boxStack.children;
+            const stackDelay = 250;
+            const unstackDelay = 250;
+            const pauseDuration = 3000;
+            const totalStackTime = boxes.length * stackDelay;
+
+            // Stacking (bottom-left to top-right)
+            for (let i = 0; i < boxes.length; i++) {
+                setTimeout(() => {
+                    boxes[i].classList.add('appear');
+                }, i * stackDelay);
+            }
+
+            // Unstacking (top-right to bottom-left)
+            setTimeout(() => {
+                for (let i = 0; i < boxes.length; i++) {
+                    const reverseIndex = boxes.length - 1 - i;
+                    setTimeout(() => {
+                        boxes[reverseIndex].classList.remove('appear');
+                    }, i * unstackDelay);
+                }
+            }, totalStackTime + pauseDuration);
+        }
+
+        elements.checkBtn.addEventListener('click', checkAnswer);
+        elements.userAnswerInput.addEventListener('keyup', (event) => {
+            if (event.key === 'Enter' && !elements.checkBtn.disabled) checkAnswer();
         });
-    })();
+        elements.showExampleBtn.addEventListener('click', showExample);
+        
+        elements.nextLevelBtn.addEventListener('click', () => {
+            if (elements.nextLevelBtn.disabled) return;
+            if (state.currentDifficulty === 'easy') state.currentDifficulty = 'medium';
+            else if (state.currentDifficulty === 'medium') state.currentDifficulty = 'hard';
+            
+            startNewLevel();
+        });
+
+        elements.replayLevelBtn.addEventListener('click', () => {
+            if (elements.replayLevelBtn.disabled) return;
+            state.scores[state.currentDifficulty] = 0;
+            updateScoreDisplay();
+            startNewLevel();
+        });
+
+
+        window.onload = () => {
+            createBoxStack();
+            runBoxAnimationCycle();
+            const totalCycleTime = (12 * 250) * 2 + 3000; // 9000ms
+            setInterval(runBoxAnimationCycle, totalCycleTime + 1000); // Repeat every 10 seconds
+            updateScoreDisplay();
+            startNewEquation();
+        };
     </script>
-    <!-- --- END OF CONNECTION ENGINE --- -->
 </body>
 </html>

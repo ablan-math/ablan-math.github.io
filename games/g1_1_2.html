@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مصنع المعادلات - واجهة مدمجة</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        html, body {
+            height: 100%;
+            overflow: hidden; /* Prevent scrolling on the body */
+        }
+        body {
+            font-family: 'Cairo', sans-serif;
+            background-color: #f0f4f8;
+            display: flex;
+            flex-direction: column;
+        }
+        main {
+            flex-grow: 1;
+            overflow-y: auto; /* Allow main content to scroll if needed on small screens */
+        }
+        .factory-container {
+            background: linear-gradient(to bottom, #dbeafe, #bfdbfe);
+            border: 4px solid #60a5fa;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+            position: relative;
+            transition: background 0.5s ease; /* Added transition for background */
+        }
+        .machine {
+            background-color: #93c5fd;
+            border: 8px groove #60a5fa;
+            transition: transform 0.2s ease-in-out;
+            min-height: 10rem; /* Reduced height */
+        }
+        .pipe {
+            background: #bfdbfe;
+            border: 2px solid #93c5fd;
+            height: 40px; /* Reduced height */
+        }
+        .conveyor-belt {
+            background-image: linear-gradient(45deg, #a5b4fc 25%, transparent 25%), linear-gradient(-45deg, #a5b4fc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #a5b4fc 75%), linear-gradient(-45deg, transparent 75%, #a5b4fc 75%);
+            background-size: 20px 20px;
+            background-position: 0 0;
+            animation: move-belt 1s linear infinite;
+            height: 20px;
+            border-top: 2px solid #818cf8;
+            border-bottom: 2px solid #818cf8;
+        }
+        @keyframes move-belt {
+            from { background-position: 0 0; }
+            to { background-position: -20px 0; }
+        }
+        .item {
+            transition: all 0.5s ease-in-out;
+            font-size: 1.5rem; /* Reduced size */
+            font-weight: bold;
+            color: #4338ca;
+            background-color: #e0e7ff;
+            border: 2px solid #a5b4fc;
+            width: 60px; /* Reduced size */
+            height: 60px; /* Reduced size */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .gear-svg {
+            width: 50px;
+            height: 50px;
+            animation: rotate 4s linear infinite;
+        }
+        .gear-svg path {
+            fill: #60a5fa;
+            opacity: 0.7;
+            filter: drop-shadow(1px 1px 1px rgba(0,0,0,0.2));
+        }
+        @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+        .shake-normal { animation: shake 0.8s cubic-bezier(.36,.07,.19,.97) both; }
+        .shake-intense { animation: shake-hard 0.6s ease-in-out both; }
+        
+        @keyframes shake { 10%, 90% { transform: translate3d(-1px, 0, 0); } 20%, 80% { transform: translate3d(2px, 0, 0); } 30%, 50%, 70% { transform: translate3d(-4px, 0, 0); } 40%, 60% { transform: translate3d(4px, 0, 0); } }
+        @keyframes shake-hard { 0%, 100% { transform: translateX(0); } 10% { transform: translateX(-10px) rotate(-3deg); } 20% { transform: translateX(10px) rotate(3deg); } 30% { transform: translateX(-10px) rotate(-3deg); } 40% { transform: translateX(10px) rotate(3deg); } 50% { transform: translateX(-10px) rotate(-3deg); } 60% { transform: translateX(10px) rotate(3deg); } 70% { transform: translateX(0) rotate(0); } }
+        
+        #equation-display {
+            display: flex;
+            flex-direction: column; /* Stacks steps vertically */
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+        .calculation-step { 
+            opacity: 0; 
+            transition: opacity 0.5s ease-in-out; 
+            font-weight: bold; 
+            color: white; 
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+            white-space: nowrap;
+            line-height: 1.5; /* Adds space between steps */
+        }
+        .calculation-step.visible { opacity: 1; }
+        
+        .fraction { display: inline-flex; flex-direction: column; align-items: center; vertical-align: middle; margin: 0 0.2em; line-height: 1; }
+        .numerator { padding-bottom: 0.1em; }
+        .denominator { border-top: 2px solid; padding-top: 0.1em; }
+        #equation-display .denominator { border-top-color: white; }
+        #results-table .denominator { border-top-color: #4b5563; }
+
+        #coordinate-display { transition: opacity 0.5s, transform 0.5s; }
+
+        .btn { font-weight: bold; padding: 0.5rem 1rem; border-radius: 0.5rem; text-lg; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: all 0.3s; }
+        .btn-primary { background-color: #4f46e5; color: white; }
+        .btn-primary:hover { background-color: #4338ca; transform: translateY(-2px); }
+        .btn-secondary { background-color: #10b981; color: white; }
+        .btn-secondary:hover { background-color: #059669; transform: translateY(-2px); }
+        .btn-warning { background-color: #f59e0b; color: white; }
+        .btn-warning:hover { background-color: #d97706; transform: translateY(-2px); }
+        .btn-disabled { background-color: #9ca3af; cursor: not-allowed; transform: none; box-shadow: none;}
+        .table-header { background-color: #60a5fa; color: white; position: sticky; top: 0; z-index: 10; }
+
+        .results-container {
+            position: relative;
+        }
+        .results-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23e0e7ff'%3E%3Cpath d='M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24-.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: center;
+            background-size: 60%;
+            opacity: 0.3;
+            pointer-events: none;
+        }
+
+        /* Crane Animation */
+        #crane-jib-group {
+            animation: rotate-jib 20s ease-in-out infinite alternate;
+            transform-origin: 100px 20px;
+        }
+        #crane-hook-group {
+            animation: move-hook 12s ease-in-out infinite alternate;
+        }
+        @keyframes rotate-jib {
+            from { transform: rotate(-2deg); }
+            to { transform: rotate(2deg); }
+        }
+        @keyframes move-hook {
+            from { transform: translateX(-20px); }
+            to { transform: translateX(50px); }
+        }
+
+        /* Box Stacking Animation */
+        .box-stack-container {
+            width: 100px;
+            height: 60px;
+            position: absolute;
+            bottom: -4.5rem; /* Positioned further below */
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 0;
+            opacity: 0.3;
+        }
+        .box-stack {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+        .box {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background-color: #a5b4fc;
+            border: 1px solid #818cf8;
+            border-radius: 2px;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+        }
+        .box.appear {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .negative-sign {
+            vertical-align: middle;
+            margin-left: 0.1em;
+        }
+    </style>
+</head>
+<body class="p-2 md:p-4">
+
+    <header class="text-center mb-2">
+        <h1 class="text-3xl md:text-4xl font-extrabold text-blue-800">🏭 مصنع المعادلات 🏭</h1>
+    </header>
+
+    <main class="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-grow">
+        <!-- Left Column: Score & Results -->
+        <div class="flex flex-col gap-4 bg-white/50 p-4 rounded-xl shadow-inner h-full">
+            <div id="score-board" class="flex flex-col md:flex-row justify-center gap-2 text-base font-bold text-center">
+                <div id="score-easy" class="flex-1 bg-green-100 text-green-800 p-2 rounded-lg shadow">المستوى السهل: ٠ / ٣</div>
+                <div id="score-medium" class="flex-1 bg-yellow-100 text-yellow-800 p-2 rounded-lg shadow">المستوى المتوسط: ٠ / ٣</div>
+                <div id="score-hard" class="flex-1 bg-red-100 text-red-800 p-2 rounded-lg shadow">المستوى الصعب: ٠ / ٣</div>
+            </div>
+            <div class="flex-grow bg-white rounded-lg shadow-lg overflow-hidden flex flex-col results-container">
+                 <h2 class="text-xl font-bold text-center text-blue-800 p-2 bg-blue-100">📋 جدول النتائج 📋</h2>
+                 <div class="overflow-y-auto flex-grow">
+                    <table class="w-full text-center relative z-10">
+                        <thead class="table-header text-base">
+                            <tr>
+                                <th class="p-2">المدخل</th>
+                                <th class="p-2">المعادلة</th>
+                                <th class="p-2">المخرج</th>
+                                <th class="p-2">النقطة</th>
+                            </tr>
+                        </thead>
+                        <tbody id="results-table" class="text-gray-700 text-lg"></tbody>
+                    </table>
+                 </div>
+            </div>
+            <div id="level-progression-controls" class="hidden flex justify-center gap-4">
+                <button id="next-level-btn" class="btn btn-warning">الانتقال للمستوى التالي</button>
+                <button id="replay-level-btn" class="btn btn-secondary">إعادة المستوى الحالي</button>
+            </div>
+        </div>
+
+        <!-- Right Column: Factory & Controls -->
+        <div class="flex flex-col gap-4 h-full">
+            <div class="factory-container rounded-2xl p-4 flex-grow">
+                <div id="coordinate-display" class="absolute top-2 left-1/2 -translate-x-1/2 bg-indigo-600 text-white font-bold text-2xl p-2 rounded-xl shadow-lg opacity-0 scale-90 z-20"></div>
+                <div class="flex items-center justify-between h-full">
+                    <div class="w-1/4 flex flex-col items-center justify-center relative">
+                         <!-- Animated Tower Crane SVG Background -->
+                        <div class="absolute -top-10 -right-28 opacity-20 z-0 pointer-events-none">
+                           <svg width="250" height="200" viewBox="0 0 250 200" xmlns="http://www.w3.org/2000/svg">
+                                <g stroke="#60a5fa" stroke-width="4" fill="#93c5fd">
+                                    <path d="M 110 200 L 110 30 L 115 30 L 115 20 L 85 20 L 85 30 L 90 30 L 90 200 Z" />
+                                    <path d="M 90 30 L 110 45 L 90 60 L 110 75 L 90 90 L 110 105 L 90 120 L 110 135 L 90 150 L 110 165 L 90 180 L 110 195" stroke-width="2" fill="none"/>
+                                    <path d="M 110 30 L 90 45 L 110 60 L 90 75 L 110 90 L 90 105 L 110 120 L 90 135 L 110 150 L 90 165 L 110 180 L 90 195" stroke-width="2" fill="none"/>
+                                </g>
+                                <g id="crane-jib-group">
+                                    <g stroke="#60a5fa" stroke-width="4" fill="#93c5fd">
+                                        <path d="M 140 20 L -40 20 L -40 10 L 140 10 Z" />
+                                        <path d="M 135 10 L 120 20 L 105 10 L 90 20 L 75 10 L 60 20 L 45 10 L 30 20 L 15 10 L 0 20 L -15 10 L -30 20" stroke-width="2" fill="none"/>
+                                        <path d="M 135 20 L 120 10 L 105 20 L 90 10 L 75 20 L 60 10 L 45 20 L 30 10 L 15 20 L 0 10 L -15 20 L -30 10" stroke-width="2" fill="none"/>
+                                    </g>
+                                    <g id="crane-hook-group">
+                                        <path d="M 20 20 L 20 60" stroke="#4b5563" stroke-width="2" fill="none"/>
+                                        <path d="M 10 70 L 30 70 L 25 60 L 15 60 Z" fill="#a5b4fc" stroke="#4b5563" stroke-width="2"/>
+                                    </g>
+                                </g>
+                            </svg>
+                        </div>
+                        <h2 class="text-xl font-bold text-blue-700 mb-2 z-10">س</h2>
+                        <div id="input-box" class="item rounded-full shadow-lg z-10">؟</div>
+                    </div>
+                    <div class="w-1/2 flex-grow flex flex-col items-center justify-center mx-2">
+                        <div class="w-full pipe my-2 rounded-md"></div>
+                        <div id="machine-box" class="machine w-full rounded-2xl flex flex-col items-center justify-center p-2 shadow-2xl relative overflow-hidden">
+                            <div class="absolute top-1 right-1">
+                                <svg class="gear-svg" style="animation-duration: 4s;" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24-.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/></svg>
+                            </div>
+                            <div class="absolute bottom-1 left-1">
+                                <svg class="gear-svg" style="animation-duration: 6s; animation-direction: reverse;" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24-.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/></svg>
+                            </div>
+                            <div id="equation-display" class="text-2xl md:text-3xl text-center z-10"></div>
+                        </div>
+                        <div class="conveyor-belt w-full mt-2"></div>
+                    </div>
+                    <div class="w-1/4 flex flex-col items-center justify-center relative">
+                        <h2 class="text-xl font-bold text-blue-700 mb-2 z-10">ص</h2>
+                        <div id="output-box" class="item rounded-lg shadow-lg z-10">؟</div>
+                        <div class="box-stack-container">
+                            <div class="box-stack"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white p-4 rounded-2xl shadow-lg text-center">
+                 <div id="difficulty-display" class="text-xl font-bold text-indigo-600 mb-2">المستوى: سهل</div>
+                <h3 id="question-title" class="text-xl font-bold text-gray-800 mb-3 h-12 flex items-center justify-center"></h3>
+                <div id="interactive-area" class="hidden flex-col sm:flex-row items-center justify-center gap-2">
+                    <label for="user-answer" class="text-lg">قيمة ص:</label>
+                    <input type="number" id="user-answer" class="text-center text-xl font-bold border-4 border-indigo-300 rounded-lg w-24 h-12 focus:border-indigo-500 focus:ring-indigo-500 transition">
+                    <button id="check-btn" class="btn btn-primary">تحقق</button>
+                </div>
+                <div class="mt-2">
+                     <button id="show-example-btn" class="btn btn-secondary">شاهد مثالاً</button>
+                </div>
+                <div id="message-box" class="mt-2 text-xl font-bold h-7"></div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const elements = {
+            inputBox: document.getElementById('input-box'),
+            outputBox: document.getElementById('output-box'),
+            machineBox: document.getElementById('machine-box'),
+            factoryContainer: document.querySelector('.factory-container'),
+            equationDisplay: document.getElementById('equation-display'),
+            questionTitle: document.getElementById('question-title'),
+            interactiveArea: document.getElementById('interactive-area'),
+            userAnswerInput: document.getElementById('user-answer'),
+            checkBtn: document.getElementById('check-btn'),
+            showExampleBtn: document.getElementById('show-example-btn'),
+            messageBox: document.getElementById('message-box'),
+            resultsTable: document.getElementById('results-table'),
+            difficultyDisplay: document.getElementById('difficulty-display'),
+            scoreEasy: document.getElementById('score-easy'),
+            scoreMedium: document.getElementById('score-medium'),
+            scoreHard: document.getElementById('score-hard'),
+            coordinateDisplay: document.getElementById('coordinate-display'),
+            levelProgressionControls: document.getElementById('level-progression-controls'),
+            nextLevelBtn: document.getElementById('next-level-btn'),
+            replayLevelBtn: document.getElementById('replay-level-btn'),
+            boxStack: document.querySelector('.box-stack'),
+        };
+
+        const difficultyNames = { easy: 'السهل', medium: 'المتوسط', hard: 'الصعب' };
+
+        let state = {
+            difficultyLevels: {
+                easy: [
+                    { text: 'ص = س + ٥', func: s => s + 5, steps: s => [`ص = ${toA(s)} + ٥`, `ص = ${toA(s + 5)}`] },
+                    { text: 'ص = س - ٣', func: s => s - 3, steps: s => [`ص = ${toA(s)} - ٣`, `ص = ${toA(s - 3)}`] },
+                    { text: 'ص = ٢س', func: s => 2 * s, steps: s => [`ص = ٢ × ${toA(s)}`, `ص = ${toA(2 * s)}`] },
+                ],
+                medium: [
+                    { text: 'ص = ٢س + ٣', func: s => 2 * s + 3, steps: s => [`ص = ٢ × ${toA(s)} + ٣`, `ص = ${toA(2 * s)} + ٣`, `ص = ${toA(2 * s + 3)}`] },
+                    { text: 'ص = ٣س - ١', func: s => 3 * s - 1, steps: s => [`ص = ٣ × ${toA(s)} - ١`, `ص = ${toA(3 * s)} - ١`, `ص = ${toA(3 * s - 1)}`] },
+                    { text: 'ص = <span class="fraction"><span class="numerator">س</span><span class="denominator">٢</span></span> + ١', func: s => s / 2 + 1, evenOnly: true, steps: s => [`ص = <span class="fraction"><span class="numerator">${toA(s)}</span><span class="denominator">٢</span></span> + ١`, `ص = ${toA(s / 2)} + ١`, `ص = ${toA(s / 2 + 1)}`] },
+                ],
+                hard: [
+                    { text: 'ص = س² + ١', func: s => s * s + 1, steps: s => [`ص = ${toA(s)}² + ١`, `ص = ${toA(s * s)} + ١`, `ص = ${toA(s * s + 1)}`] },
+                    { text: 'ص = ٣(س + ٢)', func: s => 3 * (s + 2), steps: s => [`ص = ٣(${toA(s)} + ٢)`, `ص = ٣ × ${toA(s + 2)}`, `ص = ${toA(3 * (s + 2))}`] },
+                    { text: 'ص = ١٥ - ٢س', func: s => 15 - 2 * s, steps: s => [`ص = ١٥ - ٢ × ${toA(s)}`, `ص = ١٥ - ${toA(2 * s)}`, `ص = ${toA(15 - 2 * s)}`] },
+                ]
+            },
+            currentDifficulty: 'easy',
+            equationsPerLevel: 1,
+            interactiveRoundsPerEquation: 3,
+            equationsCompletedInLevel: 0,
+            scores: { easy: 0, medium: 0, hard: 0 },
+            lastEquationIndex: -1,
+            currentEquation: null,
+            exampleInputs: [],
+            interactiveInputs: [],
+            examplesShown: 0,
+            interactiveRoundsCompleted: 0,
+            currentS: 0,
+            correctY: 0,
+            attemptsLeft: 2,
+            flashIntervalId: null,
+            isAnimating: false,
+        };
+
+        const toA = (num) => {
+            if (num === null || num === undefined) return '';
+            const arabic = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+            const numStr = Math.abs(num).toString().split('').map(digit => arabic[digit] || digit).join('');
+            return num < 0 ? `<span class="negative-sign">−</span>${numStr}` : numStr;
+        }
+        
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        function startNewLevel() {
+            state.equationsCompletedInLevel = 0;
+            startNewEquation();
+        }
+
+        function startNewEquation() {
+            elements.difficultyDisplay.textContent = `المستوى: ${difficultyNames[state.currentDifficulty]}`;
+
+            const availableEquations = state.difficultyLevels[state.currentDifficulty];
+            let newIndex;
+            do {
+                newIndex = Math.floor(Math.random() * availableEquations.length);
+            } while (availableEquations.length > 1 && newIndex === state.lastEquationIndex);
+            
+            state.lastEquationIndex = newIndex;
+            state.currentEquation = availableEquations[newIndex];
+            
+            let positivePool = shuffleArray([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+            let negativePool = shuffleArray([-1, -2, -3, -4, -5]);
+
+            if (state.currentEquation.evenOnly) {
+                positivePool = shuffleArray([2, 4, 6, 8, 10, 12]);
+                negativePool = shuffleArray([-2, -4, -6, -8]);
+            }
+            state.interactiveInputs = [positivePool.pop(), positivePool.pop(), negativePool.pop()];
+            shuffleArray(state.interactiveInputs);
+
+            state.exampleInputs = [positivePool.pop(), negativePool.pop()];
+
+            state.examplesShown = 0;
+            state.interactiveRoundsCompleted = 0;
+            elements.resultsTable.innerHTML = '';
+            
+            loadInteractiveRound();
+        }
+
+        function loadInteractiveRound() {
+            if (state.interactiveRoundsCompleted >= state.interactiveInputs.length) {
+                state.equationsCompletedInLevel++;
+                updateScoreDisplay();
+
+                if (state.equationsCompletedInLevel >= state.equationsPerLevel) {
+                    showMessage('مستوى مكتمل! أحسنت!', 'green');
+                    elements.questionTitle.textContent = 'اختر خطوتك التالية.';
+                    elements.interactiveArea.classList.add('hidden');
+                    elements.showExampleBtn.classList.add('hidden');
+                    showLevelProgressionControls();
+                } else {
+                    startNewEquation();
+                }
+                return;
+            }
+            resetUI();
+            
+            state.currentS = state.interactiveInputs[state.interactiveRoundsCompleted];
+            state.correctY = state.currentEquation.func(state.currentS);
+            state.attemptsLeft = 2;
+            
+            const roundNum = toA(state.interactiveRoundsCompleted + 1);
+            const totalRounds = toA(state.interactiveInputs.length);
+            elements.questionTitle.innerHTML = `<span class="text-indigo-600 font-extrabold">الجولة ${roundNum} من ${totalRounds}:</span> <span class="text-gray-800 font-bold">عندما س = ${toA(state.currentS)}، ما قيمة ص؟</span>`;
+            elements.interactiveArea.classList.remove('hidden');
+            elements.inputBox.innerHTML = toA(state.currentS);
+            elements.userAnswerInput.focus();
+        }
+        
+        function showLevelProgressionControls() {
+            elements.levelProgressionControls.classList.remove('hidden');
+            elements.replayLevelBtn.textContent = `إعادة المستوى ${difficultyNames[state.currentDifficulty]}`;
+            
+            if (state.currentDifficulty === 'hard') {
+                elements.nextLevelBtn.textContent = 'إنهاء اللعبة';
+                elements.nextLevelBtn.classList.add('btn-disabled');
+                elements.nextLevelBtn.disabled = true;
+            } else {
+                const nextDifficultyName = state.currentDifficulty === 'easy' ? difficultyNames.medium : difficultyNames.hard;
+                elements.nextLevelBtn.textContent = `الانتقال للمستوى ${nextDifficultyName}`;
+                elements.nextLevelBtn.disabled = false;
+                elements.nextLevelBtn.classList.remove('btn-disabled');
+            }
+        }
+
+        function showExample() {
+            if (state.isAnimating || state.examplesShown >= state.exampleInputs.length) return;
+            
+            state.isAnimating = true;
+            toggleInteractiveControls(false);
+
+            const exampleS = state.exampleInputs[state.examplesShown];
+            const exampleY = state.currentEquation.func(exampleS);
+            
+            const originalInput = elements.inputBox.innerHTML;
+            elements.inputBox.innerHTML = toA(exampleS);
+            
+            showMessage('شاهد وتعلم...', 'blue');
+            elements.factoryContainer.style.background = '#a7f3d0';
+
+            animateProcessing(exampleS);
+            const animationDuration = state.currentEquation.steps(exampleS).length * 1200;
+
+            setTimeout(() => {
+                elements.outputBox.innerHTML = toA(exampleY);
+                elements.outputBox.style.backgroundColor = '#d1fae5';
+                showCoordinatePoint(exampleS, exampleY);
+                addResultToTable('💡', exampleS, exampleY);
+                state.examplesShown++;
+                
+                setTimeout(() => {
+                    resetUI();
+                    elements.inputBox.innerHTML = originalInput;
+                    const roundNum = toA(state.interactiveRoundsCompleted + 1);
+                    const totalRounds = toA(state.interactiveInputs.length);
+                    elements.questionTitle.innerHTML = `<span class="text-indigo-600 font-extrabold">الجولة ${roundNum} من ${totalRounds}:</span> <span class="text-gray-800 font-bold">عندما س = ${toA(state.currentS)}، ما قيمة ص؟</span>`;
+                    elements.interactiveArea.classList.remove('hidden');
+                    state.isAnimating = false;
+                    toggleInteractiveControls(true);
+                }, 2000);
+
+            }, animationDuration + 500);
+        }
+
+        function checkAnswer() {
+            if (state.isAnimating) return;
+            const userAnswer = parseFloat(elements.userAnswerInput.value);
+            if (isNaN(userAnswer)) {
+                showMessage('الرجاء إدخال رقم!', 'orange');
+                return;
+            }
+            
+            state.isAnimating = true;
+            toggleInteractiveControls(false);
+
+            if (userAnswer === state.correctY) {
+                state.scores[state.currentDifficulty]++;
+                elements.factoryContainer.style.background = '#a7f3d0';
+                animateProcessing(state.currentS);
+                const animationDuration = state.currentEquation.steps(state.currentS).length * 1200;
+                setTimeout(() => {
+                    showMessage('إجابة صحيحة! رائع!', 'green');
+                    flashOutput('⭐', toA(state.correctY), true);
+                    showCoordinatePoint(state.currentS, state.correctY);
+                    addResultToTable('✅', state.currentS, state.correctY);
+                    state.interactiveRoundsCompleted++;
+                    setTimeout(loadInteractiveRound, 2500);
+                }, animationDuration);
+            } else {
+                state.attemptsLeft--;
+                elements.factoryContainer.style.background = '#fecaca';
+                animateExplosion();
+                setTimeout(() => {
+                    flashOutput('💥', toA(userAnswer), false);
+                    if (state.attemptsLeft > 0) {
+                        showMessage(`إجابة خاطئة! لديك محاولة أخرى.`, 'red');
+                        state.isAnimating = false;
+                        toggleInteractiveControls(true);
+                        elements.userAnswerInput.focus();
+                        elements.userAnswerInput.select();
+                        elements.factoryContainer.style.background = 'linear-gradient(to bottom, #dbeafe, #bfdbfe)';
+                    } else {
+                        showMessage(`للأسف، الإجابة الصحيحة هي ${toA(state.correctY)}`, 'red');
+                        addResultToTable('❌', state.currentS, state.correctY);
+                        state.interactiveRoundsCompleted++;
+                        setTimeout(loadInteractiveRound, 2500);
+                    }
+                }, 1000);
+            }
+        }
+        
+        function animateProcessing(s_value) {
+            elements.machineBox.classList.add('shake-normal');
+            const steps = state.currentEquation.steps(s_value);
+            elements.equationDisplay.innerHTML = '';
+
+            steps.forEach((step, index) => {
+                setTimeout(() => {
+                    const stepDiv = document.createElement('div');
+                    stepDiv.className = 'calculation-step';
+                    stepDiv.innerHTML = step;
+                    elements.equationDisplay.appendChild(stepDiv);
+                    setTimeout(() => stepDiv.classList.add('visible'), 50);
+                }, index * 1200);
+            });
+
+            setTimeout(() => {
+                elements.machineBox.classList.remove('shake-normal');
+            }, steps.length * 1200);
+        }
+
+        function animateExplosion() {
+            elements.machineBox.classList.add('shake-intense');
+            setTimeout(() => elements.machineBox.classList.remove('shake-intense'), 800);
+        }
+
+        function flashOutput(icon, numberHTML, isCorrect) {
+            let count = 0;
+            elements.outputBox.style.backgroundColor = isCorrect ? '#d1fae5' : '#fee2e2';
+            state.flashIntervalId = setInterval(() => {
+                elements.outputBox.innerHTML = (count % 2 === 0) ? numberHTML : icon;
+                count++;
+                if (count > 5) {
+                    clearInterval(state.flashIntervalId);
+                    elements.outputBox.innerHTML = isCorrect ? '⭐' : '💥';
+                }
+            }, 300);
+        }
+        
+        function showCoordinatePoint(s, y) {
+            const coordEl = elements.coordinateDisplay;
+            coordEl.innerHTML = `(${toA(s)}، ${toA(y)})`;
+            coordEl.classList.remove('opacity-0', 'scale-90');
+            coordEl.classList.add('opacity-100', 'scale-100');
+            
+            setTimeout(() => {
+                 coordEl.classList.remove('opacity-100', 'scale-100');
+                 coordEl.classList.add('opacity-0', 'scale-90');
+            }, 2000);
+        }
+
+        function resetUI() {
+            if (state.flashIntervalId) clearInterval(state.flashIntervalId);
+            state.isAnimating = false;
+            toggleInteractiveControls(true);
+            elements.levelProgressionControls.classList.add('hidden');
+            elements.showExampleBtn.classList.remove('hidden');
+            showMessage('', '');
+            elements.factoryContainer.style.background = 'linear-gradient(to bottom, #dbeafe, #bfdbfe)';
+            elements.equationDisplay.innerHTML = `<div class="calculation-step visible">${state.currentEquation.text}</div>`;
+            elements.userAnswerInput.value = '';
+            elements.inputBox.textContent = '؟';
+            elements.outputBox.textContent = '؟';
+            elements.outputBox.style.backgroundColor = '#e0e7ff';
+        }
+        
+        function toggleInteractiveControls(enable) {
+            elements.checkBtn.disabled = !enable;
+            elements.showExampleBtn.disabled = !enable || (state.examplesShown >= state.exampleInputs.length);
+
+            if(enable) {
+                elements.checkBtn.classList.remove('btn-disabled');
+                if (state.examplesShown < state.exampleInputs.length) {
+                    elements.showExampleBtn.classList.remove('btn-disabled');
+                } else {
+                    elements.showExampleBtn.classList.add('btn-disabled');
+                }
+            } else {
+                elements.checkBtn.classList.add('btn-disabled');
+                elements.showExampleBtn.classList.add('btn-disabled');
+            }
+        }
+
+        function addResultToTable(status, s_val, y_val) {
+            const newRow = elements.resultsTable.insertRow(0);
+            newRow.className = 'border-b';
+            const [cellS, cellEq, cellY, cellCoord] = [newRow.insertCell(0), newRow.insertCell(1), newRow.insertCell(2), newRow.insertCell(3)];
+            
+            cellS.innerHTML = `${status} ${toA(s_val)}`;
+            cellEq.innerHTML = state.currentEquation.text;
+            cellY.innerHTML = toA(y_val);
+            cellCoord.innerHTML = `(${toA(s_val)}، ${toA(y_val)})`;
+            
+            cellS.className = 'p-2';
+            cellEq.className = 'p-2';
+            cellY.className = 'p-2 font-bold text-indigo-600';
+            cellCoord.className = 'p-2 text-purple-600';
+        }
+        
+        function updateScoreDisplay() {
+            const totalScorePerLevel = state.interactiveRoundsPerEquation;
+            elements.scoreEasy.innerHTML = `المستوى السهل: ${toA(state.scores.easy)} / ${toA(totalScorePerLevel)}`;
+            elements.scoreMedium.innerHTML = `المستوى المتوسط: ${toA(state.scores.medium)} / ${toA(totalScorePerLevel)}`;
+            elements.scoreHard.innerHTML = `المستوى الصعب: ${toA(state.scores.hard)} / ${toA(totalScorePerLevel)}`;
+        }
+
+        function showMessage(text, color) {
+            const colorClasses = {
+                green: 'text-green-600',
+                red: 'text-red-600',
+                orange: 'text-orange-500',
+                blue: 'text-blue-600'
+            };
+            elements.messageBox.className = `mt-2 text-xl font-bold h-7 ${colorClasses[color] || 'text-gray-700'}`;
+            elements.messageBox.textContent = text;
+        }
+        
+        function createBoxStack() {
+            elements.boxStack.innerHTML = '';
+            for (let i = 0; i < 12; i++) {
+                const box = document.createElement('div');
+                box.className = 'box';
+                const row = Math.floor(i / 4);
+                const col = i % 4;
+                box.style.bottom = `${row * 20}px`;
+                box.style.left = `${col * 22}px`;
+                elements.boxStack.appendChild(box);
+            }
+        }
+
+        function runBoxAnimationCycle() {
+            const boxes = elements.boxStack.children;
+            const stackDelay = 250;
+            const unstackDelay = 250;
+            const pauseDuration = 3000;
+            const totalStackTime = boxes.length * stackDelay;
+
+            // Stacking (bottom-left to top-right)
+            for (let i = 0; i < boxes.length; i++) {
+                setTimeout(() => {
+                    boxes[i].classList.add('appear');
+                }, i * stackDelay);
+            }
+
+            // Unstacking (top-right to bottom-left)
+            setTimeout(() => {
+                for (let i = 0; i < boxes.length; i++) {
+                    const reverseIndex = boxes.length - 1 - i;
+                    setTimeout(() => {
+                        boxes[reverseIndex].classList.remove('appear');
+                    }, i * unstackDelay);
+                }
+            }, totalStackTime + pauseDuration);
+        }
+
+        elements.checkBtn.addEventListener('click', checkAnswer);
+        elements.userAnswerInput.addEventListener('keyup', (event) => {
+            if (event.key === 'Enter' && !elements.checkBtn.disabled) checkAnswer();
+        });
+        elements.showExampleBtn.addEventListener('click', showExample);
+        
+        elements.nextLevelBtn.addEventListener('click', () => {
+            if (elements.nextLevelBtn.disabled) return;
+            if (state.currentDifficulty === 'easy') state.currentDifficulty = 'medium';
+            else if (state.currentDifficulty === 'medium') state.currentDifficulty = 'hard';
+            
+            startNewLevel();
+        });
+
+        elements.replayLevelBtn.addEventListener('click', () => {
+            if (elements.replayLevelBtn.disabled) return;
+            state.scores[state.currentDifficulty] = 0;
+            updateScoreDisplay();
+            startNewLevel();
+        });
+
+
+        window.onload = () => {
+            createBoxStack();
+            runBoxAnimationCycle();
+            const totalCycleTime = (12 * 250) * 2 + 3000; // 9000ms
+            setInterval(runBoxAnimationCycle, totalCycleTime + 1000); // Repeat every 10 seconds
+            updateScoreDisplay();
+            startNewEquation();
+        };
+    </script>
+</body>
+</html>

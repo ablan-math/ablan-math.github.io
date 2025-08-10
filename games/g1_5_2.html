@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>حارس الرياضيات</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
         html, body {
             margin: 0;
@@ -14,6 +15,12 @@
             font-family: 'Cairo', sans-serif;
             color: white;
             background-color: #1a1a1a;
+        }
+        #game-container {
+            width: 100%;
+            height: 100%;
+            margin: 0 auto;
+            position: relative;
         }
         canvas {
             display: block;
@@ -141,6 +148,12 @@
         .overlay.visible {
             opacity: 1;
             pointer-events: auto;
+        }
+        #finalScoreScreen.visible {
+            overflow-y: auto;
+            justify-content: flex-start;
+            padding-top: 5vh;
+            padding-bottom: 5vh;
         }
         .overlay h2 { font-size: clamp(1.5em, 4vw, 2.2em); margin-bottom: 2vh; color: #FFD700; } /* Reduced font size */
         .overlay p { font-size: clamp(0.7em, 2vw, 1em); max-width: 90%; line-height: 1.6; } /* Reduced font size */
@@ -299,6 +312,14 @@
             border-top: 2px solid white;
             padding: 0 0.4em;
         }
+        /* Styles for Leaderboard */
+        #finalScoreScreen .text-gray-700 { color: #E5E7EB; }
+        #finalScoreScreen .text-blue-600 { color: #3B82F6; }
+        #finalScoreScreen .text-gray-800 { color: #F9FAFB; }
+        #finalScoreScreen .bg-white { background-color: rgba(31, 41, 55, 0.5); }
+        #finalScoreScreen .bg-gray-100 { background-color: rgba(55, 65, 81, 0.5); }
+        #finalScoreScreen .bg-blue-100 { background-color: rgba(59, 130, 246, 0.3); }
+        #finalScoreScreen tbody.text-gray-700 { color: #D1D5DB; }
     </style>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -306,47 +327,70 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
 </head>
 <body>
+    <div id="game-container">
+        <div id="info" style="visibility: hidden;">
+            <div id="scoreDisplay" class="hud-box">النتيجة: <span id="scoreValue">٠</span></div>
+            <div id="stageInfo" class="hud-box">المرحلة ١ - السؤال ١ / ٥</div>
+            <div class="hud-box">الوقت الإجمالي: <span id="totalTimeValue">٠</span></div>
+            <div id="timerDisplay" class="hud-box">الوقت: <span id="timerValue">٤٥</span></div>
+        </div>
 
-    <div id="info" style="visibility: hidden;">
-        <div id="scoreDisplay" class="hud-box">النتيجة: <span id="scoreValue">٠</span></div>
-        <div id="stageInfo" class="hud-box">المرحلة ١ - السؤال ١ / ٥</div>
-        <div id="timerDisplay" class="hud-box">الوقت: <span id="timerValue">٤٥</span></div>
-    </div>
+        <div id="goalMessage" class="game-message">هدف</div>
+        <div id="saveMessage" class="game-message">تصدي</div>
+        <div id="mathContainer" style="visibility: hidden;">
+            <div id="question"></div>
+            <div id="optionsContainer"></div>
+        </div>
+        <button id="knowWhyButton" class="option-button">اعرف لماذا؟</button>
 
-    <div id="goalMessage" class="game-message">هدف</div>
-    <div id="saveMessage" class="game-message">تصدي</div>
-    <div id="mathContainer" style="visibility: hidden;">
-        <div id="question"></div>
-        <div id="optionsContainer"></div>
-    </div>
-    <button id="knowWhyButton" class="option-button">اعرف لماذا؟</button>
+        <div id="welcomeScreen" class="overlay visible">
+            <h2>أهلاً بك في لعبة حارس الرياضيات</h2>
+            <p>تصميم وبرمجة /  أ. عبدالعزيز خالد العبلان</p>
+            <p style="color: #FFD700; font-size: 1.8em; margin: 20px 0;">أنت الآن حارس المرمى! أجب بشكل صحيح للتصدي للكرة وكسب نقطة.</p>
+            <p><strong>طريقة اللعب:</strong> إذا كانت إجابتك صحيحة، ستتصدى للكرة. إذا كانت خاطئة، سيدخل هدف في مرماك!</p>
+            <button id="startButton" class="option-button start-button">ابدأ اللعب</button>
+        </div>
 
-    <div id="welcomeScreen" class="overlay visible">
-        <h2>أهلاً بك في لعبة حارس الرياضيات</h2>
-        <p>تصميم وبرمجة /  أ. عبدالعزيز خالد العبلان</p>
-        <p style="color: #FFD700; font-size: 1.8em; margin: 20px 0;">أنت الآن حارس المرمى! أجب بشكل صحيح للتصدي للكرة وكسب نقطة.</p>
-        <p><strong>طريقة اللعب:</strong> إذا كانت إجابتك صحيحة، ستتصدى للكرة. إذا كانت خاطئة، سيدخل هدف في مرماك!</p>
-        <button id="startButton" class="option-button start-button">ابدأ اللعب</button>
-    </div>
+        <div id="stageTransitionScreen" class="overlay stage-transition">
+            <h2 id="stageTransitionText"></h2>
+        </div>
 
-    <div id="stageTransitionScreen" class="overlay stage-transition">
-        <h2 id="stageTransitionText"></h2>
-    </div>
+        <div id="finalScoreScreen" class="overlay">
+             <div class="w-full max-w-2xl">
+                <h2>انتهت اللعبة!</h2>
+                <p id="feedbackText" style="font-size: 1.8em;"></p>
+                
+                <!-- 1. لعرض نتيجة الطالب الحالية -->
+                <div id="final-result-display" class="text-center text-xl mt-4"></div>
 
-    <div id="finalScoreScreen" class="overlay">
-        <h2>انتهت اللعبة!</h2>
-        <p id="feedbackText" style="font-size: 1.8em;"></p>
-        <div id="final-result-display" class="text-center text-xl mt-4" style="font-size: 1.5em; color: white;"></div>
-        <button id="playAgainButton" class="option-button start-button">العب مرة أخرى</button>
-    </div>
+                <!-- 2. لعرض أيقونة التحميل -->
+                <div id="leaderboard-loader" style="display: none;" class="text-center mt-6">
+                    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
+                    <p>جاري تحميل سجل الأبطال...</p>
+                </div>
 
-    <div id="solutionScreen" class="overlay">
-        <div id="solutionContainer">
-            <h2>طريقة الحل</h2>
-            <p id="solutionQuestion"></p>
-            <div id="solutionSteps"></div>
-            <div id="finalSolutionStep" class="solution-final-step"></div>
-            <button id="closeSolutionButton" class="option-button">إغلاق</button>
+                <!-- 3. لعرض جدول سجل الأبطال -->
+                <div id="leaderboard-container" class="mt-4"></div>
+
+                <!-- 4. زر لإنهاء اللعبة والعودة للمنصة (جديد) -->
+                <div id="finish-game-wrapper" class="text-center mt-6" style="display: none;">
+                    <button id="finish-game-btn" class="px-6 py-3 bg-red-600 text-white font-bold rounded-lg shadow-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-opacity-75 transition-transform transform hover:scale-105">
+                        إنهاء والعودة للمنصة
+                    </button>
+                </div>
+
+                <button id="playAgainButton" class="option-button start-button mt-4">العب مرة أخرى</button>
+            </div>
+        </div>
+
+        <div id="solutionScreen" class="overlay">
+            <div id="solutionContainer">
+                <h2>طريقة الحل</h2>
+                <p id="solutionQuestion"></p>
+                <div id="solutionSteps"></div>
+                <div id="finalSolutionStep" class="solution-final-step"></div>
+                <button id="closeSolutionButton" class="option-button">إغلاق</button>
+            </div>
         </div>
     </div>
 
@@ -379,7 +423,7 @@
         let welcomeScreen, startButton, stageTransitionScreen, stageTransitionText, finalScoreScreen, finalScoreText, playAgainButton, feedbackText;
         let infoContainer, mathContainer, knowWhyButton;
         let solutionScreen, solutionContainer, solutionQuestion, solutionSteps, closeSolutionButton, finalSolutionStep;
-        let timerDisplay, timerValueElement;
+        let timerDisplay, timerValueElement, totalTimeValueElement;
         
         let currentStage = 1;
         let questionIndex = 0;
@@ -388,8 +432,9 @@
         let shotTypeGlobal = '';
         let hasHitNet = false;
         let score = 0;
-        let timerInterval;
+        let timerInterval, totalTimeInterval;
         let timeLeft = 45;
+        let totalGameTime = 0;
         const TIME_PER_QUESTION = 45;
         let resetTimeoutId = null;
         let isResetting = false;
@@ -468,7 +513,6 @@
             stageTransitionScreen = document.getElementById('stageTransitionScreen');
             stageTransitionText = document.getElementById('stageTransitionText');
             finalScoreScreen = document.getElementById('finalScoreScreen');
-            finalScoreText = document.getElementById('finalScoreText');
             playAgainButton = document.getElementById('playAgainButton');
             feedbackText = document.getElementById('feedbackText');
             infoContainer = document.getElementById('info');
@@ -482,6 +526,7 @@
             finalSolutionStep = document.getElementById('finalSolutionStep');
             timerDisplay = document.getElementById('timerDisplay');
             timerValueElement = document.getElementById('timerValue');
+            totalTimeValueElement = document.getElementById('totalTimeValue');
             
             startButton.addEventListener('click', startGame);
             playAgainButton.addEventListener('click', restartGame);
@@ -499,7 +544,7 @@
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.shadowMap.enabled = true;
-            document.body.appendChild(renderer.domElement);
+            document.getElementById('game-container').appendChild(renderer.domElement);
 
             controls = new OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
@@ -944,6 +989,12 @@
             questionIndex = 0;
             if (stage === 1) {
                 score = 0;
+                totalGameTime = 0;
+                clearInterval(totalTimeInterval);
+                totalTimeInterval = setInterval(() => {
+                    totalGameTime++;
+                    totalTimeValueElement.innerText = toArabicNumerals(totalGameTime);
+                }, 1000);
                 // Guarantees 4 problems with 2 solutions and 1 with no solution
                 stage1ProblemTypes = ['eq_x_minus_b', 'eq_x_minus_b', 'eq_ax', 'eq_ax', 'eq_x_is_neg'];
                 stage1ProblemTypes.sort(() => Math.random() - 0.5);
@@ -1378,6 +1429,7 @@
         function showFinalScore() {
             infoContainer.style.visibility = 'hidden';
             mathContainer.style.visibility = 'hidden';
+            clearInterval(totalTimeInterval);
             
             let feedback = '';
             if (score >= 9) {
@@ -1392,7 +1444,7 @@
             feedbackText.innerText = feedback;
             
             finalScoreScreen.classList.add('visible');
-            saveOrFinishGame(score);
+            saveAndFinishGame(score, totalGameTime);
         }
 
         function handleCollision() {
@@ -1610,74 +1662,161 @@
         init();
     </script>
     
-    <!-- --- START OF CONNECTION ENGINE --- -->
+    <!-- --- START OF CONNECTION & LEADERBOARD ENGINE --- -->
     <script>
     (function() {
-        // --- CONFIGURATION ---
+        // --- CONFIGURATION (عدّل هذه الإعدادات لكل لعبة) ---
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
-        const GAME_ID = 'g1_5_2';
-        const GAME_MAX_POINTS = 10;
-        const PLATFORM_MAX_GRADE = 5;
+        const GAME_ID = 'g1_5_2';         // مثال: 'g1_1_1'
+        const GAME_MAX_POINTS = 10;                     // أقصى نقاط في اللعبة
+        const PLATFORM_MAX_GRADE = 5;                   // الدرجة النهائية في المنصة
+        const METRIC_TYPE = 'time';                     // نوع المعيار: 'time', 'stars', 'errors'
+        const METRIC_LABEL = 'الوقت (ثواني)';           // اسم المعيار للعرض في الجدول
 
-        let currentUser = null; 
+        let currentUser = null;
 
-        function toArabicNumerals(num) {
-            const arabicNumerals = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
-            const sign = num < 0 ? '−' : '';
-            const numStr = String(Math.abs(parseFloat(num).toFixed(1)));
-            const parts = numStr.split('.');
-            const integerPart = parts[0].replace(/[0-9]/g, d => arabicNumerals[parseInt(d)]);
-            if (parts.length > 1 && parts[1] !== '0') {
-                const decimalPart = parts[1].replace(/[0-9]/g, d => arabicNumerals[parseInt(d)]);
-                return sign + integerPart + '٫' + decimalPart;
-            }
-            return sign + integerPart;
-        }
+        // --- CORE FUNCTIONS ---
 
-        window.saveOrFinishGame = function(points) {
-            const finalPoints = parseInt(points, 10) || 0;
-            const finalGrade = (finalPoints / GAME_MAX_POINTS) * PLATFORM_MAX_GRADE;
+        // 1. الدالة الرئيسية التي تستدعيها عند انتهاء اللعبة
+        window.saveAndFinishGame = function(points, metricValue) {
+            const finalPoints = parseFloat(points) || 0;
+            const finalMetric = parseFloat(metricValue) || 0;
+            const maxPoints = parseFloat(GAME_MAX_POINTS) || 1;
+            const finalGrade = (finalPoints / maxPoints) * PLATFORM_MAX_GRADE;
 
             const resultDisplay = document.getElementById('final-result-display');
             if (resultDisplay) {
                 resultDisplay.innerHTML = `
-                    <p style="white-space: nowrap;">النقاط: <span style="font-weight: bold;">${toArabicNumerals(finalPoints)} / ${toArabicNumerals(GAME_MAX_POINTS)}</span></p>
-                    <p style="white-space: nowrap;">الدرجة في المنصة: <span style="font-weight: bold; color: #2196F3;">${toArabicNumerals(finalGrade)} / ${toArabicNumerals(PLATFORM_MAX_GRADE)}</span></p>
+                    <p class="text-white">النقاط: <span class="font-bold text-xl">${finalPoints} / ${maxPoints}</span></p>
+                    <p class="text-blue-400">الدرجة في المنصة: <span class="font-bold text-2xl">${finalGrade.toFixed(1)} / ${PLATFORM_MAX_GRADE}</span></p>
                 `;
             }
 
             if (currentUser && currentUser.id) {
-                console.log(`Saving grade ${finalGrade} for student ${currentUser.id}`);
                 const params = new URLSearchParams({
                     action: 'saveGrade',
                     studentId: currentUser.id,
                     itemId: GAME_ID,
-                    grade: finalGrade
+                    grade: finalGrade.toFixed(2),
+                    metricValue: finalMetric.toString()
                 });
-
                 fetch(`${SCRIPT_URL}?${params.toString()}`)
                     .then(res => res.json())
-                    .then(result => {
-                        if (result.status === 'success') {
-                            console.log('Score saved successfully!');
-                            setTimeout(() => window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*'), 2500);
-                        } else { throw new Error(result.message); }
-                    })
-                    .catch(err => console.error("Save Error:", err));
+                    .then(result => console.log('Save result:', result.status))
+                    .catch(err => console.error("Save Error:", err))
+                    .finally(fetchAndShowLeaderboard);
             } else {
-                console.log(`Visitor finished with score ${finalPoints}`);
-                setTimeout(() => window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*'), 2500);
+                console.log(`Visitor finished. Score: ${finalPoints}, Metric: ${finalMetric}`);
+                fetchAndShowLeaderboard();
             }
         }
 
+        // 2. دالة جلب وعرض سجل الأبطال
+        function fetchAndShowLeaderboard() {
+            const loader = document.getElementById('leaderboard-loader');
+            const container = document.getElementById('leaderboard-container');
+            if (!loader || !container) return;
+
+            loader.style.display = 'block';
+            container.innerHTML = '';
+
+            const params = new URLSearchParams({
+                action: 'getLeaderboard',
+                gameId: GAME_ID,
+                metricType: METRIC_TYPE
+            });
+
+            fetch(`${SCRIPT_URL}?${params.toString()}`)
+                .then(res => res.json())
+                .then(response => {
+                    if (response.status === 'success' && response.data) {
+                        displayLeaderboard(response.data);
+                    } else {
+                        throw new Error(response.message || 'Failed to load leaderboard data.');
+                    }
+                })
+                .catch(err => {
+                    console.error("Leaderboard Error:", err);
+                    container.innerHTML = `<p class="text-center text-red-500">حدث خطأ في تحميل سجل الأبطال.</p>`;
+                })
+                .finally(() => {
+                    loader.style.display = 'none';
+                    showFinishButton();
+                });
+        }
+        
+        // 3. دالة بناء جدول سجل الأبطال
+        function displayLeaderboard(data) {
+            const container = document.getElementById('leaderboard-container');
+            if (!data || data.length === 0) {
+                container.innerHTML = `<p class="text-center text-gray-400 mt-4">لا توجد نتائج بعد. كن أول الأبطال!</p>`;
+                return;
+            }
+
+            let tableHTML = `
+                <div class="mt-6 border-t border-gray-700 pt-4">
+                    <h3 class="text-2xl font-bold text-center text-white mb-4">🏆 سجل الأبطال 🏆</h3>
+                    <table class="min-w-full bg-gray-800 bg-opacity-50 shadow-md rounded-lg">
+                        <thead class="bg-gray-900 text-white">
+                            <tr>
+                                <th class="text-center py-2 px-3">الترتيب</th>
+                                <th class="text-right py-2 px-3">اسم الطالب</th>
+                                <th class="text-center py-2 px-3">الدرجة</th>
+                                <th class="text-center py-2 px-3">${METRIC_LABEL}</th>
+                            </tr>
+                        </thead>
+                        <tbody class="text-gray-300">`;
+
+            data.forEach((player, index) => {
+                const rank = index + 1;
+                let rankDisplay = rank;
+                if (rank === 1) rankDisplay = '🥇';
+                if (rank === 2) rankDisplay = '🥈';
+                if (rank === 3) rankDisplay = '🥉';
+
+                const isCurrentUser = (currentUser && player.name === currentUser.name);
+                const rowClass = isCurrentUser ? 'bg-blue-500 bg-opacity-30 font-bold' : (index % 2 === 0 ? 'bg-gray-700 bg-opacity-50' : '');
+
+                tableHTML += `
+                    <tr class="${rowClass}">
+                        <td class="text-center py-2 px-3 text-xl">${rankDisplay}</td>
+                        <td class="text-right py-2 px-3">${player.name}</td>
+                        <td class="text-center py-2 px-3">${player.grade.toFixed(1)}</td>
+                        <td class="text-center py-2 px-3">${player.metricValue}</td>
+                    </tr>`;
+            });
+
+            tableHTML += `</tbody></table></div>`;
+            container.innerHTML = tableHTML;
+        }
+
+        // 4. إظهار زر الإنهاء
+        function showFinishButton() {
+            const finishWrapper = document.getElementById('finish-game-wrapper');
+            if (finishWrapper) {
+                finishWrapper.style.display = 'block';
+            }
+        }
+
+        // 5. استقبال بيانات الطالب من المنصة الرئيسية
         window.addEventListener('message', (event) => {
             if (event.data && event.data.event === 'userData') {
                 currentUser = event.data.data;
                 console.log('User data received:', currentUser);
             }
         });
+
+        // 6. التعامل مع زر الإنهاء
+        document.addEventListener('DOMContentLoaded', () => {
+            const finishBtn = document.getElementById('finish-game-btn');
+            if (finishBtn) {
+                finishBtn.addEventListener('click', () => {
+                    window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*');
+                });
+            }
+        });
     })();
     </script>
-    <!-- --- END OF CONNECTION ENGINE --- -->
+    <!-- --- END OF CONNECTION & LEADERBOARD ENGINE --- -->
 </body>
 </html>

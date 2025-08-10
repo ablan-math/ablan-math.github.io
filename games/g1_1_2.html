@@ -348,8 +348,10 @@
 
             <!-- 3. لعرض جدول سجل الأبطال -->
             <div id="leaderboard-container" class="mt-4"></div>
-
-            <button id="play-again-btn" class="btn btn-primary text-xl px-10 py-3 mt-8">العب مرة أخرى</button>
+            <div class="flex justify-center gap-4 mt-8">
+                <button id="play-again-btn" class="btn btn-primary text-xl px-10 py-3">العب مرة أخرى</button>
+                <button id="end-game-btn" class="btn btn-secondary text-xl px-10 py-3">إنهاء اللعبة</button>
+            </div>
         </div>
     </div>
 
@@ -361,6 +363,7 @@
             finalScreen: document.getElementById('final-screen'),
             startGameBtn: document.getElementById('start-game-btn'),
             playAgainBtn: document.getElementById('play-again-btn'),
+            endGameBtn: document.getElementById('end-game-btn'),
             inputBox: document.getElementById('input-box'),
             outputBox: document.getElementById('output-box'),
             machineBox: document.getElementById('machine-box'),
@@ -506,10 +509,17 @@
                 updateScoreDisplay();
 
                 if (state.equationsCompletedInLevel >= state.equationsPerLevel) {
-                    showMessage('مستوى مكتمل! أحسنت!', 'green');
-                    elements.questionTitle.textContent = 'اختر خطوتك التالية.';
-                    elements.interactiveArea.classList.add('hidden');
-                    showLevelProgressionControls();
+                     if (state.currentDifficulty === 'hard') {
+                        // If the hard level is finished, show a message and then end the game.
+                        showMessage('أحسنت! لقد أكملت جميع المستويات!', 'green');
+                        setTimeout(finishGame, 2000); // Wait 2 seconds before showing final screen
+                    } else {
+                        // For easy and medium levels, show the progression controls as before.
+                        showMessage('مستوى مكتمل! أحسنت!', 'green');
+                        elements.questionTitle.textContent = 'اختر خطوتك التالية.';
+                        elements.interactiveArea.classList.add('hidden');
+                        showLevelProgressionControls();
+                    }
                 } else {
                     startNewEquation();
                 }
@@ -813,6 +823,14 @@
             elements.resultsTable.innerHTML = '';
         });
 
+        elements.endGameBtn.addEventListener('click', () => {
+            window.parent.postMessage({ event: 'gameFinished', gameId: 'g1_1_2' }, '*');
+            elements.endGameBtn.disabled = true;
+            elements.playAgainBtn.disabled = true;
+            elements.endGameBtn.classList.add('btn-disabled');
+            elements.playAgainBtn.classList.add('btn-disabled');
+        });
+
         elements.checkBtn.addEventListener('click', checkAnswer);
         elements.userAnswerInput.addEventListener('keyup', (event) => {
             if (event.key === 'Enter' && !elements.checkBtn.disabled) checkAnswer();
@@ -907,9 +925,6 @@
                     // للزوار، اعرض سجل الأبطال مباشرة
                     fetchAndShowLeaderboard();
                 }
-                
-                // إبلاغ المنصة بانتهاء اللعبة
-                setTimeout(() => window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*'), 5000);
             }
 
             // 2. دالة جلب وعرض سجل الأبطال

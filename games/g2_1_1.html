@@ -40,8 +40,11 @@
             .controls-panel {
                 flex: 2; /* Takes 2 parts of the space */
             }
-            .canvas-container {
+            /* MODIFICATION: New wrapper for map and timer */
+            .map-area-wrapper {
                 flex: 3; /* Takes 3 parts of the space */
+                display: flex;
+                flex-direction: column;
             }
         }
         /* FIX: Correct transition handling for screens */
@@ -54,7 +57,8 @@
 </head>
 <body class="bg-blue-50">
 
-    <div id="app-container" class="container mx-auto p-2 sm:p-4 max-w-6xl">
+    <!-- MODIFICATION: Set a fixed width for the main container -->
+    <div id="app-container" class="container mx-auto p-2 sm:p-4" style="width: 777px; max-width: 100%;">
 
         <!-- ============== START SCREEN ============== -->
         <div id="start-screen" class="screen hidden text-center">
@@ -86,9 +90,9 @@
                 <!-- Game Controls and Info Panel -->
                 <div class="controls-panel bg-yellow-50 border-2 border-yellow-300 rounded-xl p-3 md:p-4 shadow-lg h-fit">
                     
-                    <!-- MODIFICATION: Header moved inside the control panel -->
-                    <header class="text-center mb-4">
-                        <h1 class="text-xl md:text-2xl font-bold text-blue-800">🏴‍☠️ ابحث عن موقع الكنز 🏴‍☠️</h1>
+                    <header class="text-center mb-4 pt-2">
+                        <!-- MODIFICATION: Font size reduced -->
+                        <h1 class="text-lg md:text-xl font-bold text-blue-800">🏴‍☠️ ابحث عن موقع الكنز 🏴‍☠️</h1>
                         <p class="text-xs md:text-sm text-gray-600 mt-1">انقر على الموقع الصحيح ثم شاهد السفينة تبحر!</p>
                     </header>
 
@@ -105,9 +109,17 @@
                     </div>
                 </div>
 
-                <!-- Game Map (Canvas) -->
-                <div class="canvas-container bg-white rounded-xl shadow-lg overflow-hidden border-4 border-blue-300">
-                    <canvas id="game-canvas"></canvas>
+                <!-- MODIFICATION: New wrapper for map and timer -->
+                <div class="map-area-wrapper">
+                    <div id="timer-container" class="text-center mb-2 bg-white p-2 rounded-lg shadow">
+                        <span class="text-lg font-bold text-gray-600">⏳ الوقت:</span>
+                        <span id="timer" class="text-lg font-bold text-red-500">٠</span>
+                    </div>
+
+                    <!-- Game Map (Canvas) -->
+                    <div class="canvas-container bg-white rounded-xl shadow-lg overflow-hidden border-4 border-blue-300">
+                        <canvas id="game-canvas"></canvas>
+                    </div>
                 </div>
             </div>
         </div>
@@ -121,12 +133,17 @@
                 </p>
             </header>
 
-            <div class="bg-white p-4 md:p-6 rounded-xl shadow-2xl border-2 border-green-300 max-w-md mx-auto">
+            <div class="bg-white p-4 md:p-6 rounded-xl shadow-2xl border-2 border-green-300 max-w-2xl mx-auto">
                 <h2 class="text-xl md:text-2xl font-bold text-gray-800 mb-4">النتيجة النهائية</h2>
                 
-                <div id="final-result-display" class="text-center text-lg md:text-xl mt-4 space-y-2">
-                    <!-- This will be populated by the connection engine -->
+                <div id="final-result-display" class="text-center text-xl mt-4"></div>
+
+                <div id="leaderboard-loader" style="display: none;" class="text-center mt-6">
+                    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
+                    <p>جاري تحميل سجل الأبطال...</p>
                 </div>
+
+                <div id="leaderboard-container" class="mt-4"></div>
 
             </div>
 
@@ -151,6 +168,7 @@
 
             // --- Display Elements ---
             const savedScoreDisplay = document.getElementById('saved-score-display');
+            const timerDisplay = document.getElementById('timer');
 
             // --- Game Elements ---
             const canvas = document.getElementById('game-canvas');
@@ -168,6 +186,9 @@
             let foundTreasures = [];
             let currentTarget = null;
             let score = 0;
+            let timerInterval = null;
+            let gameStartTime = 0;
+            let elapsedSeconds = 0;
             const totalTreasures = 10;
             let attemptsMade = 0;
             let lastWrongGuess = null;
@@ -181,10 +202,10 @@
 
             const possibleLocations = [
                 {x: 3, y: 5}, {x: -4, y: -6}, {x: 7, y: -2}, {x: -6, y: 7}, 
-                {x: 5, y: 5}, {x: -3, y: -3}, {x: 0, y: -7}, {x: 6, y: 0},
-                {x: -5, y: 2}, {x: 4, y: -4}, {x: -2, y: 6}, {x: 1, y: -5},
-                {x: -7, y: -1}, {x: 2, y: 2}, {x: -1, y: 7}, {x: 7, y: 1},
-                {x: 4, y: -6}, {x: -5, y: -5}, {x: 0, y: 4}, {x: -3, y: 0},
+                {x: 5, y: 5}, {x: -3, y: -3}, {x: -5, y: 2}, {x: 4, y: -4}, 
+                {x: -2, y: 6}, {x: 1, y: -5}, {x: -7, y: -1}, {x: 2, y: 2}, 
+                {x: -1, y: 7}, {x: 7, y: 1}, {x: 4, y: -6}, {x: -5, y: -5},
+                {x: 0, y: -7}, {x: 6, y: 0}, {x: 0, y: 4}, {x: -3, y: 0},
                 {x: 0, y: 6}, {x: -7, y: 0}, {x: 0, y: -5}, {x: 4, y: 0}
             ];
 
@@ -233,6 +254,22 @@
                 }
             }
 
+            // --- Timer Functions ---
+            function startTimer() {
+                stopTimer();
+                gameStartTime = Date.now();
+                timerInterval = setInterval(updateTimerDisplay, 1000);
+            }
+
+            function stopTimer() {
+                clearInterval(timerInterval);
+            }
+
+            function updateTimerDisplay() {
+                elapsedSeconds = Math.floor((Date.now() - gameStartTime) / 1000);
+                timerDisplay.textContent = toArabicNumerals(elapsedSeconds);
+            }
+
             // --- Game Flow ---
             function initGame() {
                 score = 0;
@@ -257,6 +294,8 @@
                 setupCanvas();
                 setNextTarget();
                 showMessage('تم تجهيز خريطة جديدة! أين الكنز الأول؟', 'info');
+                timerDisplay.textContent = toArabicNumerals(0);
+                startTimer();
                 switchScreen(startScreen, gameScreen);
             }
 
@@ -271,11 +310,12 @@
             }
 
             function endGame() {
+                stopTimer();
                 currentTarget = null;
                 ship.movingAxis = 'none';
                 isAnimating = true;
 
-                saveOrFinishGame(score);
+                saveAndFinishGame(score, elapsedSeconds);
                 
                 switchScreen(gameScreen, resultScreen);
             }
@@ -436,9 +476,7 @@
                     showMessage('إجابة صحيحة! 💎', 'success');
                     score++;
                 } else {
-                    const wrongX = toArabicNumerals(clickedGridPos.x);
-                    const wrongY = toArabicNumerals(clickedGridPos.y);
-                    showMessage(`خطأ! لقد اخترت (${wrongX}, ${wrongY}).`, 'error');
+                    showMessage(`خطأ! لقد اخترت (${toArabicNumerals(clickedGridPos.x)}, ${toArabicNumerals(clickedGridPos.y)}).`, 'error');
                     lastWrongGuess = clickedGridPos;
                 }
                 
@@ -522,64 +560,20 @@
         });
     </script>
     
-    <!-- Connection Engine -->
     <script>
-    // --- START OF CONNECTION ENGINE ---
+    // --- START OF CONNECTION & LEADERBOARD ENGINE ---
     (function() {
         // --- CONFIGURATION ---
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
-        const GAME_ID = 'g2_1_1'; // Game ID
-        const GAME_MAX_POINTS = 10; // Max points in this game
+        const GAME_ID = 'g2_1_1';
+        const GAME_MAX_POINTS = 10;
         const PLATFORM_MAX_GRADE = 5;
+        const METRIC_TYPE = 'time';
+        const METRIC_LABEL = 'الوقت (ثواني)';
 
-        let currentUser = null; 
+        let currentUser = null;
 
-        // This function is called when the game ends
-        window.saveOrFinishGame = function(points) {
-            // 1. Calculate the grade out of 5 safely
-            const finalPoints = parseFloat(points) || 0;
-            const maxPoints = parseFloat(GAME_MAX_POINTS) || 1;
-            const finalGrade = (finalPoints / maxPoints) * PLATFORM_MAX_GRADE;
-
-            // 2. Display the result to the user
-            const resultDisplay = document.getElementById('final-result-display');
-            if (resultDisplay) {
-                // MODIFICATION: Simplified the result display as requested
-                resultDisplay.innerHTML = `
-                    <p>الكنوز: <span class="font-bold">${toArabicNumerals(finalPoints)} / ${toArabicNumerals(maxPoints)}</span></p>
-                    <p>الدرجة: <span class="font-bold text-blue-600 text-lg">${toArabicNumerals(finalGrade.toFixed(1))} / ${toArabicNumerals(PLATFORM_MAX_GRADE)}</span></p>
-                `;
-            }
-            
-            // Also save to localStorage for the start screen
-            localStorage.setItem('treasureHuntScore', finalGrade.toFixed(1));
-
-            // 3. Save the grade if it's a registered student
-            if (currentUser && currentUser.id) {
-                console.log(`Saving grade ${finalGrade} for student ${currentUser.id}`);
-                const params = new URLSearchParams({
-                    action: 'saveGrade',
-                    studentId: currentUser.id,
-                    itemId: GAME_ID,
-                    grade: finalGrade.toFixed(2)
-                });
-
-                fetch(`${SCRIPT_URL}?${params.toString()}`)
-                    .then(res => res.json())
-                    .then(result => {
-                        if (result.status === 'success') {
-                            console.log('Score saved successfully!');
-                            setTimeout(() => window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*'), 2500);
-                        } else { throw new Error(result.message); }
-                    })
-                    .catch(err => console.error("Save Error:", err));
-            } else {
-                console.log(`Visitor finished with score ${finalPoints}`);
-                setTimeout(() => window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*'), 2500);
-            }
-        }
-        
-        // This function needs to be accessible to the connection engine
+        // --- CORE FUNCTIONS ---
         function toArabicNumerals(num) {
             const arabicNumerals = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
             return String(num).replace(/[0-9.-]/g, d => {
@@ -589,6 +583,125 @@
             });
         }
 
+        window.saveAndFinishGame = function(points, metricValue) {
+            const finalPoints = parseFloat(points) || 0;
+            const finalMetric = parseFloat(metricValue) || 0;
+            const maxPoints = parseFloat(GAME_MAX_POINTS) || 1;
+            const finalGrade = (finalPoints / maxPoints) * PLATFORM_MAX_GRADE;
+
+            const resultDisplay = document.getElementById('final-result-display');
+            if (resultDisplay) {
+                resultDisplay.innerHTML = `
+                    <p class="text-gray-700">الكنوز: <span class="font-bold text-xl">${toArabicNumerals(finalPoints)} / ${toArabicNumerals(maxPoints)}</span></p>
+                    <p class="text-blue-600">الدرجة: <span class="font-bold text-2xl">${toArabicNumerals(finalGrade.toFixed(1))} / ${toArabicNumerals(PLATFORM_MAX_GRADE)}</span></p>
+                `;
+            }
+            localStorage.setItem('treasureHuntScore', finalGrade.toFixed(1));
+
+            if (currentUser && currentUser.id) {
+                console.log(`Saving grade ${finalGrade} and metric ${finalMetric} for student ${currentUser.id}`);
+                const params = new URLSearchParams({
+                    action: 'saveGrade',
+                    studentId: currentUser.id,
+                    itemId: GAME_ID,
+                    grade: finalGrade.toFixed(2),
+                    metricValue: finalMetric.toString()
+                });
+
+                fetch(`${SCRIPT_URL}?${params.toString()}`)
+                    .then(res => res.json())
+                    .then(result => {
+                        console.log('Save result:', result.status);
+                        fetchAndShowLeaderboard();
+                    })
+                    .catch(err => {
+                        console.error("Save Error:", err);
+                        fetchAndShowLeaderboard();
+                    });
+            } else {
+                console.log(`Visitor finished. Score: ${finalPoints}, Metric: ${finalMetric}`);
+                fetchAndShowLeaderboard();
+            }
+            
+            setTimeout(() => window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*'), 5000);
+        }
+
+        function fetchAndShowLeaderboard() {
+            const loader = document.getElementById('leaderboard-loader');
+            const container = document.getElementById('leaderboard-container');
+            if (!loader || !container) return;
+
+            loader.style.display = 'block';
+            container.innerHTML = '';
+
+            const params = new URLSearchParams({
+                action: 'getLeaderboard',
+                gameId: GAME_ID,
+                metricType: METRIC_TYPE
+            });
+
+            fetch(`${SCRIPT_URL}?${params.toString()}`)
+                .then(res => res.json())
+                .then(response => {
+                    loader.style.display = 'none';
+                    if (response.status === 'success' && response.data) {
+                        displayLeaderboard(response.data);
+                    } else {
+                        throw new Error(response.message || 'Failed to load leaderboard data.');
+                    }
+                })
+                .catch(err => {
+                    loader.style.display = 'none';
+                    console.error("Leaderboard Error:", err);
+                    container.innerHTML = `<p class="text-center text-red-500">حدث خطأ في تحميل سجل الأبطال.</p>`;
+                });
+        }
+        
+        function displayLeaderboard(data) {
+            const container = document.getElementById('leaderboard-container');
+            if (!data || data.length === 0) {
+                container.innerHTML = `<p class="text-center text-gray-500 mt-4">لا توجد نتائج بعد. كن أول الأبطال!</p>`;
+                return;
+            }
+
+            let tableHTML = `
+                <div class="mt-6 border-t pt-4">
+                    <h3 class="text-2xl font-bold text-center text-gray-800 mb-4">🏆 سجل الأبطال 🏆</h3>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full bg-white shadow-md rounded-lg">
+                            <thead class="bg-gray-800 text-white">
+                                <tr>
+                                    <th class="text-center py-2 px-3">الترتيب</th>
+                                    <th class="text-right py-2 px-3">اسم الطالب</th>
+                                    <th class="text-center py-2 px-3">الدرجة</th>
+                                    <th class="text-center py-2 px-3">${METRIC_LABEL}</th>
+                                </tr>
+                            </thead>
+                            <tbody class="text-gray-700">`;
+
+            data.forEach((player, index) => {
+                const rank = index + 1;
+                let rankDisplay = toArabicNumerals(rank);
+                if (rank === 1) rankDisplay = '🥇';
+                if (rank === 2) rankDisplay = '🥈';
+                if (rank === 3) rankDisplay = '🥉';
+
+                const isCurrentUser = (currentUser && player.name === currentUser.name);
+                const rowClass = isCurrentUser ? 'bg-blue-100 font-bold' : (index % 2 === 0 ? 'bg-gray-50' : 'bg-white');
+
+                tableHTML += `
+                    <tr class="${rowClass}">
+                        <td class="text-center py-2 px-3 text-xl">${rankDisplay}</td>
+                        <td class="text-right py-2 px-3">${player.name}</td>
+                        <td class="text-center py-2 px-3">${toArabicNumerals(player.grade.toFixed(1))}</td>
+                        <td class="text-center py-2 px-3">${toArabicNumerals(player.metricValue)}</td>
+                    </tr>`;
+            });
+
+            tableHTML += `</tbody></table></div></div>`;
+            container.innerHTML = tableHTML;
+        }
+
         window.addEventListener('message', (event) => {
             if (event.data && event.data.event === 'userData') {
                 currentUser = event.data.data;
@@ -596,7 +709,7 @@
             }
         });
     })();
-    // --- END OF CONNECTION ENGINE ---
+    // --- END OF CONNECTION & LEADERBOARD ENGINE ---
     </script>
 </body>
 </html>

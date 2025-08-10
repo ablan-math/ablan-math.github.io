@@ -225,10 +225,13 @@
     <main class="hidden grid-cols-1 md:grid-cols-2 gap-4 flex-grow">
         <!-- Left Column: Score & Results -->
         <div class="flex flex-col gap-4 bg-white/50 p-4 rounded-xl shadow-inner h-full">
+            <div id="total-timer-container" class="text-center mb-2 hidden">
+                <div id="total-timer" class="text-lg font-bold text-gray-700">الوقت: ٠ ثوان</div>
+            </div>
             <div id="score-board" class="flex flex-col md:flex-row justify-center gap-2 text-xs font-bold text-center">
-                <div id="score-easy" class="flex-1 bg-green-100 text-green-800 p-2 rounded-lg shadow">المستوى السهل: ٠ / ٤</div>
-                <div id="score-medium" class="flex-1 bg-yellow-100 text-yellow-800 p-2 rounded-lg shadow">المستوى المتوسط: ٠ / ٣</div>
-                <div id="score-hard" class="flex-1 bg-red-100 text-red-800 p-2 rounded-lg shadow">المستوى الصعب: ٠ / ٣</div>
+                <div id="score-easy" class="flex-1 bg-green-100 text-green-800 p-2 rounded-lg shadow">المستوى السهل: <span class="text-green-700 font-extrabold">٠</span> / ٤</div>
+                <div id="score-medium" class="flex-1 bg-yellow-100 text-yellow-800 p-2 rounded-lg shadow">المستوى المتوسط: <span class="text-yellow-700 font-extrabold">٠</span> / ٣</div>
+                <div id="score-hard" class="flex-1 bg-red-100 text-red-800 p-2 rounded-lg shadow">المستوى الصعب: <span class="text-red-700 font-extrabold">٠</span> / ٣</div>
             </div>
             <div class="flex-grow bg-white rounded-lg shadow-lg overflow-hidden flex flex-col results-container">
                  <h2 class="text-lg font-bold text-center text-blue-800 p-2 bg-blue-100">📋 جدول النتائج 📋</h2>
@@ -333,10 +336,19 @@
         <div class="bg-white p-8 rounded-2xl shadow-2xl max-w-lg w-full">
             <h1 class="text-3xl md:text-4xl font-extrabold text-blue-800 mb-4">🎉 أحسنت! 🎉</h1>
             <p class="text-xl text-gray-800 mb-6">لقد أكملت جميع المستويات بنجاح!</p>
-            <div class="bg-blue-50 p-6 rounded-lg space-y-4">
-                 <p id="final-points" class="text-xl font-bold text-gray-700">النقاط التي حصلت عليها: <span class="text-indigo-600"></span></p>
-                 <p id="final-grade" class="text-xl font-bold text-gray-700">الدرجة المرصودة: <span class="text-green-600"></span></p>
+            
+            <!-- 1. لعرض نتيجة الطالب الحالية -->
+            <div id="final-result-display" class="text-center text-xl mt-4"></div>
+
+            <!-- 2. لعرض أيقونة التحميل -->
+            <div id="leaderboard-loader" style="display: none;" class="text-center mt-6">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
+                <p>جاري تحميل سجل الأبطال...</p>
             </div>
+
+            <!-- 3. لعرض جدول سجل الأبطال -->
+            <div id="leaderboard-container" class="mt-4"></div>
+
             <button id="play-again-btn" class="btn btn-primary text-xl px-10 py-3 mt-8">العب مرة أخرى</button>
         </div>
     </div>
@@ -372,8 +384,8 @@
             boxStack: document.querySelector('.box-stack'),
             timerText: document.getElementById('timer-text'),
             timerProgress: document.getElementById('timer-progress'),
-            finalPoints: document.getElementById('final-points'),
-            finalGrade: document.getElementById('final-grade'),
+            totalTimer: document.getElementById('total-timer'),
+            totalTimerContainer: document.getElementById('total-timer-container'),
         };
 
         const difficultyNames = { easy: 'السهل', medium: 'المتوسط', hard: 'الصعب' };
@@ -415,6 +427,8 @@
                 isAnimating: false,
                 questionTimerId: null,
                 levelTransitionTimerId: null,
+                startTime: null,
+                gameTimerId: null,
             };
         }
         
@@ -549,17 +563,15 @@
         }
         
         function finishGame() {
+            clearInterval(state.gameTimerId);
             const totalScore = state.scores.easy + state.scores.medium + state.scores.hard;
-            saveOrFinishGame(totalScore); // Call the connection engine function
+            const elapsedTime = Math.round((Date.now() - state.startTime) / 1000);
             
             elements.main.classList.add('hidden');
+            elements.totalTimerContainer.classList.add('hidden');
             elements.finalScreen.classList.remove('hidden');
 
-            const maxPoints = state.roundsPerDifficulty.easy + state.roundsPerDifficulty.medium + state.roundsPerDifficulty.hard;
-            const finalGrade = (totalScore / maxPoints) * 5;
-
-            elements.finalPoints.querySelector('span').innerHTML = `${toA(totalScore)} / ${toA(maxPoints)}`;
-            elements.finalGrade.querySelector('span').innerHTML = `${toA(finalGrade.toFixed(1))} / ${toA(5)}`;
+            saveAndFinishGame(totalScore, elapsedTime);
         }
 
         function checkAnswer() {
@@ -782,14 +794,22 @@
             elements.introScreen.classList.add('hidden');
             elements.main.classList.remove('hidden');
             elements.main.classList.add('grid');
+            elements.totalTimerContainer.classList.remove('hidden');
             state = getInitialState();
+            state.startTime = Date.now();
             updateScoreDisplay();
             startNewEquation();
+
+            state.gameTimerId = setInterval(() => {
+                const elapsedTime = Math.round((Date.now() - state.startTime) / 1000);
+                elements.totalTimer.innerHTML = `الوقت: ${toA(elapsedTime)} ثوان`;
+            }, 1000);
         });
 
         elements.playAgainBtn.addEventListener('click', () => {
             elements.finalScreen.classList.add('hidden');
             elements.introScreen.classList.remove('hidden');
+            elements.totalTimer.innerHTML = 'الوقت: ٠ ثوان';
         });
 
         elements.checkBtn.addEventListener('click', checkAnswer);
@@ -827,55 +847,156 @@
         };
     </script>
     
-    <!-- START OF CONNECTION ENGINE -->
+    <!-- START OF CONNECTION & LEADERBOARD ENGINE -->
     <script>
-    (function() {
-        // --- CONFIGURATION ---
-        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
-        const GAME_ID = 'g1_1_2'; 
-        const GAME_MAX_POINTS = 10; // 4 (easy) + 3 (medium) + 3 (hard) = 10
-        const PLATFORM_MAX_GRADE = 5;
+        (function() {
+            // --- CONFIGURATION (عدّل هذه الإعدادات لكل لعبة) ---
+            const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
+            const GAME_ID = 'g1_1_2';         // مثال: 'g1_1_1'
+            const GAME_MAX_POINTS = 10;                     // أقصى نقاط في اللعبة
+            const PLATFORM_MAX_GRADE = 5;                   // الدرجة النهائية في المنصة
+            const METRIC_TYPE = 'time';                     // نوع المعيار: 'time', 'stars', 'errors'
+            const METRIC_LABEL = 'الوقت (ثواني)';           // اسم المعيار للعرض في الجدول
 
-        let currentUser = null; 
+            let currentUser = null;
 
-        // This function is called when the game is finished to save the score.
-        window.saveOrFinishGame = function(points) {
-            const finalPoints = parseFloat(points) || 0;
-            const maxPoints = parseFloat(GAME_MAX_POINTS) || 1;
-            const finalGrade = (finalPoints / maxPoints) * PLATFORM_MAX_GRADE;
-            
-            if (currentUser && currentUser.id) {
-                console.log(`Saving grade ${finalGrade} for student ${currentUser.id}`);
+            // --- CORE FUNCTIONS ---
+
+            // 1. الدالة الرئيسية التي تستدعيها عند انتهاء اللعبة
+            window.saveAndFinishGame = function(points, metricValue) {
+                const finalPoints = parseFloat(points) || 0;
+                const finalMetric = parseFloat(metricValue) || 0;
+                const maxPoints = parseFloat(GAME_MAX_POINTS) || 1;
+                const finalGrade = (finalPoints / maxPoints) * PLATFORM_MAX_GRADE;
+
+                // عرض النتيجة الأولية للطالب
+                const resultDisplay = document.getElementById('final-result-display');
+                if (resultDisplay) {
+                    resultDisplay.innerHTML = `
+                        <p class="text-gray-700">النقاط: <span class="font-bold text-xl">${finalPoints} / ${maxPoints}</span></p>
+                        <p class="text-blue-600">الدرجة في المنصة: <span class="font-bold text-2xl">${finalGrade.toFixed(1)} / ${PLATFORM_MAX_GRADE}</span></p>
+                    `;
+                }
+
+                // حفظ النتيجة في الخلفية
+                if (currentUser && currentUser.id) {
+                    console.log(`Saving grade ${finalGrade} and metric ${finalMetric} for student ${currentUser.id}`);
+                    const params = new URLSearchParams({
+                        action: 'saveGrade',
+                        studentId: currentUser.id,
+                        itemId: GAME_ID,
+                        grade: finalGrade.toFixed(2),
+                        metricValue: finalMetric.toString()
+                    });
+
+                    fetch(`${SCRIPT_URL}?${params.toString()}`)
+                        .then(res => res.json())
+                        .then(result => {
+                            console.log('Save result:', result.status);
+                            // بعد الحفظ مباشرة، قم بجلب وعرض سجل الأبطال
+                            fetchAndShowLeaderboard();
+                        })
+                        .catch(err => {
+                            console.error("Save Error:", err);
+                            // حتى لو فشل الحفظ، اعرض سجل الأبطال
+                            fetchAndShowLeaderboard();
+                        });
+                } else {
+                    console.log(`Visitor finished. Score: ${finalPoints}, Metric: ${finalMetric}`);
+                    // للزوار، اعرض سجل الأبطال مباشرة
+                    fetchAndShowLeaderboard();
+                }
+                
+                // إبلاغ المنصة بانتهاء اللعبة
+                setTimeout(() => window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*'), 5000);
+            }
+
+            // 2. دالة جلب وعرض سجل الأبطال
+            function fetchAndShowLeaderboard() {
+                const loader = document.getElementById('leaderboard-loader');
+                const container = document.getElementById('leaderboard-container');
+                if (!loader || !container) return;
+
+                loader.style.display = 'block';
+                container.innerHTML = '';
+
                 const params = new URLSearchParams({
-                    action: 'saveGrade',
-                    studentId: currentUser.id,
-                    itemId: GAME_ID,
-                    grade: finalGrade.toFixed(2)
+                    action: 'getLeaderboard',
+                    gameId: GAME_ID,
+                    metricType: METRIC_TYPE
                 });
 
                 fetch(`${SCRIPT_URL}?${params.toString()}`)
                     .then(res => res.json())
-                    .then(result => {
-                        if (result.status === 'success') {
-                            console.log('Score saved successfully!');
-                            setTimeout(() => window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*'), 2500);
-                        } else { throw new Error(result.message); }
+                    .then(response => {
+                        loader.style.display = 'none';
+                        if (response.status === 'success' && response.data) {
+                            displayLeaderboard(response.data);
+                        } else {
+                            throw new Error(response.message || 'Failed to load leaderboard data.');
+                        }
                     })
-                    .catch(err => console.error("Save Error:", err));
-            } else {
-                console.log(`Visitor finished with score ${finalPoints}`);
-                setTimeout(() => window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*'), 2500);
+                    .catch(err => {
+                        loader.style.display = 'none';
+                        console.error("Leaderboard Error:", err);
+                        container.innerHTML = `<p class="text-center text-red-500">حدث خطأ في تحميل سجل الأبطال.</p>`;
+                    });
             }
-        }
+            
+            // 3. دالة بناء جدول سجل الأبطال
+            function displayLeaderboard(data) {
+                const container = document.getElementById('leaderboard-container');
+                if (!data || data.length === 0) {
+                    container.innerHTML = `<p class="text-center text-gray-500 mt-4">لا توجد نتائج بعد. كن أول الأبطال!</p>`;
+                    return;
+                }
 
-        window.addEventListener('message', (event) => {
-            if (event.data && event.data.event === 'userData') {
-                currentUser = event.data.data;
-                console.log('User data received:', currentUser);
+                let tableHTML = `
+                    <div class="mt-6 border-t pt-4">
+                        <h3 class="text-2xl font-bold text-center text-gray-800 mb-4">🏆 سجل الأبطال 🏆</h3>
+                        <table class="min-w-full bg-white shadow-md rounded-lg">
+                            <thead class="bg-gray-800 text-white">
+                                <tr>
+                                    <th class="text-center py-2 px-3">الترتيب</th>
+                                    <th class="text-right py-2 px-3">اسم الطالب</th>
+                                    <th class="text-center py-2 px-3">الدرجة</th>
+                                    <th class="text-center py-2 px-3">${METRIC_LABEL}</th>
+                                </tr>
+                            </thead>
+                            <tbody class="text-gray-700">`;
+
+                data.forEach((player, index) => {
+                    const rank = index + 1;
+                    let rankDisplay = rank;
+                    if (rank === 1) rankDisplay = '🥇';
+                    if (rank === 2) rankDisplay = '🥈';
+                    if (rank === 3) rankDisplay = '🥉';
+
+                    const isCurrentUser = (currentUser && player.name === currentUser.name);
+                    const rowClass = isCurrentUser ? 'bg-blue-100 font-bold' : (index % 2 === 0 ? 'bg-gray-100' : '');
+
+                    tableHTML += `
+                        <tr class="${rowClass}">
+                            <td class="text-center py-2 px-3 text-xl">${rankDisplay}</td>
+                            <td class="text-right py-2 px-3">${player.name}</td>
+                            <td class="text-center py-2 px-3">${player.grade.toFixed(1)}</td>
+                            <td class="text-center py-2 px-3">${player.metricValue}</td>
+                        </tr>`;
+                });
+
+                tableHTML += `</tbody></table></div>`;
+                container.innerHTML = tableHTML;
             }
-        });
-    })();
+
+            // 4. استقبال بيانات الطالب من المنصة الرئيسية
+            window.addEventListener('message', (event) => {
+                if (event.data && event.data.event === 'userData') {
+                    currentUser = event.data.data;
+                    console.log('User data received:', currentUser);
+                }
+            });
+        })();
     </script>
-    <!-- END OF CONNECTION ENGINE -->
+    <!-- END OF CONNECTION & LEADERBOARD ENGINE -->
 </body>
 </html>

@@ -1,0 +1,1062 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لعبة الدوال التعليمية</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* General body styling to center the phone container */
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Cairo', sans-serif;
+            background-color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            width: 100vw;
+        }
+        /* The phone-like container for the game */
+        #phone-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            max-width: 420px;
+            max-height: 880px;
+            margin: auto;
+            border: 12px solid black;
+            border-radius: 40px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            background: #87CEEB; /* Sky blue background */
+        }
+        /* Canvas takes up the full space of the container */
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        /* Base styling for all UI overlays */
+        .ui-element {
+            position: absolute;
+            width: 100%;
+            text-align: center;
+            z-index: 100;
+            color: white;
+            box-sizing: border-box;
+        }
+        /* Top info bar for score, goal, etc. */
+        #info {
+            top: 0;
+            padding: 8px;
+            background-color: rgba(0, 0, 0, 0.5);
+            font-size: 1rem;
+        }
+        /* Panel for displaying the current question */
+        #question-panel {
+            top: 45px; 
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            padding: 8px 15px;
+            border-radius: 10px;
+            background-color: rgba(255, 255, 255, 0.9);
+            color: #333;
+            font-size: 1.1rem;
+            font-weight: bold;
+            border: 2px solid #006994;
+        }
+        /* Temporary message display (e.g., "Correct!", "Wrong!") */
+        #message {
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 1.8rem;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px #000000;
+            display: none;
+            padding: 15px;
+            background-color: rgba(0, 100, 200, 0.75);
+            border: 3px solid white;
+            border-radius: 15px;
+        }
+        /* Panel for the end-of-game summary and leaderboard */
+        #end-game-panel {
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 20px;
+            border-radius: 15px;
+            width: 95%;
+            max-width: 400px;
+            font-size: 1rem;
+            line-height: 1.6;
+            background-color: rgba(230, 240, 255, 0.95);
+            color: #333;
+            flex-direction: column; 
+            align-items: center; 
+            gap: 1rem;
+            overflow-y: auto;
+            max-height: 90%;
+        }
+        #end-game-title {
+            font-size: 1.8rem;
+            color: #1e3a8a; /* Dark blue */
+        }
+        /* Splash screen and countdown overlays */
+        #splash-screen, #countdown-overlay {
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            z-index: 200;
+        }
+        #splash-screen { background-color: #006994; }
+        #countdown-overlay { background-color: rgba(0, 0, 0, 0.5); }
+        #countdown-timer {
+            font-size: 8rem;
+            font-weight: bold;
+            color: white;
+            text-shadow: 3px 3px 6px rgba(0,0,0,0.5);
+        }
+        /* Area for visual questions (graphs, tables) */
+        #visual-question-area {
+            position: absolute;
+            top: 105px; 
+            left: 50%;
+            transform: translateX(-50%);
+            width: 220px;
+            height: 150px;
+            z-index: 5;
+        }
+    </style>
+</head>
+<body>
+    <div id="phone-container">
+        <!-- Top info bar -->
+        <div id="info" class="ui-element flex justify-around items-center space-x-2 rtl:space-x-reverse hidden">
+            <span>النقاط: <span id="score">٠</span></span>
+            <span>المطلوب: <span id="catch-goal"></span></span>
+            <span>الوقت: <span id="timer">٠</span></span>
+            <span>المحاولة: <span id="round-number"></span> / ٥</span>
+        </div>
+        
+        <!-- Question and message displays -->
+        <div id="question-panel" class="ui-element hidden"></div>
+        <div id="message" class="ui-element"></div>
+        <canvas id="visual-question-area"></canvas>
+
+        <!-- End-game panel with leaderboard integration -->
+        <div id="end-game-panel" class="ui-element hidden">
+            <h2 id="end-game-title" class="text-3xl font-bold mb-2">انتهى الاختبار!</h2>
+            
+            <!-- 1. Display for the student's current result -->
+            <div id="final-result-display" class="text-center text-xl mt-4"></div>
+
+            <!-- 2. Loading spinner icon -->
+            <div id="leaderboard-loader" style="display: none;" class="text-center mt-6">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
+                <p>جاري تحميل سجل الأبطال...</p>
+            </div>
+
+            <!-- 3. Container for the leaderboard table -->
+            <div id="leaderboard-container" class="mt-4 w-full"></div>
+
+            <!-- 4. Button to finish the game and return to the platform -->
+            <div id="finish-game-wrapper" class="text-center mt-6" style="display: none;">
+                <button id="finish-game-btn" class="px-6 py-3 bg-red-600 text-white font-bold rounded-lg shadow-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-opacity-75 transition-transform transform hover:scale-105">
+                    إنهاء والعودة للمنصة
+                </button>
+            </div>
+
+            <button id="restart-button" class="mt-4 px-6 py-2 bg-blue-500 text-white font-bold rounded-lg hover:bg-blue-700 transition-colors">العب مرة أخرى</button>
+        </div>
+
+        <!-- Countdown overlay -->
+        <div id="countdown-overlay" class="ui-element hidden">
+            <div id="countdown-timer"></div>
+        </div>
+
+        <!-- Splash screen -->
+        <div id="splash-screen" class="ui-element">
+            <h1 class="text-4xl font-bold text-white mb-4">لعبة الدوال التعليمية</h1>
+            <p class="text-lg text-yellow-300">تصميم وبرمجة <br> أ. عبدالعزيز خالد العبلان</p>
+            <button id="start-game-button" class="mt-8 px-8 py-3 bg-yellow-400 text-blue-900 font-bold rounded-lg text-xl hover:bg-yellow-500 transition-colors">ابدأ اللعب</button>
+        </div>
+
+        <!-- Main game canvas -->
+        <canvas id="gameCanvas"></canvas>
+    </div>
+
+    <script>
+        window.onload = function() {
+            // ==================================================
+            // Main Setup and Variables
+            // ==================================================
+            const phoneContainer = document.getElementById('phone-container');
+            const gameCanvas = document.getElementById('gameCanvas');
+            const gameCtx = gameCanvas.getContext('2d');
+            const visualCanvas = document.getElementById('visual-question-area');
+            const visualCtx = visualCanvas.getContext('2d');
+
+            const scoreEl = document.getElementById('score');
+            const roundNumberEl = document.getElementById('round-number');
+            const catchGoalEl = document.getElementById('catch-goal');
+            const timerEl = document.getElementById('timer'); // NEW: Timer element
+            const messageEl = document.getElementById('message');
+            const questionEl = document.getElementById('question-panel');
+            const infoPanel = document.getElementById('info');
+            
+            const splashScreen = document.getElementById('splash-screen');
+            const startGameButton = document.getElementById('start-game-button');
+            const countdownOverlay = document.getElementById('countdown-overlay');
+            const countdownTimerEl = document.getElementById('countdown-timer');
+
+            const endGamePanel = document.getElementById('end-game-panel');
+            const restartButton = document.getElementById('restart-button');
+
+            let score = 0;
+            let roundNumber = 0;
+            const TOTAL_ROUNDS = 5;
+            let gameState = 'splash';
+            let fishes = [];
+            let caughtFishes = [];
+            let currentQuestion = {};
+            let questionsBank = [];
+            let bubbles = []; 
+            let swarmTimers = [];
+            let bubbleInterval = null; 
+            const SEABED_Y = 3000; // Deep seabed position
+
+            // Timer variables for metric tracking
+            let gameStartTime = null;
+            let timerInterval = null; // NEW: Interval for the timer
+
+            const camera = { y: 0, targetY: 0 };
+            const boat = { x: 0, y: 100, width: 120, height: 35, rodOffset: { x: 110, y: -15 } };
+            const bait = { x: 0, y: 0, radius: 8, speedY: 1.0, reelSpeedY: 8 };
+
+            // Helper to convert numbers to Arabic-Indic numerals
+            const toArabicNumerals = (num) => {
+                const arabicNumerals = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+                const numStr = String(num);
+                let result = '';
+                for (let i = 0; i < numStr.length; i++) {
+                    const char = numStr[i];
+                    if (char === '-') {
+                        result += '-';
+                    } else {
+                        result += arabicNumerals[parseInt(char)] || char;
+                    }
+                }
+                return result;
+            };
+
+            // Helper to shuffle arrays for randomness
+            function shuffleArray(array) {
+                for (let i = array.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [array[i], array[j]] = [array[j], array[i]];
+                }
+            }
+            
+            // Updates the UI to show how many fish are left to catch
+            function updateCatchGoalUI() {
+                const remaining = currentQuestion.catchLimit - caughtFishes.length;
+                if (remaining > 0) {
+                     catchGoalEl.innerText = `اصطد ${toArabicNumerals(remaining)}`;
+                } else {
+                     catchGoalEl.innerText = `اكتمل!`;
+                }
+            }
+            
+            // NEW: Function to update the timer display
+            function updateTimer() {
+                if (!gameStartTime) return;
+                const elapsedTime = Math.floor((Date.now() - gameStartTime) / 1000);
+                timerEl.innerText = toArabicNumerals(elapsedTime);
+            }
+
+            // ==================================================
+            // Main Drawing Functions
+            // ==================================================
+
+            function drawBoat() {
+                const boatX = boat.x; const boatY = boat.y - camera.y;
+                gameCtx.save();
+                gameCtx.strokeStyle = '#5C3317'; gameCtx.lineWidth = 5;
+                gameCtx.beginPath(); gameCtx.moveTo(boatX + boat.width - 20, boatY + 5); gameCtx.lineTo(boatX + boat.rodOffset.x, boatY + boat.rodOffset.y); gameCtx.stroke();
+                gameCtx.fillStyle = '#8B4513'; gameCtx.beginPath(); gameCtx.moveTo(boatX - 10, boatY + boat.height); gameCtx.quadraticCurveTo(boatX + boat.width / 2, boatY + boat.height + 20, boatX + boat.width + 10, boatY + boat.height); gameCtx.lineTo(boatX + boat.width, boatY); gameCtx.lineTo(boatX, boatY); gameCtx.closePath(); gameCtx.fill();
+                gameCtx.fillStyle = '#D2B48C'; gameCtx.fillRect(boatX + 15, boatY - 20, 40, 20);
+                gameCtx.strokeStyle = '#8B4513'; gameCtx.lineWidth = 2; gameCtx.strokeRect(boatX + 15, boatY - 20, 40, 20);
+                gameCtx.fillStyle = '#87CEEB'; gameCtx.beginPath(); gameCtx.arc(boatX + 35, boatY - 10, 5, 0, Math.PI * 2); gameCtx.fill();
+                gameCtx.strokeStyle = 'white'; gameCtx.lineWidth = 1.5; gameCtx.stroke();
+                gameCtx.fillStyle = '#A0522D'; gameCtx.fillRect(boatX, boatY, boat.width, 8);
+                gameCtx.restore();
+            }
+
+            function drawWater() {
+                const gradient = gameCtx.createLinearGradient(0, 150 - camera.y, 0, gameCanvas.height);
+                gradient.addColorStop(0, '#00BFFF'); gradient.addColorStop(0.8, '#006994'); gradient.addColorStop(1, '#001f2b');
+                gameCtx.fillStyle = gradient; gameCtx.fillRect(0, 150 - camera.y, gameCanvas.width, SEABED_Y + 500);
+            }
+
+            function drawSeabed() {
+                const seabedY = SEABED_Y - camera.y;
+                gameCtx.fillStyle = '#4a3c31'; gameCtx.fillRect(0, seabedY, gameCanvas.width, 200);
+                gameCtx.fillStyle = '#696969'; gameCtx.strokeStyle = '#404040'; gameCtx.lineWidth = 2;
+                gameCtx.beginPath(); gameCtx.moveTo(50, seabedY); gameCtx.quadraticCurveTo(80, seabedY - 60, 150, seabedY); gameCtx.fill(); gameCtx.stroke();
+                gameCtx.beginPath(); gameCtx.moveTo(gameCanvas.width - 120, seabedY); gameCtx.quadraticCurveTo(gameCanvas.width - 80, seabedY - 80, gameCanvas.width - 20, seabedY); gameCtx.fill(); gameCtx.stroke();
+                const eelX = gameCanvas.width - 90; const eelY = seabedY - 20; const eelWiggle = Math.sin(Date.now() * 0.002) * 10;
+                gameCtx.fillStyle = '#556B2F'; gameCtx.beginPath(); gameCtx.arc(eelX + eelWiggle, eelY, 10, 0, Math.PI * 2); gameCtx.fill();
+                gameCtx.fillStyle = 'yellow'; gameCtx.beginPath(); gameCtx.arc(eelX + eelWiggle + 3, eelY - 2, 2, 0, Math.PI * 2); gameCtx.fill();
+                gameCtx.strokeStyle = '#2E8B57'; gameCtx.lineWidth = 3; const swaySpeed = 0.001;
+                gameCtx.beginPath(); gameCtx.moveTo(100, seabedY); gameCtx.bezierCurveTo(100 + Math.sin(Date.now() * swaySpeed) * 10, seabedY - 30, 90, seabedY - 50, 100, seabedY - 80); gameCtx.stroke();
+                gameCtx.beginPath(); gameCtx.moveTo(gameCanvas.width / 2, seabedY); gameCtx.bezierCurveTo(gameCanvas.width / 2 + Math.sin(Date.now() * swaySpeed + 1) * 15, seabedY - 40, gameCanvas.width / 2 - 10, seabedY - 60, gameCanvas.width/2, seabedY - 90); gameCtx.stroke();
+            }
+
+            function drawFishingLine() {
+                const rodTipX = boat.x + boat.rodOffset.x;
+                const rodTipY = boat.y + boat.rodOffset.y;
+                gameCtx.beginPath();
+                gameCtx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+                gameCtx.lineWidth = 1.5;
+                gameCtx.moveTo(rodTipX, rodTipY - camera.y);
+                const segments = 20;
+                const totalLengthY = bait.y - rodTipY;
+                const totalLengthX = bait.x - rodTipX;
+                for (let i = 1; i <= segments; i++) {
+                    const t = i / segments;
+                    const currentY = rodTipY + t * totalLengthY;
+                    const currentX = rodTipX + t * totalLengthX;
+                    const swayAmplitude = Math.sin(t * Math.PI) * 15;
+                    const sway = Math.sin(currentY / 60 + Date.now() * 0.002) * swayAmplitude;
+                    gameCtx.lineTo(currentX + sway, currentY - camera.y);
+                }
+                gameCtx.stroke();
+            }
+
+            function drawBaitAndCaughtFish() {
+                gameCtx.fillStyle = '#c0392b'; // Red bait
+                gameCtx.beginPath();
+                gameCtx.arc(bait.x, bait.y - camera.y, bait.radius, 0, Math.PI * 2);
+                gameCtx.fill();
+                caughtFishes.forEach((fish, index) => {
+                    const yOffset = (index + 1) * 35;
+                    fish.x = bait.x;
+                    fish.y = bait.y + yOffset;
+                    drawFish(fish, true); // Draw as caught
+                });
+            }
+
+            function drawFish(fish, isCaught = false) {
+                gameCtx.save();
+                gameCtx.translate(fish.x, fish.y - camera.y);
+                gameCtx.scale(fish.direction, 1);
+                
+                let bodyColor = '#aaaaaa'; 
+                if (isCaught && (gameState === 'reeling' || gameState === 'review')) {
+                    bodyColor = fish.isCorrect ? '#2ecc71' : '#e74c3c'; // Green for correct, Red for incorrect
+                }
+                
+                gameCtx.fillStyle = bodyColor;
+                gameCtx.beginPath();
+                gameCtx.ellipse(0, 0, fish.width / 2, fish.height / 2, 0, 0, Math.PI * 2);
+                gameCtx.fill();
+
+                gameCtx.beginPath();
+                gameCtx.moveTo(-fish.width / 2, 0);
+                gameCtx.lineTo(-fish.width / 2 - 15, -10);
+                gameCtx.lineTo(-fish.width / 2 - 15, 10);
+                gameCtx.closePath();
+                gameCtx.fill();
+                
+                gameCtx.fillStyle = '#000000';
+                gameCtx.font = 'bold 18px Cairo';
+                gameCtx.textAlign = 'center';
+                gameCtx.textBaseline = 'middle';
+                gameCtx.scale(fish.direction, 1);
+                gameCtx.fillText(toArabicNumerals(fish.value), 0, 2);
+                gameCtx.restore();
+            }
+            
+            function drawBubbles() {
+                gameCtx.save(); gameCtx.fillStyle = 'rgba(255, 255, 255, 0.4)'; gameCtx.strokeStyle = 'rgba(255, 255, 255, 0.6)'; gameCtx.lineWidth = 1;
+                bubbles.forEach(b => {
+                    gameCtx.beginPath(); gameCtx.arc(b.x, b.y - camera.y, b.radius, 0, Math.PI * 2); gameCtx.fill(); gameCtx.stroke();
+                });
+                gameCtx.restore();
+            }
+
+            // ==================================================
+            // Visual Question Drawing Functions
+            // ==================================================
+            function clearVisualQuestion() {
+                visualCtx.clearRect(0, 0, visualCanvas.width, visualCanvas.height);
+            }
+            
+            function drawTableQuestion(data, highlights = []) {
+                clearVisualQuestion();
+                const { pairs } = data;
+                const startX = 10, startY = 30, colWidth = 100, rowHeight = 35;
+                const isDomainQuestion = currentQuestion.type.includes('domain');
+
+                visualCtx.fillStyle = 'rgba(46, 204, 113, 0.4)';
+                pairs.forEach((pair, index) => {
+                    const valueToCheck = isDomainQuestion ? String(pair.x) : String(pair.y);
+                    if (highlights.includes(valueToCheck)) {
+                        const yPos = startY + (index + 1) * rowHeight;
+                        if (isDomainQuestion) {
+                            visualCtx.fillRect(startX + colWidth, yPos - 20, colWidth, rowHeight);
+                        } else {
+                            visualCtx.fillRect(startX, yPos - 20, colWidth, rowHeight);
+                        }
+                    }
+                });
+
+                visualCtx.font = 'bold 18px Cairo';
+                visualCtx.fillStyle = 'white';
+                visualCtx.strokeStyle = 'white';
+                visualCtx.lineWidth = 2;
+                visualCtx.textAlign = 'center';
+
+                visualCtx.fillText('ص', startX + colWidth / 2, startY);
+                visualCtx.fillText('س', startX + colWidth * 1.5, startY);
+                visualCtx.strokeRect(startX, startY - 20, colWidth * 2, rowHeight);
+
+                pairs.forEach((pair, index) => {
+                    const y = startY + (index + 1) * rowHeight;
+                    visualCtx.fillText(toArabicNumerals(pair.y), startX + colWidth / 2, y);
+                    visualCtx.fillText(toArabicNumerals(pair.x), startX + colWidth * 1.5, y);
+                    visualCtx.strokeRect(startX, y - 20, colWidth * 2, rowHeight);
+                });
+                visualCtx.strokeRect(startX + colWidth, startY - 20, 0, rowHeight * (pairs.length + 1));
+            }
+
+            function drawGraphQuestion(data, highlights = []) {
+                clearVisualQuestion();
+                const { points } = data;
+                const centerX = visualCanvas.width / 2;
+                const centerY = visualCanvas.height / 2;
+                const scale = 18;
+                const isDomainQuestion = currentQuestion.type.includes('domain');
+
+                // Draw grid and axes
+                visualCtx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+                visualCtx.lineWidth = 1;
+                for (let i = -4; i <= 4; i++) {
+                    if (i === 0) continue;
+                    visualCtx.beginPath();
+                    visualCtx.moveTo(centerX + i * scale, 0); visualCtx.lineTo(centerX + i * scale, visualCanvas.height);
+                    visualCtx.moveTo(0, centerY + i * scale); visualCtx.lineTo(visualCanvas.width, centerY + i * scale);
+                    visualCtx.stroke();
+                }
+                visualCtx.strokeStyle = 'white'; visualCtx.lineWidth = 2;
+                visualCtx.beginPath();
+                visualCtx.moveTo(0, centerY); visualCtx.lineTo(visualCanvas.width, centerY);
+                visualCtx.moveTo(centerX, 0); visualCtx.lineTo(centerX, visualCanvas.height);
+                visualCtx.stroke();
+
+                if (highlights.length > 0) {
+                    visualCtx.save();
+                    visualCtx.strokeStyle = '#f1c40f'; // Attractive yellow color
+                    visualCtx.lineWidth = 2;
+                    visualCtx.setLineDash([4, 4]); // Dashed line style
+
+                    points.forEach(p => {
+                        const valueToCheck = isDomainQuestion ? String(p.x) : String(p.y);
+                        if (highlights.includes(valueToCheck)) {
+                            const drawX = centerX + p.x * scale;
+                            const drawY = centerY - p.y * scale;
+
+                            visualCtx.beginPath();
+                            if (isDomainQuestion) {
+                                // Project to X-axis
+                                visualCtx.moveTo(drawX, drawY);
+                                visualCtx.lineTo(drawX, centerY);
+                            } else {
+                                // Project to Y-axis
+                                visualCtx.moveTo(drawX, drawY);
+                                visualCtx.lineTo(centerX, drawY);
+                            }
+                            visualCtx.stroke();
+                        }
+                    });
+                    visualCtx.restore(); // Restore to solid lines for points
+                }
+
+                // Draw points on top of lines
+                points.forEach(p => {
+                    const drawX = centerX + p.x * scale;
+                    const drawY = centerY - p.y * scale;
+                    visualCtx.fillStyle = '#FFD700';
+                    visualCtx.beginPath();
+                    visualCtx.arc(drawX, drawY, 6, 0, Math.PI * 2);
+                    visualCtx.fill();
+                    visualCtx.strokeStyle = 'white';
+                    visualCtx.lineWidth = 2;
+                    visualCtx.stroke();
+                });
+            }
+
+            // ==================================================
+            // Main Game Logic
+            // ==================================================
+            
+            function highlightAnswersOnPanel() {
+                if (!currentQuestion) return;
+                const highlights = currentQuestion.requiredAnswers;
+                if (currentQuestion.type.includes('table')) {
+                    drawTableQuestion(currentQuestion.visualData, highlights);
+                } else if (currentQuestion.type.includes('graph')) {
+                    drawGraphQuestion(currentQuestion.visualData, highlights);
+                }
+            }
+            
+            function highlightAnswersOnQuestionText() {
+                if (!currentQuestion || !currentQuestion.text.includes("=")) return;
+
+                let text = currentQuestion.text;
+                const answers = currentQuestion.requiredAnswers;
+                const isDomain = currentQuestion.type.includes('domain');
+                const isRange = currentQuestion.type.includes('range');
+
+                if (isDomain) text = text.replace('<b>المجال</b>', '<b class="bg-green-300 text-black px-1 rounded">المجال</b>');
+                if (isRange) text = text.replace('<b>المدى</b>', '<b class="bg-green-300 text-black px-1 rounded">المدى</b>');
+
+                answers.forEach(answer => {
+                    const arabicAnswer = toArabicNumerals(answer);
+                    const highlightSpan = `<span class="bg-green-300 text-black px-1 rounded">${arabicAnswer}</span>`;
+                    text = text.replace(new RegExp(`([,(]\\s*)${arabicAnswer}(\\s*[,)])`, 'g'), `$1${highlightSpan}$2`);
+                    text = text.replace(new RegExp(`([,(]\\s*)${arabicAnswer}(\\s*[})])`, 'g'), `$1${highlightSpan}$2`);
+                });
+
+                questionEl.innerHTML = text;
+            }
+
+            function spawnBubble() {
+                if (gameState !== 'descending' && gameState !== 'readyToDescend') return;
+                bubbles.push({ 
+                    x: Math.random() * gameCanvas.width, 
+                    y: camera.y + gameCanvas.height + Math.random() * 100,
+                    radius: Math.random() * 4 + 2, 
+                    speedY: Math.random() * 1 + 0.5, 
+                    speedX: (Math.random() - 0.5) * 0.5 
+                });
+            }
+
+            function updateBubbles() {
+                for (let i = bubbles.length - 1; i >= 0; i--) {
+                    const b = bubbles[i];
+                    b.y -= b.speedY;
+                    b.x += b.speedX;
+                    if (b.y < camera.y - 20) {
+                        bubbles.splice(i, 1);
+                    }
+                }
+            }
+
+            function createQuestionsBank() {
+                return [
+                    { type: 'domain_pairs_new', text: `إذا كانت د = { (٥, س), (٦, ص), (٧, ع) } <br> فاجمع عناصر <b>المجال</b>.`, requiredAnswers: ['5', '6', '7'], fishValues: ['5', '6', '7', 'س', 'ص', 'ع', '٨', 'ل'], catchLimit: 3 },
+                    { type: 'range_pairs_new', text: `إذا كانت د = { (١, أ), (٢, ب), (٣, ج) } <br> فاجمع عناصر <b>المدى</b>.`, requiredAnswers: ['أ', 'ب', 'ج'], fishValues: ['1', '2', '3', 'أ', 'ب', 'ج', '٤', 'د'], catchLimit: 3 },
+                    { type: 'domain_table', text: "من الجدول، أوجد عناصر <b>المجال</b>.", visualData: { pairs: [{x: 4, y: 'أ'}, {x: 8, y: 'ب'}, {x: 9, y: 'ج'}] }, requiredAnswers: ['4', '8', '9'], fishValues: ['4', '8', '9', 'أ', 'ب', 'ج', '١', 'د'], catchLimit: 3 },
+                    { type: 'range_table', text: "من الجدول، أوجد عناصر <b>المدى</b>.", visualData: { pairs: [{x: 1, y: 'هـ'}, {x: 2, y: 'و'}, {x: 3, y: 'ز'}] }, requiredAnswers: ['هـ', 'و', 'ز'], fishValues: ['1', '2', '3', 'هـ', 'و', 'ز', '٤', 'ح'], catchLimit: 3 },
+                    { type: 'graph_domain', text: `من التمثيل البياني، أوجد عناصر <b>المجال</b>.`, visualData: { points: [{x: -2, y: 1}, {x: 1, y: 3}, {x: 4, y: -2}] }, requiredAnswers: ['-2', '1', '4'], fishValues: ['-2', '1', '4', '3', '-1', '-3', '-4', '2'], catchLimit: 3 },
+                    { type: 'graph_range', text: `من التمثيل البياني، أوجد عناصر <b>المدى</b>.`, visualData: { points: [{x: 3, y: -3}, {x: -1, y: 2}, {x: 4, y: 4}] }, requiredAnswers: ['-3', '2', '4'], fishValues: ['-3', '2', '4', '3', '-1', '-2', '1', '-4'], catchLimit: 3 }
+                ];
+            }
+
+            function generateNewQuestion() {
+                clearVisualQuestion();
+                currentQuestion = questionsBank[roundNumber - 1];
+                questionEl.innerHTML = currentQuestion.text;
+
+                if (currentQuestion.type.includes('table')) {
+                    drawTableQuestion(currentQuestion.visualData);
+                } else if (currentQuestion.type.includes('graph')) {
+                    drawGraphQuestion(currentQuestion.visualData);
+                }
+            }
+
+            function scheduleSwarms() {
+                swarmTimers.forEach(timer => clearTimeout(timer));
+                swarmTimers = [];
+                fishes = [];
+                
+                const swarmValues = [...currentQuestion.fishValues].sort(() => 0.5 - Math.random());
+                const numFishInSwarm = swarmValues.length;
+                const verticalRange = 2700 - 1000;
+                const slotHeight = verticalRange / numFishInSwarm;
+                let verticalSlots = [];
+                for (let i = 0; i < numFishInSwarm; i++) {
+                    verticalSlots.push(1000 + (i * slotHeight) + (Math.random() * slotHeight / 2));
+                }
+                verticalSlots.sort(() => Math.random() - 0.5);
+
+                const spawnSwarm = (values) => {
+                    values.forEach((value, index) => {
+                        const spawnY = verticalSlots.pop();
+                        const fishTimer = setTimeout(() => {
+                            spawnOneFish(value, currentQuestion.requiredAnswers.includes(String(value)), spawnY);
+                        }, index * 2000);
+                        swarmTimers.push(fishTimer);
+                    });
+                };
+                
+                const swarm1Timer = setTimeout(() => spawnSwarm(swarmValues), 1000);
+                swarmTimers.push(swarm1Timer);
+            }
+
+            function spawnOneFish(value, isCorrect, y) {
+                const direction = Math.random() < 0.5 ? 1 : -1;
+                const x = direction === 1 ? -60 : gameCanvas.width + 60;
+                const patrolCenterX = Math.random() * (gameCanvas.width * 0.6) + (gameCanvas.width * 0.2);
+                const patrolRange = Math.random() * 100 + 120;
+                fishes.push({
+                    x, y, value: String(value), isCorrect, direction,
+                    width: 60, height: 30,
+                    speedX: (Math.random() * 0.5 + 0.8),
+                    isCaught: false, state: 'entering',
+                    patrolCenterX, patrolRange
+                });
+            }
+            
+            function startNewRound() {
+                if (roundNumber >= TOTAL_ROUNDS) {
+                    endGame();
+                    return;
+                }
+                gameState = 'paused';
+                roundNumber++;
+                roundNumberEl.innerText = toArabicNumerals(roundNumber);
+                caughtFishes = [];
+                generateNewQuestion();
+                resetBait();
+                updateCatchGoalUI();
+                startCountdown();
+            }
+
+            function resetBait() {
+                bait.y = boat.y + boat.height + 20;
+                bait.x = boat.x + boat.rodOffset.x;
+            }
+
+            function update() {
+                if (gameState === 'splash' || gameState === 'paused' || gameState === 'gameOver' || gameState === 'review') return;
+
+                if (gameState === 'descending') {
+                    bait.y += bait.speedY;
+                    if (bait.y >= SEABED_Y) {
+                        evaluateCatch();
+                    }
+                } else if (gameState === 'reeling') {
+                    bait.y -= bait.reelSpeedY;
+                    if (bait.y <= boat.y + boat.height) {
+                        gameState = 'review'; // Enter review state
+                        setTimeout(() => {
+                            startNewRound(); // Start next round after a delay
+                        }, 4000); // 4 second delay for review
+                    }
+                }
+                
+                fishes.forEach(fish => {
+                    if (fish.isCaught) return;
+                    if (fish.state === 'entering') {
+                        fish.x += fish.speedX * fish.direction;
+                        if ((fish.direction === 1 && fish.x >= fish.patrolCenterX) || (fish.direction === -1 && fish.x <= fish.patrolCenterX)) {
+                            fish.state = 'patrolling';
+                        }
+                    } else if (fish.state === 'patrolling') {
+                        fish.x += fish.speedX * fish.direction;
+                        const leftBoundary = fish.patrolCenterX - fish.patrolRange / 2;
+                        const rightBoundary = fish.patrolCenterX + fish.patrolRange / 2;
+                        if ((fish.x > rightBoundary && fish.direction === 1) || (fish.x < leftBoundary && fish.direction === -1)) {
+                            fish.direction *= -1;
+                        }
+                    }
+                });
+                
+                fishes = fishes.filter(f => !f.remove);
+
+                if (gameState === 'descending' || gameState === 'reeling') {
+                     camera.targetY = bait.y - gameCanvas.height / 2;
+                     camera.y += (camera.targetY - camera.y) * 0.1;
+                }
+                
+                updateBubbles();
+                if (gameState === 'descending') checkCollisions();
+            }
+
+            function checkCollisions() {
+                for (let i = fishes.length - 1; i >= 0; i--) {
+                    const fish = fishes[i];
+                    if (fish.isCaught) continue;
+                    const dx = bait.x - fish.x;
+                    const dy = bait.y - fish.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+
+                    if (distance < bait.radius + fish.width / 2) {
+                        fish.isCaught = true;
+                        const caughtValue = fish.value;
+                        caughtFishes.push(fish);
+                        fishes.splice(i, 1);
+                        updateCatchGoalUI();
+                        fishes.forEach(otherFish => {
+                            if (otherFish.value === caughtValue) otherFish.remove = true;
+                        });
+                        if (caughtFishes.length >= currentQuestion.catchLimit) {
+                            evaluateCatch();
+                        }
+                        return;
+                    }
+                }
+            }
+            
+            function evaluateCatch() {
+                if (gameState === 'reeling') return;
+                gameState = 'reeling';
+                
+                highlightAnswersOnPanel();
+                highlightAnswersOnQuestionText();
+
+                let correctCatches = 0;
+                caughtFishes.forEach(fish => {
+                    if (fish.isCorrect) {
+                        correctCatches++;
+                    }
+                });
+
+                score += correctCatches;
+
+                let message = `أحسنت! +${toArabicNumerals(correctCatches)} نقطة`;
+                if (correctCatches === 0 && caughtFishes.length > 0) {
+                    message = "إجابة خاطئة!";
+                } else if (caughtFishes.length === 0) {
+                    message = "لم تصطد شيئاً!";
+                }
+                
+                showMessage(message);
+                scoreEl.innerText = toArabicNumerals(score);
+            }
+
+            function gameLoop() {
+                gameCtx.clearRect(0, 0, gameCanvas.width, gameCanvas.height);
+                gameCtx.fillStyle = '#87CEEB'; gameCtx.fillRect(0, 0, gameCanvas.width, gameCanvas.height);
+                
+                if (gameState !== 'review') {
+                    update();
+                }
+
+                drawWater(); 
+                drawSeabed();
+                drawBubbles();
+                fishes.forEach(fish => drawFish(fish));
+                drawBoat();
+                drawFishingLine();
+                drawBaitAndCaughtFish();
+                requestAnimationFrame(gameLoop);
+            }
+
+            // ==================================================
+            // Game State and Control
+            // ==================================================
+            function endGame() {
+                gameState = 'gameOver';
+                swarmTimers.forEach(timer => clearTimeout(timer));
+                if (bubbleInterval) clearInterval(bubbleInterval);
+                if (timerInterval) clearInterval(timerInterval); // Stop the timer
+                fishes = [];
+                clearVisualQuestion();
+                
+                const gameEndTime = Date.now();
+                const totalGameTimeInSeconds = gameStartTime ? Math.round((gameEndTime - gameStartTime) / 1000) : 0;
+
+                questionEl.classList.add('hidden');
+                infoPanel.classList.add('hidden');
+                endGamePanel.classList.remove('hidden');
+                endGamePanel.style.display = 'flex';
+                
+                saveAndFinishGame(score, totalGameTimeInSeconds);
+            }
+
+            function startCountdown() {
+                countdownOverlay.classList.remove('hidden');
+                countdownOverlay.style.display = 'flex';
+                let count = 3;
+                countdownTimerEl.innerText = toArabicNumerals(count);
+                const interval = setInterval(() => {
+                    count--;
+                    if (count > 0) {
+                        countdownTimerEl.innerText = toArabicNumerals(count);
+                    } else {
+                        clearInterval(interval);
+                        countdownOverlay.classList.add('hidden');
+                        countdownOverlay.style.display = 'none';
+                        gameState = 'readyToDescend'; 
+                        showMessage("تحرك لبدء الصيد!");
+                        scheduleSwarms();
+                    }
+                }, 1000);
+            }
+
+            function initializeGame() {
+                endGamePanel.classList.add('hidden');
+                endGamePanel.style.display = 'none';
+                questionEl.classList.remove('hidden');
+                infoPanel.classList.remove('hidden');
+                
+                score = 0;
+                roundNumber = 0;
+                
+                gameStartTime = Date.now();
+                if (timerInterval) clearInterval(timerInterval);
+                timerInterval = setInterval(updateTimer, 1000); // Start the timer
+                timerEl.innerText = toArabicNumerals(0);
+
+
+                questionsBank = createQuestionsBank();
+                shuffleArray(questionsBank);
+                
+                scoreEl.innerText = toArabicNumerals(score);
+                if (bubbleInterval) clearInterval(bubbleInterval);
+                bubbleInterval = setInterval(spawnBubble, 250);
+                startNewRound();
+            }
+
+            function handleMove(clientX) {
+                if (gameState === 'readyToDescend') {
+                    gameState = 'descending';
+                    messageEl.style.display = 'none';
+                }
+                if (gameState !== 'descending') return;
+                const rect = gameCanvas.getBoundingClientRect();
+                bait.x = Math.max(bait.radius, Math.min(gameCanvas.width - bait.radius, clientX - rect.left));
+            }
+
+            function handleKeyDown(event) {
+                if (gameState === 'readyToDescend') {
+                    gameState = 'descending';
+                    messageEl.style.display = 'none';
+                }
+                if (gameState !== 'descending') return;
+                const speed = 15;
+                if (event.key === 'ArrowLeft') bait.x -= speed;
+                else if (event.key === 'ArrowRight') bait.x += speed;
+                bait.x = Math.max(bait.radius, Math.min(gameCanvas.width - bait.radius, bait.x));
+            }
+            
+            function showMessage(text) {
+                messageEl.innerHTML = text;
+                messageEl.style.display = 'block';
+                setTimeout(() => { messageEl.style.display = 'none'; }, 2000);
+            }
+
+            function resizeCanvases() {
+                gameCanvas.width = phoneContainer.clientWidth;
+                gameCanvas.height = phoneContainer.clientHeight;
+                visualCanvas.width = 220; 
+                visualCanvas.height = 150; 
+                boat.x = gameCanvas.width / 2 - boat.width / 2;
+                if (gameState !== 'descending' && gameState !== 'reeling' && gameState !== 'review') {
+                    resetBait();
+                }
+                if(currentQuestion && currentQuestion.visualData) {
+                    if (currentQuestion.type.includes('table')) {
+                        drawTableQuestion(currentQuestion.visualData);
+                    } else if (currentQuestion.type.includes('graph')) {
+                        drawGraphQuestion(currentQuestion.visualData);
+                    }
+                }
+            }
+            
+            // Event Listeners
+            window.addEventListener('resize', resizeCanvases);
+            document.addEventListener('keydown', handleKeyDown);
+            phoneContainer.addEventListener('mousemove', (e) => handleMove(e.clientX));
+            phoneContainer.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                handleMove(e.touches[0].clientX);
+            }, { passive: false });
+            
+            startGameButton.addEventListener('click', () => {
+                splashScreen.style.display = 'none';
+                gameState = 'ready';
+                initializeGame();
+            });
+            
+            restartButton.addEventListener('click', initializeGame);
+            
+            // Initial Setup
+            resizeCanvases();
+            gameLoop();
+        };
+    </script>
+    
+    <!-- This new script block contains the connection and leaderboard engine -->
+    <script>
+    // --- START OF CONNECTION & LEADERBOARD ENGINE ---
+    (function() {
+        // --- CONFIGURATION (Settings for this specific game) ---
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
+        const GAME_ID = 'g2_1_2';      // MODIFIED: Updated Game ID
+        const GAME_MAX_POINTS = 15;                 // 5 rounds * 3 correct fish per round
+        const PLATFORM_MAX_GRADE = 5;               // Final grade scale in the platform
+        const METRIC_TYPE = 'time';                 // Type of metric: 'time', 'stars', 'errors'
+        const METRIC_LABEL = 'الوقت (ثواني)';       // Label for the metric in the leaderboard table
+
+        let currentUser = null;
+
+        // --- CORE FUNCTIONS ---
+
+        // 1. Main function called when the game ends
+        window.saveAndFinishGame = function(points, metricValue) {
+            const finalPoints = parseFloat(points) || 0;
+            const finalMetric = parseFloat(metricValue) || 0;
+            const maxPoints = parseFloat(GAME_MAX_POINTS) || 1;
+            const finalGrade = (finalPoints / maxPoints) * PLATFORM_MAX_GRADE;
+
+            const resultDisplay = document.getElementById('final-result-display');
+            if (resultDisplay) {
+                resultDisplay.innerHTML = `
+                    <p class="text-gray-700">النقاط: <span class="font-bold text-xl text-green-700">${finalPoints} / ${maxPoints}</span></p>
+                    <p class="text-blue-600">الدرجة في المنصة: <span class="font-bold text-2xl">${finalGrade.toFixed(1)} / ${PLATFORM_MAX_GRADE}</span></p>
+                `;
+            }
+
+            if (currentUser && currentUser.id) {
+                const params = new URLSearchParams({
+                    action: 'saveGrade',
+                    studentId: currentUser.id,
+                    itemId: GAME_ID,
+                    grade: finalGrade.toFixed(2),
+                    metricValue: finalMetric.toString()
+                });
+                fetch(`${SCRIPT_URL}?${params.toString()}`)
+                    .then(res => res.json())
+                    .then(result => console.log('Save result:', result.status))
+                    .catch(err => console.error("Save Error:", err))
+                    .finally(fetchAndShowLeaderboard);
+            } else {
+                console.log(`Visitor finished. Score: ${finalPoints}, Metric: ${finalMetric}`);
+                fetchAndShowLeaderboard();
+            }
+        }
+
+        // 2. Fetches and displays the leaderboard
+        function fetchAndShowLeaderboard() {
+            const loader = document.getElementById('leaderboard-loader');
+            const container = document.getElementById('leaderboard-container');
+            if (!loader || !container) return;
+
+            loader.style.display = 'block';
+            container.innerHTML = '';
+
+            const params = new URLSearchParams({
+                action: 'getLeaderboard',
+                gameId: GAME_ID,
+                metricType: METRIC_TYPE
+            });
+
+            fetch(`${SCRIPT_URL}?${params.toString()}`)
+                .then(res => res.json())
+                .then(response => {
+                    if (response.status === 'success' && response.data) {
+                        displayLeaderboard(response.data);
+                    } else {
+                        throw new Error(response.message || 'Failed to load leaderboard data.');
+                    }
+                })
+                .catch(err => {
+                    console.error("Leaderboard Error:", err);
+                    container.innerHTML = `<p class="text-center text-red-500">حدث خطأ في تحميل سجل الأبطال.</p>`;
+                })
+                .finally(() => {
+                    loader.style.display = 'none';
+                    showFinishButton();
+                });
+        }
+        
+        // 3. Builds the leaderboard HTML table
+        function displayLeaderboard(data) {
+            const container = document.getElementById('leaderboard-container');
+            if (!data || data.length === 0) {
+                container.innerHTML = `<p class="text-center text-gray-500 mt-4">لا توجد نتائج بعد. كن أول الأبطال!</p>`;
+                return;
+            }
+
+            let tableHTML = `
+                <div class="mt-6 border-t pt-4">
+                    <h3 class="text-2xl font-bold text-center text-gray-800 mb-4">🏆 سجل الأبطال 🏆</h3>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full bg-white shadow-md rounded-lg">
+                            <thead class="bg-gray-800 text-white">
+                                <tr>
+                                    <th class="text-center py-2 px-3">الترتيب</th>
+                                    <th class="text-right py-2 px-3">اسم الطالب</th>
+                                    <th class="text-center py-2 px-3">الدرجة</th>
+                                    <th class="text-center py-2 px-3">${METRIC_LABEL}</th>
+                                </tr>
+                            </thead>
+                            <tbody class="text-gray-700">`;
+
+            data.forEach((player, index) => {
+                const rank = index + 1;
+                let rankDisplay = rank;
+                if (rank === 1) rankDisplay = '🥇';
+                if (rank === 2) rankDisplay = '🥈';
+                if (rank === 3) rankDisplay = '🥉';
+
+                const isCurrentUser = (currentUser && player.name === currentUser.name);
+                const rowClass = isCurrentUser ? 'bg-blue-100 font-bold' : (index % 2 === 0 ? 'bg-gray-50' : 'bg-white');
+
+                tableHTML += `
+                    <tr class="${rowClass}">
+                        <td class="text-center py-2 px-3 text-xl">${rankDisplay}</td>
+                        <td class="text-right py-2 px-3">${player.name}</td>
+                        <td class="text-center py-2 px-3">${player.grade.toFixed(1)}</td>
+                        <td class="text-center py-2 px-3">${player.metricValue}</td>
+                    </tr>`;
+            });
+
+            tableHTML += `</tbody></table></div></div>`;
+            container.innerHTML = tableHTML;
+        }
+
+        // 4. Shows the "Finish" button
+        function showFinishButton() {
+            const finishWrapper = document.getElementById('finish-game-wrapper');
+            if (finishWrapper) {
+                finishWrapper.style.display = 'block';
+            }
+        }
+
+        // 5. Listens for user data from the parent platform
+        window.addEventListener('message', (event) => {
+            if (event.data && event.data.event === 'userData') {
+                currentUser = event.data.data;
+                console.log('User data received:', currentUser);
+            }
+        });
+
+        // 6. Handles the "Finish" button click
+        document.addEventListener('DOMContentLoaded', () => {
+            const finishBtn = document.getElementById('finish-game-btn');
+            if (finishBtn) {
+                finishBtn.addEventListener('click', () => {
+                    window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*');
+                });
+            }
+        });
+    })();
+    // --- END OF CONNECTION & LEADERBOARD ENGINE ---
+    </script>
+</body>
+</html>

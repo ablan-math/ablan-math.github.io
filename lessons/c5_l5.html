@@ -34,10 +34,6 @@
         .feedback.correct { background-color: #dcfce7; color: #16a34a; border-right: 4px solid #22c55e; }
         .feedback.incorrect { background-color: #fee2e2; color: #b91c1c; border-right: 4px solid #ef4444; }
         
-        .temp-comment { min-height: 56px; /* To prevent layout shift */ }
-        .visual-workspace { opacity: 0; transition: opacity 0.5s ease-in-out; }
-        .visual-workspace.visible { opacity: 1; }
-        
         .eq-color-1 { color: #1d4ed8; background-color: #dbeafe; border-color: #93c5fd; } /* Blue */
         .eq-color-2 { color: #15803d; background-color: #dcfce7; border-color: #86efac; } /* Green */
         .eq-color-3 { color: #7e22ce; background-color: #f3e8ff; border-color: #d8b4fe; } /* Purple for new/modified */
@@ -46,10 +42,24 @@
         .part-1 { color: #1d4ed8; font-weight: bold; } /* Blue part */
         .part-2 { color: #15803d; font-weight: bold; } /* Green part */
 
+        .step-box { 
+            border-right: 4px solid #9333ea; 
+            transition: opacity 0.5s, transform 0.5s;
+            opacity: 1;
+            transform: translateX(0);
+        }
         .target-term {
             outline: 3px solid #ef4444; /* red-500 */
             box-shadow: 0 0 10px #f43f5e;
             border-radius: 4px;
+            transition: all 0.3s ease-in-out;
+        }
+        .comment-box {
+            min-height: 50px;
+        }
+        .sign-change {
+            color: #dc2626; /* red-600 */
+            font-weight: bold;
         }
     </style>
 </head>
@@ -96,7 +106,7 @@
 
                 <section class="mb-12">
                     <h2 class="text-2xl font-bold text-gray-800 mb-4">🌍 ثالثاً: تطبيقات من واقع الحياة</h2>
-                    <div id="real-life-apps-container" class="grid grid-cols-1 md:grid-cols-1 gap-8">
+                    <div id="real-life-apps-container" class="space-y-8">
                         <!-- Real life examples injected here -->
                     </div>
                 </section>
@@ -130,6 +140,17 @@
             <div id="explanationText" class="text-gray-700 max-h-[60vh] overflow-y-auto"></div>
         </div>
     </div>
+    <div id="smartExplanationModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden z-50">
+        <div class="bg-white rounded-lg shadow-2xl p-6 max-w-lg w-full border-t-4 border-purple-500">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-purple-800">🧠 الحل الذكي</h3>
+                <button id="closeSmartModalBtn" class="p-2 -m-2 rounded-full hover:bg-gray-200">
+                    <svg class="h-6 w-6 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+            <div id="smartExplanationText" class="text-gray-700 max-h-[60vh] overflow-y-auto"></div>
+        </div>
+    </div>
     
     <script>
     // --- SCRIPT GENERAL ---
@@ -161,22 +182,36 @@
         if (attemptsCounter) { 
             attemptsCounter.innerHTML = `المحاولات المتبقية: <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded-full">${attemptsLeft}</span>`; 
         } 
-        const quizHtml = questions.map((q, index) => { 
-            const optionsHTML = q.options.map((opt, optIndex) => `<div><input type="radio" name="q${index}" value="${opt.value}" id="q${index}_opt${optIndex}" class="hidden"><label for="q${index}_opt${optIndex}" class="option-label">${opt.display}</label></div>`).join(''); 
-            return `<div class="p-4 border-2 border-gray-200 rounded-lg"><p class="font-bold">${index + 1}. ${q.text}</p><div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">${optionsHTML}</div><div id="feedback-q${index}" class="mt-2 text-sm font-bold"></div><div class="flex items-center space-x-4 space-x-reverse"><button type="button" id="explain-btn-${index}" class="hidden mt-2 text-xs text-blue-600 hover:underline">اعرف لماذا؟</button></div></div>`; 
+        
+        questions.forEach(q => {
+            q.correctAnswer = q.options.find(opt => opt.isCorrect).value;
+        });
+
+        const quizHtml = questions.map((q, index) => {
+            const shuffledOptions = [...q.options].sort(() => 0.5 - Math.random());
+            const optionsHTML = shuffledOptions.map((opt, optIndex) => `<div><input type="radio" name="q${index}" value="${opt.value}" id="q${index}_opt${optIndex}" class="hidden"><label for="q${index}_opt${optIndex}" class="option-label">${opt.display}</label></div>`).join(''); 
+            const smartButtonHTML = q.smartExplanation ? `<button type="button" id="smart-explain-btn-${index}" class="hidden mt-2 text-xs text-purple-600 hover:underline font-semibold">🧠 الحل الذكي</button>` : '';
+            return `<div class="p-4 border-2 border-gray-200 rounded-lg"><p class="font-bold">${index + 1}. <span class="text-yellow-500">${q.level}</span> ${q.text}</p><div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">${optionsHTML}</div><div id="feedback-q${index}" class="mt-2 text-sm font-bold"></div><div class="flex items-center space-x-4 space-x-reverse">${smartButtonHTML}<button type="button" id="explain-btn-${index}" class="hidden mt-2 text-xs text-blue-600 hover:underline">اعرف لماذا؟</button></div></div>`; 
         }).join(''); 
+        
         quizForm.innerHTML = quizHtml + `<button type="submit" id="submit-quiz-btn" class="w-full text-white bg-green-600 hover:bg-green-700 font-medium rounded-lg text-lg px-5 py-3 mt-8">تحقق من إجاباتي</button>`; 
+        
         questions.forEach((q, index) => { 
             const explainBtn = document.getElementById(`explain-btn-${index}`); 
             if(explainBtn) explainBtn.addEventListener('click', () => showExplanation(index)); 
+            if (q.smartExplanation) {
+                const smartExplainBtn = document.getElementById(`smart-explain-btn-${index}`);
+                if(smartExplainBtn) smartExplainBtn.addEventListener('click', () => showSmartExplanation(index));
+            }
         }); 
+        
         quizForm.onsubmit = (e) => { 
             e.preventDefault(); 
             let score = 0; 
             questions.forEach((q, index) => { 
                 const userAnswer = e.target.elements[`q${index}`]?.value; 
                 const feedbackEl = document.getElementById(`feedback-q${index}`); 
-                if (userAnswer === q.correct) { 
+                if (userAnswer === q.correctAnswer) { 
                     score++; 
                     feedbackEl.textContent = '✔ إجابة صحيحة!'; 
                     feedbackEl.className = 'mt-2 text-sm font-bold text-green-600'; 
@@ -185,6 +220,9 @@
                     feedbackEl.className = 'mt-2 text-sm font-bold text-red-600'; 
                 } 
                 document.getElementById(`explain-btn-${index}`).classList.remove('hidden'); 
+                if (q.smartExplanation) {
+                    document.getElementById(`smart-explain-btn-${index}`).classList.remove('hidden');
+                }
             }); 
             const finalGrade = Math.round((score / questions.length) * 10); 
             const resultsDiv = document.getElementById('quiz-results'); 
@@ -204,6 +242,17 @@
     }
     function closeModal() { 
         document.getElementById('explanationModal').classList.add('hidden'); 
+    }
+    function showSmartExplanation(questionIndex) {
+        const modal = document.getElementById('smartExplanationModal');
+        const explanationText = document.getElementById('smartExplanationText');
+        if(modal && explanationText && window.currentQuestions[questionIndex] && window.currentQuestions[questionIndex].smartExplanation) {
+            explanationText.innerHTML = window.currentQuestions[questionIndex].smartExplanation;
+            modal.classList.remove('hidden');
+        }
+    }
+    function closeSmartModal() {
+        document.getElementById('smartExplanationModal').classList.add('hidden');
     }
     // --- END SCRIPT GENERAL ---
 
@@ -227,7 +276,7 @@
         interactiveQuestions.forEach((q, index) => {
             const questionDiv = document.createElement('div');
             questionDiv.className = 'p-4 bg-white rounded-lg shadow flex flex-col';
-            const systemHTML = `<div class="mb-4 p-3 bg-gray-100 rounded-lg text-center"><p class="font-semibold mb-2">حدد أفضل طريقة لحل النظام:</p><div class="inline-block text-left">${q.system.split('<br>').map(eq => `<p class="math-eq">${eq}</p>`).join('<br>')}</div></div>`;
+            const systemHTML = `<div class="mb-4 p-3 bg-gray-100 rounded-lg text-center"><p class="font-semibold mb-2">حدد أفضل طريقة لحل النظام:</p><div class="inline-block text-left">${q.system.split('<br>').map((eq, i) => `<p class="math-eq eq-color-${i + 1}">${eq}</p>`).join('<br>')}</div></div>`;
             const optionsHTML = q.options.map(opt => `<button data-question="${index}" data-answer="${opt}" class="w-full text-center bg-blue-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-600 transition-colors">${opt}</button>`).join('');
             questionDiv.innerHTML = `<div class="flex-grow">${systemHTML}<div class="grid grid-cols-1 gap-3">${optionsHTML.replace(/md:grid-cols-3/g, '')}</div></div><div id="feedback-interactive-${index}" class="feedback hidden mt-auto"></div>`;
             choiceContainer.appendChild(questionDiv);
@@ -262,40 +311,13 @@
                 id: 'shopping',
                 title: '🛒 مثال: التسوق',
                 problem: 'اشترى عبدالله ٤ كراسات و ٣ حقائب بمبلغ ١٨١ ريالاً، واشترى عبدالرحمن كراسة وحقيبتين بمبلغ ٩٤ ريالاً. ما ثمن كل من الكراسة والحقيبة؟',
-                initialEq1: '٤ك + ٣ح = ١٨١',
-                initialEq2: 'ك + ٢ح = ٩٤',
-                steps: [
-                    { comment: "نحدد المتغيرات: <br> ك = ثمن الكراسة، ح = ثمن الحقيبة" },
-                    { comment: "نكتب المعادلات الأساسية من المسألة.", showInitial: true },
-                    { comment: "أفضل طريقة هي <b>التعويض</b> لأن معامل (ك) في المعادلة الثانية هو ١.", highlight: 2 },
-                    { comment: "نعيد ترتيب المعادلة الثانية لتصبح بدلالة (ك):", work_eq2: { text: 'ك = ٩٤ - ٢ح', class: 'eq-color-3' } },
-                    { comment: "الآن نعوض قيمة (ك) الجديدة في المعادلة الأولى:", work_eq1: { text: `٤(<span class="part-2">٩٤ - ٢ح</span>) + ٣ح = ١٨١`, class: 'eq-color-1' } },
-                    { comment: "نبسط المعادلة بفك الأقواس:", work_eq1: { text: '٣٧٦ - ٨ح + ٣ح = ١٨١', class: 'eq-color-3' } },
-                    { comment: "نجمع الحدود المتشابهة ونحل لإيجاد (ح):", work_eq1: { text: '-٥ح = -١٩٥ ⟹ ح = ٣٩', class: 'final-answer-box' } },
-                    { comment: "وجدنا أن ثمن الحقيبة ٣٩ ريالاً. نعوض هذه القيمة في المعادلة الثانية المرتبة لإيجاد (ك):", work_eq2: { text: `ك = ٩٤ - ٢(<span class="part-1">٣٩</span>)`, class: 'eq-color-2' } },
-                    { comment: "إذن، ثمن الكراسة هو:", work_eq2: { text: 'ك = ١٦', class: 'final-answer-box' } },
-                    { answer: 'ثمن الكراسة <span class="highlight-number">١٦</span> ريالاً، وثمن الحقيبة <span class="highlight-number">٣٩</span> ريالاً.' }
-                ]
+                totalSteps: 7
             },
             {
                 id: 'recycling',
                 title: '♻️ مثال: تدوير',
                 problem: 'جمع محمد ٩ كجم بلاستيك و ٣٠ كجم ورق وباعها بمبلغ ٣٣ ريالاً. وجمع صالح ٩ كجم بلاستيك و ١١٥ كجم ورق وباعها بمبلغ ٥٠ ريالاً. ما سعر الكيلوجرام لكل مادة؟',
-                initialEq1: '٩ب + ٣٠و = ٣٣',
-                initialEq2: '٩ب + ١١٥و = ٥٠',
-                steps: [
-                    { comment: "نحدد المتغيرات: <br> ب = سعر كجم البلاستيك، و = سعر كجم الورق" },
-                    { comment: "نكتب المعادلات الأساسية من المسألة.", showInitial: true },
-                    { comment: "أفضل طريقة هي <b>الحذف بالطرح</b> لأن معاملي (ب) متساويان.", highlight: 'both' },
-                    { comment: "نطرح المعادلة الأولى من الثانية:", line: true },
-                    { comment: "توضيح عملية الطرح:", result: { text: `(<span class="part-2">٩ب + ١١٥و</span>) - (<span class="part-1">٩ب + ٣٠و</span>) = <span class="part-2">٥٠</span> - <span class="part-1">٣٣</span>` } },
-                    { comment: "بعد التبسيط، نحصل على:", result: { text: '٨٥و = ١٧', class: 'eq-color-3' } },
-                    { comment: "نحل لإيجاد (و):", result: { text: 'و = ٠.٢', class: 'final-answer-box' } },
-                    { comment: "وجدنا أن سعر كجم الورق ٠.٢ ريال. نعوض هذه القيمة في المعادلة الأولى:", work_eq1: { text: `٩ب + ٣٠(<span class="part-2">٠.٢</span>) = ٣٣`, class: 'eq-color-1' } },
-                    { comment: "نبسط ونحل لإيجاد (ب):", work_eq1: { text: '٩ب + ٦ = ٣٣ ⟹ ٩ب = ٢٧', class: 'eq-color-3' } },
-                    { comment: "إذن، سعر كجم البلاستيك هو:", work_eq1: { text: 'ب = ٣', class: 'final-answer-box' } },
-                    { answer: 'سعر كجم البلاستيك <span class="highlight-number">٣</span> ريالات، وسعر كجم الورق <span class="highlight-number">٠.٢</span> ريال (٢٠ هللة).' }
-                ]
+                totalSteps: 8 
             }
         ];
 
@@ -303,30 +325,14 @@
         appsContainer.innerHTML = ''; // Clear previous content
         realLifeApps.forEach(app => {
             const appDiv = document.createElement('div');
-            appDiv.className = 'p-4 bg-white rounded-lg shadow';
+            appDiv.className = 'p-6 bg-white rounded-lg shadow-lg';
             appDiv.innerHTML = `
-                <p class="text-lg font-semibold mb-2">${app.title}</p>
-                <div class="mb-4 p-3 bg-gray-100 rounded-lg">
+                <h3 class="text-xl font-bold mb-3 text-purple-900">${app.title}</h3>
+                <div class="mb-4 p-3 bg-purple-50 rounded-lg">
                     <p>${app.problem}</p>
                 </div>
-                <div id="visual-workspace-${app.id}" class="visual-workspace space-y-3 text-center min-h-[250px] flex flex-col justify-center items-center">
-                    <!-- Initial equations will be shown here -->
-                    <div id="initial-eqs-${app.id}" class="mb-4 opacity-0 transition-opacity duration-500">
-                        <p class="math-eq eq-color-1">${app.initialEq1}</p><br>
-                        <p class="math-eq eq-color-2">${app.initialEq2}</p>
-                    </div>
-                    <!-- Working area for steps -->
-                    <div id="working-area-${app.id}" class="inline-flex flex-col items-center space-y-2 w-full">
-                        <p id="work-eq1-${app.id}" class="math-eq opacity-0"></p>
-                        <p id="work-eq2-${app.id}" class="math-eq opacity-0"></p>
-                        <div class="flex items-center justify-center w-full">
-                            <div class="flex flex-col items-center flex-1">
-                                <div id="line-${app.id}" class="border-t-2 border-gray-700 my-2 opacity-0 transition-opacity w-full max-w-xs"></div>
-                                <p id="result-${app.id}" class="math-eq opacity-0 w-full"></p>
-                            </div>
-                        </div>
-                    </div>
-                    <p id="temp-comment-${app.id}" class="temp-comment text-purple-700 font-semibold"></p>
+                <div id="solution-container-${app.id}" class="space-y-4 mt-4">
+                    <!-- Steps will be dynamically inserted here -->
                 </div>
                 <div class="flex justify-between mt-6">
                     <button data-example="${app.id}" class="prev-btn bg-gray-300 text-gray-700 font-bold py-2 px-4 rounded-lg hover:bg-gray-400 disabled:opacity-50 disabled:cursor-not-allowed">رجوع</button>
@@ -340,83 +346,154 @@
         });
         
         const examples = {};
+
+        function updateButtons(exampleId, index) {
+            const ex = examples[exampleId];
+            ex.prevBtn.disabled = index <= -1;
+            ex.nextBtn.classList.toggle('hidden', index >= ex.totalSteps);
+            ex.resetBtn.classList.toggle('hidden', index < ex.totalSteps);
+        }
+
+        // --- Step Runner for Shopping Example ---
+        window.runStep_shopping = (index) => {
+            const container = examples.shopping.container;
+            container.innerHTML = ''; 
+
+            let eq1HTML = `<p class="math-eq eq-color-1">٤ك + ٣ح = ١٨١</p>`;
+            let eq2HTML = `<p class="math-eq eq-color-2">ك + ٢ح = ٩٤</p>`;
+            let commentHTML = `<div class="comment-box"></div>`;
+            let solutionHTML = '';
+
+            if (index >= 1) {
+                eq2HTML = `<p class="math-eq eq-color-2 target-term">ك + ٢ح = ٩٤</p>`;
+                commentHTML = `<div class="comment-box"><p class="text-purple-800 font-semibold">أفضل طريقة هي <b>التعويض</b> لأن معامل (ك) هو ١.</p></div>`;
+            }
+            if (index >= 2) {
+                commentHTML = `<div class="comment-box"><p class="text-purple-800 font-semibold">نجعل المعادلة بدلالة (ك):</p></div>`;
+            }
+            if (index >= 3) {
+                eq2HTML = `<p class="math-eq eq-color-3">ك = ٩٤ - ٢ح</p>`;
+                commentHTML = `<div class="comment-box"></div>`;
+            }
+            if (index >= 4) {
+                 solutionHTML += `<div class="p-3 bg-gray-100 rounded-lg step-box mt-4"><p class="text-purple-800 font-semibold">الخطوة التالية: نعوض قيمة (ك) في المعادلة الأولى:</p><div class="text-center my-2"><div><p class="math-eq eq-color-1">٤(<span class="part-2">٩٤ - ٢ح</span>) + ٣ح = ١٨١</p></div></div></div>`;
+            }
+            if (index >= 5) {
+                solutionHTML += `<div class="p-3 bg-gray-100 rounded-lg step-box"><p class="text-purple-800 font-semibold">نحل لإيجاد (ح):</p><div class="text-center my-2 flex flex-col items-center space-y-2"><div><p class="math-eq eq-color-3">٣٧٦ - ٨ح + ٣ح = ١٨١</p></div><div><p class="math-eq final-answer-box">-٥ح = -١٩٥ ⟸ ح = ٣٩</p></div></div></div>`;
+            }
+            if (index >= 6) {
+                 solutionHTML += `<div class="p-3 bg-gray-100 rounded-lg step-box"><p class="text-purple-800 font-semibold">الآن نجد (ك):</p><div class="text-center my-2 flex flex-col items-center space-y-2"><div><p class="math-eq eq-color-2">ك = ٩٤ - ٢(<span class="part-1">٣٩</span>)</p></div><div><p class="math-eq final-answer-box">ك = ١٦</p></div></div></div>`;
+            }
+            if (index >= 7) {
+                solutionHTML += `<div class="p-3 bg-gray-100 rounded-lg step-box"><div class="mt-2 p-3 rounded-lg font-bold text-lg final-answer-box text-center">الحل: ثمن الكراسة <span class="highlight-number">١٦</span> ريالاً، وثمن الحقيبة <span class="highlight-number">٣٩</span> ريالاً.</div></div>`;
+            }
+
+            if (index >= 0) {
+                container.innerHTML = `
+                    <div class="p-3 bg-gray-100 rounded-lg step-box">
+                        <p class="text-purple-800 font-semibold">١. نحدد المتغيرات و نكتب المعادلات:</p>
+                        <div class="my-3 text-center">
+                            <p>ك = ثمن الكراسة، ح = ثمن الحقيبة</p>
+                            ${eq1HTML}<br>
+                            <div class="flex items-center justify-center space-x-4 space-x-reverse mt-2">
+                                ${eq2HTML}
+                                ${commentHTML}
+                            </div>
+                        </div>
+                    </div>
+                    ${solutionHTML}
+                `;
+            } else {
+                container.innerHTML = `<p class="text-center text-gray-500">اضغط "التالي" لبدء خطوات الحل</p>`;
+            }
+            updateButtons('shopping', index);
+        };
+
+        // --- Step Runner for Recycling Example ---
+        window.runStep_recycling = (index) => {
+            const container = examples.recycling.container;
+            container.innerHTML = '';
+
+            let eq1HTML = `<p class="math-eq eq-color-1">٩ب + ٣٠و = ٣٣</p>`;
+            let eq2HTML = `<p class="math-eq eq-color-2">٩ب + ١١٥و = ٥٠</p>`;
+            let commentHTML = `<div class="comment-box"></div>`;
+            let lineHTML = '';
+            let resultHTML = '';
+            let solutionHTML = '';
+            
+            if (index >= 1) {
+                eq1HTML = `<p class="math-eq eq-color-1"><span class="target-term">٩ب</span> + ٣٠و = ٣٣</p>`;
+                eq2HTML = `<p class="math-eq eq-color-2"><span class="target-term">٩ب</span> + ١١٥و = ٥٠</p>`;
+                commentHTML = `<div class="comment-box"><p class="text-purple-800 font-semibold">أفضل طريقة هي <b class="text-red-600">الحذف بالطرح</b> لأن معاملي (ب) متساويان.</p></div>`;
+            }
+            if (index >= 2) {
+                eq2HTML = `<div class="flex items-center space-x-2 space-x-reverse"><span class="text-red-600 font-bold text-2xl">ــ</span><p class="math-eq eq-color-2">٩ب + ١١٥و = ٥٠</p></div>`;
+                commentHTML = `<div class="comment-box"></div>`;
+            }
+            if (index >= 3) {
+                eq2HTML = `<p class="math-eq eq-color-3"><span class="sign-change">-</span>٩ب <span class="sign-change">-</span> ١١٥و = <span class="sign-change">-</span>٥٠</p>`;
+                lineHTML = `<div class="border-t-2 border-gray-700 my-2 w-full max-w-xs"></div>`;
+            }
+            if (index >= 4) {
+                 resultHTML = `<div class="text-center my-2"><p class="math-eq eq-color-3">٠ب - ٨٥و = -١٧</p></div>`;
+            }
+            if (index >= 5) {
+                resultHTML += `<div class="text-center my-2"><p class="math-eq eq-color-3">-٨٥و = -١٧</p></div>`;
+            }
+            if (index >= 6) {
+                resultHTML += `<div class="text-center my-2"><p class="math-eq final-answer-box">و = ٠.٢</p></div>`;
+            }
+            if (index >= 7) {
+                solutionHTML += `<div class="p-3 bg-gray-100 rounded-lg step-box mt-4"><p class="text-purple-800 font-semibold">نعوض قيمة (و) في المعادلة الأولى ونجد (ب):</p><div class="text-center my-2 flex flex-col items-center space-y-2"><div><p class="math-eq eq-color-1">٩ب + ٣٠(<span class="part-2">٠.٢</span>) = ٣٣</p></div><div><p class="math-eq eq-color-3">٩ب + ٦ = ٣٣ ⟸ ٩ب = ٢٧</p></div><div><p class="math-eq final-answer-box">ب = ٣</p></div></div></div>`;
+            }
+            if (index >= 8) {
+                solutionHTML += `<div class="p-3 bg-gray-100 rounded-lg step-box"><div class="mt-2 p-3 rounded-lg font-bold text-lg final-answer-box text-center">الحل: سعر كجم البلاستيك <span class="highlight-number">٣</span> ريالات، وسعر كجم الورق <span class="highlight-number">٠.٢</span> ريال (٢٠ هللة).</div></div>`;
+            }
+
+
+            if (index >= 0) {
+                 container.innerHTML = `
+                    <div class="p-3 bg-gray-100 rounded-lg step-box">
+                        <div class="my-3 text-center flex flex-col items-center space-y-2">
+                            ${eq1HTML}
+                            ${eq2HTML}
+                            ${lineHTML}
+                            ${resultHTML}
+                        </div>
+                        ${commentHTML}
+                    </div>
+                    ${solutionHTML}
+                `;
+            } else {
+                 container.innerHTML = `<p class="text-center text-gray-500">اضغط "التالي" لبدء خطوات الحل</p>`;
+            }
+            updateButtons('recycling', index);
+        };
+
         realLifeApps.forEach(app => {
-            const elCache = {
-                workspace: document.getElementById(`visual-workspace-${app.id}`),
-                initialEqs: document.getElementById(`initial-eqs-${app.id}`),
-                initialEq1: document.querySelector(`#initial-eqs-${app.id} .eq-color-1`),
-                initialEq2: document.querySelector(`#initial-eqs-${app.id} .eq-color-2`),
-                work_eq1: document.getElementById(`work-eq1-${app.id}`),
-                work_eq2: document.getElementById(`work-eq2-${app.id}`),
-                line: document.getElementById(`line-${app.id}`),
-                result: document.getElementById(`result-${app.id}`),
-                comment: document.getElementById(`temp-comment-${app.id}`),
-            };
             examples[app.id] = {
-                totalSteps: app.steps.length - 1,
+                id: app.id,
+                totalSteps: app.totalSteps,
                 currentIndex: -1,
-                steps: app.steps,
-                elements: elCache,
+                container: document.getElementById(`solution-container-${app.id}`),
                 nextBtn: document.querySelector(`button.next-btn[data-example="${app.id}"]`),
                 prevBtn: document.querySelector(`button.prev-btn[data-example="${app.id}"]`),
                 resetBtn: document.querySelector(`button.reset-btn[data-example="${app.id}"]`),
-                runStep: function(index) { runStepGeneric(app.id, index); }
             };
-            setupExample(examples[app.id]);
-        });
-        
-        function setupExample(ex) {
+            
+            const ex = examples[app.id];
             ex.nextBtn.addEventListener('click', () => {
-                if (ex.currentIndex < ex.totalSteps) { ex.currentIndex++; ex.runStep(ex.currentIndex); }
+                if (ex.currentIndex < ex.totalSteps) { ex.currentIndex++; window[`runStep_${ex.id}`](ex.currentIndex); }
             });
             ex.prevBtn.addEventListener('click', () => {
-                if (ex.currentIndex > -1) { ex.currentIndex--; ex.runStep(ex.currentIndex); }
+                if (ex.currentIndex > -1) { ex.currentIndex--; window[`runStep_${ex.id}`](ex.currentIndex); }
             });
             ex.resetBtn.addEventListener('click', () => {
-                ex.currentIndex = -1; ex.runStep(ex.currentIndex);
+                ex.currentIndex = -1; window[`runStep_${ex.id}`](ex.currentIndex);
             });
-            ex.runStep(-1);
-        }
+            window[`runStep_${ex.id}`](-1); // Initial call
+        });
 
-        function updateButtons(ex) {
-            ex.prevBtn.disabled = ex.currentIndex <= -1;
-            ex.nextBtn.classList.toggle('hidden', ex.currentIndex >= ex.totalSteps);
-            ex.resetBtn.classList.toggle('hidden', ex.currentIndex < ex.totalSteps);
-        }
-
-        function runStepGeneric(id, index) {
-            const ex = examples[id];
-            const els = ex.elements;
-            
-            // Reset state
-            els.workspace.classList.remove('visible');
-            els.initialEqs.style.opacity = '0';
-            [els.initialEq1, els.initialEq2].forEach(el => el.classList.remove('target-term'));
-            [els.work_eq1, els.work_eq2, els.result].forEach(el => {
-                el.innerHTML = ''; el.style.opacity = '0'; el.className = 'math-eq opacity-0';
-            });
-            els.line.style.opacity = '0';
-            els.comment.innerHTML = '';
-            
-            if (index > -1) els.workspace.classList.add('visible');
-            
-            // Apply states up to current index
-            for (let i = 0; i <= index; i++) {
-                const step = ex.steps[i];
-                if (step.comment) els.comment.innerHTML = step.comment;
-                if (step.showInitial) els.initialEqs.style.opacity = '1';
-                if (step.highlight) {
-                    if (step.highlight === 1 || step.highlight === 'both') els.initialEq1.classList.add('target-term');
-                    if (step.highlight === 2 || step.highlight === 'both') els.initialEq2.classList.add('target-term');
-                }
-                if (step.work_eq1) { els.work_eq1.innerHTML = step.work_eq1.text; els.work_eq1.className = `math-eq ${step.work_eq1.class}`; els.work_eq1.style.opacity = '1'; }
-                if (step.work_eq2) { els.work_eq2.innerHTML = step.work_eq2.text; els.work_eq2.className = `math-eq ${step.work_eq2.class}`; els.work_eq2.style.opacity = '1'; }
-                if (step.line) els.line.style.opacity = '1';
-                if (step.result) { els.result.innerHTML = step.result.text; els.result.className = `math-eq ${step.result.class || ''}`; els.result.style.opacity = '1'; }
-                if (step.answer) { els.comment.innerHTML = `<div class="p-3 rounded-lg font-bold text-lg final-answer-box">${step.answer}</div>`; }
-            }
-            updateButtons(ex);
-        }
 
         // --- Quiz Section ---
         const quizQuestions = generateQuiz();
@@ -425,18 +502,26 @@
         const retakeBtn = document.getElementById('retake-quiz-btn');
         if(retakeBtn) { retakeBtn.addEventListener('click', () => { window.location.reload(); }); }
         document.getElementById('closeModalBtn').addEventListener('click', closeModal);
+        document.getElementById('closeSmartModalBtn').addEventListener('click', closeSmartModal);
     });
 
     function generateQuiz() {
         const questionBank = [
-            { text: 'ما هي أفضل طريقة لحل النظام التالي؟<br><span class="math-eq">س = ٤ص + ٧</span><br><span class="math-eq">٢س - ٣ص = ٩</span>', options: [ { display: 'التمثيل البياني', value: 'a' }, { display: 'التعويض', value: 'b' }, { display: 'الحذف بالجمع', value: 'c' }, { display: 'الحذف بالضرب', value: 'd' } ], correct: 'b', explanation: 'التعويض هو الأفضل لأن المعادلة الأولى معطاة بدلالة (س)، مما يسهل تعويضها مباشرة في المعادلة الثانية.' },
-            { text: 'حدد الطريقة الأنسب لحل النظام:<br><span class="math-eq">٤س + ٢ص = ١٤</span><br><span class="math-eq">٦س - ٢ص = ٦</span>', options: [ { display: 'التعويض', value: 'a' }, { display: 'الحذف بالطرح', value: 'b' }, { display: 'الحذف بالجمع', value: 'c' }, { display: 'الحذف بالضرب', value: 'd' } ], correct: 'c', explanation: 'الحذف بالجمع هو الأنسب لأن معاملي المتغير (ص) (+٢ و -٢) هما معكوسان جمعيان لبعضهما.' },
-            { text: 'ما الطريقة التي ستستخدمها لحل النظام:<br><span class="math-eq">ص = ٣س - ٥</span><br><span class="math-eq">ص = -٢س + ١٥</span>', options: [ { display: 'التعويض أو التمثيل البياني', value: 'a' }, { display: 'الحذف بالجمع', value: 'b' }, { display: 'الحذف بالطرح', value: 'c' }, { display: 'الحذف بالضرب', value: 'd' } ], correct: 'a', explanation: 'بما أن كلتا المعادلتين محلولتان بالنسبة لـ(ص)، فالتعويض (بمساواة المعادلتين: ٣س - ٥ = -٢س + ١٥) هو خيار ممتاز. كذلك، صيغة الميل والمقطع تجعل التمثيل البياني سهلاً لتقدير الحل.' },
-            { text: 'لحل النظام: <span class="math-eq">٥س + ٣ص = ١١</span> و <span class="math-eq">٢س + ٤ص = ١٢</span>، ما هي الطريقة الأكثر فعالية؟', options: [ { display: 'التعويض', value: 'a' }, { display: 'الحذف بالجمع', value: 'b' }, { display: 'الحذف بالطرح', value: 'c' }, { display: 'الحذف بالضرب', value: 'd' } ], correct: 'd', explanation: 'الحذف بالضرب هو الأكثر فعالية لأنه لا يوجد أي معامل يساوي ١ أو -١، والمعاملات ليست متساوية أو متعاكسة. ستحتاج إلى ضرب المعادلتين لجعل أحد المعاملات متعاكساً (مثلاً، ضرب الأولى في -٢ والثانية في ٥ لحذف س).' },
-            { text: 'أي نظام من الأنظمة التالية هو الأنسب للحل بطريقة الحذف بالطرح؟', options: [ { display: '<span class="math-eq">س+ص=٥<br>س-ص=١</span>', value: 'a' }, { display: '<span class="math-eq">٢س+٣ص=٧<br>٢س-٥ص=١</span>', value: 'b' }, { display: '<span class="math-eq">ص=س+١<br>٢س+ص=٤</span>', value: 'c' }, { display: '<span class="math-eq">٣س+٢ص=٨<br>٢س+٣ص=٧</span>', value: 'd' } ], correct: 'b', explanation: 'النظام في الخيار (ب) هو الأنسب للحذف بالطرح لأن معاملي المتغير (س) متساويان (كلاهما ٢)، مما يسمح بحذفه مباشرة عند طرح المعادلتين.' }
+            { level: '⭐', text: 'ما هي أفضل طريقة لحل النظام التالي؟<br><span class="math-eq">س = ٤ص + ٧</span><br><span class="math-eq">٢س - ٣ص = ٩</span>', options: [ { display: 'التمثيل البياني', value: 'a' }, { display: 'التعويض', value: 'b', isCorrect: true }, { display: 'الحذف بالجمع', value: 'c' }, { display: 'الحذف بالضرب', value: 'd' } ], explanation: 'التعويض هو الأفضل لأن المعادلة الأولى معطاة بدلالة (س)، مما يسهل تعويضها مباشرة في المعادلة الثانية.' },
+            { level: '⭐', text: 'حدد الطريقة الأنسب لحل النظام:<br><span class="math-eq">٤س + ٢ص = ١٤</span><br><span class="math-eq">٦س - ٢ص = ٦</span>', options: [ { display: 'التعويض', value: 'a' }, { display: 'الحذف بالطرح', value: 'b' }, { display: 'الحذف بالجمع', value: 'c', isCorrect: true }, { display: 'الحذف بالضرب', value: 'd' } ], explanation: 'الحذف بالجمع هو الأنسب لأن معاملي المتغير (ص) (+٢ و -٢) هما معكوسان جمعيان لبعضهما.' },
+            { level: '⭐', text: 'ما الطريقة التي ستستخدمها لحل النظام:<br><span class="math-eq">ص = ٣س - ٥</span><br><span class="math-eq">ص = -٢س + ١٥</span>', options: [ { display: 'التعويض أو التمثيل البياني', value: 'a', isCorrect: true }, { display: 'الحذف بالجمع', value: 'b' }, { display: 'الحذف بالطرح', value: 'c' }, { display: 'الحذف بالضرب', value: 'd' } ], explanation: 'بما أن كلتا المعادلتين محلولتان بالنسبة لـ(ص)، فالتعويض (بمساواة المعادلتين: ٣س - ٥ = -٢س + ١٥) هو خيار ممتاز. كذلك، صيغة الميل والمقطع تجعل التمثيل البياني سهلاً لتقدير الحل.' },
+            { level: '⭐⭐', text: 'لحل النظام: <span class="math-eq">٥س + ٣ص = ١١</span> و <span class="math-eq">٢س + ٤ص = ١٢</span>، ما هي الطريقة الأكثر فعالية؟', options: [ { display: 'التعويض', value: 'a' }, { display: 'الحذف بالجمع', value: 'b' }, { display: 'الحذف بالطرح', value: 'c' }, { display: 'الحذف بالضرب', value: 'd', isCorrect: true } ], explanation: 'الحذف بالضرب هو الأكثر فعالية لأنه لا يوجد أي معامل يساوي ١ أو -١، والمعاملات ليست متساوية أو متعاكسة. ستحتاج إلى ضرب المعادلتين لجعل أحد المعاملات متعاكساً (مثلاً، ضرب الأولى في -٢ والثانية في ٥ لحذف س).' },
+            { level: '⭐', text: 'أي نظام من الأنظمة التالية هو الأنسب للحل بطريقة الحذف بالطرح؟', options: [ { display: '<span class="math-eq">س+ص=٥<br>س-ص=١</span>', value: 'a' }, { display: '<span class="math-eq">٢س+٣ص=٧<br>٢س-٥ص=١</span>', value: 'b', isCorrect: true }, { display: '<span class="math-eq">ص=س+١<br>٢س+ص=٤</span>', value: 'c' }, { display: '<span class="math-eq">٣س+٢ص=٨<br>٢س+٣ص=٧</span>', value: 'd' } ], explanation: 'النظام في الخيار (ب) هو الأنسب للحذف بالطرح لأن معاملي المتغير (س) متساويان (كلاهما ٢)، مما يسمح بحذفه مباشرة عند طرح المعادلتين.' },
+            { level: '⭐', text: 'مجموع عددين ١٥ والفرق بينهما ٣. ما هما العددان؟', options: [ { display: '(٩, ٦)', value: 'a', isCorrect: true }, { display: '(١٠, ٥)', value: 'b' }, { display: '(٨, ٧)', value: 'c' }, { display: '(١٢, ٣)', value: 'd' } ], explanation: 'نفرض العددين س، ص. س+ص=١٥ و س-ص=٣. باستخدام الحذف بالجمع، ٢س=١٨ إذن س=٩. بالتعويض، ٩+ص=١٥ إذن ص=٦.', smartExplanation: 'ابحث عن خيارين مجموعهما ١٥. الخياران (أ) و (ب) و (ج) يحققون ذلك. الآن ابحث عن خيارين الفرق بينهما ٣. فقط الخيار (أ) (٩-٦=٣) يحقق ذلك.' },
+            { level: '⭐⭐', text: 'ما هو حل النظام: <span class="math-eq">س + ص = ٥</span> و <span class="math-eq">٢س + ٢ص = ١٢</span>؟', options: [ { display: '(٢, ٣)', value: 'a' }, { display: 'لا يوجد حل', value: 'b', isCorrect: true }, { display: 'عدد لا نهائي من الحلول', value: 'c' }, { display: '(٠, ٥)', value: 'd' } ], explanation: 'بضرب المعادلة الأولى في -٢، نحصل على -٢س - ٢ص = -١٠. بجمعها مع المعادلة الثانية (٢س + ٢ص = ١٢)، نحصل على ٠ = ٢، وهي عبارة خاطئة. لذا لا يوجد حل.', smartExplanation: 'لاحظ أن المعادلة الثانية هي ضعف المعادلة الأولى في الطرف الأيمن (٢س+٢ص)، ولكن الطرف الأيسر (١٢) ليس ضعف الطرف الأيسر للمعادلة الأولى (٥). هذا التناقض يعني أن الخطين متوازيان ولا يتقاطعان، أي لا يوجد حل.' },
+            { level: '⭐⭐', text: 'حل النظام:<br><span class="math-eq">٣س + ٢ص = ١٦</span><br><span class="math-eq">٢س + ٣ص = ١٤</span>', options: [ { display: '(٤, ٢)', value: 'a', isCorrect: true }, { display: '(٢, ٥)', value: 'b' }, { display: '(٥, ٠.٥)', value: 'c' }, { display: '(-٤, ١٤)', value: 'd' } ], explanation: 'باستخدام الحذف بالضرب (نضرب الأولى في ٢ والثانية في -٣): ٦س+٤ص=٣٢ و -٦س-٩ص=-٤٢. بالجمع: -٥ص=-١٠ إذن ص=٢. بالتعويض: ٣س+٢(٢)=١٦ إذن ٣س=١٢ ومنها س=٤.' },
+            { level: '⭐⭐⭐', text: 'مع أحمد ومحمد معاً ١٥٠ ريالاً. إذا كان ما مع أحمد يساوي ضعف ما مع محمد زائد ٣٠ ريالاً. فكم مع كل منهما؟', options: [ { display: 'أحمد ١٠٠، محمد ٥٠', value: 'a' }, { display: 'أحمد ٩٠، محمد ٦٠', value: 'b' }, { display: 'أحمد ١٢٠، محمد ٣٠', value: 'c' }, { display: 'أحمد ١١٠، محمد ٤٠', value: 'd', isCorrect: true } ], explanation: 'نفرض ما مع أحمد (أ) وما مع محمد (م). أ+م=١٥٠ و أ=٢م+٣٠. بالتعويض: (٢م+٣٠)+م=١٥٠ ⟸ ٣م=١٢٠ ⟸ م=٤٠. إذن أ=١٥٠-٤٠=١١٠.' },
+            { level: '⭐', text: 'حل النظام:<br><span class="math-eq">ص = ٥س - ١</span><br><span class="math-eq">ص = ٢س + ٨</span>', options: [ { display: '(٣, ١٤)', value: 'a', isCorrect: true }, { display: '(٢, ٩)', value: 'b' }, { display: '(١, ٤)', value: 'c' }, { display: '(٤, ١٩)', value: 'd' } ], explanation: 'بما أن ص=ص، إذن ٥س-١=٢س+٨. ٣س=٩ ⟸ س=٣. بالتعويض: ص=٥(٣)-١=١٤.' },
+            { level: '⭐⭐', text: 'حل النظام:<br><span class="math-eq">٧س - ٤ص = ١٠</span><br><span class="math-eq">-٧س + ٥ص = -٩</span>', options: [ { display: '(١٠/٧, ٠)', value: 'a' }, { display: '(٠, -٢.٥)', value: 'b' }, { display: '(٢, ١)', value: 'c', isCorrect: true }, { display: '(٥, ٦.٢٥)', value: 'd' } ], explanation: 'باستخدام الحذف بالجمع مباشرة: ص=١. بالتعويض في المعادلة الأولى: ٧س-٤(١)=١٠ ⟸ ٧س=١٤ ⟸ س=٢. الحل هو (٢,١).' },
+            { level: '⭐⭐', text: 'ما هو حل النظام: <span class="math-eq">٤س - ٢ص = ٨</span> و <span class="math-eq">ص = ٢س - ٤</span>؟', options: [ { display: 'حل وحيد', value: 'a' }, { display: 'لا يوجد حل', value: 'b' }, { display: 'عدد لا نهائي من الحلول', value: 'c', isCorrect: true }, { display: '(٢, ٠)', value: 'd' } ], explanation: 'بإعادة ترتيب المعادلة الثانية: ٢ص=٤س-٨ ⟸ ٢ص-٤س=-٨. المعادلة الأولى هي ٤س-٢ص=٨. المعادلتان متكافئتان. يوجد عدد لا نهائي من الحلول.', smartExplanation: 'لاحظ أن المعادلة الثانية (ص = ٢س - ٤) إذا ضربتها في -٢ تحصل على -٢ص = -٤س + ٨، وهي نفسها المعادلة الأولى. بما أن المعادلتين هما نفس الخط، فإنه يوجد عدد لا نهائي من الحلول.' }
         ];
         const shuffled = [...questionBank].sort(() => 0.5 - Math.random());
-        return shuffled.slice(0, 4); // Select 4 random questions
+        return shuffled.slice(0, 5); // Select 5 random questions
     }
 
     </script>

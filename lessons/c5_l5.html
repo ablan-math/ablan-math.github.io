@@ -161,6 +161,53 @@
     
     <script>
     // --- SCRIPT GENERAL ---
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
+    const MAX_ATTEMPTS = 3;
+    let currentQuestions = []; 
+
+    function getStudentFromStorage() {
+        const studentDataString = localStorage.getItem('currentStudent');
+        if (studentDataString) {
+            try {
+                return JSON.parse(studentDataString);
+            } catch (e) {
+                console.error("Error parsing student data from localStorage:", e);
+                return null;
+            }
+        }
+        return null;
+    }
+
+    function saveGrade(lessonId, grade, studentId) {
+        if (!studentId) return;
+        const saveStatus = document.getElementById('save-status');
+        saveStatus.textContent = 'جارٍ حفظ نتيجتك...';
+        const url = `${SCRIPT_URL}?action=saveGrade&studentId=${studentId}&lessonId=${lessonId}&grade=${grade}`;
+        fetch(url)
+            .then(res => res.json())
+            .then(result => {
+                if (result.status === 'success') {
+                    saveStatus.textContent = '✔ تم حفظ نتيجتك بنجاح! ستظهر في لوحة التحكم عند العودة.';
+                    const studentData = getStudentFromStorage(); // Re-fetch to be safe
+                    if (studentData) {
+                        if (!studentData.lessons) studentData.lessons = {};
+                        if (!studentData.lessons[lessonId] || studentData.lessons[lessonId].grade < grade) {
+                            studentData.lessons[lessonId] = { grade: grade, attempts: (studentData.lessons[lessonId]?.attempts || 0) + 1 };
+                        } else {
+                            studentData.lessons[lessonId].attempts++;
+                        }
+                        localStorage.setItem('currentStudent', JSON.stringify(studentData));
+                    }
+                } else {
+                    throw new Error(result.message);
+                }
+            })
+            .catch(error => {
+                saveStatus.textContent = '❌ حدث خطأ أثناء حفظ الدرجة.';
+                console.error("Save Grade Error:", error);
+            });
+    }
+
     function buildHeader(studentData, lessonTitle = null) {
         const headerContainer = document.getElementById('main-header');
         if (!headerContainer) return;
@@ -184,7 +231,13 @@
             quizForm.innerHTML = `<p class="text-center text-gray-600">لا توجد أسئلة متاحة لهذا الدرس حالياً.</p>`; 
             return; 
         } 
-        let attemptsLeft = 1; 
+        let attemptsLeft;
+        if (studentData) {
+            const studentLessonData = studentData.lessons?.[lessonId] || { attempts: 0 };
+            attemptsLeft = MAX_ATTEMPTS - studentLessonData.attempts;
+        } else {
+            attemptsLeft = 1;
+        }
         const attemptsCounter = document.getElementById('attempts-counter'); 
         if (attemptsCounter) { 
             attemptsCounter.innerHTML = `المحاولات المتبقية: <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded-full">${attemptsLeft}</span>`; 
@@ -202,6 +255,13 @@
         }).join(''); 
         
         quizForm.innerHTML = quizHtml + `<button type="submit" id="submit-quiz-btn" class="w-full text-white bg-green-600 hover:bg-green-700 font-medium rounded-lg text-lg px-5 py-3 mt-8">تحقق من إجاباتي</button>`; 
+        
+        if (attemptsLeft <= 0) {
+            const submitBtn = quizForm.querySelector('#submit-quiz-btn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'لا توجد محاولات متبقية';
+            submitBtn.classList.add('bg-gray-400', 'hover:bg-gray-400');
+        }
         
         questions.forEach((q, index) => { 
             const explainBtn = document.getElementById(`explain-btn-${index}`); 
@@ -236,15 +296,9 @@
             resultsDiv.classList.remove('hidden'); 
             document.getElementById('quiz-score').textContent = `${finalGrade} / 10`; 
             if (studentData) {
-                document.getElementById('save-status').textContent = 'يتم حفظ نتيجتك...';
-                try {
-                    if (window.parent && window.parent.saveLessonGrade) {
-                        window.parent.saveLessonGrade({ lessonId, grade: finalGrade, studentId: studentData.id });
-                        document.getElementById('save-status').textContent = 'تم حفظ نتيجتك بنجاح!';
-                    }
-                } catch (e) {
-                    console.warn("Could not save grade to parent.", e.message);
-                    document.getElementById('save-status').textContent = 'حدث خطأ أثناء حفظ النتيجة.';
+                saveGrade(lessonId, finalGrade, studentData.id); 
+                if (attemptsLeft - 1 > 0) {
+                    document.getElementById('retake-quiz-btn').classList.remove('hidden');
                 }
             } else {
                 document.getElementById('save-status').textContent = 'تم عرض نتيجتك. سجل الدخول لحفظ تقدمك.';
@@ -280,14 +334,7 @@
         const lessonTitleElement = document.getElementById('lesson-title');
         const lessonTitle = lessonTitleElement ? lessonTitleElement.textContent : null;
         
-        let studentData = null;
-        try {
-            if (window.parent && window.parent !== window && typeof window.parent.getStudentData === 'function') {
-                 studentData = window.parent.getStudentData();
-            }
-        } catch (e) {
-            console.warn("Could not access parent window. This is expected if running standalone or cross-origin.", e.message);
-        }
+        const studentData = getStudentFromStorage();
 
         buildHeader(studentData, lessonTitle);
         buildFooter();

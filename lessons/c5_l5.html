@@ -154,15 +154,6 @@
     
     <script>
     // --- SCRIPT GENERAL ---
-    // This function should be provided by the main platform to get student data
-    // For standalone testing, it returns null.
-    function getStudentFromStorage() {
-        // In a real scenario, this would retrieve data from localStorage or another source.
-        // const studentData = localStorage.getItem('currentStudent');
-        // return studentData ? JSON.parse(studentData) : null;
-        return null;
-    }
-
     function buildHeader(studentData, lessonTitle = null) {
         const headerContainer = document.getElementById('main-header');
         if (!headerContainer) return;
@@ -170,7 +161,6 @@
         if (lessonTitle) {
             titleHtml = `<div><h2 class="text-sm text-gray-500 leading-tight">منصة الرياضيات التفاعلية</h2><h1 class="text-xl font-bold text-purple-700 leading-tight">${lessonTitle}</h1></div>`;
         }
-        // **FIX**: Display student name if available, otherwise show "Visitor"
         const studentName = studentData ? studentData.name : 'زائر';
         headerContainer.innerHTML = `<div class="container mx-auto px-6 py-4 flex justify-between items-center">${titleHtml}<p class="text-lg text-gray-600">${studentName}</p></div>`;
     }
@@ -238,11 +228,17 @@
             const resultsDiv = document.getElementById('quiz-results'); 
             resultsDiv.classList.remove('hidden'); 
             document.getElementById('quiz-score').textContent = `${finalGrade} / 10`; 
-            // **FIX**: Check if studentData exists before trying to save the grade
             if (studentData) {
                 document.getElementById('save-status').textContent = 'يتم حفظ نتيجتك...';
-                // This is where you would call the function to save the grade to the platform
-                // saveGrade(lessonId, finalGrade, studentData.id); 
+                try {
+                    if (window.parent && window.parent.saveLessonGrade) {
+                        window.parent.saveLessonGrade({ lessonId, grade: finalGrade, studentId: studentData.id });
+                        document.getElementById('save-status').textContent = 'تم حفظ نتيجتك بنجاح!';
+                    }
+                } catch (e) {
+                    console.warn("Could not save grade to parent.", e.message);
+                    document.getElementById('save-status').textContent = 'حدث خطأ أثناء حفظ النتيجة.';
+                }
             } else {
                 document.getElementById('save-status').textContent = 'تم عرض نتيجتك. سجل الدخول لحفظ تقدمك.';
             }
@@ -277,8 +273,17 @@
         const lessonTitleElement = document.getElementById('lesson-title');
         const lessonTitle = lessonTitleElement ? lessonTitleElement.textContent : null;
         
-        // **FIX**: Call getStudentFromStorage to get student data
-        const studentData = getStudentFromStorage();
+        let studentData = null;
+        try {
+            // **FIX**: Safely attempt to get student data from the parent window.
+            // This will only work if the parent and iframe are on the same origin.
+            // The catch block will handle the SecurityError if they are not.
+            if (window.parent && window.parent !== window) {
+                 studentData = window.parent.getStudentData();
+            }
+        } catch (e) {
+            console.warn("Could not access parent window. This is expected if running standalone or cross-origin.", e.message);
+        }
 
         buildHeader(studentData, lessonTitle);
         buildFooter();
@@ -518,7 +523,7 @@
 
         // --- Quiz Section ---
         const quizQuestions = generateQuiz();
-        initializeQuiz(LESSON_ID, quizQuestions, studentData); // **FIX**: Pass studentData to the quiz
+        initializeQuiz(LESSON_ID, quizQuestions, studentData); 
         
         const retakeBtn = document.getElementById('retake-quiz-btn');
         if(retakeBtn) { retakeBtn.addEventListener('click', () => { window.location.reload(); }); }

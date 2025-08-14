@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>لعبة تصويب المعادلات</title>
+    <title>لعبة تصويب السهام</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body {
@@ -123,23 +123,27 @@
             text-align: center;
             box-shadow: 0 4px 15px rgba(0,0,0,0.3);
             border: 1px solid rgba(255,255,255,0.2);
-            min-width: 200px;
+            min-width: 250px;
             display: none;
             z-index: 5;
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: center;
         }
 
-        #score-display, #timer-display {
-            font-size: 2em;
+        #score-display, #timer-display, #question-counter-display {
+            font-size: 1.8em;
             font-weight: bold;
             display: none;
             text-shadow: 2px 2px 4px #000000;
+            margin: 0 15px;
         }
         
         #end-round-controls {
             display: flex;
             gap: 10px;
             justify-content: center;
-            align-items: center; /* Vertically align items */
+            align-items: center; 
             margin-top: 10px;
         }
 
@@ -167,7 +171,6 @@
             background-color: #0069d9;
         }
         
-        /* *** NEW: Style for the auto-next countdown timer *** */
         #auto-next-timer {
             font-size: 1.5em;
             font-weight: bold;
@@ -175,7 +178,7 @@
             height: 40px;
             border-radius: 50%;
             background-color: rgba(255,255,255,0.2);
-            display: none; /* Initially hidden */
+            display: none; 
             justify-content: center;
             align-items: center;
             padding: 0;
@@ -330,6 +333,23 @@
             display: inline-block;
         }
 
+        #transition-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: none; /* Initially hidden */
+            justify-content: center;
+            align-items: center;
+            z-index: 30;
+            font-size: 5em;
+            font-weight: bold;
+            color: #ffb703;
+            text-shadow: 3px 3px 0px #fb8500;
+        }
+
     </style>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -338,7 +358,7 @@
 <body>
 
     <div id="start-screen" class="fullscreen-overlay">
-        <h1>لعبة تصويب المعادلات</h1>
+        <h1>لعبة تصويب السهام</h1>
         <p>أجب عن السؤال بشكل صحيح ثم صوب سهمك نحو الهدف. سرعتك في الإجابة تحدد دقة تصويبك، ودقة التصويب تحدد نتيجتك. كلما كنت أسرع، زادت فرصتك في الحصول على 100 درجة!</p>
         <button id="start-button" class="main-button">ابدأ التحدي</button>
         <p class="credits">تصميم وبرمجة الأستاذ/ عبدالعزيز خالد العبلان</p>
@@ -376,15 +396,18 @@
     </div>
 
     <div id="info-container">
-        <div id="score-display"></div>
+        <div id="question-counter-display"></div>
         <div id="timer-display"></div>
+        <div id="score-display"></div>
         <div id="end-round-controls">
             <button id="next-question-button" class="control-btn">السؤال التالي</button>
             <button id="show-explanation-button" class="control-btn">أعرف لماذا ؟</button>
-             <!-- *** NEW: Countdown timer element *** -->
             <div id="auto-next-timer" class="control-btn"></div>
         </div>
     </div>
+    
+    <div id="transition-screen"></div>
+
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
@@ -400,7 +423,7 @@
         let remainingTime = COUNTDOWN_DURATION;
         let wasTimeOut = false;
         let nextQuestionTimer = null;
-        let autoNextInterval = null; // *** NEW: Interval for the visual countdown ***
+        let autoNextInterval = null;
 
         // --- متغيرات تتبع الأداء ---
         let questionCount = 0;
@@ -497,6 +520,8 @@
         const explanationText = document.getElementById('explanation-text');
         const closeExplanationButton = document.getElementById('close-explanation-button');
         const autoNextTimerDiv = document.getElementById('auto-next-timer');
+        const questionCounterDisplay = document.getElementById('question-counter-display');
+        const transitionScreen = document.getElementById('transition-screen');
 
         init();
         animate();
@@ -545,7 +570,7 @@
             nextQuestionButton.addEventListener('click', () => {
                 clearTimeout(nextQuestionTimer);
                 clearInterval(autoNextInterval);
-                loadNextQuestion();
+                showTransitionAndLoadNext();
             });
             showExplanationButton.addEventListener('click', () => {
                 clearTimeout(nextQuestionTimer);
@@ -593,7 +618,7 @@
                 gameQuestions.push(question);
             }
 
-            loadNextQuestion();
+            showTransitionAndLoadNext();
         }
 
         function restartGame() {
@@ -701,21 +726,32 @@
 
         // --- دوال التحكم باللعبة ---
 
-        function loadNextQuestion() {
+        function showTransitionAndLoadNext() {
             clearTimeout(nextQuestionTimer);
             clearInterval(autoNextInterval);
             autoNextTimerDiv.style.display = 'none';
-
+            infoContainer.style.display = 'none';
+            qaContainer.style.display = 'none';
+            
             if (questionCount >= MAX_QUESTIONS) {
                 showFinalScreen();
                 return;
             }
-            
+
+            transitionScreen.textContent = `السؤال ${toArabicNumerals(questionCount + 1)} / ${toArabicNumerals(MAX_QUESTIONS)}`;
+            transitionScreen.style.display = 'flex';
+
+            setTimeout(() => {
+                transitionScreen.style.display = 'none';
+                loadNextQuestion();
+            }, 1500);
+        }
+
+        function loadNextQuestion() {
             currentQuestion = gameQuestions[questionCount]; 
             
             questionCount++;
             
-            infoContainer.style.display = 'none';
             explanationContainer.style.display = 'none';
             
             gameState = 'showing_question';
@@ -732,7 +768,6 @@
             questionContent.innerHTML = currentQuestion.question;
             answersContainer.innerHTML = ''; 
             
-            // *** NEW: Shuffle answers before displaying them ***
             let answerObjects = currentQuestion.answers.map((answer, index) => ({ text: answer, originalIndex: index }));
             for (let i = answerObjects.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
@@ -748,8 +783,10 @@
             });
             
             qaContainer.style.display = 'block';
-            infoContainer.style.display = 'block';
+            infoContainer.style.display = 'flex';
             timerDisplayDiv.style.display = 'block';
+            questionCounterDisplay.style.display = 'block';
+            questionCounterDisplay.textContent = `السؤال ${toArabicNumerals(questionCount)} / ${toArabicNumerals(MAX_QUESTIONS)}`;
             scoreDisplayDiv.style.display = 'none';
             nextQuestionButton.style.display = 'none';
             showExplanationButton.style.display = 'none';
@@ -764,7 +801,7 @@
             const wasCorrect = originalIndex === currentQuestion.correctIndex;
             
             qaContainer.style.display = 'none';
-            timerDisplayDiv.style.display = 'none';
+            infoContainer.style.display = 'none';
 
             if (wasCorrect) {
                 correctAnswers++;
@@ -787,8 +824,7 @@
 
         function fireArrow(time) {
             gameState = 'firing';
-            timerDisplayDiv.style.display = 'none';
-
+            
             let minRadius, maxRadius;
 
             if (time >= 15) { minRadius = 0; maxRadius = 0.2; }
@@ -827,9 +863,11 @@
         function showEndOfRoundUI(score, message = "") {
             totalScore += score;
             const arabicScore = toArabicNumerals(score);
+            infoContainer.style.display = 'flex';
             scoreDisplayDiv.textContent = message ? message : `النتيجة: ${arabicScore}`;
             scoreDisplayDiv.style.display = 'block';
             timerDisplayDiv.style.display = 'none';
+            questionCounterDisplay.style.display = 'none';
             nextQuestionButton.style.display = 'inline-block';
             showExplanationButton.style.display = 'inline-block';
 
@@ -853,7 +891,7 @@
             }, 1000);
 
             nextQuestionTimer = setTimeout(() => {
-                loadNextQuestion();
+                showTransitionAndLoadNext();
             }, 5000);
         }
 
@@ -877,7 +915,7 @@
 
         function hideExplanation() {
             explanationContainer.style.display = 'none';
-            infoContainer.style.display = 'block';
+            infoContainer.style.display = 'flex';
             startAutoNextTimer(); // Restart timer when explanation is closed
         }
         
@@ -900,13 +938,19 @@
                 
                 if (remainingTime <= 0) {
                     remainingTime = 0;
-                    timerDisplayDiv.textContent = toArabicNumerals('0.00');
+                    timerDisplayDiv.textContent = toArabicNumerals(Math.ceil(remainingTime));
                     qaContainer.style.display = 'none';
-                    timerDisplayDiv.style.display = 'none';
+                    infoContainer.style.display = 'none';
                     wasTimeOut = true;
                     startMissAnimation();
                 } else {
-                    timerDisplayDiv.textContent = toArabicNumerals(remainingTime.toFixed(2));
+                    timerDisplayDiv.textContent = toArabicNumerals(Math.ceil(remainingTime));
+                    // *** NEW: Color-coded timer logic ***
+                    if (remainingTime >= 15) { timerDisplayDiv.style.color = '#ffff00'; } // Yellow
+                    else if (remainingTime >= 10) { timerDisplayDiv.style.color = '#ff0000'; } // Red
+                    else if (remainingTime >= 6) { timerDisplayDiv.style.color = '#0000ff'; } // Blue
+                    else if (remainingTime >= 2) { timerDisplayDiv.style.color = '#000000'; } // Black
+                    else { timerDisplayDiv.style.color = '#ffffff'; } // White
                 }
             }
 

@@ -1,0 +1,1128 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لعبة تصويب المعادلات</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Cairo', sans-serif;
+            background-color: #f0f8ff;
+            color: white;
+            -webkit-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+
+        canvas {
+            display: none;
+            background-color: #87ceeb;
+        }
+
+        /* شاشات البداية والنهاية */
+        .fullscreen-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-size: cover;
+            background-position: center center;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 20px;
+            box-sizing: border-box;
+            z-index: 20;
+            transition: opacity 0.5s ease;
+        }
+        .fullscreen-overlay::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(to top, rgba(2, 48, 71, 0.8), rgba(33, 158, 188, 0.7));
+            z-index: -1;
+        }
+        .fullscreen-overlay h1 {
+            font-size: 3.5em;
+            color: #ffb703;
+            text-shadow: 3px 3px 0px #fb8500;
+            margin-bottom: 20px;
+        }
+        .fullscreen-overlay p {
+            font-size: 1.2em;
+            max-width: 600px;
+            line-height: 1.6;
+            margin-bottom: 15px;
+            color: #edf2f4;
+        }
+        .credits {
+            font-size: 1em;
+            color: #8ecae6;
+            margin-top: 30px;
+        }
+        .main-button {
+            padding: 15px 40px;
+            font-size: 1.5em;
+            font-family: 'Cairo', sans-serif;
+            font-weight: bold;
+            cursor: pointer;
+            color: #023047;
+            background-color: #ffb703;
+            border: none;
+            border-radius: 12px;
+            margin-top: 20px;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 0 #fb8500;
+        }
+        .main-button:hover {
+            background-color: #ffc94a;
+            transform: translateY(-2px);
+            box-shadow: 0 7px 0 #fb8500;
+        }
+        .main-button:active {
+            transform: translateY(2px);
+            box-shadow: 0 3px 0 #fb8500;
+        }
+        #final-screen {
+            display: none;
+            overflow-y: auto;
+        }
+        
+        @media (max-width: 600px) {
+            .fullscreen-overlay h1 {
+                font-size: 2.5em;
+            }
+            .fullscreen-overlay p {
+                font-size: 1em;
+            }
+            .main-button {
+                font-size: 1.2em;
+                padding: 12px 30px;
+            }
+        }
+
+
+        /* حاوية المعلومات العلوية (النتيجة والوقت) */
+        #info-container {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 10px 20px;
+            background-color: rgba(0, 0, 0, 0.6);
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.2);
+            min-width: 200px;
+            display: none;
+            z-index: 5;
+        }
+
+        #score-display, #timer-display {
+            font-size: 2em;
+            font-weight: bold;
+            display: none;
+            text-shadow: 2px 2px 4px #000000;
+        }
+        
+        #end-round-controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            align-items: center; /* Vertically align items */
+            margin-top: 10px;
+        }
+
+        .control-btn {
+            display: none;
+            padding: 8px 15px;
+            font-size: 0.9em;
+            font-family: 'Cairo', sans-serif;
+            cursor: pointer;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            transition: background-color 0.3s, transform 0.2s;
+        }
+        #next-question-button {
+            background-color: #4CAF50;
+        }
+        #next-question-button:hover {
+            background-color: #45a049;
+        }
+        #show-explanation-button {
+            background-color: #007bff;
+        }
+        #show-explanation-button:hover {
+            background-color: #0069d9;
+        }
+        
+        /* *** NEW: Style for the auto-next countdown timer *** */
+        #auto-next-timer {
+            font-size: 1.5em;
+            font-weight: bold;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: rgba(255,255,255,0.2);
+            display: none; /* Initially hidden */
+            justify-content: center;
+            align-items: center;
+            padding: 0;
+            border: 2px solid white;
+        }
+
+
+        /* حاوية الأسئلة والأجوبة (مناسبة للجوال) */
+        #qa-container {
+            position: absolute;
+            bottom: 2%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 95%;
+            max-width: 450px;
+            background-color: rgba(0, 30, 60, 0.85);
+            padding: 20px;
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            text-align: center;
+            z-index: 10;
+            display: none;
+        }
+
+        #question-title {
+            font-size:1.2em; 
+            margin-top:0; 
+            margin-bottom: 10px;
+        }
+
+        #question-content {
+            font-size: 2em;
+            font-weight: bold;
+            margin-bottom: 20px;
+            line-height: 1.4;
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        #question-content .fraction {
+             font-size: 0.7em;
+        }
+
+        .fraction {
+            display: inline-flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            vertical-align: middle;
+            margin: 0 0.2em;
+        }
+        .numerator {
+            padding: 0 0.5em 0.1em;
+            border-bottom: 2px solid white;
+        }
+        .denominator {
+            padding: 0.1em 0.5em 0;
+        }
+
+
+        #answers-container {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 10px;
+        }
+
+        .answer-btn {
+            padding: 8px 5px;
+            font-size: 1em;
+            font-family: 'Cairo', sans-serif;
+            cursor: pointer;
+            background-color: #1a759f;
+            color: white;
+            border: 2px solid #1e90ff;
+            border-radius: 10px;
+            transition: background-color 0.3s, transform 0.2s;
+        }
+        
+        .answer-btn .fraction {
+            font-size: 0.8em;
+            margin: 0 0.1em;
+            vertical-align: middle;
+        }
+        .answer-btn .numerator {
+            padding: 0 0.3em 0.05em;
+            border-bottom: 1px solid white;
+        }
+        .answer-btn .denominator {
+            padding: 0.05em 0.3em 0;
+        }
+
+        .answer-btn:hover {
+            background-color: #1e90ff;
+            transform: translateY(-2px);
+        }
+        
+        #explanation-container {
+            position: absolute;
+            bottom: 2%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 95%;
+            max-width: 450px;
+            background-color: rgba(20, 20, 40, 0.9);
+            padding: 25px;
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            text-align: center;
+            z-index: 11;
+            display: none;
+        }
+        #explanation-text {
+            font-size: 1.1em;
+            line-height: 1.6;
+            margin-bottom: 20px;
+            text-align: right;
+        }
+        #explanation-text .fraction{
+            font-size: 0.8em;
+        }
+        .explanation-question {
+            background-color: rgba(0, 0, 0, 0.25);
+            padding: 10px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #ffc94a;
+            text-align: center;
+        }
+        #close-explanation-button {
+            padding: 10px 25px;
+            font-size: 1em;
+            cursor: pointer;
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            transition: background-color 0.3s;
+        }
+        #close-explanation-button:hover {
+            background-color: #c82333;
+        }
+
+        .ltr-force {
+            direction: ltr;
+            unicode-bidi: bidi-override;
+            display: inline-block;
+        }
+
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <div id="start-screen" class="fullscreen-overlay">
+        <h1>لعبة تصويب المعادلات</h1>
+        <p>أجب عن السؤال بشكل صحيح ثم صوب سهمك نحو الهدف. سرعتك في الإجابة تحدد دقة تصويبك، ودقة التصويب تحدد نتيجتك. كلما كنت أسرع، زادت فرصتك في الحصول على 100 درجة!</p>
+        <button id="start-button" class="main-button">ابدأ التحدي</button>
+        <p class="credits">تصميم وبرمجة الأستاذ/ عبدالعزيز خالد العبلان</p>
+    </div>
+
+    <div id="final-screen" class="fullscreen-overlay">
+        <h1 class="text-4xl md:text-5xl">انتهى التحدي!</h1>
+        
+        <div id="final-result-display" class="text-center text-xl mt-4 bg-white/20 p-4 rounded-lg"></div>
+
+        <div id="leaderboard-loader" style="display: none;" class="text-center mt-6">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto"></div>
+            <p class="text-white/80">جاري تحميل سجل الأبطال...</p>
+        </div>
+
+        <div id="leaderboard-container" class="mt-4 w-full max-w-md"></div>
+
+        <div id="finish-game-wrapper" class="text-center mt-6" style="display: none;">
+            <button id="finish-game-btn" class="px-6 py-3 bg-red-600 text-white font-bold rounded-lg shadow-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-opacity-75 transition-transform transform hover:scale-105">
+                إنهاء والعودة للمنصة
+            </button>
+        </div>
+    </div>
+
+
+    <div id="qa-container">
+        <p id="question-title"></p>
+        <div id="question-content"></div>
+        <div id="answers-container"></div>
+    </div>
+    
+    <div id="explanation-container">
+        <div id="explanation-text"></div>
+        <button id="close-explanation-button" class="control-btn" style="display: inline-block;">إغلاق</button>
+    </div>
+
+    <div id="info-container">
+        <div id="score-display"></div>
+        <div id="timer-display"></div>
+        <div id="end-round-controls">
+            <button id="next-question-button" class="control-btn">السؤال التالي</button>
+            <button id="show-explanation-button" class="control-btn">أعرف لماذا ؟</button>
+             <!-- *** NEW: Countdown timer element *** -->
+            <div id="auto-next-timer" class="control-btn"></div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <script>
+        // --- إعدادات المشهد الأساسية ---
+        let scene, camera, renderer;
+        let arrow, target;
+        
+        // --- متغيرات حالة اللعبة ---
+        let gameState = 'start_screen'; 
+        let countdownStartTime;
+        const COUNTDOWN_DURATION = 25;
+        let remainingTime = COUNTDOWN_DURATION;
+        let wasTimeOut = false;
+        let nextQuestionTimer = null;
+        let autoNextInterval = null; // *** NEW: Interval for the visual countdown ***
+
+        // --- متغيرات تتبع الأداء ---
+        let questionCount = 0;
+        let totalScore = 0;
+        let correctAnswers = 0;
+        const MAX_QUESTIONS = 10; 
+        let gameQuestions = [];
+
+        // --- بنك الأسئلة الرياضية الكامل ---
+        const questionBank = [
+            // Category 1
+            { category: "معادلات الجمع (المتغير يمينًا)", exercises: [
+                { question: "<div dir='ltr'>٢٠ = ١١ + س</div>", answers: ["نطرح ١١ من الطرفين", "نجمع ١١ للطرفين", "نقسم على ١١", "نضرب في ١١"], correctIndex: 0, explanation: "<div class='explanation-question' dir='ltr'>٢٠ = ١١ + س</div><div dir='rtl'><p>الحل: نطرح ١١ من الطرفين</p><p>٢٠ <span style='color: #ffb703;'>- ١١</span> = ١١ + س <span style='color: #ffb703;'>- ١١</span></p><p>٩ = س</p></div>" },
+                { question: "<div dir='ltr'>٣٥ = ١٥ + ص</div>", answers: ["نطرح ١٥ من الطرفين", "نجمع ١٥ للطرفين", "نقسم على ١٥", "نضرب في ١٥"], correctIndex: 0, explanation: "<div class='explanation-question' dir='ltr'>٣٥ = ١٥ + ص</div><div dir='rtl'><p>الحل: نطرح ١٥ من الطرفين</p><p>٣٥ <span style='color: #ffb703;'>- ١٥</span> = ١٥ + ص <span style='color: #ffb703;'>- ١٥</span></p><p>٢٠ = ص</p></div>" },
+                { question: "<div dir='ltr'>٥٠ = ٣٠ + ع</div>", answers: ["نطرح ٣٠ من الطرفين", "نجمع ٣٠ للطرفين", "نقسم على ٣٠", "نضرب في ٣٠"], correctIndex: 0, explanation: "<div class='explanation-question' dir='ltr'>٥٠ = ٣٠ + ع</div><div dir='rtl'><p>الحل: نطرح ٣٠ من الطرفين</p><p>٥٠ <span style='color: #ffb703;'>- ٣٠</span> = ٣٠ + ع <span style='color: #ffb703;'>- ٣٠</span></p><p>٢٠ = ع</p></div>" }
+            ]},
+            // Category 2
+            { category: "معادلات الطرح", exercises: [
+                { question: "<div dir='rtl'>ص - ٢٧ = ١٩</div>", answers: ["نجمع ٢٧ للطرفين", "نطرح ٢٧ من الطرفين", "نقسم على ٢٧", "نضرب في ٢٧"], correctIndex: 0, explanation: "<div class='explanation-question' dir='rtl'>ص - ٢٧ = ١٩</div><div dir='rtl'><p>الحل: نجمع ٢٧ للطرفين</p><p>ص - ٢٧ <span style='color: #ffb703;'>+ ٢٧</span> = ١٩ <span style='color: #ffb703;'>+ ٢٧</span></p><p>ص = ٤٦</p></div>" },
+                { question: "<div dir='rtl'>ل - ٩ = ٢١</div>", answers: ["نجمع ٩ للطرفين", "نطرح ٩ من الطرفين", "نقسم على ٩", "نضرب في ٩"], correctIndex: 0, explanation: "<div class='explanation-question' dir='rtl'>ل - ٩ = ٢١</div><div dir='rtl'><p>الحل: نجمع ٩ للطرفين</p><p>ل - ٩ <span style='color: #ffb703;'>+ ٩</span> = ٢١ <span style='color: #ffb703;'>+ ٩</span></p><p>ل = ٣٠</p></div>" },
+                { question: "<div dir='rtl'>م - ١٤ = ١٠</div>", answers: ["نجمع ١٤ للطرفين", "نطرح ١٤ من الطرفين", "نقسم على ١٤", "نضرب في ١٤"], correctIndex: 0, explanation: "<div class='explanation-question' dir='rtl'>م - ١٤ = ١٠</div><div dir='rtl'><p>الحل: نجمع ١٤ للطرفين</p><p>م - ١٤ <span style='color: #ffb703;'>+ ١٤</span> = ١٠ <span style='color: #ffb703;'>+ ١٤</span></p><p>م = ٢٤</p></div>" }
+            ]},
+            // Category 3
+            { category: "معادلات الجمع (المتغير يسارًا)", exercises: [
+                { question: "<div dir='rtl'>م + ١٢ = ١٥</div>", answers: ["نطرح ١٢ من الطرفين", "نجمع ١٢ للطرفين", "نقسم على ١٢", "نضرب في ١٢"], correctIndex: 0, explanation: "<div class='explanation-question' dir='rtl'>م + ١٢ = ١٥</div><div dir='rtl'><p>الحل: نطرح ١٢ من الطرفين</p><p>م + ١٢ <span style='color: #ffb703;'>- ١٢</span> = ١٥ <span style='color: #ffb703;'>- ١٢</span></p><p>م = ٣</p></div>" },
+                { question: "<div dir='rtl'>س + ٨ = ٢٥</div>", answers: ["نطرح ٨ من الطرفين", "نجمع ٨ للطرفين", "نقسم على ٨", "نضرب في ٨"], correctIndex: 0, explanation: "<div class='explanation-question' dir='rtl'>س + ٨ = ٢٥</div><div dir='rtl'><p>الحل: نطرح ٨ من الطرفين</p><p>س + ٨ <span style='color: #ffb703;'>- ٨</span> = ٢٥ <span style='color: #ffb703;'>- ٨</span></p><p>س = ١٧</p></div>" },
+                { question: "<div dir='rtl'>ن + ١٧ = ٣٠</div>", answers: ["نطرح ١٧ من الطرفين", "نجمع ١٧ للطرفين", "نقسم على ١٧", "نضرب في ١٧"], correctIndex: 0, explanation: "<div class='explanation-question' dir='rtl'>ن + ١٧ = ٣٠</div><div dir='rtl'><p>الحل: نطرح ١٧ من الطرفين</p><p>ن + ١٧ <span style='color: #ffb703;'>- ١٧</span> = ٣٠ <span style='color: #ffb703;'>- ١٧</span></p><p>ن = ١٣</p></div>" }
+            ]},
+            // Category 4
+            { category: "معادلات الضرب", exercises: [
+                { question: "<div>٤ل = ٥٢</div>", answers: ["نقسم الطرفين على ٤", "نطرح ٤ من الطرفين", "نجمع ٤ للطرفين", "نضرب في ٤"], correctIndex: 0, explanation: `<div class='explanation-question' dir='rtl'>٤ل = ٥٢</div><div dir='rtl'><p>الحل: نقسم الطرفين على ٤</p><p><span class="fraction"><span class="numerator">٤ل</span><span class="denominator"><span style='color: #ffb703;'>٤</span></span></span> = <span class="fraction"><span class="numerator">٥٢</span><span class="denominator"><span style='color: #ffb703;'>٤</span></span></span></p><p>ل = ١٣</p></div>` },
+                { question: "<div>٣س = ١٥</div>", answers: ["نطرح ٣ من الطرفين", "نقسم الطرفين على ٣", "نضرب في ٣", "نجمع ٣ للطرفين"], correctIndex: 1, explanation: `<div class='explanation-question' dir='rtl'>٣س = ١٥</div><div dir='rtl'><p>الحل: نقسم الطرفين على ٣</p><p><span class="fraction"><span class="numerator">٣س</span><span class="denominator"><span style='color: #ffb703;'>٣</span></span></span> = <span class="fraction"><span class="numerator">١٥</span><span class="denominator"><span style='color: #ffb703;'>٣</span></span></span></p><p>س = ٥</p></div>` },
+                { question: "<div>٩د = ٨١</div>", answers: ["نقسم الطرفين على ٩", "نطرح ٩ من الطرفين", "نجمع ٩ للطرفين", "نضرب في ٩"], correctIndex: 0, explanation: `<div class='explanation-question' dir='rtl'>٩د = ٨١</div><div dir='rtl'><p>الحل: نقسم الطرفين على ٩</p><p><span class="fraction"><span class="numerator">٩د</span><span class="denominator"><span style='color: #ffb703;'>٩</span></span></span> = <span class="fraction"><span class="numerator">٨١</span><span class="denominator"><span style='color: #ffb703;'>٩</span></span></span></p><p>د = ٩</p></div>` }
+            ]},
+            // Category 5
+            { category: "معادلات القسمة (صورة كسر)", exercises: [
+                { question: `<div dir='ltr'>٨ = <span class="fraction"><span class="numerator">س</span><span class="denominator">٦</span></span></div>`, answers: ["نضرب الطرفين في ٦", "نقسم الطرفين على ٦", "نطرح ٦ من الطرفين", "نجمع ٦ للطرفين"], correctIndex: 0, explanation: `<div class='explanation-question' dir='ltr'>٨ = <span class="fraction"><span class="numerator">س</span><span class="denominator">٦</span></span></div><div dir='rtl'><p>الحل: نضرب الطرفين في ٦</p><p>٨ <span style='color: #ffb703;'>× ٦</span> = <span class="fraction"><span class="numerator">س</span><span class="denominator">٦</span></span> <span style='color: #ffb703;'>× ٦</span></p><p>٤٨ = س</p></div>` },
+                { question: `<div dir='ltr'>١٠ = <span class="fraction"><span class="numerator">ص</span><span class="denominator">٥</span></span></div>`, answers: ["نضرب الطرفين في ٥", "نقسم الطرفين على ٥", "نطرح ٥ من الطرفين", "نجمع ٥ للطرفين"], correctIndex: 0, explanation: `<div class='explanation-question' dir='ltr'>١٠ = <span class="fraction"><span class="numerator">ص</span><span class="denominator">٥</span></span></div><div dir='rtl'><p>الحل: نضرب الطرفين في ٥</p><p>١٠ <span style='color: #ffb703;'>× ٥</span> = <span class="fraction"><span class="numerator">ص</span><span class="denominator">٥</span></span> <span style='color: #ffb703;'>× ٥</span></p><p>٥٠ = ص</p></div>` },
+                { question: `<div dir='ltr'>١٢ = <span class="fraction"><span class="numerator">ع</span><span class="denominator">٣</span></span></div>`, answers: ["نضرب الطرفين في ٣", "نقسم الطرفين على ٣", "نطرح ٣ من الطرفين", "نجمع ٣ للطرفين"], correctIndex: 0, explanation: `<div class='explanation-question' dir='ltr'>١٢ = <span class="fraction"><span class="numerator">ع</span><span class="denominator">٣</span></span></div><div dir='rtl'><p>الحل: نضرب الطرفين في ٣</p><p>١٢ <span style='color: #ffb703;'>× ٣</span> = <span class="fraction"><span class="numerator">ع</span><span class="denominator">٣</span></span> <span style='color: #ffb703;'>× ٣</span></p><p>٣٦ = ع</p></div>` }
+            ]},
+            // Category 6
+            { category: "معادلات الطرح (كسور)", exercises: [
+                { question: `<div dir='rtl'>س - <span class="fraction"><span class="numerator">١</span><span class="denominator">٤</span></span> = <span class="fraction"><span class="numerator">٣</span><span class="denominator">٤</span></span></div>`, answers: [`نجمع <span class="fraction"><span class="numerator">١</span><span class="denominator">٤</span></span> للطرفين`, `نطرح <span class="fraction"><span class="numerator">١</span><span class="denominator">٤</span></span> من الطرفين`, `نضرب في <span class="fraction"><span class="numerator">١</span><span class="denominator">٤</span></span>`, `نقسم على <span class="fraction"><span class="numerator">١</span><span class="denominator">٤</span></span>`], correctIndex: 0, explanation: `<div class='explanation-question' dir='rtl'>س - <span class="fraction"><span class="numerator">١</span><span class="denominator">٤</span></span> = <span class="fraction"><span class="numerator">٣</span><span class="denominator">٤</span></span></div><div dir='rtl'><p>الحل: نجمع ١/٤ للطرفين</p><p>س - <span class="fraction"><span class="numerator">١</span><span class="denominator">٤</span></span> <span style='color: #ffb703;'>+ <span class="fraction"><span class="numerator">١</span><span class="denominator">٤</span></span></span> = <span class="fraction"><span class="numerator">٣</span><span class="denominator">٤</span></span> <span style='color: #ffb703;'>+ <span class="fraction"><span class="numerator">١</span><span class="denominator">٤</span></span></span></p><p>س = <span class="fraction"><span class="numerator">٤</span><span class="denominator">٤</span></span> = ١</p></div>` },
+                { question: `<div dir='rtl'>ص - <span class="fraction"><span class="numerator">١</span><span class="denominator">٧</span></span> = <span class="fraction"><span class="numerator">٤</span><span class="denominator">٧</span></span></div>`, answers: [`نجمع <span class="fraction"><span class="numerator">١</span><span class="denominator">٧</span></span> للطرفين`, `نطرح <span class="fraction"><span class="numerator">١</span><span class="denominator">٧</span></span> من الطرفين`, `نضرب في <span class="fraction"><span class="numerator">١</span><span class="denominator">٧</span></span>`, `نقسم على <span class="fraction"><span class="numerator">١</span><span class="denominator">٧</span></span>`], correctIndex: 0, explanation: `<div class='explanation-question' dir='rtl'>ص - <span class="fraction"><span class="numerator">١</span><span class="denominator">٧</span></span> = <span class="fraction"><span class="numerator">٤</span><span class="denominator">٧</span></span></div><div dir='rtl'><p>الحل: نجمع ١/٧ للطرفين</p><p>ص - <span class="fraction"><span class="numerator">١</span><span class="denominator">٧</span></span> <span style='color: #ffb703;'>+ <span class="fraction"><span class="numerator">١</span><span class="denominator">٧</span></span></span> = <span class="fraction"><span class="numerator">٤</span><span class="denominator">٧</span></span> <span style='color: #ffb703;'>+ <span class="fraction"><span class="numerator">١</span><span class="denominator">٧</span></span></span></p><p>ص = <span class="fraction"><span class="numerator">٥</span><span class="denominator">٧</span></span></p></div>` },
+                { question: `<div dir='rtl'>م - <span class="fraction"><span class="numerator">٢</span><span class="denominator">٥</span></span> = <span class="fraction"><span class="numerator">٢</span><span class="denominator">٥</span></span></div>`, answers: [`نجمع <span class="fraction"><span class="numerator">٢</span><span class="denominator">٥</span></span> للطرفين`, `نطرح <span class="fraction"><span class="numerator">٢</span><span class="denominator">٥</span></span> من الطرفين`, `نضرب في <span class="fraction"><span class="numerator">٢</span><span class="denominator">٥</span></span>`, `نقسم على <span class="fraction"><span class="numerator">٢</span><span class="denominator">٥</span></span>`], correctIndex: 0, explanation: `<div class='explanation-question' dir='rtl'>م - <span class="fraction"><span class="numerator">٢</span><span class="denominator">٥</span></span> = <span class="fraction"><span class="numerator">٢</span><span class="denominator">٥</span></span></div><div dir='rtl'><p>الحل: نجمع ٢/٥ للطرفين</p><p>م - <span class="fraction"><span class="numerator">٢</span><span class="denominator">٥</span></span> <span style='color: #ffb703;'>+ <span class="fraction"><span class="numerator">٢</span><span class="denominator">٥</span></span></span> = <span class="fraction"><span class="numerator">٢</span><span class="denominator">٥</span></span> <span style='color: #ffb703;'>+ <span class="fraction"><span class="numerator">٢</span><span class="denominator">٥</span></span></span></p><p>م = <span class="fraction"><span class="numerator">٤</span><span class="denominator">٥</span></span></p></div>` }
+            ]},
+            // Category 7
+            { category: "معادلات الجمع (كسور)", exercises: [
+                { question: `<div dir='rtl'>س + <span class="fraction"><span class="numerator">٣</span><span class="denominator">٥</span></span> = <span class="fraction"><span class="numerator">١</span><span class="denominator">٥</span></span></div>`, answers: [`نطرح <span class="fraction"><span class="numerator">٣</span><span class="denominator">٥</span></span> من الطرفين`, `نجمع <span class="fraction"><span class="numerator">٣</span><span class="denominator">٥</span></span> للطرفين`, `نضرب في <span class="fraction"><span class="numerator">٣</span><span class="denominator">٥</span></span>`, `نقسم على <span class="fraction"><span class="numerator">٣</span><span class="denominator">٥</span></span>`], correctIndex: 0, explanation: `<div class='explanation-question' dir='rtl'>س + <span class="fraction"><span class="numerator">٣</span><span class="denominator">٥</span></span> = <span class="fraction"><span class="numerator">١</span><span class="denominator">٥</span></span></div><div dir='rtl'><p>الحل: نطرح ٣/٥ من الطرفين</p><p>س + <span class="fraction"><span class="numerator">٣</span><span class="denominator">٥</span></span> <span style='color: #ffb703;'>- <span class="fraction"><span class="numerator">٣</span><span class="denominator">٥</span></span></span> = <span class="fraction"><span class="numerator">١</span><span class="denominator">٥</span></span> <span style='color: #ffb703;'>- <span class="fraction"><span class="numerator">٣</span><span class="denominator">٥</span></span></span></p><p>س = <span class="fraction"><span class="numerator">-٢</span><span class="denominator">٥</span></span></p></div>` },
+                { question: `<div dir='rtl'>ل + <span class="fraction"><span class="numerator">٢</span><span class="denominator">٩</span></span> = <span class="fraction"><span class="numerator">٧</span><span class="denominator">٩</span></span></div>`, answers: [`نطرح <span class="fraction"><span class="numerator">٢</span><span class="denominator">٩</span></span> من الطرفين`, `نجمع <span class="fraction"><span class="numerator">٢</span><span class="denominator">٩</span></span> للطرفين`, `نضرب في <span class="fraction"><span class="numerator">٢</span><span class="denominator">٩</span></span>`, `نقسم على <span class="fraction"><span class="numerator">٢</span><span class="denominator">٩</span></span>`], correctIndex: 0, explanation: `<div class='explanation-question' dir='rtl'>ل + <span class="fraction"><span class="numerator">٢</span><span class="denominator">٩</span></span> = <span class="fraction"><span class="numerator">٧</span><span class="denominator">٩</span></span></div><div dir='rtl'><p>الحل: نطرح ٢/٩ من الطرفين</p><p>ل + <span class="fraction"><span class="numerator">٢</span><span class="denominator">٩</span></span> <span style='color: #ffb703;'>- <span class="fraction"><span class="numerator">٢</span><span class="denominator">٩</span></span></span> = <span class="fraction"><span class="numerator">٧</span><span class="denominator">٩</span></span> <span style='color: #ffb703;'>- <span class="fraction"><span class="numerator">٢</span><span class="denominator">٩</span></span></span></p><p>ل = <span class="fraction"><span class="numerator">٥</span><span class="denominator">٩</span></span></p></div>` },
+                { question: `<div dir='rtl'>ن + <span class="fraction"><span class="numerator">١</span><span class="denominator">٨</span></span> = <span class="fraction"><span class="numerator">٥</span><span class="denominator">٨</span></span></div>`, answers: [`نطرح <span class="fraction"><span class="numerator">١</span><span class="denominator">٨</span></span> من الطرفين`, `نجمع <span class="fraction"><span class="numerator">١</span><span class="denominator">٨</span></span> للطرفين`, `نضرب في <span class="fraction"><span class="numerator">١</span><span class="denominator">٨</span></span>`, `نقسم على <span class="fraction"><span class="numerator">١</span><span class="denominator">٨</span></span>`], correctIndex: 0, explanation: `<div class='explanation-question' dir='rtl'>ن + <span class="fraction"><span class="numerator">١</span><span class="denominator">٨</span></span> = <span class="fraction"><span class="numerator">٥</span><span class="denominator">٨</span></span></div><div dir='rtl'><p>الحل: نطرح ١/٨ من الطرفين</p><p>ن + <span class="fraction"><span class="numerator">١</span><span class="denominator">٨</span></span> <span style='color: #ffb703;'>- <span class="fraction"><span class="numerator">١</span><span class="denominator">٨</span></span></span> = <span class="fraction"><span class="numerator">٥</span><span class="denominator">٨</span></span> <span style='color: #ffb703;'>- <span class="fraction"><span class="numerator">١</span><span class="denominator">٨</span></span></span></p><p>ن = <span class="fraction"><span class="numerator">٤</span><span class="denominator">٨</span></span> = <span class="fraction"><span class="numerator">١</span><span class="denominator">٢</span></span></p></div>` }
+            ]},
+            // Category 8
+            { category: "معادلات الضرب (كسور)", exercises: [
+                { question: `<div dir='rtl'><span class="fraction"><span class="numerator">٢</span><span class="denominator">٣</span></span> ص = ١٢</div>`, answers: [`نضرب الطرفين في مقلوب الكسر (<span class="fraction"><span class="numerator">٣</span><span class="denominator">٢</span></span>)`, `نضرب الطرفين في <span class="fraction"><span class="numerator">٢</span><span class="denominator">٣</span></span>`, `نجمع <span class="fraction"><span class="numerator">٢</span><span class="denominator">٣</span></span> للطرفين`, `نطرح <span class="fraction"><span class="numerator">٢</span><span class="denominator">٣</span></span> من الطرفين`], correctIndex: 0, explanation: `<div class='explanation-question' dir='rtl'><span class="fraction"><span class="numerator">٢</span><span class="denominator">٣</span></span> ص = ١٢</div><div dir='rtl'><p>الحل: نضرب الطرفين في مقلوب الكسر (٣/٢)</p><p><span style='color: #ffb703;'><span class="fraction"><span class="numerator">٣</span><span class="denominator">٢</span></span> × </span><span class="fraction"><span class="numerator">٢</span><span class="denominator">٣</span></span> ص = ١٢ <span style='color: #ffb703;'>× <span class="fraction"><span class="numerator">٣</span><span class="denominator">٢</span></span></span></p><p>ص = ١٨</p></div>` },
+                { question: `<div dir='rtl'><span class="fraction"><span class="numerator">٣</span><span class="denominator">٤</span></span> ك = ٩</div>`, answers: [`نضرب الطرفين في مقلوب الكسر (<span class="fraction"><span class="numerator">٤</span><span class="denominator">٣</span></span>)`, `نضرب الطرفين في <span class="fraction"><span class="numerator">٣</span><span class="denominator">٤</span></span>`, `نجمع <span class="fraction"><span class="numerator">٣</span><span class="denominator">٤</span></span> للطرفين`, `نطرح <span class="fraction"><span class="numerator">٣</span><span class="denominator">٤</span></span> من الطرفين`], correctIndex: 0, explanation: `<div class='explanation-question' dir='rtl'><span class="fraction"><span class="numerator">٣</span><span class="denominator">٤</span></span> ك = ٩</div><div dir='rtl'><p>الحل: نضرب الطرفين في مقلوب الكسر (٤/٣)</p><p><span style='color: #ffb703;'><span class="fraction"><span class="numerator">٤</span><span class="denominator">٣</span></span> × </span><span class="fraction"><span class="numerator">٣</span><span class="denominator">٤</span></span> ك = ٩ <span style='color: #ffb703;'>× <span class="fraction"><span class="numerator">٤</span><span class="denominator">٣</span></span></span></p><p>ك = ١٢</p></div>` },
+                { question: `<div dir='rtl'><span class="fraction"><span class="numerator">١</span><span class="denominator">٥</span></span> هـ = ٦</div>`, answers: [`نضرب الطرفين في مقلوب الكسر (<span class="fraction"><span class="numerator">٥</span><span class="denominator">١</span></span>)`, `نضرب الطرفين في <span class="fraction"><span class="numerator">١</span><span class="denominator">٥</span></span>`, `نجمع <span class="fraction"><span class="numerator">١</span><span class="denominator">٥</span></span> للطرفين`, `نطرح <span class="fraction"><span class="numerator">١</span><span class="denominator">٥</span></span> من الطرفين`], correctIndex: 0, explanation: `<div class='explanation-question' dir='rtl'><span class="fraction"><span class="numerator">١</span><span class="denominator">٥</span></span> هـ = ٦</div><div dir='rtl'><p>الحل: نضرب الطرفين في مقلوب الكسر (٥/١)</p><p><span style='color: #ffb703;'>٥ × </span><span class="fraction"><span class="numerator">١</span><span class="denominator">٥</span></span> هـ = ٦ <span style='color: #ffb703;'>× ٥</span></p><p>هـ = ٣٠</p></div>` }
+            ]},
+            // Category 9
+            { category: "تحويل الجمل إلى معادلات (ضرب)", title: "اكتب معادلة تمثل الجملة التالية:", exercises: [
+                { question: `<div dir='rtl'>"ستة أمثال عدد تساوي ١٥٠"</div>`, answers: ["٦د = ١٥٠", "د + ٦ = ١٥٠", "د - ٦ = ١٥٠", `<span class="fraction"><span class="numerator">د</span><span class="denominator">٦</span></span> = ١٥٠`], correctIndex: 0, explanation: "<div class='explanation-question' dir='rtl'>ستة أمثال عدد تساوي ١٥٠</div><div dir='rtl'><p>الحل: 'أمثال' تعني عملية ضرب.</p><p>المعادلة: ٦د = ١٥٠</p></div>" },
+                { question: `<div dir='rtl'>"ربع عدد يساوي ٢٥"</div>`, answers: [`<span class="fraction"><span class="numerator">س</span><span class="denominator">٤</span></span> = ٢٥`, "٤س = ٢٥", "س - ٤ = ٢٥", "س + ٤ = ٢٥"], correctIndex: 0, explanation: `<div class='explanation-question' dir='rtl'>ربع عدد يساوي ٢٥</div><div dir='rtl'><p>الحل: 'ربع' يعني القسمة على ٤.</p><p>المعادلة: <span class="fraction"><span class="numerator">س</span><span class="denominator">٤</span></span> = ٢٥</p></div>` },
+                { question: `<div dir='rtl'>"ثلثا عدد يساوي ١٢٠"</div>`, answers: [`<span class="fraction"><span class="numerator">٢</span><span class="denominator">٣</span></span> ص = ١٢٠`, `ص + <span class="fraction"><span class="numerator">٢</span><span class="denominator">٣</span></span> = ١٢٠`, `١٢٠ ص = <span class="fraction"><span class="numerator">٢</span><span class="denominator">٣</span></span>`, `ص - <span class="fraction"><span class="numerator">٢</span><span class="denominator">٣</span></span> = ١٢٠`], correctIndex: 0, explanation: `<div class='explanation-question' dir='rtl'>ثلثا عدد يساوي ١٢٠</div><div dir='rtl'><p>الحل: 'ثلثا' تعني الضرب في الكسر ٢/٣.</p><p>المعادلة: <span class="fraction"><span class="numerator">٢</span><span class="denominator">٣</span></span> ص = ١٢٠</p></div>` }
+            ]},
+            // Category 10
+            { category: "تحويل الجمل إلى معادلات (جمع وطرح)", title: "اكتب معادلة تمثل الجملة التالية:", exercises: [
+                { question: `<div dir='rtl'>"أقل من عدد بعشرة يساوي ثمانية"</div>`, answers: ["س - ١٠ = ٨", "١٠ - س = ٨", "س + ١٠ = ٨", "٨ - س = ١٠"], correctIndex: 0, explanation: "<div class='explanation-question' dir='rtl'>أقل من عدد بعشرة يساوي ثمانية</div><div dir='rtl'><p>الحل: 'أقل من عدد' تعني أن العدد (س) هو المطروح منه.</p><p>المعادلة: س - ١٠ = ٨</p></div>" },
+                { question: `<div dir='rtl'>"عدد مضاف له ٤ يساوي ٥"</div>`, answers: ["ص + ٤ = ٥", "ص - ٤ = ٥", "٤ص = ٥", `<span class="fraction"><span class="numerator">ص</span><span class="denominator">٤</span></span> = ٥`], correctIndex: 0, explanation: "<div class='explanation-question' dir='rtl'>عدد مضاف له ٤ يساوي ٥</div><div dir='rtl'><p>الحل: 'مضاف له' تعني عملية جمع.</p><p>المعادلة: ص + ٤ = ٥</p></div>" },
+                { question: `<div dir='rtl'>"أقل من عدد بسته يساوي ١٨"</div>`, answers: ["ع - ٦ = ١٨", "٦ - ع = ١٨", "ع + ٦ = ١٨", "١٨ - ع = ٦"], correctIndex: 0, explanation: "<div class='explanation-question' dir='rtl'>أقل من عدد بسته يساوي ١٨</div><div dir='rtl'><p>الحل: 'أقل من عدد' تعني أن العدد (ع) هو المطروح منه.</p><p>المعادلة: ع - ٦ = ١٨</p></div>" }
+            ]}
+        ];
+        let currentQuestion;
+
+        // --- مواضع الكاميرا ---
+        const initialCameraPosition = new THREE.Vector3(0, 1.7, 2);
+        const zoomCameraPosition = new THREE.Vector3(0, 2.2, 14);
+        const arrowStartPosition = new THREE.Vector3(0, 1.6, 1.5);
+
+        // --- عناصر واجهة المستخدم ---
+        const startScreen = document.getElementById('start-screen');
+        const startButton = document.getElementById('start-button');
+        const finalScreen = document.getElementById('final-screen');
+        const playAgainButton = document.getElementById('play-again-button');
+        const qaContainer = document.getElementById('qa-container');
+        const questionTitle = document.getElementById('question-title');
+        const questionContent = document.getElementById('question-content');
+        const answersContainer = document.getElementById('answers-container');
+        const infoContainer = document.getElementById('info-container');
+        const scoreDisplayDiv = document.getElementById('score-display');
+        const timerDisplayDiv = document.getElementById('timer-display');
+        const nextQuestionButton = document.getElementById('next-question-button');
+        const showExplanationButton = document.getElementById('show-explanation-button');
+        const explanationContainer = document.getElementById('explanation-container');
+        const explanationText = document.getElementById('explanation-text');
+        const closeExplanationButton = document.getElementById('close-explanation-button');
+        const autoNextTimerDiv = document.getElementById('auto-next-timer');
+
+        init();
+        animate();
+        
+        function toArabicNumerals(numStr) {
+            if (numStr === null || numStr === undefined) return "";
+            return String(numStr).replace(/[0-9.]/g, d => {
+                if (d === '.') return '٫'; 
+                return '٠١٢٣٤٥٦٧٨٩'[d];
+            });
+        }
+
+        // --- دالة التهيئة الرئيسية ---
+        function init() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x87ceeb);
+            scene.fog = new THREE.Fog(0x87ceeb, 15, 80);
+
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.copy(initialCameraPosition);
+            camera.lookAt(0, 1.6, 15);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            document.body.appendChild(renderer.domElement);
+            renderer.domElement.style.display = 'none';
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(5, 10, 7.5);
+            directionalLight.castShadow = true;
+            scene.add(directionalLight);
+
+            createGround();
+            createTarget();
+            createArrow();
+            createScenery();
+            
+            generateBackground();
+
+            window.addEventListener('resize', onWindowResize, false);
+            startButton.addEventListener('click', startGame);
+            nextQuestionButton.addEventListener('click', () => {
+                clearTimeout(nextQuestionTimer);
+                clearInterval(autoNextInterval);
+                loadNextQuestion();
+            });
+            showExplanationButton.addEventListener('click', () => {
+                clearTimeout(nextQuestionTimer);
+                clearInterval(autoNextInterval);
+                autoNextTimerDiv.style.display = 'none';
+                displayExplanation();
+            });
+            closeExplanationButton.addEventListener('click', hideExplanation);
+        }
+
+        function generateBackground() {
+            camera.position.set(-3, 2, 12);
+            camera.lookAt(target.position);
+            renderer.render(scene, camera);
+            const backgroundUrl = renderer.domElement.toDataURL('image/png');
+            startScreen.style.backgroundImage = `url(${backgroundUrl})`;
+            finalScreen.style.backgroundImage = `url(${backgroundUrl})`;
+            camera.position.copy(initialCameraPosition);
+            camera.lookAt(0, 1.6, 15);
+        }
+        
+        function startGame() {
+            startScreen.style.display = 'none';
+            renderer.domElement.style.display = 'block';
+            document.body.style.backgroundColor = '#87ceeb';
+            
+            questionCount = 0;
+            totalScore = 0;
+            correctAnswers = 0;
+            
+            gameQuestions = [];
+            let categoryIndices = [...Array(questionBank.length).keys()];
+            
+            for (let i = categoryIndices.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [categoryIndices[i], categoryIndices[j]] = [categoryIndices[j], categoryIndices[i]];
+            }
+
+            for(let i = 0; i < MAX_QUESTIONS; i++) {
+                const categoryIndex = categoryIndices[i];
+                const category = questionBank[categoryIndex];
+                const exerciseIndex = Math.floor(Math.random() * category.exercises.length);
+                const question = { ...category.exercises[exerciseIndex] }; 
+                question.categoryTitle = category.title || "ما هي الخطوة التالية لحل المعادلة؟";
+                gameQuestions.push(question);
+            }
+
+            loadNextQuestion();
+        }
+
+        function restartGame() {
+            finalScreen.style.display = 'none';
+            startScreen.style.display = 'flex';
+        }
+
+        // --- إنشاء عناصر اللعبة ---
+        function createGround() {
+            const groundGeometry = new THREE.PlaneGeometry(100, 100);
+            const groundMaterial = new THREE.MeshStandardMaterial({ color: 0x228b22 });
+            const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+            ground.rotation.x = -Math.PI / 2;
+            ground.receiveShadow = true;
+            scene.add(ground);
+        }
+
+        function createTree(x, z, scale) {
+            const tree = new THREE.Group();
+            const trunkHeight = 4 * scale;
+            const trunkRadius = 0.2 * scale;
+            const trunkGeometry = new THREE.CylinderGeometry(trunkRadius, trunkRadius, trunkHeight, 8);
+            const trunkMaterial = new THREE.MeshStandardMaterial({ color: 0x664422 });
+            const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
+            trunk.position.y = trunkHeight / 2;
+            trunk.castShadow = true;
+            tree.add(trunk);
+
+            const leavesRadius = 1.8 * scale;
+            const leavesGeometry = new THREE.SphereGeometry(leavesRadius, 8, 6);
+            const leavesMaterial = new THREE.MeshStandardMaterial({ color: 0x228B22 });
+            const leaves = new THREE.Mesh(leavesGeometry, leavesMaterial);
+            leaves.position.y = trunkHeight;
+            leaves.castShadow = true;
+            tree.add(leaves);
+            
+            tree.position.set(x, 0, z);
+            scene.add(tree);
+            return tree;
+        }
+
+        function createScenery() {
+            const treeCount = 60;
+            for (let i = 0; i < treeCount; i++) {
+                const x = (Math.random() - 0.5) * 90;
+                const z = (Math.random() * 40) + 15;
+                if (Math.abs(x) < 5 && z < 25) continue;
+                const scale = Math.random() * 0.8 + 1.2;
+                createTree(x, z, scale);
+            }
+        }
+
+        function createTarget() {
+            target = new THREE.Group();
+            target.position.set(0, 1.6, 15);
+            const colors = [0xffff00, 0xff0000, 0x0000ff, 0x000000, 0xffffff];
+            const radii = [0.2, 0.4, 0.6, 0.8, 1.0];
+            for (let i = 0; i < colors.length; i++) {
+                const ringGeometry = new THREE.CylinderGeometry(radii[i], radii[i], 0.1, 64);
+                const ringMaterial = new THREE.MeshStandardMaterial({ color: colors[i] });
+                const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+                ring.rotation.x = Math.PI / 2;
+                ring.position.z = i * 0.02;
+                ring.castShadow = true;
+                target.add(ring);
+            }
+            const standMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
+            const legLength = 1.8;
+            const legGeometry = new THREE.CylinderGeometry(0.05, 0.05, legLength, 12);
+            const frontRightLeg = new THREE.Mesh(legGeometry, standMaterial);
+            frontRightLeg.castShadow = true;
+            frontRightLeg.position.set(0.4, -0.8, 0.2);
+            frontRightLeg.rotation.z = Math.PI / 12;
+            target.add(frontRightLeg);
+            const frontLeftLeg = new THREE.Mesh(legGeometry, standMaterial);
+            frontLeftLeg.castShadow = true;
+            frontLeftLeg.position.set(-0.4, -0.8, 0.2);
+            frontLeftLeg.rotation.z = -Math.PI / 12;
+            target.add(frontLeftLeg);
+            const backLeg = new THREE.Mesh(legGeometry, standMaterial);
+            backLeg.castShadow = true;
+            backLeg.position.set(0, -0.8, 0.6);
+            backLeg.rotation.x = Math.PI / 9;
+            target.add(backLeg);
+            scene.add(target);
+        }
+        
+        function createArrow() {
+            arrow = new THREE.Group();
+            const shaftGeometry = new THREE.CylinderGeometry(0.01, 0.01, 1, 8);
+            const shaftMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
+            const shaft = new THREE.Mesh(shaftGeometry, shaftMaterial);
+            shaft.rotation.x = Math.PI / 2;
+            const tipGeometry = new THREE.ConeGeometry(0.03, 0.1, 8);
+            const tipMaterial = new THREE.MeshStandardMaterial({ color: 0xc0c0c0 });
+            const tip = new THREE.Mesh(tipGeometry, tipMaterial);
+            tip.position.z = 0.55;
+            tip.rotation.x = Math.PI / 2;
+            arrow.add(shaft);
+            arrow.add(tip);
+            arrow.castShadow = true;
+            resetArrow();
+            scene.add(arrow);
+        }
+
+        // --- دوال التحكم باللعبة ---
+
+        function loadNextQuestion() {
+            clearTimeout(nextQuestionTimer);
+            clearInterval(autoNextInterval);
+            autoNextTimerDiv.style.display = 'none';
+
+            if (questionCount >= MAX_QUESTIONS) {
+                showFinalScreen();
+                return;
+            }
+            
+            currentQuestion = gameQuestions[questionCount]; 
+            
+            questionCount++;
+            
+            infoContainer.style.display = 'none';
+            explanationContainer.style.display = 'none';
+            
+            gameState = 'showing_question';
+            remainingTime = COUNTDOWN_DURATION;
+            wasTimeOut = false;
+
+            arrow.visible = true;
+            resetArrow();
+            
+            camera.position.copy(initialCameraPosition);
+            camera.lookAt(0, 1.6, 15);
+
+            questionTitle.textContent = currentQuestion.categoryTitle;
+            questionContent.innerHTML = currentQuestion.question;
+            answersContainer.innerHTML = ''; 
+            
+            // *** NEW: Shuffle answers before displaying them ***
+            let answerObjects = currentQuestion.answers.map((answer, index) => ({ text: answer, originalIndex: index }));
+            for (let i = answerObjects.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [answerObjects[i], answerObjects[j]] = [answerObjects[j], answerObjects[i]];
+            }
+
+            answerObjects.forEach(answerObj => {
+                const button = document.createElement('button');
+                button.innerHTML = answerObj.text; 
+                button.classList.add('answer-btn');
+                button.addEventListener('click', () => handleAnswer(answerObj.originalIndex));
+                answersContainer.appendChild(button);
+            });
+            
+            qaContainer.style.display = 'block';
+            infoContainer.style.display = 'block';
+            timerDisplayDiv.style.display = 'block';
+            scoreDisplayDiv.style.display = 'none';
+            nextQuestionButton.style.display = 'none';
+            showExplanationButton.style.display = 'none';
+
+            gameState = 'countdown';
+            countdownStartTime = Date.now();
+        }
+
+        function handleAnswer(originalIndex) {
+            if (gameState !== 'countdown') return;
+
+            const wasCorrect = originalIndex === currentQuestion.correctIndex;
+            
+            qaContainer.style.display = 'none';
+            timerDisplayDiv.style.display = 'none';
+
+            if (wasCorrect) {
+                correctAnswers++;
+                fireArrow(remainingTime); 
+            } else {
+                wasTimeOut = false;
+                startMissAnimation();
+            }
+        }
+
+        function startMissAnimation() {
+            gameState = 'answered_incorrectly';
+            arrow.userData.startTime = Date.now();
+            arrow.userData.startPosition = arrow.position.clone();
+            arrow.userData.endPosition = new THREE.Vector3(
+                (Math.random() - 0.5) * 15, 5, target.position.z + 30
+            );
+            arrow.lookAt(arrow.userData.endPosition);
+        }
+
+        function fireArrow(time) {
+            gameState = 'firing';
+            timerDisplayDiv.style.display = 'none';
+
+            let minRadius, maxRadius;
+
+            if (time >= 15) { minRadius = 0; maxRadius = 0.2; }
+            else if (time >= 10) { minRadius = 0.2; maxRadius = 0.4; }
+            else if (time >= 6) { minRadius = 0.4; maxRadius = 0.6; }
+            else if (time >= 2) { minRadius = 0.6; maxRadius = 0.8; }
+            else { minRadius = 0.8; maxRadius = 1.0; }
+
+            const randomAngle = Math.random() * Math.PI * 2;
+            const randomRadius = minRadius + Math.random() * (maxRadius - minRadius);
+
+            const offsetX = Math.cos(randomAngle) * randomRadius;
+            const offsetY = Math.sin(randomAngle) * randomRadius;
+
+            arrow.userData.startPosition = arrow.position.clone();
+            arrow.userData.endPosition = new THREE.Vector3(
+                target.position.x + offsetX,
+                target.position.y + offsetY,
+                target.position.z
+            );
+            arrow.userData.startTime = Date.now();
+            arrow.userData.flightDuration = 1000;
+            arrow.lookAt(arrow.userData.endPosition);
+        }
+
+        function calculateScore(impactPoint) {
+            const distanceFromCenter = impactPoint.distanceTo(new THREE.Vector2(target.position.x, target.position.y));
+            if (distanceFromCenter <= 0.2) return 100;
+            if (distanceFromCenter <= 0.4) return 80;
+            if (distanceFromCenter <= 0.6) return 60;
+            if (distanceFromCenter <= 0.8) return 40;
+            if (distanceFromCenter <= 1.0) return 20;
+            return 0;
+        }
+
+        function showEndOfRoundUI(score, message = "") {
+            totalScore += score;
+            const arabicScore = toArabicNumerals(score);
+            scoreDisplayDiv.textContent = message ? message : `النتيجة: ${arabicScore}`;
+            scoreDisplayDiv.style.display = 'block';
+            timerDisplayDiv.style.display = 'none';
+            nextQuestionButton.style.display = 'inline-block';
+            showExplanationButton.style.display = 'inline-block';
+
+            startAutoNextTimer();
+        }
+
+        function startAutoNextTimer() {
+            clearTimeout(nextQuestionTimer);
+            clearInterval(autoNextInterval);
+            
+            autoNextTimerDiv.style.display = 'flex';
+            let countdown = 5;
+            autoNextTimerDiv.textContent = toArabicNumerals(countdown);
+
+            autoNextInterval = setInterval(() => {
+                countdown--;
+                autoNextTimerDiv.textContent = toArabicNumerals(countdown);
+                if (countdown <= 0) {
+                    clearInterval(autoNextInterval);
+                }
+            }, 1000);
+
+            nextQuestionTimer = setTimeout(() => {
+                loadNextQuestion();
+            }, 5000);
+        }
+
+        function showFinalScreen() {
+            renderer.domElement.style.display = 'none';
+            infoContainer.style.display = 'none';
+            explanationContainer.style.display = 'none';
+            qaContainer.style.display = 'none';
+            
+            finalScreen.style.display = 'flex';
+
+            const metricValue = totalScore;
+            saveAndFinishGame(correctAnswers, metricValue);
+        }
+
+        function displayExplanation() {
+            explanationText.innerHTML = currentQuestion.explanation;
+            explanationContainer.style.display = 'block';
+            infoContainer.style.display = 'none';
+        }
+
+        function hideExplanation() {
+            explanationContainer.style.display = 'none';
+            infoContainer.style.display = 'block';
+            startAutoNextTimer(); // Restart timer when explanation is closed
+        }
+        
+        function resetArrow() {
+            arrow.position.copy(arrowStartPosition);
+            arrow.rotation.set(0, 0, 0);
+            arrow.lookAt(target.position);
+        }
+        
+        // --- حلقة الرسوم المتحركة الرئيسية ---
+        function animate() {
+            requestAnimationFrame(animate);
+            if (gameState === 'start_screen' || gameState === 'game_over') return;
+
+            const now = Date.now();
+
+            if (gameState === 'countdown') {
+                const elapsedTime = (now - countdownStartTime) / 1000;
+                remainingTime = COUNTDOWN_DURATION - elapsedTime;
+                
+                if (remainingTime <= 0) {
+                    remainingTime = 0;
+                    timerDisplayDiv.textContent = toArabicNumerals('0.00');
+                    qaContainer.style.display = 'none';
+                    timerDisplayDiv.style.display = 'none';
+                    wasTimeOut = true;
+                    startMissAnimation();
+                } else {
+                    timerDisplayDiv.textContent = toArabicNumerals(remainingTime.toFixed(2));
+                }
+            }
+
+            if (gameState === 'answered_incorrectly') {
+                const missElapsedTime = now - arrow.userData.startTime;
+                const missProgress = Math.min(missElapsedTime / 1500, 1);
+                arrow.position.lerpVectors(arrow.userData.startPosition, arrow.userData.endPosition, missProgress);
+                
+                if (missProgress >= 1) {
+                    arrow.visible = false;
+                    gameState = 'scored';
+                    const message = wasTimeOut ? "انتهى الوقت!" : "إجابة خاطئة!";
+                    showEndOfRoundUI(0, message);
+                }
+            }
+
+            if (gameState === 'firing') {
+                const flightElapsedTime = now - arrow.userData.startTime;
+                const flightProgress = Math.min(flightElapsedTime / arrow.userData.flightDuration, 1);
+                arrow.position.lerpVectors(arrow.userData.startPosition, arrow.userData.endPosition, flightProgress);
+
+                if (flightProgress >= 1) {
+                    gameState = 'zooming';
+                    camera.userData.startPosition = camera.position.clone();
+                    camera.userData.startTime = now;
+                    camera.userData.zoomDuration = 1500;
+                }
+            }
+
+            if (gameState === 'zooming') {
+                const zoomElapsedTime = now - camera.userData.startTime;
+                const zoomProgress = Math.min(zoomElapsedTime / camera.userData.zoomDuration, 1);
+                camera.position.lerpVectors(camera.userData.startPosition, zoomCameraPosition, zoomProgress);
+                camera.lookAt(arrow.position);
+
+                if (zoomProgress >= 1) {
+                    gameState = 'scored';
+                    const impactPoint2D = new THREE.Vector2(arrow.position.x, arrow.position.y);
+                    const score = calculateScore(impactPoint2D);
+                    showEndOfRoundUI(score);
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        // --- دالة الاستجابة لتغيير حجم النافذة ---
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            generateBackground();
+        }
+    </script>
+    
+    <script>
+    // --- START OF CONNECTION & LEADERBOARD ENGINE ---
+    (function() {
+        // --- CONFIGURATION ---
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
+        const GAME_ID = 'g1_2_1';
+        const GAME_MAX_POINTS = 10;
+        const PLATFORM_MAX_GRADE = 5;
+        const METRIC_TYPE = 'stars';
+        const METRIC_LABEL = 'مجموع النقاط';
+
+        let currentUser = null;
+
+        // --- CORE FUNCTIONS ---
+        function toArabicNumerals(numStr) {
+            if (numStr === null || numStr === undefined) return "";
+            return String(numStr).replace(/[0-9.]/g, d => {
+                if (d === '.') return '٫'; 
+                return '٠١٢٣٤٥٦٧٨٩'[d];
+            });
+        }
+
+        window.saveAndFinishGame = function(points, metricValue) {
+            const finalPoints = parseFloat(points) || 0;
+            const finalMetric = parseFloat(metricValue) || 0;
+            const maxPoints = parseFloat(GAME_MAX_POINTS) || 1;
+            const finalGrade = (finalPoints / maxPoints) * PLATFORM_MAX_GRADE;
+
+            const resultDisplay = document.getElementById('final-result-display');
+            if (resultDisplay) {
+                resultDisplay.innerHTML = `
+                    <p class="text-gray-200">النقاط: <span class="font-bold text-xl text-white">${toArabicNumerals(finalPoints)} / ${toArabicNumerals(maxPoints)}</span></p>
+                    <p class="text-blue-300">الدرجة في المنصة: <span class="font-bold text-2xl text-white">${toArabicNumerals(finalGrade.toFixed(1))} / ${toArabicNumerals(PLATFORM_MAX_GRADE)}</span></p>
+                `;
+            }
+
+            if (currentUser && currentUser.id) {
+                const params = new URLSearchParams({
+                    action: 'saveGrade',
+                    studentId: currentUser.id,
+                    itemId: GAME_ID,
+                    grade: finalGrade.toFixed(2),
+                    metricValue: finalMetric.toString()
+                });
+                fetch(`${SCRIPT_URL}?${params.toString()}`)
+                    .then(res => res.json())
+                    .then(result => console.log('Save result:', result.status))
+                    .catch(err => console.error("Save Error:", err))
+                    .finally(fetchAndShowLeaderboard);
+            } else {
+                console.log(`Visitor finished. Score: ${finalPoints}, Metric: ${finalMetric}`);
+                fetchAndShowLeaderboard();
+            }
+        }
+
+        function fetchAndShowLeaderboard() {
+            const loader = document.getElementById('leaderboard-loader');
+            const container = document.getElementById('leaderboard-container');
+            if (!loader || !container) return;
+
+            loader.style.display = 'block';
+            container.innerHTML = '';
+
+            const params = new URLSearchParams({
+                action: 'getLeaderboard',
+                gameId: GAME_ID,
+                metricType: METRIC_TYPE
+            });
+
+            fetch(`${SCRIPT_URL}?${params.toString()}`)
+                .then(res => res.json())
+                .then(response => {
+                    if (response.status === 'success' && response.data) {
+                        displayLeaderboard(response.data);
+                    } else {
+                        throw new Error(response.message || 'Failed to load leaderboard data.');
+                    }
+                })
+                .catch(err => {
+                    console.error("Leaderboard Error:", err);
+                    container.innerHTML = `<p class="text-center text-red-300">حدث خطأ في تحميل سجل الأبطال.</p>`;
+                })
+                .finally(() => {
+                    loader.style.display = 'none';
+                    showFinishButton();
+                });
+        }
+        
+        function displayLeaderboard(data) {
+            const container = document.getElementById('leaderboard-container');
+            if (!data || data.length === 0) {
+                container.innerHTML = `<p class="text-center text-gray-300 mt-4">لا توجد نتائج بعد. كن أول الأبطال!</p>`;
+                return;
+            }
+
+            let tableHTML = `
+                <div class="mt-6 border-t border-white/20 pt-4">
+                    <h3 class="text-2xl font-bold text-center text-white mb-4">🏆 سجل الأبطال 🏆</h3>
+                    <table class="min-w-full bg-white/10 shadow-md rounded-lg text-white">
+                        <thead class="bg-black/20">
+                            <tr>
+                                <th class="text-center py-2 px-3">الترتيب</th>
+                                <th class="text-right py-2 px-3">اسم الطالب</th>
+                                <th class="text-center py-2 px-3">الدرجة</th>
+                                <th class="text-center py-2 px-3">${METRIC_LABEL}</th>
+                            </tr>
+                        </thead>
+                        <tbody>`;
+
+            data.forEach((player, index) => {
+                const rank = index + 1;
+                let rankDisplay = rank;
+                if (rank === 1) rankDisplay = '🥇';
+                if (rank === 2) rankDisplay = '🥈';
+                if (rank === 3) rankDisplay = '🥉';
+
+                const isCurrentUser = (currentUser && player.name === currentUser.name);
+                const rowClass = isCurrentUser ? 'bg-blue-500/30 font-bold' : (index % 2 === 0 ? 'bg-black/10' : '');
+
+                tableHTML += `
+                    <tr class="${rowClass}">
+                        <td class="text-center py-2 px-3 text-xl">${rankDisplay}</td>
+                        <td class="text-right py-2 px-3">${player.name}</td>
+                        <td class="text-center py-2 px-3">${toArabicNumerals(player.grade.toFixed(1))}</td>
+                        <td class="text-center py-2 px-3">${toArabicNumerals(player.metricValue)}</td>
+                    </tr>`;
+            });
+
+            tableHTML += `</tbody></table></div>`;
+            container.innerHTML = tableHTML;
+        }
+
+        function showFinishButton() {
+            const finishWrapper = document.getElementById('finish-game-wrapper');
+            if (finishWrapper) {
+                finishWrapper.style.display = 'block';
+            }
+        }
+
+        window.addEventListener('message', (event) => {
+            if (event.data && event.data.event === 'userData') {
+                currentUser = event.data.data;
+                console.log('User data received:', currentUser);
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const finishBtn = document.getElementById('finish-game-btn');
+            if (finishBtn) {
+                finishBtn.addEventListener('click', () => {
+                    window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*');
+                });
+            }
+            
+            const playAgainBtn = document.getElementById('play-again-button');
+            if(playAgainBtn) {
+                playAgainBtn.addEventListener('click', restartGame);
+            }
+        });
+    })();
+    // --- END OF CONNECTION & LEADERBOARD ENGINE ---
+    </script>
+</body>
+</html>

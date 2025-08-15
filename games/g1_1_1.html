@@ -3,868 +3,774 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>مصنع المعادلات - واجهة مدمجة</title>
+    <title>لعبة حقل الذرة</title>
+    <!-- Tailwind CSS for Leaderboard Styling -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
     <style>
-        html, body {
-            height: 100%;
-            overflow: hidden; /* Prevent scrolling on the body */
+        /* --- Responsive Design --- */
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            font-family: 'Cairo', sans-serif; 
+            background-color: #111;
         }
-        body {
-            font-family: 'Cairo', sans-serif;
-            background-color: #f0f4f8;
-            display: flex;
-            flex-direction: column;
-        }
-        main {
-            flex-grow: 1;
-            overflow-y: auto; /* Allow main content to scroll if needed on small screens */
-        }
-        .factory-container {
-            background: linear-gradient(to bottom, #dbeafe, #bfdbfe);
-            border: 4px solid #60a5fa;
-            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
-            position: relative;
-            transition: background 0.5s ease; /* Added transition for background */
-        }
-        .machine {
-            background-color: #93c5fd;
-            border: 8px groove #60a5fa;
-            transition: transform 0.2s ease-in-out;
-            min-height: 10rem; /* Reduced height */
-        }
-        .pipe {
-            background: #bfdbfe;
-            border: 2px solid #93c5fd;
-            height: 40px; /* Reduced height */
-        }
-        .conveyor-belt {
-            background-image: linear-gradient(45deg, #a5b4fc 25%, transparent 25%), linear-gradient(-45deg, #a5b4fc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #a5b4fc 75%), linear-gradient(-45deg, transparent 75%, #a5b4fc 75%);
-            background-size: 20px 20px;
-            background-position: 0 0;
-            animation: move-belt 1s linear infinite;
-            height: 20px;
-            border-top: 2px solid #818cf8;
-            border-bottom: 2px solid #818cf8;
-        }
-        @keyframes move-belt {
-            from { background-position: 0 0; }
-            to { background-position: -20px 0; }
-        }
-        .item {
-            transition: all 0.5s ease-in-out;
-            font-size: 1.5rem; /* Reduced size */
-            font-weight: bold;
-            color: #4338ca;
-            background-color: #e0e7ff;
-            border: 2px solid #a5b4fc;
-            width: 60px; /* Reduced size */
-            height: 60px; /* Reduced size */
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        .gear-svg {
-            width: 50px;
-            height: 50px;
-            animation: rotate 4s linear infinite;
-        }
-        .gear-svg path {
-            fill: #60a5fa;
-            opacity: 0.7;
-            filter: drop-shadow(1px 1px 1px rgba(0,0,0,0.2));
-        }
-        @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-
-        .shake-normal { animation: shake 0.8s cubic-bezier(.36,.07,.19,.97) both; }
-        .shake-intense { animation: shake-hard 0.6s ease-in-out both; }
-        
-        @keyframes shake { 10%, 90% { transform: translate3d(-1px, 0, 0); } 20%, 80% { transform: translate3d(2px, 0, 0); } 30%, 50%, 70% { transform: translate3d(-4px, 0, 0); } 40%, 60% { transform: translate3d(4px, 0, 0); } }
-        @keyframes shake-hard { 0%, 100% { transform: translateX(0); } 10% { transform: translateX(-10px) rotate(-3deg); } 20% { transform: translateX(10px) rotate(3deg); } 30% { transform: translateX(-10px) rotate(-3deg); } 40% { transform: translateX(10px) rotate(3deg); } 50% { transform: translateX(-10px) rotate(-3deg); } 60% { transform: translateX(10px) rotate(3deg); } 70% { transform: translateX(0) rotate(0); } }
-        
-        #equation-display {
-            display: flex;
-            flex-direction: column; /* Stacks steps vertically */
-            justify-content: center;
-            align-items: center;
-            overflow: hidden;
-        }
-        .calculation-step { 
-            opacity: 0; 
-            transition: opacity 0.5s ease-in-out; 
-            font-weight: bold; 
-            color: white; 
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
-            white-space: nowrap;
-            line-height: 1.5; /* Adds space between steps */
-        }
-        .calculation-step.visible { opacity: 1; }
-        
-        .fraction { display: inline-flex; flex-direction: column; align-items: center; vertical-align: middle; margin: 0 0.2em; line-height: 1; }
-        .numerator { padding-bottom: 0.1em; }
-        .denominator { border-top: 2px solid; padding-top: 0.1em; }
-        #equation-display .denominator { border-top-color: white; }
-        #results-table .denominator { border-top-color: #4b5563; }
-
-        #coordinate-display { transition: opacity 0.5s, transform 0.5s; }
-
-        .btn { font-weight: bold; padding: 0.5rem 1rem; border-radius: 0.5rem; text-lg; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: all 0.3s; }
-        .btn-primary { background-color: #4f46e5; color: white; }
-        .btn-primary:hover { background-color: #4338ca; transform: translateY(-2px); }
-        .btn-secondary { background-color: #10b981; color: white; }
-        .btn-secondary:hover { background-color: #059669; transform: translateY(-2px); }
-        .btn-warning { background-color: #f59e0b; color: white; }
-        .btn-warning:hover { background-color: #d97706; transform: translateY(-2px); }
-        .btn-disabled { background-color: #9ca3af; cursor: not-allowed; transform: none; box-shadow: none;}
-        .table-header { background-color: #60a5fa; color: white; position: sticky; top: 0; z-index: 10; }
-
-        .results-container {
-            position: relative;
-        }
-        .results-container::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23e0e7ff'%3E%3Cpath d='M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24-.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z'/%3E%3C/svg%3E");
-            background-repeat: no-repeat;
-            background-position: center;
-            background-size: 60%;
-            opacity: 0.3;
-            pointer-events: none;
-        }
-
-        /* Crane Animation */
-        #crane-jib-group {
-            animation: rotate-jib 20s ease-in-out infinite alternate;
-            transform-origin: 100px 20px;
-        }
-        #crane-hook-group {
-            animation: move-hook 12s ease-in-out infinite alternate;
-        }
-        @keyframes rotate-jib {
-            from { transform: rotate(-2deg); }
-            to { transform: rotate(2deg); }
-        }
-        @keyframes move-hook {
-            from { transform: translateX(-20px); }
-            to { transform: translateX(50px); }
-        }
-
-        /* Box Stacking Animation */
-        .box-stack-container {
-            width: 100px;
-            height: 60px;
-            position: absolute;
-            bottom: -4.5rem; /* Positioned further below */
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 0;
-            opacity: 0.3;
-        }
-        .box-stack {
-            position: relative;
-            width: 100%;
-            height: 100%;
-        }
-        .box {
-            position: absolute;
-            width: 20px;
-            height: 20px;
-            background-color: #a5b4fc;
-            border: 1px solid #818cf8;
-            border-radius: 2px;
-            opacity: 0;
-            transform: translateY(10px);
-            transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
-        }
-        .box.appear {
-            opacity: 1;
-            transform: translateY(0);
-        }
-       
-        #timer-progress {
-            stroke-dasharray: 283;
-            stroke-dashoffset: 0;
-            transition: stroke-dashoffset 1s linear;
+        canvas { 
+            display: block;
+            width: 100%; /* Ensure canvas fills the width */
+            height: 100vh; /* Ensure canvas fills the height */
         }
         .overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(219, 234, 254, 0.95);
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 90%;
+            max-width: 500px;
+            background-color: rgba(0, 0, 0, 0.85);
+            z-index: 102;
             display: flex;
-            align-items: center;
+            flex-direction: column;
             justify-content: center;
-            z-index: 50;
+            align-items: center;
             text-align: center;
-            padding: 1rem;
+            color: white;
+            padding: 25px;
+            box-sizing: border-box;
+            border-radius: 20px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.5);
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        .hidden {
+            visibility: hidden;
+            opacity: 0;
+            pointer-events: none;
+            transform: translate(-50%, -50%) scale(0.9);
+            transition: visibility 0s 0.3s, opacity 0.3s ease, transform 0.3s ease;
+        }
+        .visible {
+            visibility: visible;
+            opacity: 1;
+            pointer-events: auto;
+            transform: translate(-50%, -50%) scale(1);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+        .overlay h1 {
+            font-size: clamp(1.8em, 7vw, 2.5em);
+            margin-bottom: 20px;
+            color: #ffc107;
+        }
+        .overlay p {
+            font-size: clamp(0.9em, 4vw, 1.2em);
+            max-width: 600px;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+        .overlay button {
+            padding: 15px 30px;
+            font-size: clamp(1.1em, 5vw, 1.5em);
+            font-family: 'Cairo', sans-serif;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 15px;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.4);
+        }
+        #game-ui {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            pointer-events: none;
+        }
+        #question-container {
+            width: 90%;
+            max-width: 600px;
+            margin-top: 2vh;
+            background-color: rgba(0,0,0,0.7);
+            color: white;
+            padding: 15px;
+            border-radius: 15px;
+            text-align: center;
+            font-size: clamp(1em, 4vw, 1.5em);
+            visibility: hidden;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+        #question-timer {
+            font-size: 1.2em;
+            color: #ffc107;
+            margin-top: 10px;
+        }
+        #answers-container {
+            width: 100%;
+            max-width: 800px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            padding: 15px;
+            box-sizing: border-box;
+            pointer-events: auto;
+            visibility: hidden;
+        }
+        .answer-button {
+            padding: 15px;
+            font-size: clamp(0.9em, 3.5vw, 1.2em);
+            font-family: 'Cairo', sans-serif;
+            background-color: #007bff;
+            color: white;
+            border: 2px solid #0056b3;
+            border-radius: 10px;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            transition: transform 0.1s ease, background-color 0.2s;
+        }
+        .answer-button:active {
+            transform: scale(0.95);
+        }
+        
+        /* --- Animation Classes for Answer Feedback --- */
+        @keyframes flash-green {
+            0%, 100% { background-color: #28a745; border-color: #1e7e34;}
+            50% { background-color: #34c759; border-color: #28a745;}
+        }
+        .flash-correct {
+            animation: flash-green 1s ease-in-out;
+        }
+        @keyframes flash-red {
+            0%, 100% { background-color: #dc3545; border-color: #b02a37;}
+            50% { background-color: #ff453a; border-color: #dc3545;}
+        }
+        .flash-incorrect {
+            animation: flash-red 1s ease-in-out;
+        }
+
+        #feedback-container {
+            gap: 15px;
+        }
+        #feedback-text, #final-score-text {
+            font-size: 2em;
+            font-weight: bold;
+        }
+        #feedback-text.correct { color: #28a745; }
+        #feedback-text.incorrect { color: #dc3545; }
+        #explanation-button, #restart-button {
+            padding: 10px 20px;
+            font-size: 1em;
+            background-color: #17a2b8;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        #next-round-timer {
+            font-size: 1em;
+            color: #ffc107;
+        }
+        #explanation-modal {
+            background-color: rgba(255, 255, 255, 0.95);
+            color: black;
+            z-index: 103;
+            max-width: 600px;
+            text-align: right;
+        }
+        #explanation-modal p { color: black; font-size: clamp(0.8em, 3vw, 1em); }
+        #explanation-content h3 {
+            font-size: clamp(1.1em, 4vw, 1.3em);
+            color: #0056b3;
+            border-bottom: 2px solid #0056b3;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        .explanation-step {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #f0f0f0;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+        .explanation-step .math {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: clamp(1em, 3.5vw, 1.1em);
+            font-weight: bold;
+            direction: ltr;
+            text-align: left;
+        }
+        .explanation-step .note {
+            font-size: clamp(0.8em, 2.5vw, 0.9em);
+            color: #555;
+        }
+
+        #close-modal {
+            margin-top: 20px;
+            padding: 10px 25px;
+            font-size: 1em;
+            background-color: #6c757d;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
         }
     </style>
 </head>
-<body class="p-2 md:p-4">
-
-    <div id="intro-screen" class="overlay">
-        <div class="bg-white p-8 rounded-2xl shadow-2xl max-w-lg">
-            <h1 class="text-3xl md:text-4xl font-extrabold text-blue-800 mb-4">🏭 مصنع المعادلات 🏭</h1>
-            <p class="text-lg text-gray-700 mb-2">مرحباً بك في مصنع المعادلات! مهمتك هي تشغيل الآلة لحل المعادلات التي ستظهر لك.</p>
-            <p class="text-lg text-gray-700 mb-6">أدخل قيمة (س) الصحيحة في الآلة لتحصل على قيمة (ص) وتكسب النقاط.</p>
-            <p class="text-sm text-gray-500 mb-8">برمجة وتصميم: الأستاذ عبد العزيز خالد العبلان</p>
-            <button id="start-game-btn" class="btn btn-primary text-2xl px-10 py-3">ابدأ اللعبة</button>
-        </div>
-    </div>
-    
-    <main class="hidden grid-cols-1 lg:grid-cols-2 gap-4 flex-grow">
-        <!-- Left Column: Score & Results -->
-        <div class="flex flex-col gap-4 bg-white/50 p-4 rounded-xl shadow-inner h-full">
-            <div id="score-board" class="flex flex-col md:flex-row justify-center gap-2 text-base font-bold text-center">
-                <div id="score-easy" class="flex-1 bg-green-100 text-green-800 p-2 rounded-lg shadow">المستوى السهل: ٠ / ٤</div>
-                <div id="score-medium" class="flex-1 bg-yellow-100 text-yellow-800 p-2 rounded-lg shadow">المستوى المتوسط: ٠ / ٣</div>
-                <div id="score-hard" class="flex-1 bg-red-100 text-red-800 p-2 rounded-lg shadow">المستوى الصعب: ٠ / ٣</div>
-            </div>
-            <div class="flex-grow bg-white rounded-lg shadow-lg overflow-hidden flex flex-col results-container">
-                 <h2 class="text-xl font-bold text-center text-blue-800 p-2 bg-blue-100">📋 جدول النتائج 📋</h2>
-                 <div class="overflow-y-auto flex-grow">
-                     <table class="w-full text-center relative z-10">
-                         <thead class="table-header text-base">
-                             <tr>
-                                 <th class="p-2">المدخل</th>
-                                 <th class="p-2">المعادلة</th>
-                                 <th class="p-2">المخرج</th>
-                                 <th class="p-2">النقطة</th>
-                             </tr>
-                         </thead>
-                         <tbody id="results-table" class="text-gray-700 text-lg"></tbody>
-                     </table>
-                 </div>
-            </div>
-            <div id="level-progression-controls" class="hidden flex-col items-center justify-center gap-2">
-                <div class="flex justify-center gap-4">
-                    <button id="next-level-btn" class="btn btn-warning">الانتقال للمستوى التالي</button>
-                    <button id="replay-level-btn" class="btn btn-secondary">إعادة المستوى الحالي</button>
-                </div>
-                <p id="transition-timer-text" class="text-gray-600 mt-2 text-sm"></p>
-            </div>
-        </div>
-
-        <!-- Right Column: Factory & Controls -->
-        <div class="flex flex-col gap-4 h-full">
-            <div class="factory-container rounded-2xl p-4 flex-grow">
-                <div id="coordinate-display" class="absolute top-2 left-1/2 -translate-x-1/2 bg-indigo-600 text-white font-bold text-2xl p-2 rounded-xl shadow-lg opacity-0 scale-90 z-20"></div>
-                <div class="flex items-center justify-between h-full">
-                    <div class="w-1/4 flex flex-col items-center justify-center relative">
-                         <!-- Animated Tower Crane SVG Background -->
-                         <div class="absolute -top-10 -right-28 opacity-20 z-0 pointer-events-none">
-                            <svg width="250" height="200" viewBox="0 0 250 200" xmlns="http://www.w3.org/2000/svg">
-                                <g stroke="#60a5fa" stroke-width="4" fill="#93c5fd">
-                                    <path d="M 110 200 L 110 30 L 115 30 L 115 20 L 85 20 L 85 30 L 90 30 L 90 200 Z" />
-                                    <path d="M 90 30 L 110 45 L 90 60 L 110 75 L 90 90 L 110 105 L 90 120 L 110 135 L 90 150 L 110 165 L 90 180 L 110 195" stroke-width="2" fill="none"/>
-                                    <path d="M 110 30 L 90 45 L 110 60 L 90 75 L 110 90 L 90 105 L 110 120 L 90 135 L 110 150 L 90 165 L 110 180 L 90 195" stroke-width="2" fill="none"/>
-                                </g>
-                                <g id="crane-jib-group">
-                                    <g stroke="#60a5fa" stroke-width="4" fill="#93c5fd">
-                                        <path d="M 140 20 L -40 20 L -40 10 L 140 10 Z" />
-                                        <path d="M 135 10 L 120 20 L 105 10 L 90 20 L 75 10 L 60 20 L 45 10 L 30 20 L 15 10 L 0 20 L -15 10 L -30 20" stroke-width="2" fill="none"/>
-                                        <path d="M 135 20 L 120 10 L 105 20 L 90 10 L 75 20 L 60 10 L 45 20 L 30 10 L 15 20 L 0 10 L -15 20 L -30 10" stroke-width="2" fill="none"/>
-                                    </g>
-                                    <g id="crane-hook-group">
-                                        <path d="M 20 20 L 20 60" stroke="#4b5563" stroke-width="2" fill="none"/>
-                                        <path d="M 10 70 L 30 70 L 25 60 L 15 60 Z" fill="#a5b4fc" stroke="#4b5563" stroke-width="2"/>
-                                    </g>
-                                </g>
-                            </svg>
-                        </div>
-                        <h2 class="text-xl font-bold text-blue-700 mb-2 z-10">س</h2>
-                        <div id="input-box" class="item rounded-full shadow-lg z-10">؟</div>
-                    </div>
-                    <div class="w-1/2 flex-grow flex flex-col items-center justify-center mx-2">
-                        <div class="w-full pipe my-2 rounded-md"></div>
-                        <div id="machine-box" class="machine w-full rounded-2xl flex flex-col items-center justify-center p-2 shadow-2xl relative overflow-hidden">
-                            <div class="absolute top-1 right-1">
-                                <svg class="gear-svg" style="animation-duration: 4s;" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24-.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/></svg>
-                            </div>
-                            <div class="absolute bottom-1 left-1">
-                                <svg class="gear-svg" style="animation-duration: 6s; animation-direction: reverse;" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24-.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/></svg>
-                            </div>
-                            <div id="equation-display" class="text-2xl md:text-3xl text-center z-10"></div>
-                        </div>
-                        <div class="conveyor-belt w-full mt-2"></div>
-                    </div>
-                    <div class="w-1/4 flex flex-col items-center justify-center relative">
-                        <h2 class="text-xl font-bold text-blue-700 mb-2 z-10">ص</h2>
-                        <div id="output-box" class="item rounded-lg shadow-lg z-10">؟</div>
-                        <div class="box-stack-container">
-                            <div class="box-stack"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="bg-white p-4 rounded-2xl shadow-lg text-center">
-                 <div id="difficulty-display" class="text-xl font-bold text-indigo-600 mb-2">المستوى: سهل</div>
-                <h3 id="question-title" class="text-xl font-bold text-gray-800 mb-3 h-12 flex items-center justify-center"></h3>
-                <div class="flex items-center justify-center gap-4">
-                    <div id="timer-container" class="relative w-16 h-16">
-                        <svg class="w-full h-full" viewBox="0 0 100 100">
-                            <circle class="text-gray-200" stroke-width="10" stroke="currentColor" fill="transparent" r="45" cx="50" cy="50" />
-                            <circle id="timer-progress" class="text-blue-500" stroke-width="10" stroke-linecap="round" stroke="currentColor" fill="transparent" r="45" cx="50" cy="50" style="transform: rotate(-90deg); transform-origin: 50% 50%;" />
-                        </svg>
-                        <span id="timer-text" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-xl font-bold">٢٥</span>
-                    </div>
-                    <div id="interactive-area" class="hidden flex-col sm:flex-row items-center justify-center gap-2">
-                        <label for="user-answer" class="text-lg">قيمة ص:</label>
-                        <input type="number" id="user-answer" class="text-center text-xl font-bold border-4 border-indigo-300 rounded-lg w-24 h-12 focus:border-indigo-500 focus:ring-indigo-500 transition">
-                        <button id="check-btn" class="btn btn-primary">تحقق</button>
-                    </div>
-                </div>
-                <div id="message-box" class="mt-2 text-xl font-bold h-7"></div>
-            </div>
-        </div>
-    </main>
-
-    <div id="final-screen" class="overlay hidden">
-        <div class="bg-white p-8 rounded-2xl shadow-2xl max-w-lg w-full">
-            <h1 class="text-4xl md:text-5xl font-extrabold text-blue-800 mb-4">🎉 أحسنت! 🎉</h1>
-            <p class="text-2xl text-gray-800 mb-6">لقد أكملت جميع المستويات بنجاح!</p>
-            <div class="bg-blue-50 p-6 rounded-lg space-y-4">
-                 <p id="final-points" class="text-2xl font-bold text-gray-700">النقاط التي حصلت عليها: <span class="text-indigo-600"></span></p>
-                 <p id="final-grade" class="text-2xl font-bold text-gray-700">الدرجة المرصودة: <span class="text-green-600"></span></p>
-            </div>
-            <button id="play-again-btn" class="btn btn-primary text-2xl px-10 py-3 mt-8">العب مرة أخرى</button>
-        </div>
+<body>
+    <div id="intro-screen" class="overlay visible">
+        <h1>لعبة حماية الذرة</h1>
+        <p>مرحباً بك! مهمتك هي حماية حقل الذرة من الغربان الجائعة. سيظهر لك سؤال عندما يهبط غراب على الفزاعة. أجب بشكل صحيح لإطلاق النار عليه، أو سيقوم بسرقة محصولك!</p>
+        <p style="font-size: 0.9em; color: #ccc;">برمجة وتصميم : أ. عبدالعزيز خالد العبلان</p>
+        <button id="start-button">ابدأ اللعبة</button>
     </div>
 
+    <div id="round-transition-screen" class="overlay hidden">
+        <h1 id="round-text"></h1>
+    </div>
 
-    <script>
-        const elements = {
-            main: document.querySelector('main'),
-            introScreen: document.getElementById('intro-screen'),
-            finalScreen: document.getElementById('final-screen'),
-            startGameBtn: document.getElementById('start-game-btn'),
-            playAgainBtn: document.getElementById('play-again-btn'),
-            inputBox: document.getElementById('input-box'),
-            outputBox: document.getElementById('output-box'),
-            machineBox: document.getElementById('machine-box'),
-            factoryContainer: document.querySelector('.factory-container'),
-            equationDisplay: document.getElementById('equation-display'),
-            questionTitle: document.getElementById('question-title'),
-            interactiveArea: document.getElementById('interactive-area'),
-            userAnswerInput: document.getElementById('user-answer'),
-            checkBtn: document.getElementById('check-btn'),
-            messageBox: document.getElementById('message-box'),
-            resultsTable: document.getElementById('results-table'),
-            difficultyDisplay: document.getElementById('difficulty-display'),
-            scoreEasy: document.getElementById('score-easy'),
-            scoreMedium: document.getElementById('score-medium'),
-            scoreHard: document.getElementById('score-hard'),
-            coordinateDisplay: document.getElementById('coordinate-display'),
-            levelProgressionControls: document.getElementById('level-progression-controls'),
-            nextLevelBtn: document.getElementById('next-level-btn'),
-            replayLevelBtn: document.getElementById('replay-level-btn'),
-            transitionTimerText: document.getElementById('transition-timer-text'),
-            boxStack: document.querySelector('.box-stack'),
-            timerText: document.getElementById('timer-text'),
-            timerProgress: document.getElementById('timer-progress'),
-            finalPoints: document.getElementById('final-points'),
-            finalGrade: document.getElementById('final-grade'),
+    <div id="game-ui">
+        <div id="question-container">
+            <div id="question-text"></div>
+            <div id="question-timer"></div>
+        </div>
+        <div id="answers-container">
+            <button class="answer-button" data-index="0"></button>
+            <button class="answer-button" data-index="1"></button>
+            <button class="answer-button" data-index="2"></button>
+            <button class="answer-button" data-index="3"></button>
+        </div>
+    </div>
+    <div id="feedback-container" class="overlay hidden">
+        <div id="feedback-text"></div>
+        <button id="explanation-button">اعرف لماذا؟</button>
+        <div id="next-round-timer"></div>
+    </div>
+    <div id="score-container" class="overlay hidden">
+        <h1 id="score-title">انتهت اللعبة!</h1>
+        
+        <!-- HTML Elements for Leaderboard -->
+        <div id="final-result-display" class="text-center text-xl mt-4"></div>
+        <div id="leaderboard-loader" style="display: none;" class="text-center mt-6">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
+            <p>جاري تحميل سجل الأبطال...</p>
+        </div>
+        <div id="leaderboard-container" class="mt-4"></div>
+        <div id="finish-game-wrapper" class="text-center mt-6" style="display: none;">
+            <button id="finish-game-btn" class="px-6 py-3 bg-red-600 text-white font-bold rounded-lg shadow-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-opacity-75 transition-transform transform hover:scale-105">
+                إنهاء والعودة للمنصة
+            </button>
+        </div>
+    </div>
+    <div id="explanation-modal" class="overlay hidden">
+        <div id="explanation-content"></div>
+        <button id="close-modal">أغلق</button>
+    </div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        let scene, camera, renderer, controls, clock;
+        let crows = [];
+        let feathers = [];
+        const cornCobs = [];
+        const gravity = new THREE.Vector3(0, -9.8, 0);
+        let landingSpot;
+        let perchedCrow = null;
+        let questionContainer, answersContainer, questionTextElement, questionTimerElement, feedbackContainer, feedbackText, explanationButton, nextRoundTimerElement, explanationModal, explanationContent, closeModalButton, scoreContainer, introScreen, startButton, roundTransitionScreen, roundText;
+
+        let cameraState = 'IDLE';
+        const originalCameraPosition = new THREE.Vector3();
+        const zoomTargetPosition = new THREE.Vector3();
+        let zoomStartTime = 0;
+
+        // --- NEW: Variables for Secondary Metric (Average Time) ---
+        let questionStartTime = 0;
+        const answerTimes = [];
+
+        // --- Full Question Bank (Unchanged) ---
+        const questionBanks = [
+            // Bank 1
+            [ { question: "ما هو حل المعادلة ٢س + ٥ = ١١ ؟", options: ["س = ٤", "س = ٣", "س = ٨", "س = ٥"], correctAnswer: 1, explanation: { steps: [{math: "٢س = ١١ - ٥", note: "بطرح ٥ من الطرفين"}, {math: "٢س = ٦", note: "بالتبسيط"}, {math: "س = ٣", note: "بالقسمة على ٢"}] } } ],
+            // Bank 2
+            [ { question: "ما هي مجموعة حل المعادلة ن + ٨ = ن - ٢ ؟", options: ["{١٠}", "{-٦}", "{كل الأعداد الحقيقية}", "{لا يوجد حل}"], correctAnswer: 3, explanation: { steps: [{math: "٨ = -٢", note: "بطرح 'ن' من الطرفين"}, {math: "عبارة خاطئة", note: "لا يمكن أن تتساوى القيمتان"}] } } ],
+            // Bank 3
+            [ { question: "حل المعادلة ٧ + ٢س = ٢(س + ١)", options: ["س = ٥", "{لا يوجد حل}", "{كل الأعداد الحقيقية}", "س = -٥"], correctAnswer: 1, explanation: { steps: [{math: "٧ + ٢س = ٢س + ٢", note: "باستخدام خاصية التوزيع"}, {math: "٧ = ٢", note: "بطرح ٢س من الطرفين"}, {math: "عبارة خاطئة", note: "إذاً لا يوجد حل"}] } } ],
+            // Bank 4
+            [ { question: "أي العبارات التالية تجعل المعادلة ٤(م - ١) = ... متطابقة؟", options: ["٤م - ١", "م - ٤", "٤م - ٤", "٤م"], correctAnswer: 2, explanation: { steps: [{math: "٤ * م - ٤ * ١", note: "باستخدام خاصية التوزيع"}, {math: "٤م - ٤", note: "لكي تكون متطابقة يجب أن يتساوى الطرفان"}] } } ],
+            // Bank 5
+            [ { question: "لجعل المعادلة ٥(ع - ٢) = ٥ع - ... صحيحة، ماذا يجب أن يكون العدد المفقود؟", options: ["٢", "٥", "٧", "١٠"], correctAnswer: 3, explanation: { steps: [{math: "٥ * ع - ٥ * ٢", note: "باستخدام خاصية التوزيع"}, {math: "٥ع - ١٠", note: "إذن العدد المفقود هو ١٠"}] } } ]
+        ];
+        
+        let gameQuestions = [];
+        let currentQuestion = {};
+        let questionInterval, nextRoundInterval;
+        let nextRoundCountdownValue = 5;
+        
+        const gameState = {
+            score: 0, // This now represents "Crows Hunted"
+            questionsAsked: 0,
+            totalQuestions: 5,
+            gameActive: false
         };
 
-        const difficultyNames = { easy: 'السهل', medium: 'المتوسط', hard: 'الصعب' };
+        function init() {
+            clock = new THREE.Clock();
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x87CEEB);
+            scene.fog = new THREE.Fog(0x87CEEB, 15, 200);
 
-        let state = {};
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            document.body.appendChild(renderer.domElement);
 
-        function getInitialState() {
-            return {
-                difficultyLevels: {
-                    easy: [
-                        { text: 'ص = س + ٥', func: s => s + 5, steps: s => [`ص = ${toA(s)} + ٥`, `ص = ${toA(s + 5)}`] },
-                        { text: 'ص = س - ٣', func: s => s - 3, steps: s => [`ص = ${toA(s)} - ٣`, `ص = ${toA(s - 3)}`] },
-                        { text: 'ص = ٢س', func: s => 2 * s, steps: s => [`ص = ٢ × ${toA(s)}`, `ص = ${toA(2 * s)}`] },
-                        { text: 'ص = ٣س', func: s => 3 * s, steps: s => [`ص = ٣ × ${toA(s)}`, `ص = ${toA(3 * s)}`] },
-                    ],
-                    medium: [
-                        { text: 'ص = ٢س + ٣', func: s => 2 * s + 3, steps: s => [`ص = ٢ × ${toA(s)} + ٣`, `ص = ${toA(2 * s)} + ٣`, `ص = ${toA(2 * s + 3)}`] },
-                        { text: 'ص = ٣س - ١', func: s => 3 * s - 1, steps: s => [`ص = ٣ × ${toA(s)} - ١`, `ص = ${toA(3 * s)} - ١`, `ص = ${toA(3 * s - 1)}`] },
-                        { text: 'ص = <span class="fraction"><span class="numerator">س</span><span class="denominator">٢</span></span> + ١', func: s => s / 2 + 1, evenOnly: true, steps: s => [`ص = <span class="fraction"><span class="numerator">${toA(s)}</span><span class="denominator">٢</span></span> + ١`, `ص = ${toA(s / 2)} + ١`, `ص = ${toA(s / 2 + 1)}`] },
-                    ],
-                    hard: [
-                        { text: 'ص = س² + ١', func: s => s * s + 1, steps: s => [`ص = ${toA(s)}² + ١`, `ص = ${toA(s * s)} + ١`, `ص = ${toA(s * s + 1)}`] },
-                        { text: 'ص = ٣(س + ٢)', func: s => 3 * (s + 2), steps: s => [`ص = ٣(${toA(s)} + ٢)`, `ص = ٣ × ${toA(s + 2)}`, `ص = ${toA(3 * (s + 2))}`] },
-                        { text: 'ص = ١٥ - ٢س', func: s => 15 - 2 * s, steps: s => [`ص = ١٥ - ٢ × ${toA(s)}`, `ص = ١٥ - ${toA(2 * s)}`, `ص = ${toA(15 - 2 * s)}`] },
-                    ]
-                },
-                currentDifficulty: 'easy',
-                equationsPerLevel: 1,
-                roundsPerDifficulty: { easy: 4, medium: 3, hard: 3 },
-                equationsCompletedInLevel: 0,
-                scores: { easy: 0, medium: 0, hard: 0 },
-                lastEquationIndex: -1,
-                currentEquation: null,
-                interactiveInputs: [],
-                interactiveRoundsCompleted: 0,
-                currentS: 0,
-                correctY: 0,
-                flashIntervalId: null,
-                isAnimating: false,
-                questionTimerId: null,
-                levelTransitionTimerId: null,
-            };
+            // --- UI Elements ---
+            introScreen = document.getElementById('intro-screen');
+            startButton = document.getElementById('start-button');
+            roundTransitionScreen = document.getElementById('round-transition-screen');
+            roundText = document.getElementById('round-text');
+            questionContainer = document.getElementById('question-container');
+            questionTextElement = document.getElementById('question-text');
+            questionTimerElement = document.getElementById('question-timer');
+            answersContainer = document.getElementById('answers-container');
+            feedbackContainer = document.getElementById('feedback-container');
+            feedbackText = document.getElementById('feedback-text');
+            explanationButton = document.getElementById('explanation-button');
+            nextRoundTimerElement = document.getElementById('next-round-timer');
+            explanationModal = document.getElementById('explanation-modal');
+            explanationContent = document.getElementById('explanation-content');
+            closeModalButton = document.getElementById('close-modal');
+            scoreContainer = document.getElementById('score-container');
+
+            document.querySelectorAll('.answer-button').forEach(button => {
+                button.addEventListener('click', (event) => checkAnswer(parseInt(event.target.dataset.index)));
+            });
+            explanationButton.addEventListener('click', showExplanation);
+            closeModalButton.addEventListener('click', hideExplanation);
+            startButton.addEventListener('click', startGame);
+
+            // Lighting and ground setup... (omitted for brevity, same as before)
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
+            directionalLight.position.set(15, 40, 20);
+            directionalLight.castShadow = true;
+            scene.add(directionalLight);
+            const groundGeometry = new THREE.PlaneGeometry(300, 300);
+            const groundMaterial = new THREE.MeshPhongMaterial({ color: 0x556B2F });
+            const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+            ground.rotation.x = -Math.PI / 2;
+            ground.receiveShadow = true;
+            scene.add(ground);
+            const cornField = new THREE.Group();
+            for (let i = -10; i < 10; i++) { for (let j = -5; j < 12; j++) { const cornPlant = createCornPlant(); const x = i * 6 + (Math.random() - 0.5) * 2; const z = j * 6 + (Math.random() - 0.5) * 2; cornPlant.position.set(x, 0, z); cornPlant.rotation.y = Math.random() * Math.PI * 2; cornPlant.scale.setScalar(0.8 + Math.random() * 0.4); cornField.add(cornPlant); } }
+            scene.add(cornField);
+            const scarecrow = createScarecrow();
+            scarecrow.position.set(0, 0, 30);
+            scarecrow.scale.set(1.5, 1.5, 1.5);
+            scene.add(scarecrow);
+            landingSpot = new THREE.Vector3(scarecrow.position.x, 15.5 * scarecrow.scale.y, scarecrow.position.z);
+            const player = createPlayer();
+            player.position.set(0, 0, -45);
+            player.scale.set(3.5, 3.5, 3.5);
+            scene.add(player);
+            player.lookAt(landingSpot);
+            const playerWorldPosition = new THREE.Vector3();
+            player.getWorldPosition(playerWorldPosition);
+            camera.position.set(playerWorldPosition.x, playerWorldPosition.y + 20, playerWorldPosition.z - 10);
+            originalCameraPosition.copy(camera.position);
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.maxPolarAngle = Math.PI / 1.5;
+            controls.minDistance = 5;
+            controls.maxDistance = 150;
+            controls.target.copy(landingSpot);
+            for (let i = 0; i < 10; i++) { const crow = createCrow(); const radius = Math.random() * 20 + 60; const y = Math.random() * 10 + 35; const angle = Math.random() * Math.PI * 2; crow.position.set(Math.cos(angle) * radius, y, Math.sin(angle) * radius); crow.userData = { radius: radius, angle: angle, speed: Math.random() * 0.3 + 0.2, state: 'FLYING', originalY: y }; scene.add(crow); crows.push(crow); }
+
+            window.addEventListener('resize', onWindowResize, false);
+            animate();
         }
         
-        const toA = (num) => {
-            if (num === null || num === undefined) return '';
-            const arabic = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
-            // Convert number to string and process each character
-            const numStr = num.toString().split('').map(char => {
-                if (char === '-') return '−'; // Replace hyphen with minus sign
-                return arabic[char] || char;
-            }).join('');
-            return numStr;
-        }
-        
-        function shuffleArray(array) {
-            for (let i = array.length - 1; i > 0; i--) {
+        function prepareGameQuestions() {
+            gameQuestions = [];
+            let allQuestions = questionBanks.flat();
+            for (let i = allQuestions.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
-                [array[i], array[j]] = [array[j], array[i]];
+                [allQuestions[i], allQuestions[j]] = [allQuestions[j], allQuestions[i]];
             }
-            return array;
+            gameQuestions = allQuestions.slice(0, 5);
         }
 
-        function startNewLevel() {
-            state.equationsCompletedInLevel = 0;
-            elements.resultsTable.innerHTML = '';
-            startNewEquation();
+        function startGame() {
+            introScreen.classList.remove('visible');
+            introScreen.classList.add('hidden');
+            prepareGameQuestions();
+            gameState.gameActive = true;
+            showRoundTransition();
         }
 
-        function startNewEquation() {
-            elements.difficultyDisplay.textContent = `المستوى: ${difficultyNames[state.currentDifficulty]}`;
+        function checkAnswer(selectedIndex) {
+            if (!perchedCrow) return;
+            clearInterval(questionInterval);
+            
+            // NEW: Calculate time taken for this question
+            const timeTaken = (Date.now() - questionStartTime) / 1000;
+            answerTimes.push(timeTaken);
 
-            const availableEquations = state.difficultyLevels[state.currentDifficulty];
-            let newIndex;
-            do {
-                newIndex = Math.floor(Math.random() * availableEquations.length);
-            } while (availableEquations.length > 1 && newIndex === state.lastEquationIndex);
+            const answerButtons = document.querySelectorAll('.answer-button');
+            answerButtons.forEach(button => button.disabled = true);
             
-            state.lastEquationIndex = newIndex;
-            state.currentEquation = availableEquations[newIndex];
+            const correct = selectedIndex === currentQuestion.correctAnswer;
             
-            let positivePool = shuffleArray([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
-            let negativePool = shuffleArray([-1, -2, -3, -4, -5, -6, -7, -8]);
-
-            if (state.currentEquation.evenOnly) {
-                positivePool = shuffleArray([2, 4, 6, 8, 10, 12, 14, 16]);
-                negativePool = shuffleArray([-2, -4, -6, -8, -10]);
-            }
-            
-            const numRounds = state.roundsPerDifficulty[state.currentDifficulty];
-            const numNegative = Math.floor(numRounds / 3);
-            const numPositive = numRounds - numNegative;
-
-            state.interactiveInputs = [];
-            for(let i=0; i < numPositive; i++) {
-                if(positivePool.length > 0) state.interactiveInputs.push(positivePool.pop());
-            }
-            for(let i=0; i < numNegative; i++) {
-                if(negativePool.length > 0) state.interactiveInputs.push(negativePool.pop());
-            }
-            
-            while(state.interactiveInputs.length < numRounds && positivePool.length > 0) {
-                state.interactiveInputs.push(positivePool.pop());
-            }
-
-            shuffleArray(state.interactiveInputs);
-
-            state.interactiveRoundsCompleted = 0;
-            
-            loadInteractiveRound();
-        }
-
-        function loadInteractiveRound() {
-            if (state.interactiveRoundsCompleted >= state.interactiveInputs.length) {
-                state.equationsCompletedInLevel++;
-                updateScoreDisplay();
-
-                if (state.equationsCompletedInLevel >= state.equationsPerLevel) {
-                    showMessage('مستوى مكتمل! أحسنت!', 'green');
-                    elements.questionTitle.textContent = 'اختر خطوتك التالية.';
-                    elements.interactiveArea.classList.add('hidden');
-                    showLevelProgressionControls();
-                } else {
-                    startNewEquation();
-                }
-                return;
-            }
-            resetUIForNewRound();
-            
-            state.currentS = state.interactiveInputs[state.interactiveRoundsCompleted];
-            state.correctY = state.currentEquation.func(state.currentS);
-            
-            const roundNum = toA(state.interactiveRoundsCompleted + 1);
-            const totalRounds = toA(state.interactiveInputs.length);
-            elements.questionTitle.innerHTML = `<span class="text-indigo-600 font-extrabold">الجولة ${roundNum} من ${totalRounds}:</span> <span class="text-gray-800 font-bold">عندما س = ${toA(state.currentS)}، ما قيمة ص؟</span>`;
-            elements.interactiveArea.classList.remove('hidden');
-            elements.inputBox.innerHTML = toA(state.currentS);
-            elements.userAnswerInput.focus();
-            startQuestionTimer();
-        }
-        
-        function showLevelProgressionControls() {
-            elements.levelProgressionControls.classList.remove('hidden');
-            elements.levelProgressionControls.classList.add('flex');
-            elements.replayLevelBtn.textContent = `إعادة المستوى ${difficultyNames[state.currentDifficulty]}`;
-            
-            if (state.currentDifficulty === 'hard') {
-                elements.nextLevelBtn.textContent = 'إنهاء وحفظ النتيجة';
+            if (correct) {
+                answerButtons[selectedIndex].classList.add('flash-correct');
             } else {
-                const nextDifficultyName = state.currentDifficulty === 'easy' ? difficultyNames.medium : difficultyNames.hard;
-                elements.nextLevelBtn.textContent = `الانتقال للمستوى ${nextDifficultyName}`;
-            }
-            elements.nextLevelBtn.disabled = false;
-            elements.nextLevelBtn.classList.remove('btn-disabled');
-
-            startLevelTransitionTimer();
-        }
-
-        function startLevelTransitionTimer() {
-            let timeLeft = 6;
-            clearTimeout(state.levelTransitionTimerId);
-            
-            function updateTimer() {
-                elements.transitionTimerText.innerHTML = `سيتم الانتقال تلقائياً خلال ${toA(timeLeft)} ثوان...`;
-                timeLeft--;
-                if (timeLeft < 0) {
-                    elements.nextLevelBtn.click();
-                } else {
-                    state.levelTransitionTimerId = setTimeout(updateTimer, 1000);
+                if (selectedIndex >= 0) {
+                    answerButtons[selectedIndex].classList.add('flash-incorrect');
                 }
+                answerButtons[currentQuestion.correctAnswer].classList.add('flash-correct');
             }
-            updateTimer();
-        }
-        
-        function finishGame() {
-            const totalScore = state.scores.easy + state.scores.medium + state.scores.hard;
-            saveOrFinishGame(totalScore); // Call the connection engine function
-            
-            elements.main.classList.add('hidden');
-            elements.finalScreen.classList.remove('hidden');
 
-            const maxPoints = state.roundsPerDifficulty.easy + state.roundsPerDifficulty.medium + state.roundsPerDifficulty.hard;
-            const finalGrade = (totalScore / maxPoints) * 5;
+            setTimeout(() => {
+                hideQuestion();
+                gameState.questionsAsked++;
 
-            elements.finalPoints.querySelector('span').innerHTML = `${toA(totalScore)} / ${toA(maxPoints)}`;
-            elements.finalGrade.querySelector('span').innerHTML = `${toA(finalGrade.toFixed(1))} / ${toA(5)}`;
-        }
+                if (correct) {
+                    gameState.score++; // Each correct answer is 1 hunted crow
+                    triggerShoot();
+                } else {
+                    triggerSteal();
+                }
 
-        function checkAnswer() {
-            if (state.isAnimating) return;
-            clearTimeout(state.questionTimerId);
-            const userAnswer = parseFloat(elements.userAnswerInput.value);
-            if (isNaN(userAnswer)) {
-                showMessage('الرجاء إدخال رقم!', 'orange');
-                return;
-            }
-            
-            state.isAnimating = true;
-            toggleInteractiveControls(false);
-
-            if (userAnswer === state.correctY) {
-                state.scores[state.currentDifficulty]++;
-                elements.factoryContainer.style.background = '#a7f3d0';
-                animateProcessing(state.currentS);
-                const animationDuration = state.currentEquation.steps(state.currentS).length * 1200;
                 setTimeout(() => {
-                    showMessage('إجابة صحيحة! رائع!', 'green');
-                    flashOutput('⭐', toA(state.correctY), true);
-                    showCoordinatePoint(state.currentS, state.correctY);
-                    addResultToTable('✅', state.currentS, state.correctY);
-                    state.interactiveRoundsCompleted++;
-                    setTimeout(loadInteractiveRound, 2500);
-                }, animationDuration);
-            } else {
-                handleIncorrectAnswer();
-            }
+                    feedbackText.textContent = correct ? "إجابة صحيحة!" : "إجابة خاطئة!";
+                    feedbackText.className = correct ? 'correct' : 'incorrect';
+                    feedbackContainer.classList.remove('hidden');
+                    feedbackContainer.classList.add('visible');
+                    startNextRoundCountdown(5);
+                }, 1500);
+            }, 1200);
         }
         
-        function handleIncorrectAnswer(isTimeUp = false) {
-             elements.factoryContainer.style.background = '#fecaca';
-             animateExplosion();
-             setTimeout(() => {
-                 flashOutput('💥', toA(elements.userAnswerInput.value), false);
-                 const message = isTimeUp ? `انتهى الوقت! الإجابة الصحيحة هي ${toA(state.correctY)}` : `للأسف، الإجابة الصحيحة هي ${toA(state.correctY)}`;
-                 showMessage(message, 'red');
-                 addResultToTable('❌', state.currentS, state.correctY);
-                 state.interactiveRoundsCompleted++;
-                 setTimeout(loadInteractiveRound, 2500);
-             }, 1000);
-        }
-        
-        function startQuestionTimer() {
-            let timeLeft = 25;
-            const fullCircle = 283; // Circumference of the circle
-            clearTimeout(state.questionTimerId); 
-
-            elements.timerProgress.style.transition = 'none';
-            elements.timerProgress.style.strokeDashoffset = 0;
-            // Force reflow
-            elements.timerProgress.getBoundingClientRect();
-            elements.timerProgress.style.transition = 'stroke-dashoffset 1s linear';
-
-            elements.timerText.textContent = toA(timeLeft);
-
-            state.questionTimerId = setInterval(() => {
-                timeLeft--;
-                const offset = fullCircle - (timeLeft / 25) * fullCircle;
-                elements.timerProgress.style.strokeDashoffset = offset;
-                elements.timerText.textContent = toA(timeLeft);
-
-                if (timeLeft < 0) {
-                    clearTimeout(state.questionTimerId);
-                    if(!state.isAnimating) { 
-                        handleIncorrectAnswer(true);
+        function startNextRoundCountdown(seconds) {
+            clearInterval(nextRoundInterval);
+            nextRoundCountdownValue = seconds;
+            nextRoundTimerElement.textContent = `الجولة التالية بعد ${nextRoundCountdownValue} ثوانٍ...`;
+            
+            nextRoundInterval = setInterval(() => {
+                nextRoundCountdownValue--;
+                nextRoundTimerElement.textContent = `الجولة التالية بعد ${nextRoundCountdownValue} ثوانٍ...`;
+                if (nextRoundCountdownValue <= 0) {
+                    clearInterval(nextRoundInterval);
+                    feedbackContainer.classList.remove('visible');
+                    feedbackContainer.classList.add('hidden');
+                    if (gameState.questionsAsked >= gameState.totalQuestions) {
+                        endGame();
+                    } else {
+                        showRoundTransition();
                     }
                 }
             }, 1000);
         }
-        
-        function animateProcessing(s_value) {
-            elements.machineBox.classList.add('shake-normal');
-            const steps = state.currentEquation.steps(s_value);
-            elements.equationDisplay.innerHTML = '';
 
-            steps.forEach((step, index) => {
-                setTimeout(() => {
-                    const stepDiv = document.createElement('div');
-                    stepDiv.className = 'calculation-step';
-                    stepDiv.innerHTML = step;
-                    elements.equationDisplay.appendChild(stepDiv);
-                    setTimeout(() => stepDiv.classList.add('visible'), 50);
-                }, index * 1200);
-            });
-
+        function showRoundTransition() {
+            roundText.textContent = `السؤال ${gameState.questionsAsked + 1}`;
+            roundTransitionScreen.classList.remove('hidden');
+            roundTransitionScreen.classList.add('visible');
             setTimeout(() => {
-                elements.machineBox.classList.remove('shake-normal');
-            }, steps.length * 1200);
-        }
-
-        function animateExplosion() {
-            elements.machineBox.classList.add('shake-intense');
-            setTimeout(() => elements.machineBox.classList.remove('shake-intense'), 800);
-        }
-
-        function flashOutput(icon, numberHTML, isCorrect) {
-            let count = 0;
-            elements.outputBox.style.backgroundColor = isCorrect ? '#d1fae5' : '#fee2e2';
-            state.flashIntervalId = setInterval(() => {
-                elements.outputBox.innerHTML = (count % 2 === 0) ? numberHTML : icon;
-                count++;
-                if (count > 5) {
-                    clearInterval(state.flashIntervalId);
-                    elements.outputBox.innerHTML = isCorrect ? '⭐' : '💥';
+                roundTransitionScreen.classList.remove('visible');
+                roundTransitionScreen.classList.add('hidden');
+                
+                const flyingCrows = crows.filter(c => c.userData.state === 'FLYING');
+                if (flyingCrows.length > 0) {
+                    const luckyCrow = flyingCrows[Math.floor(Math.random() * flyingCrows.length)];
+                    luckyCrow.userData.state = 'LANDING';
                 }
-            }, 300);
-        }
-        
-        function showCoordinatePoint(s, y) {
-            const coordEl = elements.coordinateDisplay;
-            coordEl.innerHTML = `(${toA(s)}، ${toA(y)})`;
-            coordEl.classList.remove('opacity-0', 'scale-90');
-            coordEl.classList.add('opacity-100', 'scale-100');
-            
-            setTimeout(() => {
-                 coordEl.classList.remove('opacity-100', 'scale-100');
-                 coordEl.classList.add('opacity-0', 'scale-90');
+
             }, 2000);
         }
 
-        function resetUIForNewRound() {
-            clearTimeout(state.questionTimerId);
-            if (state.flashIntervalId) clearInterval(state.flashIntervalId);
-            state.isAnimating = false;
-            toggleInteractiveControls(true);
-            elements.levelProgressionControls.classList.add('hidden');
-            elements.levelProgressionControls.classList.remove('flex');
-            showMessage('', '');
-            elements.factoryContainer.style.background = 'linear-gradient(to bottom, #dbeafe, #bfdbfe)';
-            elements.equationDisplay.innerHTML = `<div class="calculation-step visible">${state.currentEquation.text}</div>`;
-            elements.userAnswerInput.value = '';
-            elements.inputBox.textContent = '؟';
-            elements.outputBox.textContent = '؟';
-            elements.outputBox.style.backgroundColor = '#e0e7ff';
-        }
-        
-        function toggleInteractiveControls(enable) {
-            elements.checkBtn.disabled = !enable;
-            if(enable) {
-                elements.checkBtn.classList.remove('btn-disabled');
-            } else {
-                elements.checkBtn.classList.add('btn-disabled');
-            }
-        }
-
-        function addResultToTable(status, s_val, y_val) {
-            const newRow = elements.resultsTable.insertRow(0);
-            newRow.className = 'border-b';
-            const [cellS, cellEq, cellY, cellCoord] = [newRow.insertCell(0), newRow.insertCell(1), newRow.insertCell(2), newRow.insertCell(3)];
+        function endGame() {
+            // NEW: Calculate average time
+            const totalTime = answerTimes.reduce((sum, time) => sum + time, 0);
+            const metricValue = answerTimes.length > 0 ? (totalTime / answerTimes.length).toFixed(2) : 0;
             
-            cellS.innerHTML = `${status} ${toA(s_val)}`;
-            cellEq.innerHTML = state.currentEquation.text;
-            cellY.innerHTML = toA(y_val);
-            cellCoord.innerHTML = `(${toA(s_val)}، ${toA(y_val)})`;
-            
-            cellS.className = 'p-2';
-            cellEq.className = 'p-2';
-            cellY.className = 'p-2 font-bold text-indigo-600';
-            cellCoord.className = 'p-2 text-purple-600';
-        }
-        
-        function updateScoreDisplay() {
-            elements.scoreEasy.innerHTML = `المستوى السهل: ${toA(state.scores.easy)} / ${toA(state.roundsPerDifficulty.easy)}`;
-            elements.scoreMedium.innerHTML = `المستوى المتوسط: ${toA(state.scores.medium)} / ${toA(state.roundsPerDifficulty.medium)}`;
-            elements.scoreHard.innerHTML = `المستوى الصعب: ${toA(state.scores.hard)} / ${toA(state.roundsPerDifficulty.hard)}`;
+            const points = gameState.score; // This is now "Crows Hunted"
+
+            scoreContainer.classList.remove('hidden');
+            scoreContainer.classList.add('visible');
+
+            saveAndFinishGame(points, metricValue);
         }
 
-        function showMessage(text, color) {
-            const colorClasses = {
-                green: 'text-green-600',
-                red: 'text-red-600',
-                orange: 'text-orange-500',
-                blue: 'text-blue-600'
-            };
-            elements.messageBox.className = `mt-2 text-xl font-bold h-7 ${colorClasses[color] || 'text-gray-700'}`;
-            elements.messageBox.innerHTML = text;
-        }
-        
-        function createBoxStack() {
-            elements.boxStack.innerHTML = '';
-            for (let i = 0; i < 12; i++) {
-                const box = document.createElement('div');
-                box.className = 'box';
-                const row = Math.floor(i / 4);
-                const col = i % 4;
-                box.style.bottom = `${row * 20}px`;
-                box.style.left = `${col * 22}px`;
-                elements.boxStack.appendChild(box);
-            }
+        function triggerShoot() {
+            if (!perchedCrow) return;
+            cameraState = 'ZOOMING_IN';
+            zoomStartTime = clock.getElapsedTime();
+            controls.enabled = false;
+            zoomTargetPosition.copy(landingSpot).add(new THREE.Vector3(0, 5, -25));
+            createFeatherExplosion(perchedCrow.position);
+            perchedCrow.userData.state = 'FALLING';
+            perchedCrow = null;
         }
 
-        function runBoxAnimationCycle() {
-            const boxes = elements.boxStack.children;
-            const stackDelay = 250;
-            const unstackDelay = 250;
-            const pauseDuration = 3000;
-            const totalStackTime = boxes.length * stackDelay;
+        function triggerSteal() {
+            if (!perchedCrow) return;
+            perchedCrow.userData.state = 'STEALING';
+            perchedCrow = null;
+        }
 
-            for (let i = 0; i < boxes.length; i++) {
-                setTimeout(() => {
-                    boxes[i].classList.add('appear');
-                }, i * stackDelay);
-            }
+        function displayNewQuestion() {
+            currentQuestion = gameQuestions[gameState.questionsAsked];
 
-            setTimeout(() => {
-                for (let i = 0; i < boxes.length; i++) {
-                    const reverseIndex = boxes.length - 1 - i;
-                    setTimeout(() => {
-                        boxes[reverseIndex].classList.remove('appear');
-                    }, i * unstackDelay);
+            questionTextElement.textContent = currentQuestion.question;
+            const answerButtons = document.querySelectorAll('.answer-button');
+            answerButtons.forEach((button, index) => {
+                button.textContent = currentQuestion.options[index];
+                button.disabled = false;
+                button.classList.remove('flash-correct', 'flash-incorrect');
+            });
+            questionContainer.style.visibility = 'visible';
+            answersContainer.style.visibility = 'visible';
+
+            // NEW: Record start time for this question
+            questionStartTime = Date.now();
+
+            let timeLeft = 25;
+            questionTimerElement.textContent = `الوقت المتبقي: ${timeLeft}`;
+            questionInterval = setInterval(() => {
+                timeLeft--;
+                questionTimerElement.textContent = `الوقت المتبقي: ${timeLeft}`;
+                if (timeLeft <= 0) {
+                    clearInterval(questionInterval);
+                    checkAnswer(-1);
                 }
-            }, totalStackTime + pauseDuration);
+            }, 1000);
         }
 
-        // --- Event Listeners ---
-        elements.startGameBtn.addEventListener('click', () => {
-            elements.introScreen.classList.add('hidden');
-            elements.main.classList.remove('hidden');
-            elements.main.classList.add('grid');
-            state = getInitialState();
-            updateScoreDisplay();
-            startNewEquation();
-        });
+        function hideQuestion() {
+            questionContainer.style.visibility = 'hidden';
+            answersContainer.style.visibility = 'hidden';
+        }
 
-        elements.playAgainBtn.addEventListener('click', () => {
-            elements.finalScreen.classList.add('hidden');
-            elements.introScreen.classList.remove('hidden');
-        });
+        function showExplanation() {
+            explanationContent.innerHTML = '';
+            const questionTitle = document.createElement('h3');
+            questionTitle.textContent = currentQuestion.question;
+            explanationContent.appendChild(questionTitle);
+            currentQuestion.explanation.steps.forEach(step => {
+                const stepDiv = document.createElement('div');
+                stepDiv.className = 'explanation-step';
+                const mathP = document.createElement('p');
+                mathP.className = 'math';
+                mathP.textContent = step.math;
+                const noteP = document.createElement('p');
+                noteP.className = 'note';
+                noteP.textContent = step.note;
+                stepDiv.appendChild(noteP);
+                stepDiv.appendChild(mathP);
+                explanationContent.appendChild(stepDiv);
+            });
+            explanationModal.classList.remove('hidden');
+            explanationModal.classList.add('visible');
+            clearInterval(nextRoundInterval);
+        }
 
-        elements.checkBtn.addEventListener('click', checkAnswer);
-        elements.userAnswerInput.addEventListener('keyup', (event) => {
-            if (event.key === 'Enter' && !elements.checkBtn.disabled) checkAnswer();
-        });
+        function hideExplanation() {
+            explanationModal.classList.remove('visible');
+            explanationModal.classList.add('hidden');
+            startNextRoundCountdown(nextRoundCountdownValue);
+        }
         
-        elements.nextLevelBtn.addEventListener('click', () => {
-            if (elements.nextLevelBtn.disabled) return;
-            clearTimeout(state.levelTransitionTimerId);
+        // 3D Model creation functions (createFeatherExplosion, createCrow, etc.) are unchanged
+        // ... (omitted for brevity, same as before)
+        function createFeatherExplosion(position) { const featherCount = 50; const featherMaterial = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.DoubleSide }); const featherGeometry = new THREE.PlaneGeometry(0.2, 0.2); for (let i = 0; i < featherCount; i++) { const feather = new THREE.Mesh(featherGeometry, featherMaterial); feather.position.copy(position); const velocity = new THREE.Vector3((Math.random() - 0.5) * 5, (Math.random()) * 5, (Math.random() - 0.5) * 5); feathers.push({ mesh: feather, velocity: velocity }); scene.add(feather); } }
+        function createCrow() { const crowGroup = new THREE.Group(); const crowMaterial = new THREE.MeshPhongMaterial({ color: 0x1A1A1A }); const body = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 1.5), crowMaterial); crowGroup.add(body); const leftWing = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.1, 0.8), crowMaterial); leftWing.position.set(-1.5, 0, 0); crowGroup.add(leftWing); const rightWing = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.1, 0.8), crowMaterial); rightWing.position.set(1.5, 0, 0); crowGroup.add(rightWing); crowGroup.leftWing = leftWing; crowGroup.rightWing = rightWing; crowGroup.castShadow = true; return crowGroup; }
+        function createScarecrow() { const scarecrowGroup = new THREE.Group(); const woodMaterial = new THREE.MeshPhongMaterial({ color: 0x8B4513 }); const clothMaterial = new THREE.MeshPhongMaterial({ color: 0x5F4B32, side: THREE.DoubleSide }); const headMaterial = new THREE.MeshPhongMaterial({ color: 0xD2B48C }); const mainPole = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 15, 8), woodMaterial); mainPole.position.y = 7.5; scarecrowGroup.add(mainPole); const armPole = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 8, 8), woodMaterial); armPole.rotation.z = Math.PI / 2; armPole.position.y = 11; scarecrowGroup.add(armPole); const head = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 16), headMaterial); head.position.y = 14; scarecrowGroup.add(head); const hat = new THREE.Mesh(new THREE.ConeGeometry(1.5, 2, 16), clothMaterial); hat.position.y = 14.5; scarecrowGroup.add(hat); scarecrowGroup.traverse(node => { if (node.isMesh) node.castShadow = true; }); return scarecrowGroup; }
+        function createPlayer() { const playerGroup = new THREE.Group(); const skinMaterial = new THREE.MeshPhongMaterial({ color: 0x8B4513 }); const hairMaterial = new THREE.MeshPhongMaterial({ color: 0x111111 }); const shirtMaterial = new THREE.MeshPhongMaterial({ color: 0x006400 }); const pantsMaterial = new THREE.MeshPhongMaterial({ color: 0x00008B }); const strawMaterial = new THREE.MeshPhongMaterial({ color: 0xD2B48C }); const leftLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.15, 2.2, 8), pantsMaterial); leftLeg.position.set(-0.3, 1.1, -0.1); playerGroup.add(leftLeg); const rightLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.15, 2.2, 8), pantsMaterial); rightLeg.position.set(0.3, 1.1, 0.1); playerGroup.add(rightLeg); const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.4, 2, 8), shirtMaterial); torso.position.y = 3.2; playerGroup.add(torso); const head = new THREE.Mesh(new THREE.SphereGeometry(0.5, 16, 16), skinMaterial); head.position.y = 4.6; head.position.x = 0.1; head.rotation.z = -Math.PI / 12; head.rotation.y = -Math.PI / 18; playerGroup.add(head); const hair = new THREE.Mesh(new THREE.SphereGeometry(0.52, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2), hairMaterial); hair.position.copy(head.position); hair.rotation.copy(head.rotation); playerGroup.add(hair); const gunGroup = new THREE.Group(); const metalMaterial = new THREE.MeshPhongMaterial({ color: 0x333333 }); const woodMaterial = new THREE.MeshPhongMaterial({ color: 0x654321 }); const stock = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.4, 1.5), woodMaterial); stock.position.z = 0.5; gunGroup.add(stock); const gunBody = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.2, 1), metalMaterial); gunBody.position.z = -0.5; gunGroup.add(gunBody); const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.5, 8), metalMaterial); barrel.rotation.x = Math.PI / 2; barrel.position.z = -1.7; gunGroup.add(barrel); gunGroup.position.set(0.2, 4.1, 1.2); gunGroup.rotation.y = Math.PI; playerGroup.add(gunGroup); const armLength = 1.0; const upperArmGeometry = new THREE.BoxGeometry(0.25, armLength, 0.3); const lowerArmGeometry = new THREE.BoxGeometry(0.22, armLength, 0.3); const shoulderRight = new THREE.Group(); shoulderRight.position.set(0.4, 4.0, 0.3); playerGroup.add(shoulderRight); const upperRightArm = new THREE.Mesh(upperArmGeometry, shirtMaterial); upperRightArm.position.y = -armLength / 2; shoulderRight.add(upperRightArm); const elbowRight = new THREE.Group(); elbowRight.position.y = -armLength / 2; upperRightArm.add(elbowRight); const lowerRightArm = new THREE.Mesh(lowerArmGeometry, shirtMaterial); lowerRightArm.position.y = -armLength / 2; elbowRight.add(lowerRightArm); shoulderRight.rotation.z = Math.PI / 3; shoulderRight.rotation.x = Math.PI / 12; elbowRight.rotation.x = -Math.PI / 1.5; const shoulderLeft = new THREE.Group(); shoulderLeft.position.set(-0.4, 4.0, 0.3); playerGroup.add(shoulderLeft); const upperLeftArm = new THREE.Mesh(upperArmGeometry, shirtMaterial); upperLeftArm.position.y = -armLength / 2; shoulderLeft.add(upperLeftArm); const elbowLeft = new THREE.Group(); elbowLeft.position.y = -armLength / 2; upperLeftArm.add(elbowLeft); const lowerLeftArm = new THREE.Mesh(lowerArmGeometry, shirtMaterial); lowerLeftArm.position.y = -armLength / 2; elbowLeft.add(lowerLeftArm); shoulderLeft.rotation.z = -Math.PI / 3.5; shoulderLeft.rotation.x = -Math.PI / 4; elbowLeft.rotation.x = Math.PI / 1.8; const strawCloak = new THREE.Group(); const strawGeometry = new THREE.CylinderGeometry(0.008, 0.008, 4.5, 5); const strawCount = 1900; for (let i = 0; i < strawCount; i++) { const straw = new THREE.Mesh(strawGeometry, strawMaterial); const angle = (i / strawCount) * Math.PI * 2; const radius = 0.9; straw.position.x = Math.cos(angle) * radius; straw.position.z = Math.sin(angle) * radius; straw.position.y = 2.25; straw.rotation.x = (Math.random() - 0.5) * 0.2; straw.rotation.z = (Math.random() - 0.5) * 0.2; straw.rotation.y = Math.random() * Math.PI; straw.castShadow = true; strawCloak.add(straw); } playerGroup.add(strawCloak); playerGroup.traverse(node => { if (node.isMesh) node.castShadow = true; }); return playerGroup; }
+        function createCornPlant() { const plantGroup = new THREE.Group(); const stalkMaterial = new THREE.MeshPhongMaterial({ color: 0x3A9D23 }); const stalkGeometry = new THREE.CylinderGeometry(0.2, 0.3, 10, 8); const stalk = new THREE.Mesh(stalkGeometry, stalkMaterial); stalk.position.y = 5; stalk.castShadow = true; plantGroup.add(stalk); const leafMaterial = new THREE.MeshPhongMaterial({ color: 0x4CAF50, side: THREE.DoubleSide }); for (let i = 1; i < 9; i++) { const leafShape = new THREE.Shape(); leafShape.moveTo(0, 0); leafShape.bezierCurveTo(1, 0.5, 3, 0.3, 5, 0); leafShape.bezierCurveTo(3, -0.3, 1, -0.5, 0, 0); const extrudeSettings = { depth: 0.1, bevelEnabled: false }; const leafGeometry = new THREE.ExtrudeGeometry(leafShape, extrudeSettings); const leaf = new THREE.Mesh(leafGeometry, leafMaterial); leaf.position.y = i + 1; leaf.rotation.x = Math.PI / 6; leaf.rotation.y = (i * (Math.PI / 2)) + (Math.random() - 0.5) * 0.5; leaf.castShadow = true; plantGroup.add(leaf); } const cobGroup = new THREE.Group(); const huskMaterial = new THREE.MeshPhongMaterial({ color: 0x9CCC65 }); const cornMaterial = new THREE.MeshPhongMaterial({ color: 0xFFC107 }); const cornGeometry = new THREE.CapsuleGeometry(0.45, 1.6, 8, 16); const corn = new THREE.Mesh(cornGeometry, cornMaterial); cobGroup.add(corn); if (Math.random() > 0.3) { for (let i = 0; i < 5; i++) { const huskGeometry = new THREE.CylinderGeometry(0.5, 0.65, 3, 16, 1, true, 0, Math.PI * 0.4); const husk = new THREE.Mesh(huskGeometry, huskMaterial); husk.rotation.y = i * (Math.PI * 2 / 5); husk.castShadow = true; cobGroup.add(husk); } } cobGroup.position.set(0.5, 6, 0); cobGroup.rotation.z = -Math.PI / 8; plantGroup.add(cobGroup); cornCobs.push(cobGroup); return plantGroup; }
 
-            if (state.currentDifficulty === 'hard') {
-                finishGame();
-            } else {
-                if (state.currentDifficulty === 'easy') state.currentDifficulty = 'medium';
-                else if (state.currentDifficulty === 'medium') state.currentDifficulty = 'hard';
-                startNewLevel();
-            }
-        });
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
 
-        elements.replayLevelBtn.addEventListener('click', () => {
-            if (elements.replayLevelBtn.disabled) return;
-            clearTimeout(state.levelTransitionTimerId);
-            state.scores[state.currentDifficulty] = 0;
-            updateScoreDisplay();
-            startNewLevel();
-        });
+        function animate() {
+            requestAnimationFrame(animate);
+            const delta = clock.getDelta();
+            const elapsedTime = clock.getElapsedTime();
 
+            if (cameraState === 'ZOOMING_IN') { camera.position.lerp(zoomTargetPosition, 0.05); camera.lookAt(landingSpot); if (camera.position.distanceTo(zoomTargetPosition) < 0.5) { cameraState = 'ZOOMED'; } } else if (cameraState === 'ZOOMED') { camera.lookAt(landingSpot); if (elapsedTime - zoomStartTime > 4) { cameraState = 'ZOOMING_OUT'; } } else if (cameraState === 'ZOOMING_OUT') { camera.position.lerp(originalCameraPosition, 0.05); controls.target.lerp(landingSpot, 0.05); if (camera.position.distanceTo(originalCameraPosition) < 0.5) { cameraState = 'IDLE'; camera.position.copy(originalCameraPosition); controls.target.copy(landingSpot); controls.enabled = true; } }
 
-        window.onload = () => {
-            createBoxStack();
-            runBoxAnimationCycle();
-            const totalCycleTime = (12 * 250) * 2 + 3000;
-            setInterval(runBoxAnimationCycle, totalCycleTime + 1000);
-        };
+            crows.forEach(crow => {
+                const flapSpeed = 15;
+                switch(crow.userData.state) {
+                    case 'FLYING': if (crow.userData.stolenCorn) { crow.remove(crow.userData.stolenCorn); crow.userData.stolenCorn = null; } crow.userData.angle += crow.userData.speed * delta; crow.position.x = Math.cos(crow.userData.angle) * crow.userData.radius; crow.position.z = Math.sin(crow.userData.angle) * crow.userData.radius; crow.position.y = crow.userData.originalY + Math.sin(elapsedTime * 5 + crow.userData.angle) * 0.05; const lookAtPosition = new THREE.Vector3(Math.cos(crow.userData.angle + 0.01) * crow.userData.radius, crow.position.y, Math.sin(crow.userData.angle + 0.01) * crow.userData.radius); crow.lookAt(lookAtPosition); crow.leftWing.rotation.z = Math.sin(elapsedTime * flapSpeed) * 0.7; crow.rightWing.rotation.z = -Math.sin(elapsedTime * flapSpeed) * 0.7; break;
+                    case 'LANDING': crow.position.lerp(landingSpot, 0.05); crow.lookAt(landingSpot); crow.leftWing.rotation.z = Math.sin(elapsedTime * flapSpeed) * 0.7; crow.rightWing.rotation.z = -Math.sin(elapsedTime * flapSpeed) * 0.7; if (crow.position.distanceTo(landingSpot) < 0.5) { crow.userData.state = 'PERCHED'; crow.position.copy(landingSpot); perchedCrow = crow; displayNewQuestion(); } break;
+                    case 'PERCHED': crow.leftWing.rotation.z = 0; crow.rightWing.rotation.z = 0; break;
+                    case 'STEALING': if (!crow.userData.targetCorn) { let closestCob = null; let minDistance = Infinity; cornCobs.forEach(cob => { if(cob.visible) { const distance = crow.position.distanceTo(cob.getWorldPosition(new THREE.Vector3())); if (distance < minDistance) { minDistance = distance; closestCob = cob; } } }); crow.userData.targetCorn = closestCob; } if (crow.userData.targetCorn) { const targetPos = crow.userData.targetCorn.getWorldPosition(new THREE.Vector3()); crow.position.lerp(targetPos, 0.08); crow.lookAt(targetPos); crow.leftWing.rotation.z = Math.sin(elapsedTime * flapSpeed) * 0.7; crow.rightWing.rotation.z = -Math.sin(elapsedTime * flapSpeed) * 0.7; if (crow.position.distanceTo(targetPos) < 1) { crow.userData.targetCorn.visible = false; crow.userData.state = 'FLEEING'; const cornMaterial = new THREE.MeshPhongMaterial({ color: 0xFFC107 }); const cornGeometry = new THREE.CapsuleGeometry(0.2, 0.8, 4, 8); const stolenCorn = new THREE.Mesh(cornGeometry, cornMaterial); stolenCorn.position.set(0, 0, 1.0); crow.add(stolenCorn); crow.userData.stolenCorn = stolenCorn; } } break;
+                    case 'FLEEING': const flyByTarget = new THREE.Vector3(originalCameraPosition.x + 10, originalCameraPosition.y - 10, originalCameraPosition.z + 20); crow.position.lerp(flyByTarget, 0.03); crow.lookAt(flyByTarget); crow.leftWing.rotation.z = Math.sin(elapsedTime * flapSpeed) * 0.7; crow.rightWing.rotation.z = -Math.sin(elapsedTime * flapSpeed) * 0.7; if (crow.position.distanceTo(flyByTarget) < 5) { crow.userData.state = 'TAKING_OFF'; } break;
+                    case 'TAKING_OFF': const takeOffTarget = new THREE.Vector3(crow.position.x, crow.userData.originalY, crow.position.z); crow.position.lerp(takeOffTarget, 0.05); crow.lookAt(takeOffTarget); crow.leftWing.rotation.z = Math.sin(elapsedTime * flapSpeed) * 0.7; crow.rightWing.rotation.z = -Math.sin(elapsedTime * flapSpeed) * 0.7; if (crow.position.distanceTo(takeOffTarget) < 1) { crow.userData.state = 'FLYING'; } break;
+                    case 'FALLING': crow.position.y -= 15 * delta; crow.rotation.x += 10 * delta; crow.rotation.z += 5 * delta; if (crow.position.y < 0) { scene.remove(crow); crows = crows.filter(c => c !== crow); } break;
+                }
+            });
+            
+            for (let i = feathers.length - 1; i >= 0; i--) { const particle = feathers[i]; particle.velocity.add(gravity.clone().multiplyScalar(delta)); particle.mesh.position.add(particle.velocity.clone().multiplyScalar(delta)); particle.mesh.rotation.x += Math.random() * 0.1; particle.mesh.rotation.y += Math.random() * 0.1; if (particle.mesh.position.y < 0) { scene.remove(particle.mesh); feathers.splice(i, 1); } }
+
+            if (controls && cameraState === 'IDLE') controls.update();
+            renderer.render(scene, camera);
+        }
+
+        init();
     </script>
     
-    <!-- START OF CONNECTION ENGINE -->
+    <!-- Connection & Leaderboard Engine -->
     <script>
+    // --- START OF CONNECTION & LEADERBOARD ENGINE ---
     (function() {
         // --- CONFIGURATION ---
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
-        const GAME_ID = 'g1_1_2'; 
-        const GAME_MAX_POINTS = 10; // 4 (easy) + 3 (medium) + 3 (hard) = 10
-        const PLATFORM_MAX_GRADE = 5;
+        // --- NEW: Updated Game Settings ---
+        const GAME_ID = 'g1_1_1';
+        const GAME_MAX_POINTS = 5;                      // Max points is 5 (1 per question)
+        const PLATFORM_MAX_GRADE = 5;                   // Final grade in the platform
+        const METRIC_TYPE = 'time';                     // Lower time is better
+        const METRIC_LABEL = 'معدل الوقت (ثواني)';      // NEW: Label for average time
 
-        let currentUser = null; 
+        let currentUser = null;
 
-        // This function is called when the game is finished to save the score.
-        window.saveOrFinishGame = function(points) {
+        // --- CORE FUNCTIONS ---
+        window.saveAndFinishGame = function(points, metricValue) {
             const finalPoints = parseFloat(points) || 0;
+            const finalMetric = parseFloat(metricValue) || 0;
             const maxPoints = parseFloat(GAME_MAX_POINTS) || 1;
             const finalGrade = (finalPoints / maxPoints) * PLATFORM_MAX_GRADE;
-            
+
+            const resultDisplay = document.getElementById('final-result-display');
+            if (resultDisplay) {
+                // NEW: Updated display labels
+                resultDisplay.innerHTML = `
+                    <p class="text-gray-200">صيد الغربان: <span class="font-bold text-xl text-white">${finalPoints} / ${maxPoints}</span></p>
+                    <p class="text-blue-400">الدرجة في المنصة: <span class="font-bold text-2xl text-white">${finalGrade.toFixed(1)} / ${PLATFORM_MAX_GRADE}</span></p>
+                `;
+            }
+
             if (currentUser && currentUser.id) {
-                console.log(`Saving grade ${finalGrade} for student ${currentUser.id}`);
                 const params = new URLSearchParams({
                     action: 'saveGrade',
                     studentId: currentUser.id,
                     itemId: GAME_ID,
-                    grade: finalGrade.toFixed(2)
+                    grade: finalGrade.toFixed(2),
+                    metricValue: finalMetric.toString()
                 });
-
                 fetch(`${SCRIPT_URL}?${params.toString()}`)
                     .then(res => res.json())
-                    .then(result => {
-                        if (result.status === 'success') {
-                            console.log('Score saved successfully!');
-                            setTimeout(() => window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*'), 2500);
-                        } else { throw new Error(result.message); }
-                    })
-                    .catch(err => console.error("Save Error:", err));
+                    .then(result => console.log('Save result:', result.status))
+                    .catch(err => console.error("Save Error:", err))
+                    .finally(fetchAndShowLeaderboard);
             } else {
-                console.log(`Visitor finished with score ${finalPoints}`);
-                setTimeout(() => window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*'), 2500);
+                console.log(`Visitor finished. Score: ${finalPoints}, Metric: ${finalMetric}`);
+                fetchAndShowLeaderboard();
+            }
+        }
+
+        function fetchAndShowLeaderboard() {
+            const loader = document.getElementById('leaderboard-loader');
+            const container = document.getElementById('leaderboard-container');
+            if (!loader || !container) return;
+
+            loader.style.display = 'block';
+            container.innerHTML = '';
+
+            const params = new URLSearchParams({
+                action: 'getLeaderboard',
+                gameId: GAME_ID,
+                metricType: METRIC_TYPE
+            });
+
+            fetch(`${SCRIPT_URL}?${params.toString()}`)
+                .then(res => res.json())
+                .then(response => {
+                    if (response.status === 'success' && response.data) {
+                        displayLeaderboard(response.data);
+                    } else {
+                        throw new Error(response.message || 'Failed to load leaderboard data.');
+                    }
+                })
+                .catch(err => {
+                    console.error("Leaderboard Error:", err);
+                    container.innerHTML = `<p class="text-center text-red-500">حدث خطأ في تحميل سجل الأبطال.</p>`;
+                })
+                .finally(() => {
+                    loader.style.display = 'none';
+                    showFinishButton();
+                });
+        }
+        
+        function displayLeaderboard(data) {
+            const container = document.getElementById('leaderboard-container');
+            if (!data || data.length === 0) {
+                container.innerHTML = `<p class="text-center text-gray-400 mt-4">لا توجد نتائج بعد. كن أول الأبطال!</p>`;
+                return;
+            }
+
+            let tableHTML = `
+                <div class="mt-6 border-t border-gray-600 pt-4">
+                    <h3 class="text-2xl font-bold text-center text-white mb-4">🏆 سجل الأبطال 🏆</h3>
+                    <table class="min-w-full bg-gray-800 text-white shadow-md rounded-lg">
+                        <thead class="bg-gray-900">
+                            <tr>
+                                <th class="text-center py-2 px-3">الترتيب</th>
+                                <th class="text-right py-2 px-3">اسم الطالب</th>
+                                <th class="text-center py-2 px-3">الدرجة</th>
+                                <th class="text-center py-2 px-3">${METRIC_LABEL}</th>
+                            </tr>
+                        </thead>
+                        <tbody class="text-gray-300">`;
+
+            data.forEach((player, index) => {
+                const rank = index + 1;
+                let rankDisplay = rank;
+                if (rank === 1) rankDisplay = '🥇';
+                if (rank === 2) rankDisplay = '🥈';
+                if (rank === 3) rankDisplay = '🥉';
+
+                const isCurrentUser = (currentUser && player.name === currentUser.name);
+                const rowClass = isCurrentUser ? 'bg-blue-900 font-bold' : (index % 2 === 0 ? 'bg-gray-700' : '');
+
+                tableHTML += `
+                    <tr class="${rowClass}">
+                        <td class="text-center py-2 px-3 text-xl">${rankDisplay}</td>
+                        <td class="text-right py-2 px-3">${player.name}</td>
+                        <td class="text-center py-2 px-3">${player.grade.toFixed(1)}</td>
+                        <td class="text-center py-2 px-3">${player.metricValue}</td>
+                    </tr>`;
+            });
+
+            tableHTML += `</tbody></table></div>`;
+            container.innerHTML = tableHTML;
+        }
+
+        function showFinishButton() {
+            const finishWrapper = document.getElementById('finish-game-wrapper');
+            if (finishWrapper) {
+                finishWrapper.style.display = 'block';
             }
         }
 
@@ -874,8 +780,17 @@
                 console.log('User data received:', currentUser);
             }
         });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const finishBtn = document.getElementById('finish-game-btn');
+            if (finishBtn) {
+                finishBtn.addEventListener('click', () => {
+                    window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*');
+                });
+            }
+        });
     })();
+    // --- END OF CONNECTION & LEADERBOARD ENGINE ---
     </script>
-    <!-- END OF CONNECTION ENGINE -->
 </body>
 </html>

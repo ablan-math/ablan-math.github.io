@@ -61,7 +61,7 @@
         }
 
         header::before, header::after {
-             z-index: 1;
+            z-index: 1;
         }
         
         header::before {
@@ -748,12 +748,13 @@
                 Object.keys(quizzes[key].levels).forEach(levelKey => {
                     const skillId = `d_${key}_${levelKey}`;
                     const levelData = dataToLoad ? dataToLoad[skillId] : null;
+                    // *** CHANGE 1: Store points (metricValue) in the local quizData object ***
                     quizData[key].levels[levelKey] = { 
                         score: levelData ? levelData.grade : null, 
-                        completed: !!levelData 
+                        completed: !!levelData,
+                        points: levelData ? levelData.metricValue || 0 : 0
                     };
                     if(levelData) {
-                        // Points are now stored in metricValue
                         totalPoints += levelData.metricValue || 0;
                     }
                 });
@@ -778,13 +779,11 @@
             return { class: 'score-low', icon: 'fa-frown' };
         }
 
-        // ** UPDATED: Calculate points based on correct answers **
         function calculatePoints(correctAnswers, difficulty) {
             const pointsPerQuestion = difficulty === 'easy' ? 1 : (difficulty === 'medium' ? 2 : 3);
             return correctAnswers * pointsPerQuestion;
         }
 
-        // ** UPDATED: Calculate weighted score based on division **
         function calculateWeightedScore(levels) {
             const weights = { easy: 3, medium: 2, hard: 1 };
             let bestWeightedScore = -1;
@@ -866,7 +865,7 @@
                                             ${scoreHTML}
                                         </div>
                                         <div class="level-stars">${multiplier}</div>
-                                    </div>`;
+                                   </div>`;
                 });
                 levelsHTML += '</div>';
 
@@ -999,6 +998,9 @@
             currentLevelData.completed = true;
             
             const pointsEarned = calculatePoints(score, currentDifficulty);
+            // *** CHANGE 2: Update the points for the completed level in the local quizData object ***
+            currentLevelData.points = pointsEarned;
+            
             const skillId = `d_${currentQuizId}_${currentDifficulty}`;
             saveGradeToSheet(skillId, percentageScore, pointsEarned);
 
@@ -1024,9 +1026,14 @@
         }
         
         function updateAndRenderDashboard() {
-            // Re-load data from storage to get the latest scores
-            const student = isVisitor ? null : { diagnostics: quizData, name: studentName };
-            loadQuizData(student);
+            totalPoints = 0;
+            // *** CHANGE 3: Recalculate total points from the stored values in quizData ***
+            Object.values(quizData).forEach(skill => {
+                Object.values(skill.levels).forEach(levelData => {
+                    totalPoints += levelData.points || 0;
+                });
+            });
+            
             renderDashboard();
         }
 

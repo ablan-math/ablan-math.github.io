@@ -43,15 +43,27 @@
         header {
             background: var(--header-gradient); 
             color: white; 
-            padding: 2.5rem 1rem; 
-            text-align: center;
+            padding: 1.5rem 1rem; 
             border-radius: 0 0 35px 35px; 
             box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1); 
             margin-bottom: 2rem;
             position: relative; 
             overflow: hidden;
         }
+        
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            text-align: right;
+            position: relative;
+            z-index: 2;
+        }
 
+        header::before, header::after {
+             z-index: 1;
+        }
+        
         header::before {
             content: '\f1ec'; 
             font-family: 'Font Awesome 6 Free'; 
@@ -77,20 +89,20 @@
         }
 
         header h1 { 
-            font-size: 2.8rem; 
+            font-size: 2.5rem; 
             font-weight: 800; 
             text-shadow: 2px 2px 4px rgba(0,0,0,0.2); 
             margin: 0;
         }
 
         header p { 
-            font-size: 1.3rem; 
+            font-size: 1.2rem; 
             opacity: 0.9; 
-            margin-top: 0.5rem; 
+            margin-top: 0.25rem; 
             margin-bottom: 0;
         }
 
-        .welcome-container, .dashboard-container, .test-section { 
+        .welcome-container, .dashboard-container, .test-section, .student-progress { 
             background: var(--card-bg); 
             padding: 2.5rem; 
             border-radius: 20px; 
@@ -123,6 +135,13 @@
         .btn:active { 
             transform: translateY(-1px); 
         }
+        
+        .btn:disabled {
+            background-color: #bdc3c7;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
 
         .btn-secondary {
             background-color: #95a5a6;
@@ -130,6 +149,12 @@
 
         .btn-secondary:hover {
             background-color: #7f8c8d;
+        }
+        
+        .btn-exit {
+            background-color: #e74c3c;
+            padding: 0.5rem 1.5rem;
+            font-size: 1rem;
         }
 
         .dashboard-grid { 
@@ -217,8 +242,13 @@
             cursor: pointer; 
             transition: all 0.3s ease;
         }
+        
+        .level-bubble.disabled {
+            cursor: not-allowed;
+            background-color: #f8f9f9;
+        }
 
-        .level-bubble:hover { 
+        .level-bubble:hover:not(.disabled) { 
             transform: scale(1.1); 
             border-color: var(--primary); 
         }
@@ -275,6 +305,53 @@
         .final-average p { 
             font-size: 2.8rem; 
             font-weight: 800; 
+        }
+        
+        .student-progress {
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .progress-container {
+            width: 100%;
+            margin-top: 1rem;
+        }
+
+        .progress-bar {
+            height: 20px;
+            background-color: #ecf0f1;
+            border-radius: 10px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--header-gradient);
+            border-radius: 10px;
+            transition: width 0.5s ease;
+        }
+
+        .progress-text {
+            margin-top: 0.5rem;
+            font-weight: bold;
+            color: var(--primary);
+        }
+
+        .points-container {
+            display: flex;
+            align-items: center;
+            margin-top: 1rem;
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+
+        .points-container i {
+            color: var(--points-color);
+            margin-left: 0.5rem;
         }
         
         .quiz-header {
@@ -466,7 +543,10 @@
             .options-grid {
                 grid-template-columns: 1fr;
             }
-            
+            .header-content {
+                flex-direction: column;
+                gap: 1rem;
+            }
             header h1 {
                 font-size: 2rem;
             }
@@ -488,17 +568,18 @@
 </head>
 <body>
     <div class="main-content">
-        <!-- This screen is now just a fallback -->
-        <div id="welcome-screen" class="screen active">
-             <header><h1><i class="fas fa-rocket"></i> انطلق في رحلة الرياضيات!</h1><p>مرحباً بك في منصة تقييم المهارات الأساسية</p></header>
-            <div class="container"><div class="welcome-container" style="text-align: center;">
-                <h2>خطأ!</h2><p>لم يتم العثور على رقم الطالب. يرجى الدخول من خلال المنصة الرئيسية.</p>
-            </div></div>
-        </div>
-        
-        <div id="dashboard-screen" class="screen">
-            <header><h1 id="dashboard-title"></h1><p id="dashboard-subtitle">اختر مهارة لتبدأ الاختبار</p></header>
+        <div id="dashboard-screen" class="screen active">
+            <header>
+                <div class="header-content container">
+                    <div id="header-info">
+                        <h1 id="dashboard-title"></h1>
+                        <p id="dashboard-subtitle">اختر مهارة لتبدأ الاختبار</p>
+                    </div>
+                    <div id="header-action"></div>
+                </div>
+            </header>
             <div class="container">
+                <div class="student-progress" id="student-progress-box"></div>
                 <div class="final-average" id="final-average-box"></div>
                 <div class="dashboard-grid" id="dashboard-grid"></div>
             </div>
@@ -543,13 +624,15 @@
         
         // --- DOM Elements ---
         const screens = { 
-            welcome: document.getElementById('welcome-screen'), 
             dashboard: document.getElementById('dashboard-screen'), 
             quiz: document.getElementById('quiz-screen'), 
             result: document.getElementById('result-screen') 
         };
+        const studentProgressBox = document.getElementById('student-progress-box');
         const dashboardGrid = document.getElementById('dashboard-grid');
         const dashboardTitle = document.getElementById('dashboard-title');
+        const dashboardSubtitle = document.getElementById('dashboard-subtitle');
+        const headerAction = document.getElementById('header-action');
         const quizTitle = document.getElementById('quiz-title');
         const questionCounter = document.getElementById('question-counter');
         const timeCounter = document.getElementById('time-counter');
@@ -568,6 +651,8 @@
 
         // --- State ---
         let studentId = '';
+        let studentName = '';
+        let isVisitor = false;
         let currentQuizId = null;
         let currentDifficulty = null;
         let currentQuestionIndex = 0;
@@ -576,51 +661,58 @@
         let quizData = {};
         let timer = null;
         let timeLeft = 0;
+        let totalPoints = 0;
 
-        // --- Data (Questions) ---
+        // --- Data (Questions) - ALL 6 SKILLS ADDED with 3 levels ---
         const quizzes = {
             arithmetic: {
                 title: 'الأعداد والعمليات الحسابية',
                 levels: {
-                    easy: [
-                        [{ q: 'ناتج جمع ٢ + ٥ يساوي:', o: ['٦', '٧', '٨', '٩'], a: 1, exp: 'عند إضافة ٥ إلى ٢، نحصل على المجموع ٧.' }, { q: 'أي عدد يأتي بعد العدد ٩؟', o: ['٨', '١١', '٧', '١٠'], a: 3, exp: 'في خط الأعداد، العدد الذي يلي ٩ مباشرة هو ١٠.' }, { q: 'كم عدد التفاحات في الصورة: 🍎🍎🍎🍎', o: ['ثلاثة', 'خمسة', 'أربعة', 'ستة'], a: 2, exp: 'ببساطة نعد التفاحات لنجد أنها أربع.' }, { q: 'ناتج طرح ٨ - ٣ يساوي:', o: ['٥', '٦', '٤', '٧'], a: 0, exp: 'عندما نأخذ ٣ من ٨، يتبقى لدينا ٥.' }],
-                    ],
-                    medium: [
-                        [{ q: 'ناتج ضرب ٦ × ٧ يساوي:', o: ['١٣', '٤٨', '٣٦', '٤٢'], a: 3, exp: 'من جدول الضرب، نعلم أن حاصل ضرب ٦ في ٧ هو ٤٢.' }, { q: 'ما هو العدد المفقود في النمط: ٥، ١٠، ١٥، __، ٢٥؟', o: ['١٦', '٢٠', '١٨', '٢٤'], a: 1, exp: 'هذا النمط يمثل القفز بمقدار ٥ في كل مرة. بعد ١٥، يأتي العدد ٢٠.' }, { q: 'إذا كان لديك ٣٠ ريالاً، واشتريت لعبة بسعر ١٢ ريالاً، كم يتبقى معك؟', o: ['١٨ ريال', '٢٨ ريال', '٤٢ ريال', '١٥ ريال'], a: 0, exp: 'نقوم بعملية الطرح: ٣٠ - ١٢ = ١٨ ريالاً.' }, { q: 'الكسر الذي يمثل النصف هو:', o: ['<span class="fraction"><span class="numerator">١</span><span class="denominator">٤</span></span>', '<span class="fraction"><span class="numerator">١</span><span class="denominator">٣</span></span>', '<span class="fraction"><span class="numerator">١</span><span class="denominator">٢</span></span>', '<span class="fraction"><span class="numerator">٣</span><span class="denominator">٤</span></span>'], a: 2, exp: 'الكسر ١/٢ هو الذي يمثل نصف الشيء بالضبط.' }],
-                    ],
-                    hard: [
-                        [{ q: 'ما هو ناتج قسمة ٤٥٥ ÷ ٥ ؟', o: ['٩١', '٨١', '٩٥', '١٠١'], a: 0, exp: '٤٥ قسمة ٥ هي ٩، و ٥ قسمة ٥ هي ١. إذن النتيجة هي ٩١.' }, { q: 'ناتج طرح ٩.٥ - ٣.٢ يساوي:', o: ['٦.٧', '٦.٥', '٧.٣', '٦.٣'], a: 3, exp: 'نطرح الأجزاء العشرية (٥-٢=٣) ثم الأعداد الصحيحة (٩-٣=٦)، فتكون النتيجة ٦.٣.' }, { q: 'إذا كان هناك ٢٤ طالباً في الفصل، و <span class="fraction"><span class="numerator">١</span><span class="denominator">٤</span></span> منهم غائبون، فكم عدد الطلاب الغائبين؟', o: ['٤', '٨', '٦', '١٢'], a: 2, exp: 'لإيجاد ربع عدد، نقسمه على ٤. ٢٤ ÷ ٤ = ٦ طلاب.' }, { q: 'ما هو ناتج (٤ + ٦) × ٣ ؟', o: ['٢٢', '١٣', '١٨', '٣٠'], a: 3, exp: 'نتبع ترتيب العمليات، فنحسب ما بداخل الأقواس أولاً: (٤+٦) = ١٠. ثم نضرب: ١٠ × ٣ = ٣٠.' }],
-                    ]
+                    easy: [[{ q: 'ناتج جمع ٢ + ٥ يساوي:', o: ['٦', '٧', '٨', '٩'], a: 1, exp: 'عند إضافة ٥ إلى ٢، نحصل على المجموع ٧.' }, { q: 'أي عدد يأتي بعد العدد ٩؟', o: ['٨', '١١', '٧', '١٠'], a: 3, exp: 'في خط الأعداد، العدد الذي يلي ٩ مباشرة هو ١٠.' }]],
+                    medium: [[{ q: 'ناتج ضرب ٦ × ٧ يساوي:', o: ['١٣', '٤٨', '٣٦', '٤٢'], a: 3, exp: 'من جدول الضرب، نعلم أن حاصل ضرب ٦ في ٧ هو ٤٢.' }, { q: 'إذا كان لديك ٣٠ ريالاً، واشتريت لعبة بسعر ١٢ ريالاً، كم يتبقى معك؟', o: ['١٨ ريال', '٢٨ ريال', '٤٢ ريال', '١٥ ريال'], a: 0, exp: 'نقوم بعملية الطرح: ٣٠ - ١٢ = ١٨ ريالاً.' }]],
+                    hard: [[{ q: 'ما هو ناتج قسمة ٤٥٥ ÷ ٥ ؟', o: ['٩١', '٨١', '٩٥', '١٠١'], a: 0, exp: '٤٥ قسمة ٥ هي ٩، و ٥ قسمة ٥ هي ١. إذن النتيجة هي ٩١.' }, { q: 'ما هو ناتج (٤ + ٦) × ٣ ؟', o: ['٢٢', '١٣', '١٨', '٣٠'], a: 3, exp: 'نتبع ترتيب العمليات، فنحسب ما بداخل الأقواس أولاً: (٤+٦) = ١٠. ثم نضرب: ١٠ × ٣ = ٣٠.' }]]
                 }
             },
             geometry: {
                 title: 'الهندسة الأساسية',
                 levels: {
-                    easy: [
-                        [{ q: 'ما هو اسم هذا الشكل: 🟥 ؟', o: ['دائرة', 'مثلث', 'مربع', 'نجمة'], a: 2, exp: 'هذا الشكل له أربعة أضلاع متساوية وأربع زوايا قائمة، لذا هو مربع.' }, { q: 'كم عدد أضلاع المثلث؟', o: ['ثلاثة', 'أربعة', 'خمسة', 'ستة'], a: 0, exp: 'المثلث، كما يتضح من اسمه، له ثلاثة أضلاع.' }, { q: 'أي من هذه الأشياء يشبه الدائرة؟', o: ['باب', 'كتاب', 'عجلة السيارة', 'طاولة'], a: 2, exp: 'عجلة السيارة هي أفضل مثال على الشكل الدائري من بين الخيارات.' }, { q: 'ما هو الشكل الذي ليس له زوايا حادة؟', o: ['المثلث', 'المستطيل', 'النجمة', 'السهم'], a: 1, exp: 'المستطيل جميع زواياه قائمة (٩٠ درجة)، وليست حادة.' }]
-                    ],
-                    medium: [
-                        [{ q: 'ما هو محيط مربع طول ضلعه ٣ سم؟', o: ['٦ سم', '٩ سم', '١٢ سم', '٣ سم'], a: 2, exp: 'محيط المربع = طول الضلع × ٤. إذن ٣ × ٤ = ١٢ سم.' }, { q: 'كم عدد رؤوس المكعب؟', o: ['٤', '٦', '٨', '١٢'], a: 2, exp: 'المكعب له ٨ رؤوس (زوايا).' }, { q: 'الزاوية التي تشبه زاوية ورقة الكتاب تسمى زاوية:', o: ['حادة', 'منفرجة', 'مستقيمة', 'قائمة'], a: 3, exp: 'زاوية ركن الكتاب هي مثال ممتاز على الزاوية القائمة التي قياسها ٩٠ درجة.' }, { q: 'ما هو اسم المجسم الذي يشبه علبة الأحذية؟', o: ['مكعب', 'متوازي مستطيلات', 'هرم', 'أسطوانة'], a: 1, exp: 'علبة الأحذية هي مثال شائع على مجسم متوازي المستطيلات.' }]
-                    ],
-                    hard: [
-                        [{ q: 'ما هي مساحة مستطيل طوله ١٠ سم وعرضه ٥ سم؟', o: ['١٥ سم²', '٣٠ سم²', '٥٠ سم²', '١٠٠ سم²'], a: 2, exp: 'مساحة المستطيل = الطول × العرض. إذن ١٠ × ٥ = ٥٠ سم².' }, { q: 'ما هو مجموع زوايا أي شكل رباعي؟', o: ['٩٠ درجة', '١٨٠ درجة', '٢٧٠ درجة', '٣٦٠ درجة'], a: 3, exp: 'مجموع قياسات الزوايا الداخلية لأي شكل رباعي (مثل المربع أو المستطيل) هو دائماً ٣٦٠ درجة.' }, { q: 'إذا كان محيط مثلث متساوي الأضلاع هو ٢١ سم، فما طول كل ضلع؟', o: ['٣ سم', '٧ سم', '٢١ سم', '٦٣ سم'], a: 1, exp: 'بما أن الأضلاع متساوية، نقسم المحيط على عدد الأضلاع (٣). ٢١ ÷ ٣ = ٧ سم.' }, { q: 'ما هو حجم مكعب طول حرفه ٤ سم؟', o: ['١٢ سم³', '١٦ سم³', '٣٢ سم³', '٦٤ سم³'], a: 3, exp: 'حجم المكعب = طول الحرف × نفسه × نفسه. إذن ٤ × ٤ × ٤ = ٦٤ سم³.' }]
-                    ]
+                    easy: [[{ q: 'ما هو اسم هذا الشكل: 🟥 ؟', o: ['دائرة', 'مثلث', 'مربع', 'نجمة'], a: 2, exp: 'هذا الشكل له أربعة أضلاع متساوية وأربع زوايا قائمة، لذا هو مربع.' }, { q: 'كم عدد أضلاع المثلث؟', o: ['ثلاثة', 'أربعة', 'خمسة', 'ستة'], a: 0, exp: 'المثلث، كما يتضح من اسمه، له ثلاثة أضلاع.' }]],
+                    medium: [[{ q: 'ما هو محيط مربع طول ضلعه ٣ سم؟', o: ['٦ سم', '٩ سم', '١٢ سم', '٣ سم'], a: 2, exp: 'محيط المربع = طول الضلع × ٤. إذن ٣ × ٤ = ١٢ سم.' }, { q: 'كم عدد رؤوس المكعب؟', o: ['٤', '٦', '٨', '١٢'], a: 2, exp: 'المكعب له ٨ رؤوس (زوايا).' }]],
+                    hard: [[{ q: 'ما هي مساحة مستطيل طوله ١٠ سم وعرضه ٥ سم؟', o: ['١٥ سم²', '٣٠ سم²', '٥٠ سم²', '١٠٠ سم²'], a: 2, exp: 'مساحة المستطيل = الطول × العرض. إذن ١٠ × ٥ = ٥٠ سم².' }, { q: 'ما هو مجموع زوايا أي شكل رباعي؟', o: ['٩٠ درجة', '١٨٠ درجة', '٢٧٠ درجة', '٣٦٠ درجة'], a: 3, exp: 'مجموع قياسات الزوايا الداخلية لأي شكل رباعي هو دائماً ٣٦٠ درجة.' }]]
                 }
             },
             algebra: {
                 title: 'التفكير الجبري',
                 levels: {
-                    easy: [
-                        [{ q: 'ما هو العدد المفقود في النمط: ٢، ٤، ٦، __، ١٠؟', o: ['٧', '٨', '٩', '٥'], a: 1, exp: 'النمط يزيد بمقدار ٢ في كل مرة. بعد ٦، يأتي العدد ٨.' }, { q: 'إذا كان ⬜ + ٣ = ٥، فما هو العدد داخل المربع؟', o: ['١', '٢', '٣', '٤'], a: 1, exp: 'العدد الذي إذا أضفنا إليه ٣ يصبح الناتج ٥ هو ٢.' }, { q: 'إذا كان لديك ٣ صناديق، وفي كل صندوق ٤ كرات، فما مجموع الكرات؟', o: ['٧', '١٠', '١٢', '٩'], a: 2, exp: 'هذه عملية ضرب متكرر: ٣ × ٤ = ١٢ كرة.' }, { q: 'أكمل النمط: ▲، ▼، ▲، ▼، __؟', o: ['▲', '▼', '■', '●'], a: 0, exp: 'النمط يتناوب بين سهم للأعلى وسهم للأسفل. بعد السهم للأسفل، يأتي سهم للأعلى.' }]
-                    ],
-                    medium: [
-                        [{ q: 'حل المعادلة: س + ١٠ = ١٧', o: ['س = ٢٧', 'س = ١٧', 'س = ٧', 'س = ١٠'], a: 2, exp: 'لإيجاد قيمة س، نطرح ١٠ من الطرفين. س = ١٧ - ١٠ = ٧.' }, { q: 'إذا كانت أ = ٥، فما قيمة ٤ × أ ؟', o: ['٩', '٤٥', '١', '٢٠'], a: 3, exp: 'نعوض عن أ بالرقم ٥، فتصبح العملية ٤ × ٥ = ٢٠.' }, { q: 'ما هو العدد الذي إذا طرحنا منه ٦ كان الناتج ٩؟', o: ['٣', '١٥', '٥٤', '٩٦'], a: 1, exp: 'نحلها بشكل عكسي: ٩ + ٦ = ١٥. العدد هو ١٥.' }, { q: 'أكمل النمط: ٣، ٦، ٩، ١٢، __؟', o: ['١٣', '١٤', '١٥', '١٦'], a: 2, exp: 'النمط يزيد بمقدار ٣ في كل مرة (مضاعفات العدد ٣). بعد ١٢، يأتي العدد ١٥.' }]
-                    ],
-                    hard: [
-                        [{ q: 'حل المعادلة: ٣ص = ٢١', o: ['ص = ١٨', 'ص = ٧', 'ص = ٢٤', 'ص = ٣'], a: 1, exp: 'لإيجاد قيمة ص، نقسم الطرفين على ٣. ص = ٢١ ÷ ٣ = ٧.' }, { q: 'إذا كانت ب = ٤، فما قيمة (٥ × ب) - ٥ ؟', o: ['١٥', '٢٥', '٢٠', '١٠'], a: 0, exp: 'نتبع ترتيب العمليات: الضرب أولاً (٥×٤=٢٠)، ثم الطرح (٢٠-٥=١٥).' }, { q: 'إذا كان س/٢ = ٨، فما قيمة س؟', o: ['٤', '١٠', '٦', '١٦'], a: 3, exp: 'لإيجاد قيمة س، نضرب الطرفين في ٢. س = ٨ × ٢ = ١٦.' }, { q: 'أكمل النمط: ١، ٤، ٩، ١٦، __؟', o: ['٢٠', '٢٤', '٢٥', '٣٢'], a: 2, exp: 'هذا النمط يمثل مربع الأعداد (١×١، ٢×٢، ٣×٣، ٤×٤). العدد التالي هو ٥×٥ = ٢٥.' }]
-                    ]
+                    easy: [[{ q: 'إذا كان ⬜ + ٣ = ٥، فما هو العدد داخل المربع؟', o: ['١', '٢', '٣', '٤'], a: 1, exp: 'العدد الذي إذا أضفنا إليه ٣ يصبح الناتج ٥ هو ٢.' }, { q: 'أكمل النمط: ▲، ▼، ▲، ▼، __؟', o: ['▲', '▼', '■', '●'], a: 0, exp: 'النمط يتناوب بين سهم للأعلى وسهم للأسفل.' }]],
+                    medium: [[{ q: 'حل المعادلة: س + ١٠ = ١٧', o: ['س = ٢٧', 'س = ١٧', 'س = ٧', 'س = ١٠'], a: 2, exp: 'لإيجاد قيمة س، نطرح ١٠ من الطرفين. س = ١٧ - ١٠ = ٧.' }, { q: 'إذا كانت أ = ٥، فما قيمة ٤ × أ ؟', o: ['٩', '٤٥', '١', '٢٠'], a: 3, exp: 'نعوض عن أ بالرقم ٥، فتصبح العملية ٤ × ٥ = ٢٠.' }]],
+                    hard: [[{ q: 'حل المعادلة: ٣ص = ٢١', o: ['ص = ١٨', 'ص = ٧', 'ص = ٢٤', 'ص = ٣'], a: 1, exp: 'لإيجاد قيمة ص، نقسم الطرفين على ٣. ص = ٢١ ÷ ٣ = ٧.' }, { q: 'إذا كان س/٢ = ٨، فما قيمة س؟', o: ['٤', '١٠', '٦', '١٦'], a: 3, exp: 'لإيجاد قيمة س، نضرب الطرفين في ٢. س = ٨ × ٢ = ١٦.' }]]
                 }
             },
+            measurement: {
+                title: 'القياس والوحدات',
+                levels: {
+                    easy: [[{ q: 'كم يوماً في الأسبوع؟', o: ['٥ أيام', '٦ أيام', '٧ أيام', '٨ أيام'], a: 2, exp: 'الأسبوع يتكون من سبعة أيام.' }, { q: 'أي وحدة أفضل لقياس وزن تفاحة؟', o: ['الجرام', 'الكيلوجرام', 'الطن', 'المتر'], a: 0, exp: 'الجرام هو الوحدة المناسبة لقياس الأوزان الصغيرة.' }]],
+                    medium: [[{ q: 'كم سنتيمتر في ٢ متر؟', o: ['٢٠ سم', '٢٠٠٠ سم', '٢ سم', '٢٠٠ سم'], a: 3, exp: 'بما أن المتر الواحد يساوي ١٠٠ سم، فإن مترين يساويان ٢ × ١٠٠ = ٢٠٠ سم.' }, { q: '٣٠٠٠ جرام تساوي كم كيلوجرام؟', o: ['٣٠ كجم', '٣ كجم', '٣٠٠ كجم', '٠.٣ كجم'], a: 1, exp: 'كل ١٠٠٠ جرام يساوي ١ كيلوجرام، لذا ٣٠٠٠ جرام تساوي ٣ كيلوجرام.' }]],
+                    hard: [[{ q: 'فيلم مدته ساعة و ٤٥ دقيقة. كم دقيقة هي مدة الفيلم الإجمالية؟', o: ['١٠٠ دقيقة', '١٤٥ دقيقة', '١٠٥ دقيقة', '٦٥ دقيقة'], a: 2, exp: 'الساعة تساوي ٦٠ دقيقة. نضيف إليها ٤٥ دقيقة، فيكون المجموع ٦٠ + ٤٥ = ١٠٥ دقيقة.' }, { q: 'إذا كان محيط حديقة مستطيلة ٤٠ متراً، وطولها ١٢ متراً، فكم عرضها؟', o: ['٨ أمتار', '١٦ متراً', '٢٨ متراً', '٢٠ متراً'], a: 0, exp: 'نصف المحيط = ٤٠ ÷ ٢ = ٢٠ متر. العرض = نصف المحيط - الطول = ٢٠ - ١٢ = ٨ أمتار.' }]]
+                }
+            },
+            statistics: {
+                title: 'الإحصاء والبيانات',
+                levels: {
+                    easy: [[{ q: 'في قائمة الفواكه: تفاح، موز، تفاح، برتقال، تفاح. ما هي الفاكهة الأكثر تكراراً؟', o: ['موز', 'برتقال', 'تفاح', 'لا يوجد'], a: 2, exp: 'كلمة "تفاح" تكررت ٣ مرات، وهي الأكثر.' }, { q: 'إذا كان كل رمز 🍦 يمثل طالباً واحداً، فكم عدد الطلاب الذين يمثلهم: 🍦🍦🍦 ؟', o: ['طالبان', 'ثلاثة طلاب', 'أربعة طلاب', 'طالب واحد'], a: 1, exp: 'بما أن كل رمز يمثل طالباً، فإن ثلاثة رموز تمثل ثلاثة طلاب.' }]],
+                    medium: [[{ q: 'ما هو متوسط الأعداد: ٢، ٣، ٧ ؟', o: ['٣', '٤', '٦', '٧'], a: 1, exp: 'نجمع الأعداد (٢+٣+٧ = ١٢) ثم نقسم على عددها (٣). ١٢ ÷ ٣ = ٤.' }, { q: 'إذا رميت عملة معدنية، فما هو احتمال ظهور "صورة"؟', o: ['١٠٠%', '٠%', '٢٥%', '٥٠%'], a: 3, exp: 'العملة المعدنية لها وجهان، ولكل وجه فرصة ظهور متساوية، وهي النصف أو ٥٠%.' }]],
+                    hard: [[{ q: 'ما هو وسيط الأعداد التالية: ١٠، ٥، ٢٠، ١٥، ٢٥؟', o: ['٢٠', '١٠', '١٥', '٢٥'], a: 2, exp: 'أولاً نرتب الأعداد: ٥، ١٠، ١٥، ٢٠، ٢٥. الوسيط هو العدد الذي يقع في المنتصف تماماً، وهو ١٥.' }, { q: 'ما هو المدى للبيانات التالية: ٣٣, ١٥, ٤٠, ٢٢, ١٢؟', o: ['٢١', '٢٨', '٤٠', '١٢'], a: 1, exp: 'المدى هو الفرق بين أعلى قيمة وأقل قيمة. ٤٠ - ١٢ = ٢٨.' }]]
+                }
+            },
+            percentages: {
+                title: 'النسب المئوية',
+                levels: {
+                    easy: [[{ q: 'إذا أكلت نصف تفاحة، فكم النسبة المئوية التي أكلتها؟', o: ['٢٥%', '١٠٠%', '٥٠%', '١٠%'], a: 2, exp: 'النصف دائماً يمثل ٥٠% من أي شيء كامل.' }, { q: 'ماذا تعني ١٠٠% من كعكة؟', o: ['نصف الكعكة', 'كل الكعكة', 'ربع الكعكة', 'لا شيء'], a: 1, exp: '١٠٠% تعني الكل أو الشيء كاملاً.' }]],
+                    medium: [[{ q: 'الكسر الاعتيادي <span class="fraction"><span class="numerator">١</span><span class="denominator">٤</span></span> يساوي:', o: ['٢٠%', '٤٠%', '١٤%', '٢٥%'], a: 3, exp: 'الربع يمثل ٢٥% من الكل (١٠٠ ÷ ٤ = ٢٥).' }, { q: 'ما قيمة ٥٠% من العدد ٢٠؟', o: ['٥', '١٠', '١٥', '٢٠'], a: 1, exp: '٥٠% تعني النصف. نصف العدد ٢٠ هو ١٠.' }]],
+                    hard: [[{ q: 'ما قيمة ٢٠% من العدد ٢٠٠؟', o: ['٢٠', '٤٠', '٥٠', '١٠٠'], a: 1, exp: 'طريقة سهلة: ١٠% من ٢٠٠ هي ٢٠. إذن ٢٠% هي ضعفها، أي ٤٠. أو (٢٠ × ٢٠٠) ÷ ١٠٠ = ٤٠.' }, { q: 'سعر قميص ٨٠ ريالاً، عليه خصم ٢٥%. كم ريالاً ستوفر؟', o: ['٢٥ ريال', '٨ ريال', '٤٠ ريال', '٢٠ ريال'], a: 3, exp: '٢٥% تعادل الربع. ربع المبلغ ٨٠ هو ٨٠ ÷ ٤ = ٢٠ ريال.' }]]
+                }
+            }
         };
 
         // --- Functions ---
@@ -641,40 +733,34 @@
             screens[screenId].classList.add('active');
         }
 
-        /**
-         * Loads existing quiz data from student's record or initializes it.
-         */
         function loadQuizData(studentData) {
-            if (studentData && studentData.diagnostics) {
-                 Object.keys(quizzes).forEach(key => {
-                    const skillId = `d_${key}`;
-                    const levelData = studentData.diagnostics[skillId];
-                    quizData[key] = {
-                        title: quizzes[key].title,
-                        levels: {
-                            // Only one level per skill in diagnostic
-                            hard: { score: levelData ? levelData.grade : null, completed: !!levelData }
-                        }
-                    };
-                });
-            } else {
-                // Initialize for a new test
-                Object.keys(quizzes).forEach(key => {
-                    quizData[key] = {
-                        title: quizzes[key].title,
-                        levels: {
-                            hard: { score: null, completed: false }
-                        }
-                    };
-                });
+            let dataToLoad = null;
+            if(isVisitor) {
+                const savedVisitorData = sessionStorage.getItem('visitorDiagnosticData');
+                if(savedVisitorData) dataToLoad = JSON.parse(savedVisitorData);
+            } else if (studentData && studentData.diagnostics) {
+                dataToLoad = studentData.diagnostics;
             }
+
+            totalPoints = 0;
+            Object.keys(quizzes).forEach(key => {
+                quizData[key] = { title: quizzes[key].title, levels: {} };
+                Object.keys(quizzes[key].levels).forEach(levelKey => {
+                    const skillId = `d_${key}_${levelKey}`;
+                    const levelData = dataToLoad ? dataToLoad[skillId] : null;
+                    quizData[key].levels[levelKey] = { 
+                        score: levelData ? levelData.grade : null, 
+                        completed: !!levelData 
+                    };
+                    if(levelData) {
+                        totalPoints += calculatePoints(levelData.grade, levelKey);
+                    }
+                });
+            });
         }
         
-        /**
-         * Saves a single grade to Google Sheets.
-         */
         async function saveGradeToSheet(itemId, grade) {
-            if (!studentId) return;
+            if (isVisitor || !studentId) return; // Don't save for visitors
             const url = `${SCRIPT_URL}?action=saveGrade&studentId=${studentId}&itemId=${itemId}&grade=${grade}`;
             try {
                 const response = await fetch(url);
@@ -691,14 +777,46 @@
             return { class: 'score-low', icon: 'fa-frown' };
         }
 
-        /**
-         * Renders the dashboard with all the skills/quizzes.
-         */
+        function calculatePoints(percentage, difficulty) {
+            const basePoints = percentage / 10; 
+            const multiplier = difficulty === 'easy' ? 1 : (difficulty === 'medium' ? 1.5 : 2);
+            return Math.round(basePoints * multiplier);
+        }
+
         function renderDashboard() {
-            dashboardTitle.textContent = `مقياس المهارات الأساسية`;
+            if(isVisitor) {
+                dashboardTitle.textContent = 'مرحباً بك أيها الزائر';
+                dashboardSubtitle.textContent = 'يمكنك تجربة كل اختبار مرة واحدة';
+                headerAction.innerHTML = '';
+            } else {
+                dashboardTitle.textContent = `أهلاً بك، ${studentName}`;
+                dashboardSubtitle.textContent = 'اختر مهارة لتبدأ الاختبار';
+                headerAction.innerHTML = `<a href="index.html" target="_top" class="btn btn-exit"><i class="fas fa-sign-out-alt"></i> العودة للمنصة</a>`;
+            }
+
+            const allLevels = Object.values(quizData).flatMap(q => Object.values(q.levels));
+            const completedLevels = allLevels.filter(l => l.completed).length;
+            const totalLevels = allLevels.length;
+            const progressPercentage = totalLevels > 0 ? Math.round((completedLevels / totalLevels) * 100) : 0;
+
+            studentProgressBox.innerHTML = `
+                <h3><i class="fas fa-chart-line"></i> تقدمك في التعلم</h3>
+                <div class="progress-container">
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: ${progressPercentage}%"></div>
+                    </div>
+                    <div class="progress-text">${toArabicNumerals(progressPercentage)}% اكتمال</div>
+                </div>
+                <div class="points-container">
+                    <span>النقاط التي جمعتها:</span>
+                    <i class="fas fa-coins"></i>
+                    <span>${toArabicNumerals(totalPoints)}</span>
+                </div>
+            `;
+
             dashboardGrid.innerHTML = '';
             let completedQuizzesCount = 0;
-            let totalScore = 0;
+            let totalWeightedScore = 0;
             
             Object.keys(quizzes).forEach(key => {
                 const quiz = quizzes[key];
@@ -706,45 +824,45 @@
                 const card = document.createElement('div');
                 card.className = 'quiz-card';
                 
-                // In diagnostic, there's only one level, 'hard'
-                const levelData = data.levels.hard;
-                let scoreHTML = `<div class="level-score not-completed">ابدأ الاختبار</div>`;
-                if (levelData.completed) {
-                    completedQuizzesCount++;
-                    totalScore += levelData.score;
-                    const style = getScoreStyle(levelData.score);
-                    scoreHTML = `<div class="level-score ${style.class}"><i class="fas ${style.icon}"></i> ${toArabicNumerals(levelData.score)}%</div>`;
-                }
-                
-                const levelHTML = `<div class="levels-container">
-                                      <div class="level-wrapper" data-quiz-id="${key}" data-difficulty="hard">
-                                          <div class="level-bubble">
-                                              ${scoreHTML}
-                                          </div>
-                                      </div>
-                                   </div>`;
+                let bestAdjustedScore = -1;
+                let levelsHTML = '<div class="levels-container">';
+                Object.keys(quiz.levels).forEach(levelKey => {
+                    const levelData = data.levels[levelKey];
+                    let scoreHTML = `<div class="level-score not-completed">لم يختبر</div>`;
+                    if (levelData.completed) {
+                        const style = getScoreStyle(levelData.score);
+                        scoreHTML = `<div class="level-score ${style.class}"><i class="fas ${style.icon}"></i> ${toArabicNumerals(levelData.score)}%</div>`;
+                    }
+                    const levelName = levelKey === 'easy' ? 'سهل' : (levelKey === 'medium' ? 'متوسط' : 'عالي');
+                    const multiplier = levelKey === 'easy' ? '<i class="fas fa-star"></i>' : (levelKey === 'medium' ? '<i class="fas fa-star"></i><i class="fas fa-star"></i>' : '<i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i>');
+                    levelsHTML += `<div class="level-wrapper" data-quiz-id="${key}" data-difficulty="${levelKey}">
+                                        <div class="level-bubble ${levelData.completed && isVisitor ? 'disabled' : ''}">
+                                            <div class="level-name">${levelName}</div>
+                                            ${scoreHTML}
+                                        </div>
+                                        <div class="level-stars">${multiplier}</div>
+                                    </div>`;
+                });
+                levelsHTML += '</div>';
 
-                card.innerHTML = `<div class="quiz-card-header"><h3>${quiz.title}</h3></div><div class="quiz-card-body">${levelHTML}</div>`;
+                card.innerHTML = `<div class="quiz-card-header"><h3>${quiz.title}</h3></div><div class="quiz-card-body">${levelsHTML}</div>`;
                 dashboardGrid.appendChild(card);
             });
             
-            // If all quizzes are completed, show the final average and save it
-            if (completedQuizzesCount === Object.keys(quizzes).length) {
-                const average = Math.round(totalScore / completedQuizzesCount);
-                finalAverageBox.innerHTML = `<h2><i class="fas fa-medal"></i> اكتمل التقييم الشامل!</h2><p>معدلك الإجمالي: ${toArabicNumerals(average)}%</p>
-                <a href="index.html" target="_top" class="btn"><i class="fas fa-home"></i> العودة للمنصة الرئيسية</a>`;
+            if (!isVisitor && completedLevels === totalLevels) {
+                const average = Math.round(allLevels.reduce((sum, level) => sum + (level.score || 0), 0) / totalLevels);
+                finalAverageBox.innerHTML = `<h2><i class="fas fa-medal"></i> اكتمل التقييم الشامل!</h2><p>معدلك الإجمالي: ${toArabicNumerals(average)}%</p>`;
                 finalAverageBox.style.display = 'block';
-                
-                // Save the overall score
                 saveGradeToSheet('d_test_overall', average);
             } else {
                 finalAverageBox.style.display = 'none';
             }
 
             dashboardGrid.addEventListener('click', (e) => {
-                const bubble = e.target.closest('.level-wrapper');
-                if (bubble) {
-                    startQuiz(bubble.dataset.quizId, bubble.dataset.difficulty);
+                const bubble = e.target.closest('.level-bubble');
+                if (bubble && !bubble.classList.contains('disabled')) {
+                    const wrapper = bubble.closest('.level-wrapper');
+                    startQuiz(wrapper.dataset.quizId, wrapper.dataset.difficulty);
                 }
             });
         }
@@ -759,7 +877,8 @@
             const modelIndex = Math.floor(Math.random() * models.length);
             currentModel = models[modelIndex];
 
-            quizTitle.textContent = `${quizzes[currentQuizId].title}`;
+            const levelName = currentDifficulty === 'easy' ? 'سهل' : (currentDifficulty === 'medium' ? 'متوسط' : 'عالي');
+            quizTitle.textContent = `${quizzes[currentQuizId].title} - مستوى ${levelName}`;
             showScreen('quiz');
             loadQuestion();
         }
@@ -854,17 +973,27 @@
             currentLevelData.score = percentageScore; 
             currentLevelData.completed = true;
             
-            // Save individual skill score to sheet
-            const skillId = `d_${currentQuizId}`;
+            const skillId = `d_${currentQuizId}_${currentDifficulty}`;
             saveGradeToSheet(skillId, percentageScore);
+
+            if(isVisitor) {
+                let visitorData = JSON.parse(sessionStorage.getItem('visitorDiagnosticData')) || {};
+                visitorData[skillId] = { grade: percentageScore };
+                sessionStorage.setItem('visitorDiagnosticData', JSON.stringify(visitorData));
+            }
             
-            resultTitle.textContent = `نتيجتك في مهارة - ${quizzes[currentQuizId].title}`;
+            const levelName = currentDifficulty === 'easy' ? 'سهل' : (currentDifficulty === 'medium' ? 'متوسط' : 'عالي');
+            resultTitle.textContent = `نتيجتك في المستوى - ${levelName}`;
             resultScore.textContent = `${toArabicNumerals(percentageScore)}%`;
-            resultPoints.textContent = `أجبت على ${toArabicNumerals(score)} من ${toArabicNumerals(totalQuestions)} بشكل صحيح.`;
+            
+            const pointsEarned = calculatePoints(percentageScore, currentDifficulty);
+            resultPoints.textContent = `لقد كسبت ${toArabicNumerals(pointsEarned)} نقطة!`;
             
             const style = getScoreStyle(percentageScore);
             resultIcon.className = `fas ${style.icon} result-icon`;
-            resultIcon.style.color = style.class === 'score-high' ? 'var(--score-high)' : (style.class === 'score-medium' ? 'var(--score-medium)' : 'var(--score-low)');
+            resultIcon.style.color = style.class === 'score-high' ? 'var(--score-high)' : (style.class === 'score-medium)' ? 'var(--score-medium)' : 'var(--score-low)');
+
+            retryFromResultBtn.style.display = isVisitor ? 'none' : 'inline-flex';
 
             showScreen('result');
         }
@@ -885,6 +1014,7 @@
 
         backToDashboardBtn.addEventListener('click', () => {
             showScreen('dashboard');
+            loadQuizData(isVisitor ? null : {diagnostics: quizData}); // Reload data to update dashboard
             renderDashboard();
         });
 
@@ -896,26 +1026,30 @@
             studentId = urlParams.get('studentId');
 
             if (!studentId) {
-                showScreen('welcome'); // Show error screen if no student ID
+                isVisitor = true;
+                loadQuizData(null);
+                renderDashboard();
+                showScreen('dashboard');
                 return;
             }
             
-            // Fetch student data to get their name and previous diagnostic scores
             try {
                 const response = await fetch(`${SCRIPT_URL}?action=getStudentData&studentId=${studentId}`);
                 const result = await response.json();
                 if (result.status === 'success' && result.data) {
+                    studentName = result.data.name;
                     loadQuizData(result.data);
                     renderDashboard();
                     showScreen('dashboard');
                 } else {
-                    // If student not found, still allow the test but without a name
+                    isVisitor = true;
                     loadQuizData(null);
                     renderDashboard();
                     showScreen('dashboard');
                 }
             } catch (error) {
                 console.error("Failed to fetch student data:", error);
+                isVisitor = true;
                 loadQuizData(null);
                 renderDashboard();
                 showScreen('dashboard');

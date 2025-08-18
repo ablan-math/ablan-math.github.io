@@ -244,7 +244,7 @@
             transform: scale(1.1);
         }
         
-        /* --- NEW: Modal Styles --- */
+        /* --- Modal Styles (Shared for Games and Diagnostic Test) --- */
         .modal-overlay {
             position: fixed;
             top: 0;
@@ -264,8 +264,7 @@
             padding: 1rem;
             width: 100%;
             max-width: 900px; /* Adjust as needed */
-            height: 90%;
-            max-height: 700px;
+            max-height: 90%;
             display: flex;
             flex-direction: column;
         }
@@ -294,8 +293,46 @@
             width: 100%;
             height: 100%;
             border: none;
+            min-height: 500px;
         }
-
+        /* --- Diagnostic Modal Specific Styles (FIXED) --- */
+        .diagnostic-modal-content {
+             background-color: white; /* Make background solid white */
+             box-shadow: 0 10px 25px rgba(0,0,0,0.1); /* Add shadow */
+             max-width: 500px;
+             text-align: center;
+             padding: 2.5rem;
+             border-radius: 1rem; /* Add border radius */
+        }
+        .diagnostic-modal-content .fa-rocket {
+            font-size: 4rem;
+            color: #3b82f6;
+            margin-bottom: 1rem;
+        }
+         .diagnostic-modal-content h2 {
+            font-size: 1.75rem;
+            font-weight: 800;
+            color: #1e3a8a;
+            margin-bottom: 0.5rem;
+        }
+        .diagnostic-modal-content p {
+            color: #4b5563;
+            margin-bottom: 1.5rem;
+        }
+        .diagnostic-modal-content .start-test-btn {
+            background: linear-gradient(to right, #22c55e, #16a34a);
+            color: white;
+            font-weight: 700;
+            font-size: 1.1rem;
+            padding: 0.75rem 2rem;
+            border-radius: 9999px;
+            text-decoration: none;
+            display: inline-block;
+            transition: transform 0.2s;
+        }
+        .diagnostic-modal-content .start-test-btn:hover {
+            transform: scale(1.05);
+        }
     </style>
 </head>
 <body class="bg-gray-100">
@@ -333,7 +370,7 @@
     <div id="app-container" style="display: none;">
         <header id="main-header" class="bg-white shadow-md sticky top-0 z-50"></header>
         <main class="container mx-auto px-4 sm:px-6 py-8">
-            <!-- New Dashboard Section -->
+            <!-- Dashboard Section -->
             <div id="dashboard-section" class="hidden mb-12">
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     <!-- Right Column: Progress & Achievements -->
@@ -377,6 +414,12 @@
                                 <p><strong>الصف:</strong> <span id="display-class"></span></p>
                             </div>
                         </div>
+                        
+                        <!-- NEW: Diagnostic Test Card -->
+                        <div id="diagnostic-card" class="card hidden">
+                            <!-- Content will be injected by JS -->
+                        </div>
+
                         <div class="card">
                             <h4 class="text-xl font-bold text-green-700 mb-4">الإنجازات</h4>
                             <div class="flex justify-around" id="achievements-container">
@@ -396,7 +439,7 @@
     
     <footer id="main-footer" class="bg-gray-200 py-4 mt-auto"></footer>
 
-    <!-- NEW: Game Modal -->
+    <!-- Game Modal -->
     <div id="game-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <div class="modal-header">
@@ -407,10 +450,23 @@
             </div>
         </div>
     </div>
+    
+    <!-- NEW: Diagnostic Test Modal -->
+    <div id="diagnostic-modal" class="modal-overlay hidden">
+        <div class="diagnostic-modal-content">
+             <i class="fas fa-rocket"></i>
+             <h2>ابدأ رحلتك في الرياضيات!</h2>
+             <p>قبل أن تبدأ في الدروس، نود قياس مهاراتك الأساسية. سيساعدنا هذا الاختبار التشخيصي في فهم نقاط قوتك وتحديد المهارات التي تحتاج إلى تركيز أكبر.</p>
+             <a id="start-diagnostic-btn" href="#" target="_top" class="start-test-btn">
+                <i class="fas fa-play-circle mr-2"></i>ابدأ الاختبار التشخيصي
+             </a>
+        </div>
+    </div>
 
 
     <script>
     (function() {
+        // NOTE: Ensure this URL is correct.
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
         const VISITOR_MAX_ATTEMPTS = 3;
 
@@ -515,7 +571,7 @@
                         { id: 'g4_5_2', title: '.......', maxScore: 5 }
                     ]},
                 ]
-                            },
+            },
             'c5': { 
                 title: "الفصل ٥: أنظمة المعادلات الخطية",
                 lessons: [
@@ -540,7 +596,6 @@
                         { id: 'g5_5_2', title: '.........', maxScore: 5 }
                     ]},
                 ]
-
             }
         };
 
@@ -550,30 +605,22 @@
         const gameModal = document.getElementById('game-modal');
         const gameIframe = document.getElementById('game-iframe');
         const modalCloseBtn = document.getElementById('modal-close-btn');
+        const diagnosticModal = document.getElementById('diagnostic-modal');
+        const startDiagnosticBtn = document.getElementById('start-diagnostic-btn');
 
         /**
-         * **THE FIX IS HERE**: This function now robustly handles numbers and strings with commas.
+         * Parses a value that could be a number or a string with a comma into a float.
          */
         function robustParseFloat(value, itemIdForLogging) {
-            // Added for debugging
-            console.log(`[Debug] Processing grade for ${itemIdForLogging}. Raw value:`, value, `(Type: ${typeof value})`);
-
-            if (value === null || value === undefined || value === "") {
-                return 0;
-            }
-            // Force the value to a string to handle both numbers and strings consistently
+            if (value === null || value === undefined || value === "") return 0;
             const stringValue = String(value);
-            // Replace comma with a period for universal parsing
             const sanitizedValue = stringValue.replace(',', '.').trim();
             const parsed = parseFloat(sanitizedValue);
-            
-            const result = isNaN(parsed) ? 0 : parsed;
-            console.log(`[Debug] Parsed grade for ${itemIdForLogging} is: ${result}`);
-            return result;
+            return isNaN(parsed) ? 0 : parsed;
         }
 
         /**
-         * Central function to switch between views using direct style manipulation.
+         * Switches between login and app views.
          */
         function switchView(viewName) {
             if (viewName === 'login') {
@@ -586,7 +633,7 @@
         }
 
         /**
-         * Renders the main app content.
+         * Renders the main app content after login or for a visitor.
          */
         function renderAppContent(studentData) {
             buildHeader(studentData);
@@ -600,11 +647,17 @@
             }
         }
 
+        /**
+         * Retrieves student data from localStorage.
+         */
         function getStudentFromStorage() {
             const studentDataString = localStorage.getItem('currentStudent');
             return studentDataString ? JSON.parse(studentDataString) : null;
         }
 
+        /**
+         * Handles the login process by fetching student data.
+         */
         function handleLogin(studentId) {
             const loader = document.getElementById('login-loader');
             const errorDiv = document.getElementById('login-error');
@@ -617,6 +670,18 @@
                 .then(res => res.json())
                 .then(result => {
                     if (result.status === 'success' && result.data) {
+                        
+                        // --- SPECIAL DEMO FOR STUDENT 2500000000 ---
+                        if (result.data.id.toString() === '2500000000') {
+                            // If this student has no diagnostic data, add mock data for demonstration
+                            if (!result.data.diagnostics || !result.data.diagnostics.d_test_overall) {
+                                result.data.diagnostics = {
+                                    'd_test_overall': { grade: 85, attempts: 1 }
+                                };
+                            }
+                        }
+                        // --- END OF DEMO CODE ---
+
                         localStorage.setItem('currentStudent', JSON.stringify(result.data));
                         switchView('app');
                         renderAppContent(result.data);
@@ -636,7 +701,11 @@
                 });
         }
         
+        /**
+         * Refreshes student data from the server and re-renders the app.
+         */
         function refreshStudentData(studentId) {
+            if (!studentId) return;
             console.log("Refreshing data for student:", studentId);
             fetch(`${SCRIPT_URL}?action=getStudentData&studentId=${studentId}`)
                 .then(res => res.json())
@@ -654,7 +723,9 @@
                 });
         }
 
-
+        /**
+         * Builds the header with user info and logout button.
+         */
         function buildHeader(studentData) {
             const headerContainer = document.getElementById('main-header');
             if (!headerContainer) return;
@@ -675,12 +746,15 @@
             const logoutBtn = document.getElementById('logout-btn');
             if (logoutBtn) logoutBtn.addEventListener('click', () => {
                 localStorage.removeItem('currentStudent');
-                switchView('login');
+                window.location.reload();
             });
             const visitorLoginBtn = document.getElementById('visitor-login-btn');
             if (visitorLoginBtn) visitorLoginBtn.addEventListener('click', () => switchView('login'));
         }
 
+        /**
+         * Builds the footer with social sharing links.
+         */
         function buildFooter() {
             const footerContainer = document.getElementById('main-footer');
             if (!footerContainer) return;
@@ -700,6 +774,9 @@
                 </div>`;
         }
 
+        /**
+         * Builds the main curriculum accordion.
+         */
         function buildAccordion(curriculumIndex, studentData) {
             const accordionContainer = document.getElementById('accordion-container');
             if (!accordionContainer) return;
@@ -786,6 +863,9 @@
             });
         }
 
+        /**
+         * Renders the student dashboard with progress, info, and achievements.
+         */
         function showStudentDashboard(studentData) {
             const dashboardSection = document.getElementById('dashboard-section');
             if (!dashboardSection || !studentData) {
@@ -798,6 +878,13 @@
                 const element = document.getElementById(`display-${key}`);
                 if(element) element.textContent = studentData[key] || '-';
             });
+
+            // NEW: Check for diagnostic test and show modal or card
+            if (studentData.diagnostics && studentData.diagnostics.d_test_overall) {
+                renderDiagnosticCard(studentData);
+            } else {
+                showDiagnosticModal(studentData.id);
+            }
 
             let totalStudentLessonScore = 0;
             let totalMaxLessonScore = 0;
@@ -892,7 +979,34 @@
             document.getElementById('overall-progress-text').textContent = `${overallPercentage}%`;
         }
         
-        // --- NEW: Visitor Attempt Tracking ---
+        // --- NEW: Diagnostic Test Functions ---
+        function showDiagnosticModal(studentId) {
+            // NOTE: Update 'diagnostic.html' to the correct path if it's in a subfolder.
+            startDiagnosticBtn.href = `diagnostic.html?studentId=${studentId}`;
+            diagnosticModal.classList.remove('hidden');
+        }
+
+        function renderDiagnosticCard(studentData) {
+            const card = document.getElementById('diagnostic-card');
+            if (!card || !studentData.diagnostics || !studentData.diagnostics.d_test_overall) return;
+            
+            const score = studentData.diagnostics.d_test_overall.grade;
+            const scoreColor = score >= 80 ? 'text-green-600' : (score >= 50 ? 'text-yellow-600' : 'text-red-600');
+            
+            card.innerHTML = `
+                <h4 class="text-xl font-bold text-purple-700 mb-2">المقياس التشخيصي</h4>
+                <p class="text-gray-600 mb-4">مستواك في المهارات الأساسية.</p>
+                <div class="text-center mb-4">
+                    <span class="text-5xl font-extrabold ${scoreColor}">${score}%</span>
+                </div>
+                <a href="diagnostic.html?studentId=${studentData.id}" target="_top" class="w-full text-center block bg-purple-100 text-purple-800 font-bold py-2 rounded-lg hover:bg-purple-200 transition-colors">
+                    إعادة الاختبار
+                </a>
+            `;
+            card.classList.remove('hidden');
+        }
+
+        // --- Visitor Attempt Tracking ---
         function getVisitorAttempts() {
             const attempts = localStorage.getItem('visitorGameAttempts');
             return attempts ? JSON.parse(attempts) : {};
@@ -911,12 +1025,14 @@
                 const attempts = getVisitorAttempts();
                 const gameAttempts = attempts[gameId] || 0;
                 if (gameAttempts >= VISITOR_MAX_ATTEMPTS) {
+                    // Replace alert with a custom modal in a future update if needed
                     alert(`لقد استنفدت محاولاتك المجانية (${VISITOR_MAX_ATTEMPTS}) لهذه اللعبة. يرجى تسجيل الدخول للمتابعة.`);
                     return;
                 }
-                alert(`أنت تلعب كزائر. تبقى لديك ${VISITOR_MAX_ATTEMPTS - gameAttempts} محاولة لهذه اللعبة.`);
+                 alert(`أنت تلعب كزائر. تبقى لديك ${VISITOR_MAX_ATTEMPTS - gameAttempts} محاولة لهذه اللعبة.`);
             }
             
+            // NOTE: Update 'games/' to the correct path if needed.
             gameIframe.src = `games/${gameId}.html`;
             gameIframe.onload = () => {
                 const userPayload = student || { name: 'زائر' };
@@ -984,12 +1100,4 @@
     </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
 

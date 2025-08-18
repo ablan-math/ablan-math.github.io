@@ -538,6 +538,65 @@
             max-width: 1200px;
             margin: 0 auto;
         }
+        
+        /* UPDATED styles for Pre-Quiz Screen */
+        .explanation-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin: 2.5rem 0;
+        }
+        .explanation-card {
+            background-color: #f8f9fa;
+            padding: 1.5rem;
+            border-radius: 15px;
+            border-bottom: 4px solid var(--primary);
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+        .explanation-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        }
+        .explanation-card .icon-wrapper {
+            font-size: 2.5rem;
+            color: var(--primary);
+            background-color: #eaf3fb;
+            border-radius: 50%;
+            width: 70px;
+            height: 70px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .explanation-card .text-content {
+            text-align: right;
+        }
+        .explanation-card h3 {
+            font-size: 1.4rem;
+            color: var(--dark);
+            margin-top: 0;
+            margin-bottom: 0.5rem;
+        }
+        .explanation-card p {
+            font-size: 1rem;
+            line-height: 1.7;
+            margin-bottom: 0;
+            color: #6c757d;
+        }
+        .explanation-card p strong {
+            color: var(--primary);
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+        #pre-quiz-subtitle {
+            font-size: 1.3rem;
+            color: var(--dark);
+            margin-top: 0.5rem;
+        }
 
         @media (max-width: 768px) {
             .options-grid {
@@ -563,6 +622,10 @@
                 padding: 0.8rem 1.5rem;
                 font-size: 1rem;
             }
+
+            .explanation-grid {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
@@ -582,6 +645,37 @@
                 <div class="student-progress" id="student-progress-box"></div>
                 <div class="final-average" id="final-average-box"></div>
                 <div class="dashboard-grid" id="dashboard-grid"></div>
+            </div>
+        </div>
+
+        <!-- NEW PRE-QUIZ SCREEN -->
+        <div id="pre-quiz-screen" class="screen">
+            <header><h1>استعد للاختبار</h1></header>
+            <div class="container">
+                <div class="welcome-container" style="text-align: center;">
+                    <h2 id="pre-quiz-title" style="font-size: 2.2rem; color: var(--primary);"></h2>
+                    <p id="pre-quiz-subtitle"></p>
+                    <div class="explanation-grid">
+                        <div class="explanation-card">
+                            <div class="icon-wrapper"><i class="fas fa-balance-scale-right"></i></div>
+                            <div class="text-content">
+                                <h3>الدرجة الموزونة</h3>
+                                <p id="pre-quiz-weight-exp"></p>
+                            </div>
+                        </div>
+                        <div class="explanation-card">
+                             <div class="icon-wrapper"><i class="fas fa-coins"></i></div>
+                             <div class="text-content">
+                                <h3>نظام النقاط</h3>
+                                <p id="pre-quiz-points-exp"></p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="quiz-nav">
+                        <button id="start-actual-quiz-btn" class="btn"><i class="fas fa-play"></i> ابدأ الاختبار</button>
+                        <button id="back-from-pre-quiz-btn" class="btn btn-secondary"><i class="fas fa-arrow-right"></i> تراجع</button>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -625,6 +719,7 @@
         // --- DOM Elements ---
         const screens = { 
             dashboard: document.getElementById('dashboard-screen'), 
+            preQuiz: document.getElementById('pre-quiz-screen'), // New screen
             quiz: document.getElementById('quiz-screen'), 
             result: document.getElementById('result-screen') 
         };
@@ -633,12 +728,26 @@
         const dashboardTitle = document.getElementById('dashboard-title');
         const dashboardSubtitle = document.getElementById('dashboard-subtitle');
         const headerAction = document.getElementById('header-action');
+        
+        // Pre-Quiz Screen Elements
+        const preQuizTitle = document.getElementById('pre-quiz-title');
+        const preQuizSubtitle = document.getElementById('pre-quiz-subtitle');
+        const preQuizWeightExp = document.getElementById('pre-quiz-weight-exp');
+        const preQuizPointsExp = document.getElementById('pre-quiz-points-exp');
+        const startActualQuizBtn = document.getElementById('start-actual-quiz-btn');
+        const backFromPreQuizBtn = document.getElementById('back-from-pre-quiz-btn');
+
+        // Quiz Screen Elements
         const quizTitle = document.getElementById('quiz-title');
         const questionCounter = document.getElementById('question-counter');
         const timeCounter = document.getElementById('time-counter');
         const questionText = document.getElementById('question-text');
         const optionsGrid = document.getElementById('options-grid');
         const nextQuestionBtn = document.getElementById('next-question-btn');
+        const explanationBox = document.getElementById('explanation-box');
+        const explanationText = document.getElementById('explanation-text');
+
+        // Result Screen Elements
         const resultTitle = document.getElementById('result-title');
         const resultScore = document.getElementById('result-score');
         const resultIcon = document.getElementById('result-icon');
@@ -646,8 +755,6 @@
         const backToDashboardBtn = document.getElementById('back-to-dashboard-btn');
         const retryFromResultBtn = document.getElementById('retry-from-result-btn');
         const finalAverageBox = document.getElementById('final-average-box');
-        const explanationBox = document.getElementById('explanation-box');
-        const explanationText = document.getElementById('explanation-text');
 
         // --- State ---
         let studentId = '';
@@ -664,7 +771,6 @@
         let totalPoints = 0;
 
         // --- Data (Questions) ---
-        // *** UPDATED: Now includes 4 models for each difficulty level ***
         const quizzes = {
             arithmetic: {
                 title: 'الأعداد والعمليات الحسابية',
@@ -870,6 +976,7 @@
         }
 
         function calculatePoints(correctAnswers, difficulty) {
+            // UPDATED: 'hard' level now awards 3 points per question as requested.
             const pointsPerQuestion = difficulty === 'easy' ? 1 : (difficulty === 'medium' ? 2 : 3);
             return correctAnswers * pointsPerQuestion;
         }
@@ -976,14 +1083,31 @@
                 const bubble = e.target.closest('.level-bubble');
                 if (bubble && !bubble.classList.contains('disabled')) {
                     const wrapper = bubble.closest('.level-wrapper');
-                    startQuiz(wrapper.dataset.quizId, wrapper.dataset.difficulty);
+                    showPreQuizScreen(wrapper.dataset.quizId, wrapper.dataset.difficulty);
                 }
             });
         }
 
-        function startQuiz(quizId, difficulty) {
+        function showPreQuizScreen(quizId, difficulty) {
             currentQuizId = quizId;
             currentDifficulty = difficulty;
+
+            const quizInfo = quizzes[quizId];
+            const levelName = difficulty === 'easy' ? 'سهل' : (difficulty === 'medium' ? 'متوسط' : 'عالي');
+            const weight = difficulty === 'easy' ? 3 : (difficulty === 'medium' ? 2 : 1);
+            const points = difficulty === 'easy' ? 1 : (difficulty === 'medium' ? 2 : 3);
+            const pointsText = points === 1 ? 'نقطة واحدة' : (points === 2 ? 'نقطتين' : `${toArabicNumerals(points)} نقاط`);
+
+            preQuizTitle.textContent = quizInfo.title;
+            preQuizSubtitle.textContent = `أنت على وشك بدء اختبار المستوى: ${levelName}`;
+
+            preQuizWeightExp.innerHTML = `سيتم قسمة درجتك في هذا المستوى على <strong>${toArabicNumerals(weight)}</strong> لحساب النتيجة الموزونة.`;
+            preQuizPointsExp.innerHTML = `ستحصل على <strong>${pointsText}</strong> عن كل إجابة صحيحة لإضافتها إلى مجموعك.`;
+
+            showScreen('preQuiz');
+        }
+
+        function startQuiz() {
             currentQuestionIndex = 0;
             score = 0;
             
@@ -1126,6 +1250,14 @@
         }
 
         // --- Event Listeners ---
+        startActualQuizBtn.addEventListener('click', () => {
+            startQuiz();
+        });
+
+        backFromPreQuizBtn.addEventListener('click', () => {
+            showScreen('dashboard');
+        });
+
         nextQuestionBtn.addEventListener('click', () => {
             currentQuestionIndex++;
             if (currentQuestionIndex < currentModel.length) {
@@ -1136,7 +1268,7 @@
         });
 
         retryFromResultBtn.addEventListener('click', () => {
-            startQuiz(currentQuizId, currentDifficulty);
+            showPreQuizScreen(currentQuizId, currentDifficulty);
         });
 
         backToDashboardBtn.addEventListener('click', () => {

@@ -1,0 +1,1019 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>المغامرة الجبلية</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Cairo', sans-serif;
+            width: 100%;
+            height: 100vh;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        #info {
+            position: absolute;
+            top: 10px;
+            width: 100%;
+            padding: 0 1rem;
+            box-sizing: border-box;
+            text-align: center;
+            z-index: 100;
+            color: white;
+            font-size: 1.2rem;
+            text-shadow: 2px 2px 4px #000000;
+            transition: opacity 0.5s ease;
+        }
+        .modal {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 300;
+            background-color: rgba(40, 40, 60, 0.95);
+            color: white;
+            padding: 1.5rem;
+            border-radius: 1rem;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            width: 90%;
+            max-width: 600px;
+            text-align: center;
+        }
+        #livesContainer {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 150;
+            display: flex;
+            gap: 5px;
+        }
+        .heart {
+            font-size: 2rem;
+            color: red;
+            text-shadow: 1px 1px 2px black;
+        }
+        #runeQuizOverlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(10, 10, 20, 0.8);
+            z-index: 200;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(5px);
+            opacity: 0;
+            transition: opacity 0.5s ease;
+            pointer-events: none;
+            padding: 1rem;
+            box-sizing: border-box;
+        }
+        #runeQuizContent {
+            text-align: center;
+            color: #a7d7ff;
+        }
+        #runeQuestion {
+            font-size: 1.5rem;
+            font-weight: bold;
+            text-shadow: 0 0 10px #00bfff, 0 0 20px #00bfff, 0 0 30px #00bfff, 0 0 40px #00bfff;
+            animation: pulse 2s infinite;
+        }
+        #runeAnswers {
+            margin-top: 2rem;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+        }
+        .rune-answer {
+            background: none; border: none; color: #a7d7ff; font-size: 1.2rem;
+            cursor: pointer; text-shadow: 0 0 5px #00bfff, 0 0 10px #00bfff;
+            transition: all 0.3s ease; padding: 0.5rem; line-height: 1.4;
+        }
+        .rune-answer:hover { color: #ffffff; text-shadow: 0 0 10px #fff, 0 0 20px #fff, 0 0 30px #00bfff; }
+        @keyframes pulse { 0% { opacity: 0.8; } 50% { opacity: 1; } 100% { opacity: 0.8; } }
+        
+        #touchControls {
+            position: absolute; bottom: 20px; z-index: 150; display: none; opacity: 0; transition: opacity 0.5s ease;
+        }
+        .touch-btn {
+            width: 60px; height: 60px; background-color: rgba(255, 255, 255, 0.3);
+            border: 2px solid rgba(255, 255, 255, 0.5); border-radius: 50%;
+            display: flex; justify-content: center; align-items: center;
+            font-size: 2rem; color: white; user-select: none;
+        }
+        
+        #resultControlsContainer {
+            display: flex; justify-content: center; align-items: center; gap: 2rem; margin-top: 1.5rem;
+        }
+        #explanationButton {
+            background: none; border: none; cursor: pointer; position: relative; width: 150px; height: 80px;
+            display: flex; justify-content: center; align-items: center;
+        }
+        #explanationButton svg {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            animation: swirl 10s linear infinite;
+        }
+        #explanationButton span { color: white; font-size: 1.2rem; font-weight: bold; text-shadow: 0 0 5px black; }
+        @keyframes swirl { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        
+        .control-button {
+            background: none; border: 2px solid #60a5fa; color: #60a5fa;
+            font-weight: bold; padding: 0.5rem 1.5rem; border-radius: 0.5rem;
+            text-shadow: 0 0 5px #60a5fa, 0 0 10px #60a5fa; transition: all 0.3s ease;
+        }
+        .control-button:hover { background-color: rgba(96, 165, 250, 0.2); color: white; }
+
+        #explanationModal { z-index: 400; }
+        #explanationHeader { border-bottom: 2px solid #4a5568; padding-bottom: 0.5rem; margin-bottom: 0.5rem; }
+        #explanationQuestion { font-size: 1.2rem; font-weight: bold; color: #60a5fa; } /* Adjusted font size */
+        #explanationSteps { text-align: right; }
+        .step { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; padding: 0.4rem 0; border-bottom: 1px solid #2d3748; }
+        .step-math { font-size: 1.1rem; direction: ltr; text-align: left; display: flex; align-items: center; gap: 0.5em; flex-grow: 1; } /* Adjusted font size */
+        .step-reason { font-size: 0.9rem; color: #cbd5e1; } /* Adjusted font size */
+        .frac { display: inline-flex; flex-direction: column; text-align: center; vertical-align: middle; }
+        .frac > span { display: block; padding: 0 0.4em; }
+        .frac > span:first-child { border-bottom: 1.5px solid white; }
+
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-1px, 0, 0); } 20%, 80% { transform: translate3d(2px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); } 40%, 60% { transform: translate3d(4px, 0, 0); }
+        }
+        .shake { animation: shake 0.82s cubic-bezier(.36,.07,.19,.97) both; }
+
+        #questionTimer {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 250;
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #facc15; /* yellow-400 */
+            text-shadow: 1px 1px 3px black;
+            display: none;
+        }
+
+        @media (hover: none) and (pointer: coarse) {
+            #touchControls {
+                display: grid; grid-template-columns: 1fr 1fr 1fr; grid-template-rows: 1fr 1fr;
+                gap: 15px; width: 180px; height: 120px; left: 50%; transform: translateX(-50%); opacity: 1;
+            }
+            #btn-up { grid-area: 1 / 2 / 2 / 3; } #btn-left { grid-area: 2 / 1 / 3 / 2; }
+            #btn-right { grid-area: 2 / 3 / 3 / 4; } #btn-down { grid-area: 2 / 2 / 3 / 3; }
+        }
+        @media (max-width: 640px) {
+            .modal { padding: 1rem; }
+            #runeQuestion { font-size: 1.2rem; } .rune-answer { font-size: 1rem; } #info { font-size: 1rem; }
+            .step { flex-direction: column; align-items: flex-start; }
+            .step-math { margin-bottom: 0.5rem; }
+        }
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body class="bg-gray-900">
+
+    <div id="info" class="hidden">
+        <p>استخدم أسهم لوحة المفاتيح أو أزرار اللمس للحركة</p>
+    </div>
+
+    <div id="livesContainer"></div>
+
+    <div id="welcomeModal" class="modal">
+        <h1 class="text-4xl font-bold mb-4 text-yellow-300">المغامرة الجبلية</h1>
+        <p class="text-lg mb-4">انطلق في رحلة عبر الجبال الغامضة، وحل الألغاز الرياضية لتجاوز العقبات والوصول إلى القمة. كل إجابة صحيحة تقربك من هدفك!</p>
+        <p class="text-sm text-gray-400 mb-6">إنتاج وبرمجة: الأستاذ عبدالعزيز خالد العبلان</p>
+        <button id="startGameButton" class="bg-green-500 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg text-xl transition-colors duration-300">بدء اللعبة</button>
+    </div>
+    
+    <div id="finalScoreModal" class="modal hidden">
+        <h2 class="text-4xl font-bold mb-4 text-yellow-300">انتهت المغامرة!</h2>
+        
+        <!-- 1. لعرض نتيجة الطالب الحالية -->
+        <div id="final-result-display" class="text-center text-xl mt-4 bg-gray-100 p-4 rounded-lg"></div>
+
+        <!-- 2. لعرض أيقونة التحميل -->
+        <div id="leaderboard-loader" style="display: none;" class="text-center mt-6">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
+            <p class="text-gray-800">جاري تحميل سجل الأبطال...</p>
+        </div>
+
+        <!-- 3. لعرض جدول سجل الأبطال -->
+        <div id="leaderboard-container" class="mt-4"></div>
+
+        <!-- 4. زر لإنهاء اللعبة والعودة للمنصة (جديد) -->
+        <div id="finish-game-wrapper" class="text-center mt-6" style="display: none;">
+            <button id="finish-game-btn" class="px-6 py-3 bg-red-600 text-white font-bold rounded-lg shadow-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-opacity-75 transition-transform transform hover:scale-105">
+                إنهاء والعودة للمنصة
+            </button>
+        </div>
+    </div>
+    
+    <div id="gameOverModal" class="modal hidden">
+        <h2 class="text-4xl font-bold mb-4 text-red-500">انتهت اللعبة</h2>
+        <p class="text-xl mb-6">لقد نفدت أرواحك.</p>
+        <button onclick="window.location.reload()" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg text-xl transition-colors duration-300">حاول مرة أخرى</button>
+    </div>
+
+    <div id="runeQuizOverlay">
+        <div id="questionTimer"></div>
+        <div id="runeQuizContent">
+            <h2 id="runeQuestion"></h2>
+            <div id="runeAnswers"></div>
+        </div>
+    </div>
+
+    <div id="resultModal" class="modal hidden">
+        <h2 id="resultHeader" class="text-4xl font-bold mb-2"></h2>
+        <p id="nextQuestionInfo" class="text-lg text-gray-300 mb-4"></p>
+        <div id="resultControlsContainer">
+             <button id="explanationButton">
+                <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M 50,50 m -40,0 a 40,40 0 1,0 80,0 a 40,40 0 1,0 -80,0" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="3"/>
+                    <path d="M 50,50 m -20,0 a 20,20 0 1,0 40,0 a 20,20 0 1,0 -40,0" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="2" transform="rotate(45 50 50)"/>
+                    <path d="M 50,50 m -30,0 a 30,30 0 1,1 60,0 a 30,30 0 1,1 -60,0" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="2.5" transform="rotate(-30 50 50)"/>
+                </svg>
+                <span>أعرف لماذا؟</span>
+            </button>
+            <button id="proceedButton" class="control-button"></button>
+        </div>
+    </div>
+    
+    <div id="explanationModal" class="modal hidden">
+        <div id="explanationHeader">
+            <h3 class="text-2xl font-bold">شرح الحل</h3>
+            <div id="explanationQuestion"></div>
+        </div>
+        <div id="explanationSteps"></div>
+        <button id="closeExplanationButton" class="mt-4 control-button">متابعة</button>
+    </div>
+
+    <div id="touchControls">
+        <div id="btn-up" class="touch-btn">▲</div>
+        <div id="btn-left" class="touch-btn">◀</div>
+        <div id="btn-right" class="touch-btn">▶</div>
+        <div id="btn-down" class="touch-btn">▼</div>
+    </div>
+
+    <script type="importmap">
+        { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+
+        // --- Global Variables ---
+        let scene, camera, renderer, player, rain, mainLightning, secondaryLightning, raycaster;
+        let controls = { forward: false, backward: false, left: false, right: false };
+        let playerSpeed = 0.075;
+        let webObstacle1, webObstacle2, archwayObstacle;
+        let gamePaused = true, isGameStarted = false;
+        let staticColliders = [];
+        let currentStage = 0; // 0: Web1, 1: Web2, 2: Archway
+        const worldBounds = { x: 15, z: 150 };
+        let clock = new THREE.Clock();
+        let nextMainLightningTime = 0, nextSecondaryLightningTime = 0;
+        
+        let playerLives = 5;
+        let correctAnswersCount = 0;
+        let currentQuestionIndex = 0; // Overall question index (0-9)
+        let questionsInCurrentStage = 0;
+        let countdownInterval;
+        let questionTimerInterval;
+        let questionStartTime;
+        let totalGameTime = 0;
+
+        let rainBody, rainSizzle, thunderSound, successSound, failSound, rockSlideSound, winSound, poisonSound, webTearSound;
+        
+        // --- Quiz Data (with corrected explanations) ---
+        const stageQuizzes = [
+            // Stage 0: Web 1 (3 questions)
+            [
+                { question: "ما هي الخطوات اللازمة لحل المعادلة: ٥س + ١ = ٢٦ ؟", answers: ["أولاً: نطرح ١ من الطرفين، ثانياً: نقسم الطرفين على ٥", "أولاً: نجمع ١ للطرفين، ثانياً: نقسم الطرفين على ٥", "أولاً: نقسم الطرفين على ٥، ثانياً: نطرح ١ من الطرفين", "أولاً: نطرح ١ من الطرفين، ثانياً: نضرب الطرفين في ٥"], correctAnswer: "أولاً: نطرح ١ من الطرفين، ثانياً: نقسم الطرفين على ٥", detailedExplanation: [{step: "٥س + ١ = ٢٦", reason: "المعادلة الأصلية"}, {step: "٥س + ١ - ١ = ٢٦ - ١", reason: "نطرح ١ من كلا الطرفين"}, {step: "٥س = ٢٥", reason: "نتيجة الطرح"}, {html: `<div class='frac'><span>٥س</span><span>٥</span></div> = <div class='frac'><span>٢٥</span><span>٥</span></div>`, reason: "نقسم كلا الطرفين على ٥"}, {step: "س = ٥", reason: "الحل النهائي"}] },
+                { question: "ما هي الخطوات اللازمة لحل المعادلة: ٢س - ١ = ١١ ؟", answers: ["أولاً: نجمع ١ للطرفين، ثانياً: نقسم الطرفين على ٢", "أولاً: نطرح ١ من الطرفين، ثانياً: نقسم الطرفين على ٢", "أولاً: نقسم الطرفين على ٢، ثانياً: نجمع ١ للطرفين", "أولاً: نجمع ١ للطرفين، ثانياً: نضرب الطرفين في ٢"], correctAnswer: "أولاً: نجمع ١ للطرفين، ثانياً: نقسم الطرفين على ٢", detailedExplanation: [{step: "٢س - ١ = ١١", reason: "المعادلة الأصلية"}, {step: "٢س - ١ + ١ = ١١ + ١", reason: "نجمع ١ لكلا الطرفين"}, {step: "٢س = ١٢", reason: "نتيجة الجمع"}, {html: `<div class='frac'><span>٢س</span><span>٢</span></div> = <div class='frac'><span>١٢</span><span>٢</span></div>`, reason: "نقسم كلا الطرفين على ٢"}, {step: "س = ٦", reason: "الحل النهائي"}] },
+                { question: "ما هي الخطوات اللازمة لحل المعادلة: ٥س - ٧ = ٣ ؟", answers: ["أولاً: نجمع ٧ للطرفين، ثانياً: نقسم الطرفين على ٥", "أولاً: نطرح ٧ من الطرفين، ثانياً: نقسم الطرفين على ٥", "أولاً: نقسم الطرفين على ٥، ثانياً: نجمع ٧ للطرفين", "أولاً: نجمع ٧ للطرفين، ثانياً: نضرب الطرفين في ٥"], correctAnswer: "أولاً: نجمع ٧ للطرفين، ثانياً: نقسم الطرفين على ٥", detailedExplanation: [{step: "٥س - ٧ = ٣", reason: "المعادلة الأصلية"}, {step: "٥س - ٧ + ٧ = ٣ + ٧", reason: "نجمع ٧ لكلا الطرفين"}, {step: "٥س = ١٠", reason: "نتيجة الجمع"}, {html: `<div class='frac'><span>٥س</span><span>٥</span></div> = <div class='frac'><span>١٠</span><span>٥</span></div>`, reason: "نقسم كلا الطرفين على ٥"}, {step: "س = ٢", reason: "الحل النهائي"}] }
+            ],
+            // Stage 1: Web 2 (3 questions)
+            [
+                { question: "ما هي الخطوات اللازمة لحل المعادلة: ٥س + ٩ = ٢٤ ؟", answers: ["أولاً: نطرح ٩ من الطرفين، ثانياً: نقسم الطرفين على ٥", "أولاً: نجمع ٩ للطرفين، ثانياً: نقسم الطرفين على ٥", "أولاً: نقسم الطرفين على ٥، ثانياً: نطرح ٩ من الطرفين", "أولاً: نطرح ٩ من الطرفين، ثانياً: نضرب الطرفين في ٥"], correctAnswer: "أولاً: نطرح ٩ من الطرفين، ثانياً: نقسم الطرفين على ٥", detailedExplanation: [{step: "٥س + ٩ = ٢٤", reason: "المعادلة الأصلية"}, {step: "٥س + ٩ - ٩ = ٢٤ - ٩", reason: "نطرح ٩ من كلا الطرفين"}, {step: "٥س = ١٥", reason: "نتيجة الطرح"}, {html: `<div class='frac'><span>٥س</span><span>٥</span></div> = <div class='frac'><span>١٥</span><span>٥</span></div>`, reason: "نقسم كلا الطرفين على ٥"}, {step: "س = ٣", reason: "الحل النهائي"}] },
+                { question: "ما هي الخطوات اللازمة لحل المعادلة: ٢س + ٧ = ٢٤ ؟", answers: ["أولاً: نطرح ٧ من الطرفين، ثانياً: نقسم الطرفين على ٢", "أولاً: نجمع ٧ للطرفين، ثانياً: نقسم الطرفين على ٢", "أولاً: نقسم الطرفين على ٢، ثانياً: نطرح ٧ من الطرفين", "أولاً: نطرح ٧ من الطرفين، ثانياً: نضرب الطرفين في ٢"], correctAnswer: "أولاً: نطرح ٧ من الطرفين، ثانياً: نقسم الطرفين على ٢", detailedExplanation: [{step: "٢س + ٧ = ٢٤", reason: "المعادلة الأصلية"}, {step: "٢س + ٧ - ٧ = ٢٤ - ٧", reason: "نطرح ٧ من كلا الطرفين"}, {step: "٢س = ١٧", reason: "نتيجة الطرح"}, {html: `<div class='frac'><span>٢س</span><span>٢</span></div> = <div class='frac'><span>١٧</span><span>٢</span></div>`, reason: "نقسم كلا الطرفين على ٢"}, {step: "س = ٨.٥", reason: "الحل النهائي"}] },
+                { question: "ما هي الخطوات اللازمة لحل المعادلة: ٥س - ١ = ١٦ ؟", answers: ["أولاً: نجمع ١ للطرفين، ثانياً: نقسم الطرفين على ٥", "أولاً: نطرح ١ من الطرفين، ثانياً: نقسم الطرفين على ٥", "أولاً: نقسم الطرفين على ٥، ثانياً: نجمع ١ للطرفين", "أولاً: نجمع ١ للطرفين، ثانياً: نضرب الطرفين في ٥"], correctAnswer: "أولاً: نجمع ١ للطرفين، ثانياً: نقسم الطرفين على ٥", detailedExplanation: [{step: "٥س - ١ = ١٦", reason: "المعادلة الأصلية"}, {step: "٥س - ١ + ١ = ١٦ + ١", reason: "نجمع ١ لكلا الطرفين"}, {step: "٥س = ١٧", reason: "نتيجة الجمع"}, {html: `<div class='frac'><span>٥س</span><span>٥</span></div> = <div class='frac'><span>١٧</span><span>٥</span></div>`, reason: "نقسم كلا الطرفين على ٥"}, {step: "س = ٣.٤", reason: "الحل النهائي"}] }
+            ],
+            // Stage 2: Archway (4 questions)
+            [
+                { question: "ما هي الخطوات اللازمة لحل المعادلة: ٨ = ٦ - ٢ص ؟", answers: ["أولاً: نطرح ٦ من الطرفين، ثانياً: نقسم الطرفين على -٢", "أولاً: نجمع ٦ للطرفين، ثانياً: نقسم الطرفين على -٢", "أولاً: نقسم الطرفين على -٢، ثانياً: نطرح ٦ من الطرفين", "أولاً: نطرح ٦ من الطرفين، ثانياً: نضرب الطرفين في -٢"], correctAnswer: "أولاً: نطرح ٦ من الطرفين، ثانياً: نقسم الطرفين على -٢", detailedExplanation: [{step: "٨ = ٦ - ٢ص", reason: "المعادلة الأصلية"}, {step: "٨ - ٦ = ٦ - ٢ص - ٦", reason: "نطرح ٦ من كلا الطرفين"}, {step: "٢ = -٢ص", reason: "نتيجة الطرح"}, {html: `<div class='frac'><span>٢</span><span>-٢</span></div> = <div class='frac'><span>-٢ص</span><span>-٢</span></div>`, reason: "نقسم كلا الطرفين على -٢"}, {step: "-١ = ص", reason: "الحل النهائي"}] },
+                { question: "ما هي الخطوات اللازمة لحل المعادلة التالية؟", equationHTML: `<div style='display: flex; align-items: center; justify-content: center; font-size: 1.8rem; gap: 10px;'> <span>٨ = </span> <div class='frac'><span>ك - ٥</span><span>-٢</span></div></div>`, answers: ["أولاً: نضرب الطرفين في -٢، ثانياً: نجمع ٥ للطرفين", "أولاً: نقسم الطرفين على -٢، ثانياً: نجمع ٥ للطرفين", "أولاً: نجمع ٥ للطرفين، ثانياً: نضرب الطرفين في -٢", "أولاً: نطرح ٥ من الطرفين، ثانياً: نضرب الطرفين في -٢"], correctAnswer: "أولاً: نضرب الطرفين في -٢، ثانياً: نجمع ٥ للطرفين", detailedExplanation: [{html: `٨ = <div class='frac'><span>ك - ٥</span><span>-٢</span></div>`, reason: "المعادلة الأصلية"}, {step: "٨ × (-٢) = ك - ٥", reason: "نضرب كلا الطرفين في -٢"}, {step: "-١٦ = ك - ٥", reason: "نتيجة الضرب"}, {step: "-١٦ + ٥ = ك - ٥ + ٥", reason: "نجمع ٥ لكلا الطرفين"}, {step: "-١١ = ك", reason: "الحل النهائي"}] },
+                { question: "ما هي الخطوات اللازمة لحل المعادلة: ٣(س - ٥) = ١٢ ؟", answers: ["أولاً: نقسم الطرفين على ٣، ثانياً: نجمع ٥ للطرفين", "أولاً: نضرب في ٣، ثانياً: نجمع ٥ للطرفين", "أولاً: نجمع ٥ للطرفين، ثانياً: نقسم الطرفين على ٣", "أولاً: نطرح ٥ من الطرفين، ثانياً: نقسم الطرفين على ٣"], correctAnswer: "أولاً: نقسم الطرفين على ٣، ثانياً: نجمع ٥ للطرفين", detailedExplanation: [{step: "٣(س - ٥) = ١٢", reason: "المعادلة الأصلية"}, {html: `<div class='frac'><span>٣(س - ٥)</span><span>٣</span></div> = <div class='frac'><span>١٢</span><span>٣</span></div>`, reason: "نقسم كلا الطرفين على ٣"}, {step: "س - ٥ = ٤", reason: "نتيجة القسمة"}, {step: "س - ٥ + ٥ = ٤ + ٥", reason: "نجمع ٥ لكلا الطرفين"}, {step: "س = ٩", reason: "الحل النهائي"}] },
+                { question: "ما هي الخطوات اللازمة لحل المعادلة التالية؟", equationHTML: `<div style='display: flex; align-items: center; justify-content: center; font-size: 1.8rem; gap: 10px;'> <div class='frac'><span>٢س</span><span>٣</span></div> <span> + ٧ = ٢</span></div>`, answers: ["أولاً: نطرح ٧ من الطرفين، ثانياً: نضرب الطرفين في ٣، ثالثاً: نقسم الطرفين على ٢", "أولاً: نجمع ٧ للطرفين، ثانياً: نضرب الطرفين في ٣، ثالثاً: نقسم الطرفين على ٢", "أولاً: نضرب الطرفين في ٣، ثانياً: نطرح ٧ من الطرفين، ثالثاً: نقسم الطرفين على ٢", "أولاً: نطرح ٧ من الطرفين، ثانياً: نقسم الطرفين على ٣، ثالثاً: نضرب الطرفين في ٢"], correctAnswer: "أولاً: نطرح ٧ من الطرفين، ثانياً: نضرب الطرفين في ٣، ثالثاً: نقسم الطرفين على ٢", detailedExplanation: [{html: `<div class='frac'><span>٢س</span><span>٣</span></div> + ٧ = ٢`, reason: "المعادلة الأصلية"}, {html: `<div class='frac'><span>٢س</span><span>٣</span></div> + ٧ - ٧ = ٢ - ٧`, reason: "نطرح ٧ من كلا الطرفين"}, {html: `<div class='frac'><span>٢س</span><span>٣</span></div> = -٥`, reason: "نتيجة الطرح"}, {step: "٢س = (-٥) × ٣", reason: "نضرب كلا الطرفين في ٣"}, {step: "٢س = -١٥", reason: "نتيجة الضرب"}, {html: `<div class='frac'><span>٢س</span><span>٢</span></div> = <div class='frac'><span>-١٥</span><span>٢</span></div>`, reason: "نقسم كلا الطرفين على ٢"}, {step: "س = -٧.٥", reason: "الحل النهائي"}] }
+            ]
+        ];
+        const totalQuestions = stageQuizzes.flat().length;
+
+        // --- World Creation & Player Setup ---
+        function createWorld() {
+            const groundGeometry = new THREE.PlaneGeometry(worldBounds.x * 2, worldBounds.z * 2);
+            const groundMaterial = new THREE.MeshStandardMaterial({ color: 0x4a3b2a });
+            const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+            ground.rotation.x = -Math.PI / 2;
+            ground.receiveShadow = true;
+            scene.add(ground);
+
+            const rockGeometry = new THREE.DodecahedronGeometry(1, 0); 
+            const rockMaterial = new THREE.MeshStandardMaterial({ color: 0x3d3d3d, flatShading: true });
+            
+            for (let i = 0; i < 400; i++) {
+                const rock = new THREE.Mesh(rockGeometry, rockMaterial);
+                const scale = Math.random() * 6 + 3;
+                rock.scale.set(scale, scale, scale);
+                const side = Math.random() < 0.5 ? -1 : 1;
+                rock.position.x = (Math.random() * 15 + 10) * side; 
+                rock.position.z = (Math.random() * worldBounds.z * 2) - worldBounds.z;
+                rock.position.y = (scale / 2) - 2;
+                rock.castShadow = true;
+                rock.receiveShadow = true;
+                rock.userData.radius = scale * 0.7;
+                staticColliders.push(rock);
+                scene.add(rock);
+            }
+        }
+        function createPlayer() {
+            player = new THREE.Group();
+            scene.add(player);
+            player.position.set(0, 0, 0);
+            const coatMaterial = new THREE.MeshStandardMaterial({ color: 0xf4d03f });
+            const headGroup = new THREE.Group();
+            const bootMaterial = new THREE.MeshStandardMaterial({ color: 0x111111 });
+            const bootHeight = 1.2 * 0.6;
+            const bootGeometry = new THREE.CylinderGeometry(0.15, 0.15, bootHeight, 8);
+            const leftLeg = new THREE.Mesh(bootGeometry, bootMaterial);
+            player.add(leftLeg);
+            const rightLeg = new THREE.Mesh(bootGeometry, bootMaterial);
+            player.add(rightLeg);
+            const bodyGeometry = new THREE.CylinderGeometry(0.4, 0.6, 1.4, 16);
+            const body = new THREE.Mesh(bodyGeometry, coatMaterial);
+            body.position.y = bootHeight + (1.4 / 2);
+            body.castShadow = true;
+            player.add(body);
+            headGroup.position.y = body.position.y + (1.4 / 2) + 0.2;
+            player.add(headGroup);
+            const hairGeometry = new THREE.SphereGeometry(0.3, 16, 8);
+            const hairMaterial = new THREE.MeshStandardMaterial({ color: 0x1a110a });
+            const hair = new THREE.Mesh(hairGeometry, hairMaterial);
+            hair.scale.y = 0.8;
+            headGroup.add(hair);
+            const helmetGeometry = new THREE.SphereGeometry(0.35, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2);
+            const helmet = new THREE.Mesh(helmetGeometry, coatMaterial);
+            helmet.position.y = 0.1;
+            headGroup.add(helmet);
+            const lampGeometry = new THREE.CylinderGeometry(0.08, 0.1, 0.1, 8);
+            const lampMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
+            const lampMesh = new THREE.Mesh(lampGeometry, lampMaterial);
+            lampMesh.position.set(0, 0.15, 0.3);
+            lampMesh.rotation.x = Math.PI / 2;
+            helmet.add(lampMesh);
+            const spotLight = new THREE.SpotLight(0xffffff, 15, 50, Math.PI / 6, 0.3, 1.0);
+            spotLight.position.copy(lampMesh.position);
+            helmet.add(spotLight);
+            const spotLightTarget = new THREE.Object3D();
+            spotLightTarget.position.set(0, headGroup.position.y, 10);
+            player.add(spotLightTarget);
+            spotLight.target = spotLightTarget;
+            player.userData.radius = 0.6;
+            const armGeometry = new THREE.CylinderGeometry(0.1, 0.1, 0.9, 8);
+            const rightArm = new THREE.Mesh(armGeometry, coatMaterial);
+            rightArm.position.set(-0.5, body.position.y + 0.2, 0);
+            rightArm.rotation.z = -Math.PI / 16;
+            rightArm.castShadow = true;
+            player.add(rightArm);
+            const leftArm = new THREE.Mesh(armGeometry, coatMaterial);
+            leftArm.position.set(0.5, body.position.y + 0.2, 0);
+            leftArm.rotation.z = Math.PI / 16;
+            leftArm.castShadow = true;
+            player.add(leftArm);
+            player.userData.limbs = { rightArm, leftArm, rightLeg, leftLeg };
+        }
+        function createSpiderWeb(position) {
+            const svgString = `<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"><g fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="2"><path d="M128,128 L236,20 M128,128 L236,128 M128,128 L236,236 M128,128 L128,236 M128,128 L20,236 M128,128 L20,128 M128,128 L20,20 M128,128 L128,20 M154,29 A128,128 0 0 1 227,102 M102,29 A128,128 0 0 0 29,102 M29,154 A128,128 0 0 0 102,227 M154,227 A128,128 0 0 0 227,154"/><circle cx="128" cy="128" r="25"/><circle cx="128" cy="128" r="50"/><circle cx="128" cy="128" r="75"/><circle cx="128" cy="128" r="100"/></g></svg>`;
+            const svgDataUrl = "data:image/svg+xml;base64," + btoa(svgString);
+            const texture = new THREE.TextureLoader().load(svgDataUrl);
+            const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true, side: THREE.DoubleSide });
+            const geometry = new THREE.PlaneGeometry(15, 15);
+            const web = new THREE.Mesh(geometry, material);
+            web.position.copy(position);
+            scene.add(web);
+            return web;
+        }
+        function createArchwayObstacle() {
+            archwayObstacle = new THREE.Group();
+            archwayObstacle.position.z = 110;
+            scene.add(archwayObstacle);
+            const rockGeometry = new THREE.DodecahedronGeometry(1, 0);
+            const rockMaterial = new THREE.MeshStandardMaterial({ color: 0x333333, flatShading: true });
+            for (let i = 0; i < 20; i++) {
+                const rock = new THREE.Mesh(rockGeometry, rockMaterial);
+                const scale = Math.random() * 3 + 2;
+                rock.scale.set(scale, scale, scale);
+                rock.position.set( (Math.random() - 0.5) * 12, (Math.random() * 4) - 1, (Math.random() - 0.5) * 5 );
+                rock.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+                rock.castShadow = true;
+                rock.receiveShadow = true;
+                const side = rock.position.x > 0 ? 1 : -1;
+                rock.userData.targetPosition = new THREE.Vector3( rock.position.x + (side * 10), rock.position.y - 2, rock.position.z );
+                rock.userData.radius = scale * 0.7;
+                archwayObstacle.add(rock);
+                staticColliders.push(rock);
+            }
+        }
+        function createRain() {
+            const rainGeo = new THREE.BufferGeometry();
+            const vertices = [];
+            for (let i = 0; i < 15000; i++) {
+                vertices.push( Math.random() * 100 - 50, Math.random() * 100 - 50, Math.random() * 100 - 50 );
+            }
+            rainGeo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+            const rainMaterial = new THREE.PointsMaterial({ color: 0xaaaaaa, size: 0.1, transparent: true });
+            rain = new THREE.Points(rainGeo, rainMaterial);
+            scene.add(rain);
+        }
+
+        // --- Audio ---
+        function initAudio() {
+            thunderSound = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.005, decay: 0.2, sustain: 0.1, release: 1.5, }, volume: -5 }).toDestination();
+            const lowPass = new Tone.Filter({ frequency: 800, type: 'lowpass' }).toDestination();
+            rainBody = new Tone.Noise({ type: 'brown', volume: -20 }).connect(lowPass).start();
+            const highPass = new Tone.Filter({ frequency: 7000, type: 'highpass' }).toDestination();
+            rainSizzle = new Tone.Noise({ type: 'white', volume: -35 }).connect(highPass).start();
+            successSound = new Tone.Synth({ oscillator: { type: 'sine' }, envelope: { attack: 0.01, decay: 0.2, sustain: 0.2, release: 0.5 } }).toDestination();
+            failSound = new Tone.Synth({ oscillator: { type: 'square' }, envelope: { attack: 0.01, decay: 0.5, sustain: 0, release: 0.5 } }).toDestination();
+            rockSlideSound = new Tone.NoiseSynth({ noise: { type: 'brown' }, envelope: { attack: 0.1, decay: 2.5, sustain: 0.1, release: 1.0 }, volume: -10 }).toDestination();
+            winSound = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'triangle' }, envelope: { attack: 0.01, decay: 0.5, sustain: 0.2, release: 1 } }).toDestination();
+            poisonSound = new Tone.Synth({ oscillator: { type: 'sawtooth' }, envelope: { attack: 0.01, decay: 0.2, sustain: 0, release: 0.5 }, volume: -10 }).toDestination();
+            webTearSound = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.01, decay: 0.1, release: 0.1 }, volume: -15 }).toDestination();
+        }
+
+        // --- UI & Game State ---
+        function updateLivesUI() {
+            const container = document.getElementById('livesContainer');
+            container.innerHTML = '';
+            for (let i = 0; i < playerLives; i++) {
+                const heart = document.createElement('span');
+                heart.className = 'heart';
+                heart.innerText = '❤️';
+                container.appendChild(heart);
+            }
+        }
+        
+        function startQuizStage() {
+            gamePaused = true;
+            questionsInCurrentStage = 0;
+            showRuneQuiz();
+        }
+
+        function showRuneQuiz() {
+            const quiz = stageQuizzes[currentStage][questionsInCurrentStage];
+            const overlay = document.getElementById('runeQuizOverlay');
+            const questionEl = document.getElementById('runeQuestion');
+            const answersDiv = document.getElementById('runeAnswers');
+            const timerDisplay = document.getElementById('questionTimer');
+
+            questionEl.innerHTML = `<p class="text-lg text-gray-300 mb-2">السؤال ${currentQuestionIndex + 1} / ${totalQuestions}</p>`;
+            if (quiz.equationHTML) {
+                questionEl.innerHTML += `<div class="mt-4">${quiz.equationHTML}</div>`;
+            } else {
+                questionEl.innerHTML += `<p>${quiz.question}</p>`;
+            }
+
+            answersDiv.innerHTML = '';
+            quiz.answers.forEach(answer => {
+                const button = document.createElement('button');
+                button.innerText = answer;
+                button.className = "rune-answer";
+                button.onclick = () => checkAnswer(answer);
+                answersDiv.appendChild(button);
+            });
+            
+            overlay.style.opacity = '1';
+            overlay.style.pointerEvents = 'auto';
+
+            timerDisplay.style.display = 'block';
+            questionStartTime = Date.now();
+            questionTimerInterval = setInterval(() => {
+                const seconds = Math.floor((Date.now() - questionStartTime) / 1000);
+                timerDisplay.innerText = `الوقت: ${seconds} ث`;
+            }, 1000);
+        }
+        
+        function checkAnswer(selectedAnswer) {
+            clearInterval(questionTimerInterval);
+            const timeTaken = (Date.now() - questionStartTime) / 1000;
+            totalGameTime += timeTaken;
+            document.getElementById('questionTimer').style.display = 'none';
+
+            document.getElementById('runeQuizOverlay').style.opacity = '0';
+            document.getElementById('runeQuizOverlay').style.pointerEvents = 'none';
+
+            const quiz = stageQuizzes[currentStage][questionsInCurrentStage];
+            const isCorrect = selectedAnswer === quiz.correctAnswer;
+            
+            const resultModal = document.getElementById('resultModal');
+            const resultHeader = document.getElementById('resultHeader');
+            const nextQuestionInfo = document.getElementById('nextQuestionInfo');
+            const proceedButton = document.getElementById('proceedButton');
+
+            if (isCorrect) {
+                correctAnswersCount++;
+                resultHeader.innerText = "إجابة صحيحة!";
+                resultHeader.className = "text-4xl font-bold mb-2 text-green-400";
+                if(successSound) successSound.triggerAttackRelease("C5", "8n", Tone.now(), 0.8);
+            } else {
+                resultHeader.innerText = "إجابة خاطئة!";
+                resultHeader.className = "text-4xl font-bold mb-2 text-red-400";
+                if(failSound) failSound.triggerAttackRelease("C3", "8n");
+                
+                playerLives--;
+                updateLivesUI();
+                const livesContainer = document.getElementById('livesContainer');
+                livesContainer.classList.add('shake');
+                setTimeout(() => livesContainer.classList.remove('shake'), 820);
+                if(poisonSound) poisonSound.triggerAttackRelease("G#2", "8n");
+
+                if (playerLives <= 0) {
+                    showGameOver();
+                    return;
+                }
+            }
+            
+            const isStageComplete = questionsInCurrentStage + 1 >= stageQuizzes[currentStage].length;
+            
+            if (isStageComplete) {
+                 if (currentStage < stageQuizzes.length - 1) {
+                    nextQuestionInfo.innerText = "لقد أكملت هذه المرحلة!";
+                 } else {
+                    nextQuestionInfo.innerText = "لقد أكملت كل الأسئلة!";
+                 }
+            } else {
+                nextQuestionInfo.innerText = `يستعد للسؤال: ${currentQuestionIndex + 2} / ${totalQuestions}`;
+            }
+            
+            resultModal.classList.remove('hidden');
+
+            let countdown = 5;
+            proceedButton.innerText = `التالي (${countdown})`;
+            
+            clearInterval(countdownInterval); // Clear any previous interval
+            countdownInterval = setInterval(() => {
+                countdown--;
+                proceedButton.innerText = `التالي (${countdown})`;
+                if (countdown <= 0) {
+                    proceedToNextStep();
+                }
+            }, 1000);
+        }
+
+        function showExplanationModal() {
+            clearInterval(countdownInterval);
+            document.getElementById('resultModal').classList.add('hidden');
+            const quiz = stageQuizzes[currentStage][questionsInCurrentStage];
+            const modal = document.getElementById('explanationModal');
+            const questionContainer = document.getElementById('explanationQuestion');
+            const stepsContainer = document.getElementById('explanationSteps');
+
+            questionContainer.innerHTML = quiz.equationHTML || quiz.question;
+            stepsContainer.innerHTML = '';
+
+            quiz.detailedExplanation.forEach(item => {
+                const stepDiv = document.createElement('div');
+                stepDiv.className = 'step';
+                const mathContent = item.html ? item.html : item.step;
+                stepDiv.innerHTML = `<p class="step-reason">${item.reason}</p><div class="step-math">${mathContent}</div>`;
+                stepsContainer.appendChild(stepDiv);
+            });
+
+            modal.classList.remove('hidden');
+        }
+
+        function proceedToNextStep() {
+            clearInterval(countdownInterval);
+            document.getElementById('resultModal').classList.add('hidden');
+            document.getElementById('explanationModal').classList.add('hidden');
+            
+            currentQuestionIndex++;
+            questionsInCurrentStage++;
+
+            const isStageComplete = questionsInCurrentStage >= stageQuizzes[currentStage].length;
+
+            if (isStageComplete) {
+                if (currentStage === 0) {
+                    if(webTearSound) webTearSound.triggerAttackRelease("0.1");
+                    scene.remove(webObstacle1);
+                } else if (currentStage === 1) {
+                    if(webTearSound) webTearSound.triggerAttackRelease("0.1");
+                    scene.remove(webObstacle2);
+                } else if (currentStage === 2) {
+                    if(rockSlideSound) rockSlideSound.triggerAttackRelease("2n");
+                    archwayObstacle.children.forEach(rock => {
+                        staticColliders.splice(staticColliders.indexOf(rock), 1);
+                    });
+                    showFinalScore();
+                    return;
+                }
+                currentStage++;
+                gamePaused = false; // Allow player to move to the next stage
+            } else {
+                showRuneQuiz(); // Show next question in the same stage
+            }
+        }
+        
+        function showFinalScore() {
+            gamePaused = true;
+            document.getElementById('finalScoreModal').classList.remove('hidden');
+            if(winSound) winSound.triggerAttackRelease(["C4", "E4", "G4"], "1n");
+            
+            // Call the save function
+            saveAndFinishGame(correctAnswersCount, totalGameTime);
+        }
+
+        function showGameOver() {
+            gamePaused = true;
+            document.getElementById('resultModal').classList.add('hidden');
+            document.getElementById('gameOverModal').classList.remove('hidden');
+        }
+
+        // --- Movement & Physics ---
+        function onKeyDown(event) {
+            switch (event.code) {
+                case 'ArrowUp': case 'KeyW': controls.forward = true; break;
+                case 'ArrowDown': case 'KeyS': controls.backward = true; break;
+                case 'ArrowLeft': case 'KeyA': controls.left = true; break;
+                case 'ArrowRight': case 'KeyD': controls.right = true; break;
+            }
+        }
+        function onKeyUp(event) {
+            switch (event.code) {
+                case 'ArrowUp': case 'KeyW': controls.forward = false; break;
+                case 'ArrowDown': case 'KeyS': controls.backward = false; break;
+                case 'ArrowLeft': case 'KeyA': controls.left = false; break;
+                case 'ArrowRight': case 'KeyD': controls.right = false; break;
+            }
+        }
+        function updatePlayerPosition() {
+            const direction = new THREE.Vector3();
+            if (controls.forward) direction.z += 1;
+            if (controls.backward) direction.z -= 1;
+            if (controls.left) direction.x += 1;
+            if (controls.right) direction.x -= 1;
+            if (direction.length() === 0) return;
+            direction.normalize();
+            const velocity = direction.multiplyScalar(playerSpeed);
+            const oldPos = player.position.clone();
+            player.position.x += velocity.x;
+            player.position.z += velocity.z;
+            for (const rock of staticColliders) {
+                const rockWorldPos = new THREE.Vector3();
+                rock.getWorldPosition(rockWorldPos);
+                const dist = player.position.distanceTo(rockWorldPos);
+                const rockRadius = rock.userData.radius || rock.scale.x * 0.7;
+                if (dist < player.userData.radius + rockRadius) {
+                    player.position.copy(oldPos);
+                    break;
+                }
+            }
+            player.position.x = Math.max(-worldBounds.x + 1, Math.min(worldBounds.x - 1, player.position.x));
+            player.position.z = Math.max(-worldBounds.z + 5, Math.min(worldBounds.z - 5, player.position.z));
+        }
+        function updateCamera() {
+            const cameraOffset = new THREE.Vector3(0, 5.5, -9); 
+            const targetPosition = player.position.clone().add(cameraOffset);
+            camera.position.lerp(targetPosition, 0.1);
+            camera.lookAt(player.position.clone().add(new THREE.Vector3(0, 1.2, 0))); 
+        }
+
+        function checkObstacleCollisions() {
+            if (gamePaused) return;
+
+            if (currentStage === 0 && player.position.distanceTo(webObstacle1.position) < 8) {
+                startQuizStage();
+            } else if (currentStage === 1 && player.position.distanceTo(webObstacle2.position) < 8) {
+                startQuizStage();
+            } else if (currentStage === 2 && player.position.distanceTo(archwayObstacle.position) < 10) {
+                startQuizStage();
+            }
+        }
+
+        // --- Animation Loop & Setup ---
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+        function animateRain() {
+            if (!rain) return;
+            const positions = rain.geometry.attributes.position.array;
+            for (let i = 1; i < positions.length; i += 3) {
+                positions[i] -= 0.5;
+                if (positions[i] < -20) positions[i] = 50;
+            }
+            rain.geometry.attributes.position.needsUpdate = true;
+        }
+        function scheduleNextLightning() {
+            nextMainLightningTime = clock.getElapsedTime() + Math.random() * 15 + 10;
+            nextSecondaryLightningTime = clock.getElapsedTime() + Math.random() * 5 + 2;
+        }
+        function animatePlayerMovement(elapsedTime) {
+            const { rightArm, leftArm, rightLeg, leftLeg } = player.userData.limbs;
+            const isMoving = controls.forward || controls.backward || controls.left || controls.right;
+            const walkSpeed = 10, swingAngle = Math.PI / 6;
+            const legY = player.children[0].geometry.parameters.height / 2;
+            rightLeg.position.set(-0.2, legY, 0);
+            leftLeg.position.set(0.2, legY, 0);
+            if (isMoving) {
+                const angle = Math.sin(elapsedTime * walkSpeed) * swingAngle;
+                rightArm.rotation.x = angle; leftLeg.rotation.x = angle;
+                leftArm.rotation.x = -angle; rightLeg.rotation.x = -angle;
+            } else {
+                rightArm.rotation.x = THREE.MathUtils.lerp(rightArm.rotation.x, 0, 0.1);
+                leftLeg.rotation.x = THREE.MathUtils.lerp(leftLeg.rotation.x, 0, 0.1);
+                leftArm.rotation.x = THREE.MathUtils.lerp(leftArm.rotation.x, 0, 0.1);
+                rightLeg.rotation.x = THREE.MathUtils.lerp(rightLeg.rotation.x, 0, 0.1);
+            }
+        }
+        
+        function animate() {
+            requestAnimationFrame(animate);
+            if (isGameStarted) {
+                const elapsedTime = clock.getElapsedTime();
+                if (!gamePaused) {
+                    updatePlayerPosition();
+                    checkObstacleCollisions();
+                    animatePlayerMovement(elapsedTime);
+                }
+                if (rain) animateRain();
+                if (elapsedTime > nextMainLightningTime) {
+                    mainLightning.intensity = 100;
+                    if (thunderSound) thunderSound.triggerAttackRelease("2n");
+                    setTimeout(() => mainLightning.intensity = 0, 150);
+                    scheduleNextLightning();
+                }
+                if (elapsedTime > nextSecondaryLightningTime) {
+                    secondaryLightning.position.set( Math.random() * 100 - 50, 30 + Math.random() * 20, player.position.z + (Math.random() * 100 - 50) );
+                    secondaryLightning.intensity = 20;
+                    setTimeout(() => secondaryLightning.intensity = 0, 150);
+                }
+                updateCamera();
+            }
+            renderer.render(scene, camera);
+        }
+
+        function init() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0a0a1a);
+            scene.fog = new THREE.Fog(0x0a0a1a, 10, 80);
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 5, -10);
+            camera.lookAt(0, 0, 0);
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            document.body.appendChild(renderer.domElement);
+            const ambientLight = new THREE.AmbientLight(0x404080, 2.0);
+            scene.add(ambientLight);
+            const directionalLight = new THREE.DirectionalLight(0x8080ff, 1.0);
+            directionalLight.position.set(5, 20, 5);
+            directionalLight.castShadow = true;
+            scene.add(directionalLight);
+            mainLightning = new THREE.PointLight(0xccccff, 0, 500, 1);
+            mainLightning.position.set(0, 50, 0);
+            scene.add(mainLightning);
+            secondaryLightning = new THREE.PointLight(0xccccff, 0, 500, 1);
+            scene.add(secondaryLightning);
+            raycaster = new THREE.Raycaster();
+            createWorld();
+            createPlayer();
+            webObstacle1 = createSpiderWeb(new THREE.Vector3(0, 2, 40));
+            webObstacle2 = createSpiderWeb(new THREE.Vector3(0, 2, 80));
+            createArchwayObstacle();
+            createRain();
+            updateLivesUI();
+            scheduleNextLightning();
+
+            // --- Event Listeners ---
+            document.addEventListener('keydown', onKeyDown);
+            document.addEventListener('keyup', onKeyUp);
+            window.addEventListener('resize', onWindowResize);
+            
+            document.getElementById('startGameButton').addEventListener('click', () => {
+                document.getElementById('welcomeModal').classList.add('hidden');
+                document.getElementById('info').classList.remove('hidden');
+                Tone.start();
+                initAudio();
+                isGameStarted = true;
+                gamePaused = false;
+            });
+            document.getElementById('explanationButton').addEventListener('click', showExplanationModal);
+            document.getElementById('proceedButton').addEventListener('click', proceedToNextStep);
+            document.getElementById('closeExplanationButton').addEventListener('click', () => {
+                document.getElementById('explanationModal').classList.add('hidden');
+                document.getElementById('resultModal').classList.remove('hidden');
+                // Restart countdown on return from explanation
+                let countdown = 5;
+                const proceedButton = document.getElementById('proceedButton');
+                proceedButton.innerText = `التالي (${countdown})`;
+                countdownInterval = setInterval(() => {
+                    countdown--;
+                    proceedButton.innerText = `التالي (${countdown})`;
+                    if (countdown <= 0) {
+                        proceedToNextStep();
+                    }
+                }, 1000);
+            });
+
+            const touchControls = {
+                up: document.getElementById('btn-up'), down: document.getElementById('btn-down'),
+                left: document.getElementById('btn-left'), right: document.getElementById('btn-right'),
+            };
+            const handleTouchStart = (e, control) => { e.preventDefault(); controls[control] = true; };
+            const handleTouchEnd = (e, control) => { e.preventDefault(); controls[control] = false; };
+            touchControls.up.addEventListener('touchstart', (e) => handleTouchStart(e, 'forward'));
+            touchControls.up.addEventListener('touchend', (e) => handleTouchEnd(e, 'forward'));
+            touchControls.down.addEventListener('touchstart', (e) => handleTouchStart(e, 'backward'));
+            touchControls.down.addEventListener('touchend', (e) => handleTouchEnd(e, 'backward'));
+            touchControls.left.addEventListener('touchstart', (e) => handleTouchStart(e, 'left'));
+            touchControls.left.addEventListener('touchend', (e) => handleTouchEnd(e, 'left'));
+            touchControls.right.addEventListener('touchstart', (e) => handleTouchStart(e, 'right'));
+            touchControls.right.addEventListener('touchend', (e) => handleTouchEnd(e, 'right'));
+            
+            animate();
+        }
+
+        init();
+    </script>
+    
+    <!-- START OF CONNECTION & LEADERBOARD ENGINE -->
+    <script>
+    (function() {
+        // --- CONFIGURATION (عدّل هذه الإعدادات لكل لعبة) ---
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
+        const GAME_ID = 'g1_3_2';         // Adjusted GAME_ID
+        const GAME_MAX_POINTS = 10;                     // أقصى نقاط في اللعبة
+        const PLATFORM_MAX_GRADE = 5;                   // الدرجة النهائية في المنصة
+        const METRIC_TYPE = 'time';                     // نوع المعيار: 'time', 'stars', 'errors'
+        const METRIC_LABEL = 'الوقت (ثواني)';           // اسم المعيار للعرض في الجدول
+
+        let currentUser = null;
+
+        // --- CORE FUNCTIONS ---
+
+        // 1. الدالة الرئيسية التي تستدعيها عند انتهاء اللعبة
+        window.saveAndFinishGame = function(points, metricValue) {
+            const finalPoints = parseFloat(points) || 0;
+            const finalMetric = parseFloat(metricValue) || 0;
+            const maxPoints = parseFloat(GAME_MAX_POINTS) || 1;
+            const finalGrade = (finalPoints / maxPoints) * PLATFORM_MAX_GRADE;
+
+            const resultDisplay = document.getElementById('final-result-display');
+            if (resultDisplay) {
+                resultDisplay.innerHTML = `
+                    <p class="text-gray-700">النقاط: <span class="font-bold text-xl">${finalPoints} / ${maxPoints}</span></p>
+                    <p class="text-blue-600">الدرجة في المنصة: <span class="font-bold text-2xl">${finalGrade.toFixed(1)} / ${PLATFORM_MAX_GRADE}</span></p>
+                `;
+            }
+
+            if (currentUser && currentUser.id) {
+                const params = new URLSearchParams({
+                    action: 'saveGrade',
+                    studentId: currentUser.id,
+                    itemId: GAME_ID,
+                    grade: finalGrade.toFixed(2),
+                    metricValue: Math.round(finalMetric).toString()
+                });
+                fetch(`${SCRIPT_URL}?${params.toString()}`)
+                    .then(res => res.json())
+                    .then(result => console.log('Save result:', result.status))
+                    .catch(err => console.error("Save Error:", err))
+                    .finally(fetchAndShowLeaderboard);
+            } else {
+                console.log(`Visitor finished. Score: ${finalPoints}, Metric: ${finalMetric}`);
+                fetchAndShowLeaderboard();
+            }
+        }
+
+        // 2. دالة جلب وعرض سجل الأبطال
+        function fetchAndShowLeaderboard() {
+            const loader = document.getElementById('leaderboard-loader');
+            const container = document.getElementById('leaderboard-container');
+            if (!loader || !container) return;
+
+            loader.style.display = 'block';
+            container.innerHTML = '';
+
+            const params = new URLSearchParams({
+                action: 'getLeaderboard',
+                gameId: GAME_ID,
+                metricType: METRIC_TYPE
+            });
+
+            fetch(`${SCRIPT_URL}?${params.toString()}`)
+                .then(res => res.json())
+                .then(response => {
+                    if (response.status === 'success' && response.data) {
+                        displayLeaderboard(response.data);
+                    } else {
+                        throw new Error(response.message || 'Failed to load leaderboard data.');
+                    }
+                })
+                .catch(err => {
+                    console.error("Leaderboard Error:", err);
+                    container.innerHTML = `<p class="text-center text-red-500">حدث خطأ في تحميل سجل الأبطال.</p>`;
+                })
+                .finally(() => {
+                    loader.style.display = 'none';
+                    showFinishButton();
+                });
+        }
+        
+        // 3. دالة بناء جدول سجل الأبطال
+        function displayLeaderboard(data) {
+            const container = document.getElementById('leaderboard-container');
+            if (!data || data.length === 0) {
+                container.innerHTML = `<p class="text-center text-gray-500 mt-4">لا توجد نتائج بعد. كن أول الأبطال!</p>`;
+                return;
+            }
+
+            let tableHTML = `
+                <div class="mt-6 border-t pt-4">
+                    <h3 class="text-2xl font-bold text-center text-gray-800 mb-4">🏆 سجل الأبطال 🏆</h3>
+                    <table class="min-w-full bg-white shadow-md rounded-lg">
+                        <thead class="bg-gray-800 text-white">
+                            <tr>
+                                <th class="text-center py-2 px-3">الترتيب</th>
+                                <th class="text-right py-2 px-3">اسم الطالب</th>
+                                <th class="text-center py-2 px-3">الدرجة</th>
+                                <th class="text-center py-2 px-3">${METRIC_LABEL}</th>
+                            </tr>
+                        </thead>
+                        <tbody class="text-gray-700">`;
+
+            data.forEach((player, index) => {
+                const rank = index + 1;
+                let rankDisplay = rank;
+                if (rank === 1) rankDisplay = '🥇';
+                if (rank === 2) rankDisplay = '🥈';
+                if (rank === 3) rankDisplay = '🥉';
+
+                const isCurrentUser = (currentUser && player.name === currentUser.name);
+                const rowClass = isCurrentUser ? 'bg-blue-100 font-bold' : (index % 2 === 0 ? 'bg-gray-100' : '');
+
+                tableHTML += `
+                    <tr class="${rowClass}">
+                        <td class="text-center py-2 px-3 text-xl">${rankDisplay}</td>
+                        <td class="text-right py-2 px-3">${player.name}</td>
+                        <td class="text-center py-2 px-3">${player.grade.toFixed(1)}</td>
+                        <td class="text-center py-2 px-3">${player.metricValue}</td>
+                    </tr>`;
+            });
+
+            tableHTML += `</tbody></table></div>`;
+            container.innerHTML = tableHTML;
+        }
+
+        // 4. إظهار زر الإنهاء
+        function showFinishButton() {
+            const finishWrapper = document.getElementById('finish-game-wrapper');
+            if (finishWrapper) {
+                finishWrapper.style.display = 'block';
+            }
+        }
+
+        // 5. استقبال بيانات الطالب من المنصة الرئيسية
+        window.addEventListener('message', (event) => {
+            if (event.data && event.data.event === 'userData') {
+                currentUser = event.data.data;
+                console.log('User data received:', currentUser);
+            }
+        });
+
+        // 6. التعامل مع زر الإنهاء
+        document.addEventListener('DOMContentLoaded', () => {
+            const finishBtn = document.getElementById('finish-game-btn');
+            if (finishBtn) {
+                finishBtn.addEventListener('click', () => {
+                    window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*');
+                });
+            }
+        });
+    })();
+    </script>
+    <!-- END OF CONNECTION & LEADERBOARD ENGINE -->
+</body>
+</html>

@@ -435,7 +435,7 @@
                         </div>
                         
                         <!-- NEW: Diagnostic Test Card -->
-                        <div id="diagnostic-card" class="card hidden">
+                        <div id="diagnostic-card" class="card">
                             <!-- Content will be injected by JS -->
                         </div>
 
@@ -899,10 +899,13 @@
                 if(element) element.textContent = studentData[key] || '-';
             });
 
-            // --- MODIFIED: Check for achievement or diagnostic test and show card or modal ---
-            if (studentData.diagnostics && (studentData.diagnostics.d_best_weighted !== undefined || studentData.diagnostics.d_test_overall)) {
-                renderDiagnosticCard(studentData); // This function now handles both cases
-            } else {
+            // --- MODIFIED LOGIC ---
+            // 1. Always render the card, which will handle all states (tested, not tested, etc.).
+            renderTestCard(studentData);
+
+            // 2. Show the pop-up modal ONLY if the student has never taken any test.
+            const diagnostics = studentData.diagnostics || {};
+            if (!diagnostics.d_best_weighted && !diagnostics.d_test_overall) {
                 showDiagnosticModal(studentData.id);
             }
 
@@ -999,7 +1002,7 @@
             document.getElementById('overall-progress-text').textContent = `${overallPercentage}%`;
         }
         
-        // --- NEW: Diagnostic Test Functions ---
+        // --- Diagnostic/Achievement Test Functions ---
         function showDiagnosticModal(studentId) {
             // NOTE: The name of the diagnostic page must be 'diagnostic.html'
             startDiagnosticBtn.href = `diagnostic.html?studentId=${studentId}`;
@@ -1007,36 +1010,48 @@
         }
 
         /**
-         * --- MODIFIED: This function now displays the Achievement Test score if available,
-         * otherwise it falls back to the Diagnostic Test score.
+         * --- MODIFIED: Renders the test card for ALL states:
+         * 1. Student has taken the achievement test.
+         * 2. Student has only taken the initial diagnostic test.
+         * 3. Student has not taken any test yet.
          */
-        function renderDiagnosticCard(studentData) {
+        function renderTestCard(studentData) {
             const card = document.getElementById('diagnostic-card');
-            if (!card || !studentData.diagnostics) return;
+            if (!card) return; // Safety check
 
-            // --- NEW LOGIC: Prioritize Achievement Score (d_best_weighted) ---
-            if (studentData.diagnostics.d_best_weighted !== undefined) {
-                const scoreData = studentData.diagnostics.d_best_weighted;
+            const diagnostics = studentData.diagnostics || {};
+
+            // Case 1: Has d_best_weighted score (highest priority)
+            if (diagnostics.d_best_weighted !== undefined) {
+                const scoreData = diagnostics.d_best_weighted;
                 const score = robustParseFloat(
                     (typeof scoreData === 'object' && scoreData !== null && scoreData.grade !== undefined) ? scoreData.grade : scoreData,
                     'd_best_weighted'
                 );
                 const scoreColor = score >= 80 ? 'text-green-600' : (score >= 50 ? 'text-yellow-600' : 'text-red-600');
+                const totalPoints = (typeof scoreData === 'object' && scoreData !== null && scoreData.metricValue !== undefined) ? scoreData.metricValue : 'غير متاح';
                 
                 card.innerHTML = `
-                    <h4 class="text-xl font-bold text-purple-700 mb-2">الاختبار التحصيلي</h4>
-                    <p class="text-gray-600 mb-4">درجتك النهائية (المعدل الأفضل).</p>
-                    <div class="text-center mb-4">
-                        <span class="text-5xl font-extrabold ${scoreColor}">${score}</span>
+                    <h4 class="text-xl font-bold text-purple-700 mb-3">الاختبار التحصيلي</h4>
+                    <div class="flex justify-around items-center text-center p-3 bg-purple-50 rounded-lg">
+                        <div>
+                            <p class="text-sm font-bold text-gray-500 mb-1 flex items-center justify-center"><i class="fas fa-percentage mr-2"></i>المعدل الأفضل</p>
+                            <span class="text-4xl font-extrabold ${scoreColor}">${score}%</span>
+                        </div>
+                        <div class="border-r border-purple-200 h-12 mx-2"></div>
+                        <div>
+                            <p class="text-sm font-bold text-gray-500 mb-1 flex items-center justify-center"><i class="fas fa-star mr-2"></i>مجموع النقاط</p>
+                            <span class="text-4xl font-extrabold text-purple-800">${totalPoints} <span class="text-lg font-semibold text-gray-600">/ 144</span></span>
+                        </div>
                     </div>
+                    <a href="diagnostic.html?studentId=${studentData.id}" target="_top" class="mt-4 w-full text-center block bg-purple-100 text-purple-800 font-bold py-2 rounded-lg hover:bg-purple-200 transition-colors">
+                        الدخول للاختبار
+                    </a>
                 `;
-                card.classList.remove('hidden');
-                return; // Exit after rendering the achievement score
             }
-
-            // --- FALLBACK: Original Diagnostic Score (d_test_overall) ---
-            if (studentData.diagnostics.d_test_overall) {
-                const score = studentData.diagnostics.d_test_overall.grade;
+            // Case 2: Has only d_test_overall score (fallback)
+            else if (diagnostics.d_test_overall) {
+                const score = diagnostics.d_test_overall.grade;
                 const scoreColor = score >= 80 ? 'text-green-600' : (score >= 50 ? 'text-yellow-600' : 'text-red-600');
                 
                 card.innerHTML = `
@@ -1049,7 +1064,16 @@
                         إعادة الاختبار
                     </a>
                 `;
-                card.classList.remove('hidden');
+            }
+            // Case 3: Has no test data at all (NEW)
+            else {
+                card.innerHTML = `
+                    <h4 class="text-xl font-bold text-purple-700 mb-2">الاختبار التحصيلي</h4>
+                    <p class="text-gray-600 my-4 text-center font-semibold">لم يتم أداء الاختبار بعد.</p>
+                    <a href="diagnostic.html?studentId=${studentData.id}" target="_top" class="w-full text-center block bg-green-500 text-white font-bold py-2 rounded-lg hover:bg-green-600 transition-colors shadow-md hover:shadow-lg">
+                        ابدأ الاختبار الآن
+                    </a>
+                `;
             }
         }
 

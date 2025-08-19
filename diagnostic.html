@@ -210,10 +210,15 @@
         }
 
         .best-score-container p { 
-            font-size: 2rem; 
+            font-size: 2.5rem; 
             font-weight: 800; 
             color: var(--primary); 
-            margin: 0.25rem 0 0; 
+            margin: 0.25rem 0 0.5rem; 
+        }
+
+        .best-score-container small {
+            font-size: 0.9rem;
+            color: #6c757d;
         }
 
         .levels-container { 
@@ -290,27 +295,17 @@
         .student-progress {
             padding: 1.5rem;
             margin-bottom: 2rem;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-
-        .progress-container {
-            width: 100%;
-            margin-top: 1rem;
         }
 
         .progress-bar {
-            height: 20px;
+            height: 12px;
             background-color: #ecf0f1;
             border-radius: 10px;
             overflow: hidden;
-            position: relative;
         }
 
         .progress-fill {
             height: 100%;
-            background: var(--header-gradient);
             border-radius: 10px;
             transition: width 0.5s ease;
         }
@@ -318,13 +313,15 @@
         .progress-text {
             margin-top: 0.5rem;
             font-weight: bold;
-            color: var(--primary);
+            color: #6c757d;
+            font-size: 0.9rem;
         }
 
         .points-container {
-            display: flex;
-            align-items: center;
-            margin-top: 1rem;
+            text-align: center;
+            margin-top: 2rem;
+            padding-top: 1.5rem;
+            border-top: 2px dashed #e0e0e0;
             font-size: 1.2rem;
             font-weight: bold;
         }
@@ -334,6 +331,32 @@
             margin-left: 0.5rem;
         }
         
+        .progress-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            text-align: center;
+            margin-top: 1rem;
+        }
+        .progress-item h4 {
+            font-size: 1.1rem;
+            color: var(--dark);
+            margin: 0 0 0.75rem 0;
+        }
+        .progress-item .progress-fill-easy { background: var(--secondary); }
+        .progress-item .progress-fill-medium { background: var(--accent); }
+        .progress-item .progress-fill-hard { background: var(--score-low); }
+        
+        .level-completion-box .label {
+            font-size: 1rem;
+            color: #6c757d;
+        }
+        .level-completion-box .value {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: var(--dark);
+        }
+
         .quiz-header {
             text-align: center; 
             margin-bottom: 2rem; 
@@ -578,7 +601,7 @@
             margin-top: 0.5rem;
         }
 
-        /* NEW styles for Final Result Card */
+        /* Final Result Card Styles */
         .final-result-card {
             text-align: center;
         }
@@ -658,7 +681,7 @@
                 font-size: 1rem;
             }
 
-            .explanation-grid {
+            .explanation-grid, .progress-grid {
                 grid-template-columns: 1fr;
             }
 
@@ -1015,21 +1038,35 @@
             return correctAnswers * pointsPerQuestion;
         }
 
-        function calculateWeightedScore(levels) {
+        // *** UPDATED: New function to get best performance ***
+        function getBestPerformance(levels) {
             const weights = { easy: 3, medium: 2, hard: 1 };
-            let bestWeightedScore = -1;
+            let bestPerformance = {
+                rawScore: null,
+                weightedScore: -1,
+                level: null
+            };
 
-            Object.keys(levels).forEach(levelKey => {
-                if (levels[levelKey].completed) {
-                    const weightedScore = (levels[levelKey].score || 0) / weights[levelKey];
-                    if (weightedScore > bestWeightedScore) {
-                        bestWeightedScore = weightedScore;
+            Object.entries(levels).forEach(([levelKey, levelData]) => {
+                if (levelData.completed) {
+                    const weightedScore = (levelData.score || 0) / weights[levelKey];
+                    if (weightedScore > bestPerformance.weightedScore) {
+                        bestPerformance.weightedScore = weightedScore;
+                        bestPerformance.rawScore = levelData.score;
+                        bestPerformance.level = levelKey;
                     }
                 }
             });
 
-            if (bestWeightedScore === -1) return null;
-            return bestWeightedScore.toFixed(1);
+            if (bestPerformance.level === null) {
+                return null;
+            }
+            
+            bestPerformance.weightedScore = bestPerformance.weightedScore.toFixed(1);
+            const levelName = bestPerformance.level === 'easy' ? 'السهل' : (bestPerformance.level === 'medium' ? 'المتوسط' : 'العالي');
+            bestPerformance.levelName = levelName;
+            
+            return bestPerformance;
         }
 
         function renderDashboard() {
@@ -1044,10 +1081,10 @@
             }
 
             const allLevels = Object.values(quizData).flatMap(q => Object.values(q.levels));
-            const completedLevels = allLevels.filter(l => l.completed).length;
+            const completedLevelsCount = allLevels.filter(l => l.completed).length;
             const totalLevels = allLevels.length;
             
-            if (completedLevels === totalLevels && !isVisitor) {
+            if (completedLevelsCount === totalLevels && !isVisitor) {
                 const average = Math.round(allLevels.reduce((sum, level) => sum + (level.score || 0), 0) / totalLevels);
                 studentProgressBox.innerHTML = `
                     <div class="final-result-card">
@@ -1068,21 +1105,56 @@
                 `;
                 saveGradeToSheet('d_test_overall', average, totalPoints);
             } else {
-                const progressPercentage = totalLevels > 0 ? Math.round((completedLevels / totalLevels) * 100) : 0;
-                studentProgressBox.innerHTML = `
-                    <h3><i class="fas fa-tasks"></i> نسبة إنجاز الاختبارات</h3>
-                    <div class="progress-container">
-                        <div class="progress-bar">
-                            <div class="progress-fill" style="width: ${progressPercentage}%"></div>
-                        </div>
-                        <div class="progress-text">${toArabicNumerals(completedLevels)} من ${toArabicNumerals(totalLevels)} (${toArabicNumerals(progressPercentage)}%)</div>
-                    </div>
-                    <div class="points-container">
+                 const levelCounts = { easy: 0, medium: 0, hard: 0 };
+                 const levelScores = { easy: 0, medium: 0, hard: 0 };
+                 
+                 Object.values(quizData).forEach(skill => {
+                    Object.entries(skill.levels).forEach(([levelKey, levelData]) => {
+                        if(levelData.completed) {
+                            levelCounts[levelKey]++;
+                            levelScores[levelKey] += levelData.score;
+                        }
+                    });
+                 });
+
+                let progressHTML = `
+                    <h3><i class="fas fa-tasks"></i> نسبة إنجازك حسب المستوى</h3>
+                    <div class="progress-grid">
+                `;
+
+                ['easy', 'medium', 'hard'].forEach(level => {
+                    const count = levelCounts[level];
+                    const percentage = Math.round((count / 6) * 100);
+                    const levelName = level === 'easy' ? 'السهل' : (level === 'medium' ? 'المتوسط' : 'العالي');
+                    
+                    progressHTML += `<div class="progress-item"><h4>المستوى ${levelName}</h4>`;
+                    
+                    if (count === 6) {
+                        const average = Math.round(levelScores[level] / 6);
+                        progressHTML += `
+                            <div class="level-completion-box">
+                                <div class="label">معدلك <i class="fas fa-check-circle" style="color: var(--secondary);"></i></div>
+                                <div class="value">${toArabicNumerals(average)}%</div>
+                            </div>
+                        `;
+                    } else {
+                        progressHTML += `
+                            <div class="progress-bar">
+                                <div class="progress-fill progress-fill-${level}" style="width: ${percentage}%"></div>
+                            </div>
+                            <div class="progress-text">${toArabicNumerals(count)} من ٦</div>
+                        `;
+                    }
+                    progressHTML += `</div>`;
+                });
+
+                progressHTML += `</div><div class="points-container">
                         <span>النقاط التي جمعتها:</span>
                         <i class="fas fa-coins"></i>
                         <span>${toArabicNumerals(totalPoints)}</span>
-                    </div>
-                `;
+                    </div>`;
+                
+                studentProgressBox.innerHTML = progressHTML;
             }
 
             dashboardGrid.innerHTML = '';
@@ -1093,13 +1165,16 @@
                 const card = document.createElement('div');
                 card.className = 'quiz-card';
                 
-                const weightedScore = calculateWeightedScore(data.levels);
-                let weightedScoreHTML = '';
-                if (weightedScore !== null) {
-                    weightedScoreHTML = `<div class="best-score-container">
-                                            <h4>أفضل نتيجة موزونة</h4>
-                                            <p>${toArabicNumerals(weightedScore)}%</p>
-                                         </div>`;
+                // *** UPDATED: Use the new function to display best performance ***
+                const performance = getBestPerformance(data.levels);
+                let bestScoreHTML = '';
+                if (performance) {
+                    bestScoreHTML = `
+                        <div class="best-score-container">
+                            <h4>أفضل أداء</h4>
+                            <p>${toArabicNumerals(performance.rawScore)}%</p>
+                            <small>النتيجة الموزونة: ${toArabicNumerals(performance.weightedScore)}% من المستوى ${performance.levelName}</small>
+                        </div>`;
                 }
 
                 let levelsHTML = '<div class="levels-container">';
@@ -1122,7 +1197,7 @@
                 });
                 levelsHTML += '</div>';
 
-                card.innerHTML = `<div class="quiz-card-header"><h3>${quiz.title}</h3></div><div class="quiz-card-body">${weightedScoreHTML}${levelsHTML}</div>`;
+                card.innerHTML = `<div class="quiz-card-header"><h3>${quiz.title}</h3></div><div class="quiz-card-body">${bestScoreHTML}${levelsHTML}</div>`;
                 dashboardGrid.appendChild(card);
             });
             
@@ -1330,7 +1405,6 @@
             const urlParams = new URLSearchParams(window.location.search);
             studentId = urlParams.get('studentId');
 
-            // *** DEMO LOGIC FOR COMPLETED STUDENT ***
             if (studentId === '1010101010') {
                 const mockStudentData = {
                     name: "الطالب المثالي",

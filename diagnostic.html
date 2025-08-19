@@ -1049,10 +1049,6 @@
                 headerAction.innerHTML = `<a href="index.html" target="_top" class="btn btn-exit"><i class="fas fa-sign-out-alt"></i> العودة للمنصة</a>`;
             }
 
-            const allLevels = Object.values(quizData).flatMap(q => Object.values(q.levels));
-            const completedLevelsCount = allLevels.filter(l => l.completed).length;
-            const totalLevels = allLevels.length;
-            
             const levelCounts = { easy: 0, medium: 0, hard: 0 };
             const levelScores = { easy: 0, medium: 0, hard: 0 };
             
@@ -1065,85 +1061,97 @@
                 });
             });
 
-            if (completedLevelsCount === totalLevels && !isVisitor) {
-                const average = Math.round(allLevels.reduce((sum, level) => sum + (level.score || 0), 0) / totalLevels);
-                
-                const easyAverage = Math.round(levelScores.easy / 6);
-                const mediumAverage = Math.round(levelScores.medium / 6);
-                const hardAverage = Math.round(levelScores.hard / 6);
+            let bestWeightedScore = -1;
+            let bestLevelMessage = "";
+            let completedLevelsDetailsHTML = "";
 
-                studentProgressBox.innerHTML = `
+            if (levelCounts.easy === 6) {
+                const avg = levelScores.easy / 6;
+                const weighted = avg / 3;
+                if (weighted > bestWeightedScore) {
+                    bestWeightedScore = weighted;
+                    bestLevelMessage = `أفضل أداء لديك من المستوى السهل`;
+                }
+                completedLevelsDetailsHTML += `<div class="level-detail-box"><div class="label">أداء المستوى السهل</div><div class="value easy">${toArabicNumerals(Math.round(avg))}%</div></div>`;
+            }
+            if (levelCounts.medium === 6) {
+                const avg = levelScores.medium / 6;
+                const weighted = avg / 2;
+                if (weighted > bestWeightedScore) {
+                    bestWeightedScore = weighted;
+                    bestLevelMessage = `أفضل أداء لديك من المستوى المتوسط`;
+                }
+                completedLevelsDetailsHTML += `<div class="level-detail-box"><div class="label">أداء المستوى المتوسط</div><div class="value medium">${toArabicNumerals(Math.round(avg))}%</div></div>`;
+            }
+            if (levelCounts.hard === 6) {
+                const avg = levelScores.hard / 6;
+                const weighted = avg / 1;
+                if (weighted > bestWeightedScore) {
+                    bestWeightedScore = weighted;
+                    bestLevelMessage = `أفضل أداء لديك من المستوى العالي`;
+                }
+                completedLevelsDetailsHTML += `<div class="level-detail-box"><div class="label">أداء المستوى العالي</div><div class="value hard">${toArabicNumerals(Math.round(avg))}%</div></div>`;
+            }
+
+            let progressHTML = '';
+            if (bestWeightedScore > -1) {
+                 progressHTML = `
                     <div class="final-result-card">
                         <i class="fas fa-medal main-icon"></i>
-                        <h3>أحسنت! لقد أكملت التقييم بنجاح</h3>
-                        <p>هذه هي نتيجتك النهائية بناءً على أدائك في جميع المهارات والمستويات.</p>
+                        <h3>أحسنت! لقد أكملت مستوى بنجاح</h3>
+                        <p>${bestLevelMessage}</p>
                         <div class="final-metrics">
                             <div class="metric-box">
-                                <div class="label">المعدل النهائي</div>
-                                <div class="value"><i class="fas fa-percent"></i>${toArabicNumerals(average)}</div>
+                                <div class="label">المعدل الأفضل</div>
+                                <div class="value"><i class="fas fa-percent"></i>${toArabicNumerals(Math.round(bestWeightedScore))}</div>
                             </div>
                             <div class="metric-box">
                                 <div class="label">مجموع النقاط</div>
                                 <div class="value"><i class="fas fa-coins"></i>${toArabicNumerals(totalPoints)}</div>
                             </div>
                         </div>
-                        <div class="level-performance-details">
-                            <div class="level-detail-box">
-                                <div class="label">أداء المستوى السهل</div>
-                                <div class="value easy">${toArabicNumerals(easyAverage)}%</div>
-                            </div>
-                            <div class="level-detail-box">
-                                <div class="label">أداء المستوى المتوسط</div>
-                                <div class="value medium">${toArabicNumerals(mediumAverage)}%</div>
-                            </div>
-                            <div class="level-detail-box">
-                                <div class="label">أداء المستوى العالي</div>
-                                <div class="value hard">${toArabicNumerals(hardAverage)}%</div>
-                            </div>
-                        </div>
+                        <div class="level-performance-details">${completedLevelsDetailsHTML}</div>
                     </div>
                 `;
-                saveGradeToSheet('d_test_overall', average, totalPoints);
-            } else {
-                let progressHTML = `
-                    <h3><i class="fas fa-tasks"></i> نسبة إنجازك حسب المستوى</h3>
-                    <div class="progress-grid">
-                `;
+                saveGradeToSheet('d_best_weighted', Math.round(bestWeightedScore), totalPoints);
+            }
 
-                ['easy', 'medium', 'hard'].forEach(level => {
+            let incompleteLevelsHTML = '<div class="progress-grid">';
+            let hasIncomplete = false;
+            ['easy', 'medium', 'hard'].forEach(level => {
+                if (levelCounts[level] < 6) {
+                    hasIncomplete = true;
                     const count = levelCounts[level];
                     const percentage = Math.round((count / 6) * 100);
                     const levelName = level === 'easy' ? 'السهل' : (level === 'medium' ? 'المتوسط' : 'العالي');
-                    
-                    progressHTML += `<div class="progress-item"><h4>المستوى ${levelName}</h4>`;
-                    
-                    if (count === 6) {
-                        const average = Math.round(levelScores[level] / 6);
-                        progressHTML += `
-                            <div class="level-completion-box">
-                                <div class="label">معدلك <i class="fas fa-check-circle" style="color: var(--secondary);"></i></div>
-                                <div class="value">${toArabicNumerals(average)}%</div>
-                            </div>
-                        `;
-                    } else {
-                        progressHTML += `
+                    incompleteLevelsHTML += `
+                        <div class="progress-item">
+                            <h4>المستوى ${levelName}</h4>
                             <div class="progress-bar">
                                 <div class="progress-fill progress-fill-${level}" style="width: ${percentage}%"></div>
                             </div>
                             <div class="progress-text">${toArabicNumerals(count)} من ٦</div>
-                        `;
-                    }
-                    progressHTML += `</div>`;
-                });
+                        </div>`;
+                }
+            });
+            incompleteLevelsHTML += '</div>';
 
-                progressHTML += `</div><div class="points-container">
-                        <span>النقاط التي جمعتها:</span>
-                        <i class="fas fa-coins"></i>
-                        <span>${toArabicNumerals(totalPoints)}</span>
-                    </div>`;
-                
-                studentProgressBox.innerHTML = progressHTML;
+            if(hasIncomplete) {
+                progressHTML += `
+                    <h3 style="text-align:center; margin-top: 2.5rem; color: var(--dark);"><i class="fas fa-tasks"></i> أكمل المستويات المتبقية</h3>
+                    ${incompleteLevelsHTML}
+                `;
             }
+
+            studentProgressBox.innerHTML = progressHTML || `
+                <h3><i class="fas fa-tasks"></i> نسبة إنجازك حسب المستوى</h3>
+                ${incompleteLevelsHTML}
+                <div class="points-container">
+                    <span>النقاط التي جمعتها:</span>
+                    <i class="fas fa-coins"></i>
+                    <span>${toArabicNumerals(totalPoints)}</span>
+                </div>`;
+            
 
             dashboardGrid.innerHTML = '';
             
@@ -1385,11 +1393,11 @@
                 const mockStudentData = {
                     name: "الطالب المثالي",
                     diagnostics: {
-                        "d_arithmetic_easy": { grade: 75, metricValue: 3 }, "d_arithmetic_medium": { grade: 75, metricValue: 6 }, "d_arithmetic_hard": { grade: 50, metricValue: 6 },
+                        "d_arithmetic_easy": { grade: 100, metricValue: 4 }, "d_arithmetic_medium": { grade: 75, metricValue: 6 }, "d_arithmetic_hard": { grade: 50, metricValue: 6 },
                         "d_geometry_easy": { grade: 100, metricValue: 4 }, "d_geometry_medium": { grade: 100, metricValue: 8 }, "d_geometry_hard": { grade: 75, metricValue: 9 },
-                        "d_algebra_easy": { grade: 75, metricValue: 3 }, "d_algebra_medium": { grade: 75, metricValue: 6 }, "d_algebra_hard": { grade: 75, metricValue: 9 },
+                        "d_algebra_easy": { grade: 100, metricValue: 4 }, "d_algebra_medium": { grade: 75, metricValue: 6 }, "d_algebra_hard": { grade: 75, metricValue: 9 },
                         "d_measurement_easy": { grade: 100, metricValue: 4 }, "d_measurement_medium": { grade: 50, metricValue: 4 }, "d_measurement_hard": { grade: 50, metricValue: 6 },
-                        "d_statistics_easy": { grade: 75, metricValue: 3 }, "d_statistics_medium": { grade: 100, metricValue: 12 },"d_statistics_hard": { grade: 100, metricValue: 12 },
+                        "d_statistics_easy": { grade: 100, metricValue: 4 }, "d_statistics_medium": { grade: 75, metricValue: 6 }, "d_statistics_hard": { grade: 100, metricValue: 12 },
                         "d_percentages_easy": { grade: 100, metricValue: 4 }, "d_percentages_medium": { grade: 100, metricValue: 8 }, "d_percentages_hard": { grade: 75, metricValue: 9 }
                     }
                 };

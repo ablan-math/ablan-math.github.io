@@ -197,30 +197,6 @@
             text-align: center; 
         }
 
-        .best-score-container { 
-            margin-bottom: 1rem; 
-            padding-bottom: 1rem; 
-            border-bottom: 2px dashed #eee; 
-        }
-
-        .best-score-container h4 { 
-            margin: 0; 
-            color: var(--dark); 
-            font-size: 1rem; 
-        }
-
-        .best-score-container p { 
-            font-size: 2.5rem; 
-            font-weight: 800; 
-            color: var(--primary); 
-            margin: 0.25rem 0 0.5rem; 
-        }
-
-        .best-score-container small {
-            font-size: 0.9rem;
-            color: #6c757d;
-        }
-
         .levels-container { 
             display: flex; 
             justify-content: space-around; 
@@ -654,6 +630,31 @@
         }
         .metric-box .value .fa-percent { color: var(--secondary); }
         .metric-box .value .fa-coins { color: var(--points-color); }
+        
+        /* NEW styles for level performance details */
+        .level-performance-details {
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 2px dashed #e0e0e0;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.5rem;
+        }
+        .level-detail-box {
+            text-align: center;
+        }
+        .level-detail-box .label {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #6c757d;
+        }
+        .level-detail-box .value {
+            font-size: 2rem;
+            font-weight: 800;
+        }
+        .level-detail-box .value.easy { color: var(--secondary); }
+        .level-detail-box .value.medium { color: var(--accent); }
+        .level-detail-box .value.hard { color: var(--score-low); }
 
 
         @media (max-width: 768px) {
@@ -681,7 +682,7 @@
                 font-size: 1rem;
             }
 
-            .explanation-grid, .progress-grid {
+            .explanation-grid, .progress-grid, .level-performance-details {
                 grid-template-columns: 1fr;
             }
 
@@ -1038,37 +1039,6 @@
             return correctAnswers * pointsPerQuestion;
         }
 
-        // *** UPDATED: New function to get best performance ***
-        function getBestPerformance(levels) {
-            const weights = { easy: 3, medium: 2, hard: 1 };
-            let bestPerformance = {
-                rawScore: null,
-                weightedScore: -1,
-                level: null
-            };
-
-            Object.entries(levels).forEach(([levelKey, levelData]) => {
-                if (levelData.completed) {
-                    const weightedScore = (levelData.score || 0) / weights[levelKey];
-                    if (weightedScore > bestPerformance.weightedScore) {
-                        bestPerformance.weightedScore = weightedScore;
-                        bestPerformance.rawScore = levelData.score;
-                        bestPerformance.level = levelKey;
-                    }
-                }
-            });
-
-            if (bestPerformance.level === null) {
-                return null;
-            }
-            
-            bestPerformance.weightedScore = bestPerformance.weightedScore.toFixed(1);
-            const levelName = bestPerformance.level === 'easy' ? 'السهل' : (bestPerformance.level === 'medium' ? 'المتوسط' : 'العالي');
-            bestPerformance.levelName = levelName;
-            
-            return bestPerformance;
-        }
-
         function renderDashboard() {
             if(isVisitor) {
                 dashboardTitle.textContent = 'مرحباً بك أيها الزائر';
@@ -1086,6 +1056,20 @@
             
             if (completedLevelsCount === totalLevels && !isVisitor) {
                 const average = Math.round(allLevels.reduce((sum, level) => sum + (level.score || 0), 0) / totalLevels);
+                
+                // Calculate performance per level
+                const levelScores = { easy: [], medium: [], hard: [] };
+                Object.values(quizData).forEach(skill => {
+                    Object.entries(skill.levels).forEach(([levelKey, levelData]) => {
+                        if(levelData.completed) {
+                            levelScores[levelKey].push(levelData.score);
+                        }
+                    });
+                });
+                const easyAverage = Math.round(levelScores.easy.reduce((a, b) => a + b, 0) / levelScores.easy.length);
+                const mediumAverage = Math.round(levelScores.medium.reduce((a, b) => a + b, 0) / levelScores.medium.length);
+                const hardAverage = Math.round(levelScores.hard.reduce((a, b) => a + b, 0) / levelScores.hard.length);
+
                 studentProgressBox.innerHTML = `
                     <div class="final-result-card">
                         <i class="fas fa-medal main-icon"></i>
@@ -1099,6 +1083,20 @@
                             <div class="metric-box">
                                 <div class="label">مجموع النقاط</div>
                                 <div class="value"><i class="fas fa-coins"></i>${toArabicNumerals(totalPoints)}</div>
+                            </div>
+                        </div>
+                        <div class="level-performance-details">
+                            <div class="level-detail-box">
+                                <div class="label">أداء المستوى السهل</div>
+                                <div class="value easy">${toArabicNumerals(easyAverage)}%</div>
+                            </div>
+                            <div class="level-detail-box">
+                                <div class="label">أداء المستوى المتوسط</div>
+                                <div class="value medium">${toArabicNumerals(mediumAverage)}%</div>
+                            </div>
+                            <div class="level-detail-box">
+                                <div class="label">أداء المستوى العالي</div>
+                                <div class="value hard">${toArabicNumerals(hardAverage)}%</div>
                             </div>
                         </div>
                     </div>
@@ -1165,18 +1163,6 @@
                 const card = document.createElement('div');
                 card.className = 'quiz-card';
                 
-                // *** UPDATED: Use the new function to display best performance ***
-                const performance = getBestPerformance(data.levels);
-                let bestScoreHTML = '';
-                if (performance) {
-                    bestScoreHTML = `
-                        <div class="best-score-container">
-                            <h4>أفضل أداء</h4>
-                            <p>${toArabicNumerals(performance.rawScore)}%</p>
-                            <small>النتيجة الموزونة: ${toArabicNumerals(performance.weightedScore)}% من المستوى ${performance.levelName}</small>
-                        </div>`;
-                }
-
                 let levelsHTML = '<div class="levels-container">';
                 Object.keys(quiz.levels).forEach(levelKey => {
                     const levelData = data.levels[levelKey];
@@ -1197,7 +1183,7 @@
                 });
                 levelsHTML += '</div>';
 
-                card.innerHTML = `<div class="quiz-card-header"><h3>${quiz.title}</h3></div><div class="quiz-card-body">${bestScoreHTML}${levelsHTML}</div>`;
+                card.innerHTML = `<div class="quiz-card-header"><h3>${quiz.title}</h3></div><div class="quiz-card-body">${levelsHTML}</div>`;
                 dashboardGrid.appendChild(card);
             });
             

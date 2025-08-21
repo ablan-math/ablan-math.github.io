@@ -215,8 +215,7 @@
     <div id="intro-screen" class="overlay">
         <div class="bg-white p-8 rounded-2xl shadow-2xl max-w-lg">
             <h1 class="text-2xl md:text-3xl font-extrabold text-blue-800 mb-4">🏭 مصنع المعادلات 🏭</h1>
-            <p class="text-base text-gray-700 mb-2">مرحباً بك في مصنع المعادلات! مهمتك هي تشغيل الآلة لحل المعادلات التي ستظهر لك.</p>
-            <p class="text-base text-gray-700 mb-6">أدخل قيمة (س) الصحيحة في الآلة لتحصل على قيمة (ص) وتكسب النقاط.</p>
+            <p id="welcomeMessage" class="text-base text-gray-700 mb-6">مرحباً بك في مصنع المعادلات! مهمتك هي تشغيل الآلة لحل المعادلات التي ستظهر لك. أدخل قيمة (س) الصحيحة في الآلة لتحصل على قيمة (ص) وتكسب النقاط.</p>
             <p class="text-sm text-gray-500 mb-8">برمجة وتصميم: الأستاذ عبد العزيز خالد العبلان</p>
             <button id="start-game-btn" class="btn btn-primary text-xl px-10 py-3">ابدأ اللعبة</button>
         </div>
@@ -348,9 +347,9 @@
 
             <!-- 3. لعرض جدول سجل الأبطال -->
             <div id="leaderboard-container" class="mt-4"></div>
-            <div class="flex justify-center gap-4 mt-8">
+            <div id="finish-game-wrapper" style="display: none;" class="flex justify-center gap-4 mt-8">
                 <button id="play-again-btn" class="btn btn-primary text-xl px-10 py-3">العب مرة أخرى</button>
-                <button id="end-game-btn" class="btn btn-secondary text-xl px-10 py-3">إنهاء اللعبة</button>
+                <button id="finish-game-btn" class="btn btn-secondary text-xl px-10 py-3">إنهاء اللعبة</button>
             </div>
         </div>
     </div>
@@ -363,7 +362,6 @@
             finalScreen: document.getElementById('final-screen'),
             startGameBtn: document.getElementById('start-game-btn'),
             playAgainBtn: document.getElementById('play-again-btn'),
-            endGameBtn: document.getElementById('end-game-btn'),
             inputBox: document.getElementById('input-box'),
             outputBox: document.getElementById('output-box'),
             machineBox: document.getElementById('machine-box'),
@@ -835,14 +833,6 @@
             elements.resultsTable.innerHTML = '';
         });
 
-        elements.endGameBtn.addEventListener('click', () => {
-            window.parent.postMessage({ event: 'gameFinished', gameId: 'g1_1_2' }, '*');
-            elements.endGameBtn.disabled = true;
-            elements.playAgainBtn.disabled = true;
-            elements.endGameBtn.classList.add('btn-disabled');
-            elements.playAgainBtn.classList.add('btn-disabled');
-        });
-
         elements.checkBtn.addEventListener('click', checkAnswer);
         elements.userAnswerInput.addEventListener('keyup', (event) => {
             if (event.key === 'Enter' && !elements.checkBtn.disabled) checkAnswer();
@@ -889,7 +879,13 @@
             const METRIC_TYPE = 'time';                     // نوع المعيار: 'time', 'stars', 'errors'
             const METRIC_LABEL = 'الوقت (ثواني)';           // اسم المعيار للعرض في الجدول
 
-            let currentUser = null;
+            // --- Read URL Parameters ---
+            const urlParams = new URLSearchParams(window.location.search);
+            const studentId = urlParams.get('studentId');
+            const classId = urlParams.get('classId');
+            const studentName = urlParams.get('studentName');
+
+            let currentUser = (studentId && studentName) ? { id: studentId, name: studentName } : null;
 
             // --- CORE FUNCTIONS ---
 
@@ -900,7 +896,6 @@
                 const maxPoints = parseFloat(GAME_MAX_POINTS) || 1;
                 const finalGrade = (finalPoints / maxPoints) * PLATFORM_MAX_GRADE;
 
-                // عرض النتيجة الأولية للطالب
                 const resultDisplay = document.getElementById('final-result-display');
                 if (resultDisplay) {
                     resultDisplay.innerHTML = `
@@ -909,32 +904,22 @@
                     `;
                 }
 
-                // حفظ النتيجة في الخلفية
-                if (currentUser && currentUser.id) {
-                    console.log(`Saving grade ${finalGrade} and metric ${finalMetric} for student ${currentUser.id}`);
+                if (studentId && classId) {
                     const params = new URLSearchParams({
                         action: 'saveGrade',
-                        studentId: currentUser.id,
+                        studentId: studentId,
+                        classId: classId,
                         itemId: GAME_ID,
                         grade: finalGrade.toFixed(2),
-                        metricValue: finalMetric.toString()
+                        metricValue: Math.round(finalMetric).toString()
                     });
-
                     fetch(`${SCRIPT_URL}?${params.toString()}`)
                         .then(res => res.json())
-                        .then(result => {
-                            console.log('Save result:', result.status);
-                            // بعد الحفظ مباشرة، قم بجلب وعرض سجل الأبطال
-                            fetchAndShowLeaderboard();
-                        })
-                        .catch(err => {
-                            console.error("Save Error:", err);
-                            // حتى لو فشل الحفظ، اعرض سجل الأبطال
-                            fetchAndShowLeaderboard();
-                        });
+                        .then(result => console.log('Save result:', result.status))
+                        .catch(err => console.error("Save Error:", err))
+                        .finally(fetchAndShowLeaderboard);
                 } else {
                     console.log(`Visitor finished. Score: ${finalPoints}, Metric: ${finalMetric}`);
-                    // للزوار، اعرض سجل الأبطال مباشرة
                     fetchAndShowLeaderboard();
                 }
             }
@@ -944,6 +929,13 @@
                 const loader = document.getElementById('leaderboard-loader');
                 const container = document.getElementById('leaderboard-container');
                 if (!loader || !container) return;
+                
+                if (!classId) {
+                    console.log("No classId found, skipping leaderboard for visitor.");
+                    container.innerHTML = `<p class="text-center text-gray-500 mt-4">سجل الأبطال متاح للطلاب المسجلين فقط.</p>`;
+                    showFinishButton();
+                    return;
+                }
 
                 loader.style.display = 'block';
                 container.innerHTML = '';
@@ -951,13 +943,13 @@
                 const params = new URLSearchParams({
                     action: 'getLeaderboard',
                     gameId: GAME_ID,
-                    metricType: METRIC_TYPE
+                    metricType: METRIC_TYPE,
+                    classId: classId
                 });
 
                 fetch(`${SCRIPT_URL}?${params.toString()}`)
                     .then(res => res.json())
                     .then(response => {
-                        loader.style.display = 'none';
                         if (response.status === 'success' && response.data) {
                             displayLeaderboard(response.data);
                         } else {
@@ -965,9 +957,12 @@
                         }
                     })
                     .catch(err => {
-                        loader.style.display = 'none';
                         console.error("Leaderboard Error:", err);
                         container.innerHTML = `<p class="text-center text-red-500">حدث خطأ في تحميل سجل الأبطال.</p>`;
+                    })
+                    .finally(() => {
+                        loader.style.display = 'none';
+                        showFinishButton();
                     });
             }
             
@@ -978,7 +973,6 @@
                     container.innerHTML = `<p class="text-center text-gray-500 mt-4">لا توجد نتائج بعد. كن أول الأبطال!</p>`;
                     return;
                 }
-
                 let tableHTML = `
                     <div class="mt-6 border-t pt-4">
                         <h3 class="text-2xl font-bold text-center text-gray-800 mb-4">🏆 سجل الأبطال 🏆</h3>
@@ -991,18 +985,13 @@
                                     <th class="text-center py-2 px-3">${METRIC_LABEL}</th>
                                 </tr>
                             </thead>
-                            <tbody class="text-gray-700">`;
-
-                data.forEach((player, index) => {
+                            <tbody class="text-gray-700">`;        data.forEach((player, index) => {
                     const rank = index + 1;
                     let rankDisplay = rank;
                     if (rank === 1) rankDisplay = '🥇';
                     if (rank === 2) rankDisplay = '🥈';
-                    if (rank === 3) rankDisplay = '🥉';
-
-                    const isCurrentUser = (currentUser && player.name === currentUser.name);
+                    if (rank === 3) rankDisplay = '🥉';            const isCurrentUser = (currentUser && player.name === currentUser.name);
                     const rowClass = isCurrentUser ? 'bg-blue-100 font-bold' : (index % 2 === 0 ? 'bg-gray-100' : '');
-
                     tableHTML += `
                         <tr class="${rowClass}">
                             <td class="text-center py-2 px-3 text-xl">${rankDisplay}</td>
@@ -1010,17 +999,29 @@
                             <td class="text-center py-2 px-3">${player.grade.toFixed(1)}</td>
                             <td class="text-center py-2 px-3">${player.metricValue}</td>
                         </tr>`;
-                });
-
-                tableHTML += `</tbody></table></div>`;
+                });        tableHTML += `</tbody></table></div>`;
                 container.innerHTML = tableHTML;
             }
 
-            // 4. استقبال بيانات الطالب من المنصة الرئيسية
-            window.addEventListener('message', (event) => {
-                if (event.data && event.data.event === 'userData') {
-                    currentUser = event.data.data;
-                    console.log('User data received:', currentUser);
+            // 4. إظهار زر الإنهاء
+            function showFinishButton() {
+                const finishWrapper = document.getElementById('finish-game-wrapper');
+                if (finishWrapper) {
+                    finishWrapper.style.display = 'flex';
+                }
+            }
+
+            // 5. التعامل مع زر الإنهاء وتخصيص رسالة الترحيب
+            document.addEventListener('DOMContentLoaded', () => {
+                // Personalize welcome message
+                const welcomeMessage = document.getElementById('welcomeMessage');
+                if (studentName && welcomeMessage) {
+                    welcomeMessage.innerHTML = `أهلاً بك يا <span class="font-bold text-yellow-300">${studentName}</span>! انطلق في رحلتك عبر الجبال الغامضة، وحل الألغاز الرياضية لتجاوز العقبات والوصول إلى القمة. كل إجابة صحيحة تقربك من هدفك!`;
+                }        const finishBtn = document.getElementById('finish-game-btn');
+                if (finishBtn) {
+                    finishBtn.addEventListener('click', () => {
+                        window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*');
+                    });
                 }
             });
         })();

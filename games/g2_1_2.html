@@ -189,6 +189,8 @@
         <div id="splash-screen" class="ui-element">
             <h1 class="text-4xl font-bold text-white mb-4">لعبة الدوال التعليمية</h1>
             <div class="mt-4 p-4 bg-black bg-opacity-20 rounded-lg w-11/12 max-w-sm">
+                <!-- NEW: Welcome message element -->
+                <p id="welcomeMessage" class="text-lg text-white mb-2">مرحباً بك في لعبة صيد السمك التعليمية! </p>
                 <h2 class="text-2xl font-bold text-yellow-300 mb-2">طريقة اللعب</h2>
                 <p class="text-lg text-white"><b>الهدف:</b> اصطد الأسماك التي تمثل الإجابة الصحيحة.</p>
                 <p class="text-lg text-white"><b>الجولات:</b> ستلعب ٥ جولات لاختبار مهارتك.</p>
@@ -876,22 +878,31 @@
         };
     </script>
     
-    <!-- This new script block contains the connection and leaderboard engine -->
+    <!-- ============================================= -->
+    <!-- NEW CONNECTION & LEADERBOARD ENGINE -->
+    <!-- ============================================= -->
     <script>
     // --- START OF CONNECTION & LEADERBOARD ENGINE ---
     (function() {
-        // --- CONFIGURATION (Settings for this specific game) ---
+        // --- CONFIGURATION (عدّل هذه الإعدادات لكل لعبة) ---
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
-        const GAME_ID = 'g2_1_2';
-        const GAME_MAX_POINTS = 15;
-        const PLATFORM_MAX_GRADE = 5;
-        const METRIC_TYPE = 'time';
-        const METRIC_LABEL = 'الوقت (ثواني)';
+        const GAME_ID = 'g2_1_2';                     // Game ID updated
+        const GAME_MAX_POINTS = 15;                   // Max points in the game
+        const PLATFORM_MAX_GRADE = 5;                 // Final grade on the platform
+        const METRIC_TYPE = 'time';                   // Metric type: 'time', 'stars', 'errors'
+        const METRIC_LABEL = 'الوقت (ثواني)';         // Label for the metric in the table
 
-        let currentUser = null;
+        // --- Read URL Parameters ---
+        const urlParams = new URLSearchParams(window.location.search);
+        const studentId = urlParams.get('studentId');
+        const classId = urlParams.get('classId');
+        const studentName = urlParams.get('studentName');
+
+        let currentUser = (studentId && studentName) ? { id: studentId, name: studentName } : null;
 
         // --- CORE FUNCTIONS ---
 
+        // 1. Main function to call when the game ends
         window.saveAndFinishGame = function(points, metricValue) {
             const finalPoints = parseFloat(points) || 0;
             const finalMetric = parseFloat(metricValue) || 0;
@@ -901,18 +912,19 @@
             const resultDisplay = document.getElementById('final-result-display');
             if (resultDisplay) {
                 resultDisplay.innerHTML = `
-                    <p class="text-gray-700">النقاط: <span class="font-bold text-xl text-green-700">${finalPoints} / ${maxPoints}</span></p>
+                    <p class="text-gray-700">النقاط: <span class="font-bold text-xl">${finalPoints} / ${maxPoints}</span></p>
                     <p class="text-blue-600">الدرجة في المنصة: <span class="font-bold text-2xl">${finalGrade.toFixed(1)} / ${PLATFORM_MAX_GRADE}</span></p>
                 `;
             }
 
-            if (currentUser && currentUser.id) {
+            if (studentId && classId) {
                 const params = new URLSearchParams({
                     action: 'saveGrade',
-                    studentId: currentUser.id,
+                    studentId: studentId,
+                    classId: classId,
                     itemId: GAME_ID,
                     grade: finalGrade.toFixed(2),
-                    metricValue: finalMetric.toString()
+                    metricValue: Math.round(finalMetric).toString()
                 });
                 fetch(`${SCRIPT_URL}?${params.toString()}`)
                     .then(res => res.json())
@@ -925,10 +937,18 @@
             }
         }
 
+        // 2. Function to fetch and display the leaderboard
         function fetchAndShowLeaderboard() {
             const loader = document.getElementById('leaderboard-loader');
             const container = document.getElementById('leaderboard-container');
             if (!loader || !container) return;
+            
+            if (!classId) {
+                console.log("No classId found, skipping leaderboard for visitor.");
+                container.innerHTML = `<p class="text-center text-gray-500 mt-4">سجل الأبطال متاح للطلاب المسجلين فقط.</p>`;
+                showFinishButton();
+                return;
+            }
 
             loader.style.display = 'block';
             container.innerHTML = '';
@@ -936,7 +956,8 @@
             const params = new URLSearchParams({
                 action: 'getLeaderboard',
                 gameId: GAME_ID,
-                metricType: METRIC_TYPE
+                metricType: METRIC_TYPE,
+                classId: classId
             });
 
             fetch(`${SCRIPT_URL}?${params.toString()}`)
@@ -958,38 +979,34 @@
                 });
         }
         
+        // 3. Function to build the leaderboard table
         function displayLeaderboard(data) {
             const container = document.getElementById('leaderboard-container');
             if (!data || data.length === 0) {
                 container.innerHTML = `<p class="text-center text-gray-500 mt-4">لا توجد نتائج بعد. كن أول الأبطال!</p>`;
                 return;
             }
-
             let tableHTML = `
                 <div class="mt-6 border-t pt-4">
                     <h3 class="text-2xl font-bold text-center text-gray-800 mb-4">🏆 سجل الأبطال 🏆</h3>
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full bg-white shadow-md rounded-lg">
-                            <thead class="bg-gray-800 text-white">
-                                <tr>
-                                    <th class="text-center py-2 px-3">الترتيب</th>
-                                    <th class="text-right py-2 px-3">اسم الطالب</th>
-                                    <th class="text-center py-2 px-3">الدرجة</th>
-                                    <th class="text-center py-2 px-3">${METRIC_LABEL}</th>
-                                </tr>
-                            </thead>
-                            <tbody class="text-gray-700">`;
-
+                    <table class="min-w-full bg-white shadow-md rounded-lg">
+                        <thead class="bg-gray-800 text-white">
+                            <tr>
+                                <th class="text-center py-2 px-3">الترتيب</th>
+                                <th class="text-right py-2 px-3">اسم الطالب</th>
+                                <th class="text-center py-2 px-3">الدرجة</th>
+                                <th class="text-center py-2 px-3">${METRIC_LABEL}</th>
+                            </tr>
+                        </thead>
+                        <tbody class="text-gray-700">`;
             data.forEach((player, index) => {
                 const rank = index + 1;
                 let rankDisplay = rank;
                 if (rank === 1) rankDisplay = '🥇';
                 if (rank === 2) rankDisplay = '🥈';
                 if (rank === 3) rankDisplay = '🥉';
-
                 const isCurrentUser = (currentUser && player.name === currentUser.name);
-                const rowClass = isCurrentUser ? 'bg-blue-100 font-bold' : (index % 2 === 0 ? 'bg-gray-50' : 'bg-white');
-
+                const rowClass = isCurrentUser ? 'bg-blue-100 font-bold' : (index % 2 === 0 ? 'bg-gray-100' : '');
                 tableHTML += `
                     <tr class="${rowClass}">
                         <td class="text-center py-2 px-3 text-xl">${rankDisplay}</td>
@@ -998,11 +1015,11 @@
                         <td class="text-center py-2 px-3">${player.metricValue}</td>
                     </tr>`;
             });
-
-            tableHTML += `</tbody></table></div></div>`;
+            tableHTML += `</tbody></table></div>`;
             container.innerHTML = tableHTML;
         }
 
+        // 4. Function to show the finish button
         function showFinishButton() {
             const finishWrapper = document.getElementById('finish-game-wrapper');
             if (finishWrapper) {
@@ -1010,14 +1027,13 @@
             }
         }
 
-        window.addEventListener('message', (event) => {
-            if (event.data && event.data.event === 'userData') {
-                currentUser = event.data.data;
-                console.log('User data received:', currentUser);
-            }
-        });
-
+        // 5. Handle finish button and personalize welcome message
         document.addEventListener('DOMContentLoaded', () => {
+            // Personalize welcome message
+            const welcomeMessage = document.getElementById('welcomeMessage');
+            if (studentName && welcomeMessage) {
+                welcomeMessage.innerHTML = `أهلاً بك يا <span class="font-bold text-yellow-300">${studentName}</span>!`;
+            }
             const finishBtn = document.getElementById('finish-game-btn');
             if (finishBtn) {
                 finishBtn.addEventListener('click', () => {

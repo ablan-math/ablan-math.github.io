@@ -157,7 +157,7 @@
         }
         #feedback-text.correct { color: #28a745; }
         #feedback-text.incorrect { color: #dc3545; }
-        #explanation-button, #restart-button {
+        #explanation-button {
             padding: 10px 20px;
             font-size: 1em;
             background-color: #17a2b8;
@@ -221,7 +221,8 @@
 <body>
     <div id="intro-screen" class="overlay visible">
         <h1>لعبة حماية الذرة</h1>
-        <p>مرحباً بك! مهمتك هي حماية حقل الذرة من الغربان الجائعة. سيظهر لك سؤال عندما يهبط غراب على الفزاعة. أجب بشكل صحيح لإطلاق النار عليه، أو سيقوم بسرقة محصولك!</p>
+        <!-- Step 3: Added welcomeMessage element -->
+        <p id="welcomeMessage">مهمتك هي حماية حقل الذرة من الغربان الجائعة. سيظهر لك سؤال عندما يهبط غراب على الفزاعة. أجب بشكل صحيح لإطلاق النار عليه، أو سيقوم بسرقة محصولك!</p>
         <p style="font-size: 0.9em; color: #ccc;">برمجة وتصميم : أ. عبدالعزيز خالد العبلان</p>
         <button id="start-button">ابدأ اللعبة</button>
     </div>
@@ -257,10 +258,18 @@
             <p>جاري تحميل سجل الأبطال...</p>
         </div>
         <div id="leaderboard-container" class="mt-4"></div>
-        <div id="finish-game-wrapper" class="text-center mt-6" style="display: none;">
-            <button id="finish-game-btn" class="px-6 py-3 bg-red-600 text-white font-bold rounded-lg shadow-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-opacity-75 transition-transform transform hover:scale-105">
-                إنهاء والعودة للمنصة
-            </button>
+        
+        <div class="flex flex-wrap justify-center gap-4 mt-6">
+            <div id="finish-game-wrapper" style="display: none;">
+                <button id="finish-game-btn" class="px-6 py-3 bg-red-600 text-white font-bold rounded-lg shadow-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-opacity-75 transition-transform transform hover:scale-105">
+                    إنهاء والعودة للمنصة
+                </button>
+            </div>
+            <div id="restart-game-wrapper" style="display: none;">
+                 <button id="restart-button" class="px-6 py-3 bg-blue-600 text-white font-bold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-75 transition-transform transform hover:scale-105">
+                    إعادة اللعبة
+                </button>
+            </div>
         </div>
     </div>
     <div id="explanation-modal" class="overlay hidden">
@@ -295,37 +304,30 @@
         const zoomTargetPosition = new THREE.Vector3();
         let zoomStartTime = 0;
 
-        // --- Variables for Secondary Metric (Average Time) ---
         let questionStartTime = 0;
         const answerTimes = [];
 
-        // --- CORRECTED: Full Question Bank Restored ---
         const questionBanks = [
-            // Bank 1: Simple Linear Equations
             [
                 { question: "ما هو حل المعادلة ٢س + ٥ = ١١ ؟", options: ["س = ٤", "س = ٣", "س = ٨", "س = ٥"], correctAnswer: 1, explanation: { steps: [{math: "٢س = ١١ - ٥", note: "بطرح ٥ من الطرفين"}, {math: "٢س = ٦", note: "بالتبسيط"}, {math: "س = ٣", note: "بالقسمة على ٢"}] } },
                 { question: "ما هو حل المعادلة ٣س - ٤ = ١١ ؟", options: ["س = ٥", "س = ٧", "س = ٣", "س = ٤"], correctAnswer: 0, explanation: { steps: [{math: "٣س = ١١ + ٤", note: "بإضافة ٤ للطرفين"}, {math: "٣س = ١٥", note: "بالتبسيط"}, {math: "س = ٥", note: "بالقسمة على ٣"}] } },
                 { question: "ما هو حل المعادلة ٤ص + ٢ = ٢٢ ؟", options: ["ص = ٦", "ص = ٤", "ص = ٥", "ص = ٧"], correctAnswer: 2, explanation: { steps: [{math: "٤ص = ٢٢ - ٢", note: "بطرح ٢ من الطرفين"}, {math: "٤ص = ٢٠", note: "بالتبسيط"}, {math: "ص = ٥", note: "بالقسمة على ٤"}] } }
             ],
-            // Bank 2: No Solution Equations
             [
                 { question: "ما هي مجموعة حل المعادلة ن + ٨ = ن - ٢ ؟", options: ["{١٠}", "{-٦}", "{كل الأعداد الحقيقية}", "{لا يوجد حل}"], correctAnswer: 3, explanation: { steps: [{math: "٨ = -٢", note: "بطرح 'ن' من الطرفين"}, {math: "عبارة خاطئة", note: "لا يمكن أن تتساوى القيمتان"}] } },
                 { question: "ما هي مجموعة حل المعادلة ك - ٥ = ك + ١ ؟", options: ["{-٤}", "{كل الأعداد الحقيقية}", "{لا يوجد حل}", "{٦}"], correctAnswer: 2, explanation: { steps: [{math: "-٥ = ١", note: "بطرح 'ك' من الطرفين"}, {math: "عبارة خاطئة", note: "لا يمكن أن تتساوى القيمتان"}] } },
                 { question: "ما هي مجموعة حل المعادلة ٣ع + ٧ = ٣ع - ٣ ؟", options: ["{لا يوجد حل}", "{١٠}", "{كل الأعداد الحقيقية}", "{-٤}"], correctAnswer: 0, explanation: { steps: [{math: "٧ = -٣", note: "بطرح '٣ع' من الطرفين"}, {math: "عبارة خاطئة", note: "لا يمكن أن تتساوى القيمتان"}] } }
             ],
-            // Bank 3: No Solution Equations with Brackets
             [
                 { question: "حل المعادلة ٧ + ٢س = ٢(س + ١)", options: ["س = ٥", "{لا يوجد حل}", "{كل الأعداد الحقيقية}", "س = -٥"], correctAnswer: 1, explanation: { steps: [{math: "٧ + ٢س = ٢س + ٢", note: "باستخدام خاصية التوزيع"}, {math: "٧ = ٢", note: "بطرح ٢س من الطرفين"}, {math: "عبارة خاطئة", note: "إذاً لا يوجد حل"}] } },
                 { question: "حل المعادلة ٥(ل + ٢) = ٥ل + ٩", options: ["ل = ١", "{كل الأعداد الحقيقية}", "{لا يوجد حل}", "ل = -١"], correctAnswer: 2, explanation: { steps: [{math: "٥ل + ١٠ = ٥ل + ٩", note: "باستخدام خاصية التوزيع"}, {math: "١٠ = ٩", note: "بطرح ٥ل من الطرفين"}, {math: "عبارة خاطئة", note: "إذاً لا يوجد حل"}] } },
                 { question: "حل المعادلة ٣ + ٤ب = ٤(ب + ٢)", options: ["{لا يوجد حل}", "ب = ٨", "ب = ٥", "{كل الأعداد الحقيقية}"], correctAnswer: 0, explanation: { steps: [{math: "٣ + ٤ب = ٤ب + ٨", note: "باستخدام خاصية التوزيع"}, {math: "٣ = ٨", note: "بطرح ٤ب من الطرفين"}, {math: "عبارة خاطئة", note: "إذاً لا يوجد حل"}] } }
             ],
-            // Bank 4: Identities (Complete the Expression)
             [
                 { question: "أي العبارات التالية تجعل المعادلة ٤(م - ١) = ... متطابقة؟", options: ["٤م - ١", "م - ٤", "٤م - ٤", "٤م"], correctAnswer: 2, explanation: { steps: [{math: "٤ * م - ٤ * ١", note: "باستخدام خاصية التوزيع"}, {math: "٤م - ٤", note: "لكي تكون متطابقة يجب أن يتساوى الطرفان"}] } },
                 { question: "أي العبارات التالية تجعل المعادلة ٣(س + ٢) = ... متطابقة؟", options: ["٣س + ٢", "٣س + ٦", "س + ٦", "٥س"], correctAnswer: 1, explanation: { steps: [{math: "٣ * س + ٣ * ٢", note: "باستخدام خاصية التوزيع"}, {math: "٣س + ٦", note: "لكي تكون متطابقة يجب أن يتساوى الطرفان"}] } },
                 { question: "أي العبارات التالية تجعل المعادلة ٦(ص - ٣) = ... متطابقة؟", options: ["٦ص - ٣", "ص - ١٨", "٦ص + ١٨", "٦ص - ١٨"], correctAnswer: 3, explanation: { steps: [{math: "٦ * ص - ٦ * ٣", note: "باستخدام خاصية التوزيع"}, {math: "٦ص - ١٨", note: "لكي تكون متطابقة يجب أن يتساوى الطرفان"}] } }
             ],
-            // Bank 5: Identities (Find the Missing Number)
             [
                 { question: "لجعل المعادلة ٥(ع - ٢) = ٥ع - ... صحيحة، ماذا يجب أن يكون العدد المفقود؟", options: ["٢", "٥", "٧", "١٠"], correctAnswer: 3, explanation: { steps: [{math: "٥ * ع - ٥ * ٢", note: "باستخدام خاصية التوزيع"}, {math: "٥ع - ١٠", note: "إذن العدد المفقود هو ١٠"}] } },
                 { question: "لجعل المعادلة ٢(س + ٦) = ٢س + ... صحيحة، ماذا يجب أن يكون العدد المفقود؟", options: ["٦", "٨", "١٢", "٢"], correctAnswer: 2, explanation: { steps: [{math: "٢ * س + ٢ * ٦", note: "باستخدام خاصية التوزيع"}, {math: "٢س + ١٢", note: "إذن العدد المفقود هو ١٢"}] } },
@@ -339,7 +341,7 @@
         let nextRoundCountdownValue = 5;
         
         const gameState = {
-            score: 0, // This now represents "Crows Hunted"
+            score: 0,
             questionsAsked: 0,
             totalQuestions: 5,
             gameActive: false
@@ -350,15 +352,11 @@
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x87CEEB);
             scene.fog = new THREE.Fog(0x87CEEB, 15, 200);
-
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.shadowMap.enabled = true;
             document.body.appendChild(renderer.domElement);
-
-            // --- UI Elements ---
             introScreen = document.getElementById('intro-screen');
             startButton = document.getElementById('start-button');
             roundTransitionScreen = document.getElementById('round-transition-screen');
@@ -375,15 +373,12 @@
             explanationContent = document.getElementById('explanation-content');
             closeModalButton = document.getElementById('close-modal');
             scoreContainer = document.getElementById('score-container');
-
             document.querySelectorAll('.answer-button').forEach(button => {
                 button.addEventListener('click', (event) => checkAnswer(parseInt(event.target.dataset.index)));
             });
             explanationButton.addEventListener('click', showExplanation);
             closeModalButton.addEventListener('click', hideExplanation);
             startButton.addEventListener('click', startGame);
-
-            // Lighting and ground setup... (omitted for brevity, same as before)
             const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
             scene.add(ambientLight);
             const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
@@ -421,20 +416,16 @@
             controls.maxDistance = 150;
             controls.target.copy(landingSpot);
             for (let i = 0; i < 10; i++) { const crow = createCrow(); const radius = Math.random() * 20 + 60; const y = Math.random() * 10 + 35; const angle = Math.random() * Math.PI * 2; crow.position.set(Math.cos(angle) * radius, y, Math.sin(angle) * radius); crow.userData = { radius: radius, angle: angle, speed: Math.random() * 0.3 + 0.2, state: 'FLYING', originalY: y }; scene.add(crow); crows.push(crow); }
-
             window.addEventListener('resize', onWindowResize, false);
             animate();
         }
         
-        // --- CORRECTED: Proper Randomization Logic ---
         function prepareGameQuestions() {
             gameQuestions = [];
-            // 1. Pick one random question from each bank
             for (const bank of questionBanks) {
                 const randomIndex = Math.floor(Math.random() * bank.length);
                 gameQuestions.push(bank[randomIndex]);
             }
-            // 2. Shuffle the selected 5 questions
             for (let i = gameQuestions.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
                 [gameQuestions[i], gameQuestions[j]] = [gameQuestions[j], gameQuestions[i]];
@@ -452,15 +443,11 @@
         function checkAnswer(selectedIndex) {
             if (!perchedCrow) return;
             clearInterval(questionInterval);
-            
             const timeTaken = (Date.now() - questionStartTime) / 1000;
             answerTimes.push(timeTaken);
-
             const answerButtons = document.querySelectorAll('.answer-button');
             answerButtons.forEach(button => button.disabled = true);
-            
             const correct = selectedIndex === currentQuestion.correctAnswer;
-            
             if (correct) {
                 answerButtons[selectedIndex].classList.add('flash-correct');
             } else {
@@ -469,18 +456,15 @@
                 }
                 answerButtons[currentQuestion.correctAnswer].classList.add('flash-correct');
             }
-
             setTimeout(() => {
                 hideQuestion();
                 gameState.questionsAsked++;
-
                 if (correct) {
-                    gameState.score++; // Each correct answer is 1 hunted crow
+                    gameState.score++;
                     triggerShoot();
                 } else {
                     triggerSteal();
                 }
-
                 setTimeout(() => {
                     feedbackText.textContent = correct ? "إجابة صحيحة!" : "إجابة خاطئة!";
                     feedbackText.className = correct ? 'correct' : 'incorrect';
@@ -495,7 +479,6 @@
             clearInterval(nextRoundInterval);
             nextRoundCountdownValue = seconds;
             nextRoundTimerElement.textContent = `الجولة التالية بعد ${nextRoundCountdownValue} ثوانٍ...`;
-            
             nextRoundInterval = setInterval(() => {
                 nextRoundCountdownValue--;
                 nextRoundTimerElement.textContent = `الجولة التالية بعد ${nextRoundCountdownValue} ثوانٍ...`;
@@ -519,13 +502,11 @@
             setTimeout(() => {
                 roundTransitionScreen.classList.remove('visible');
                 roundTransitionScreen.classList.add('hidden');
-                
                 const flyingCrows = crows.filter(c => c.userData.state === 'FLYING');
                 if (flyingCrows.length > 0) {
                     const luckyCrow = flyingCrows[Math.floor(Math.random() * flyingCrows.length)];
                     luckyCrow.userData.state = 'LANDING';
                 }
-
             }, 2000);
         }
 
@@ -533,10 +514,8 @@
             const totalTime = answerTimes.reduce((sum, time) => sum + time, 0);
             const metricValue = answerTimes.length > 0 ? (totalTime / answerTimes.length).toFixed(2) : 0;
             const points = gameState.score;
-
             scoreContainer.classList.remove('hidden');
             scoreContainer.classList.add('visible');
-
             saveAndFinishGame(points, metricValue);
         }
 
@@ -559,7 +538,6 @@
 
         function displayNewQuestion() {
             currentQuestion = gameQuestions[gameState.questionsAsked];
-
             questionTextElement.textContent = currentQuestion.question;
             const answerButtons = document.querySelectorAll('.answer-button');
             answerButtons.forEach((button, index) => {
@@ -569,9 +547,7 @@
             });
             questionContainer.style.visibility = 'visible';
             answersContainer.style.visibility = 'visible';
-
             questionStartTime = Date.now();
-
             let timeLeft = 25;
             questionTimerElement.textContent = `الوقت المتبقي: ${timeLeft}`;
             questionInterval = setInterval(() => {
@@ -618,8 +594,6 @@
             startNextRoundCountdown(nextRoundCountdownValue);
         }
         
-        // 3D Model creation functions (createFeatherExplosion, createCrow, etc.) are unchanged
-        // ... (omitted for brevity, same as before)
         function createFeatherExplosion(position) { const featherCount = 50; const featherMaterial = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.DoubleSide }); const featherGeometry = new THREE.PlaneGeometry(0.2, 0.2); for (let i = 0; i < featherCount; i++) { const feather = new THREE.Mesh(featherGeometry, featherMaterial); feather.position.copy(position); const velocity = new THREE.Vector3((Math.random() - 0.5) * 5, (Math.random()) * 5, (Math.random() - 0.5) * 5); feathers.push({ mesh: feather, velocity: velocity }); scene.add(feather); } }
         function createCrow() { const crowGroup = new THREE.Group(); const crowMaterial = new THREE.MeshPhongMaterial({ color: 0x1A1A1A }); const body = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 1.5), crowMaterial); crowGroup.add(body); const leftWing = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.1, 0.8), crowMaterial); leftWing.position.set(-1.5, 0, 0); crowGroup.add(leftWing); const rightWing = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.1, 0.8), crowMaterial); rightWing.position.set(1.5, 0, 0); crowGroup.add(rightWing); crowGroup.leftWing = leftWing; crowGroup.rightWing = rightWing; crowGroup.castShadow = true; return crowGroup; }
         function createScarecrow() { const scarecrowGroup = new THREE.Group(); const woodMaterial = new THREE.MeshPhongMaterial({ color: 0x8B4513 }); const clothMaterial = new THREE.MeshPhongMaterial({ color: 0x5F4B32, side: THREE.DoubleSide }); const headMaterial = new THREE.MeshPhongMaterial({ color: 0xD2B48C }); const mainPole = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 15, 8), woodMaterial); mainPole.position.y = 7.5; scarecrowGroup.add(mainPole); const armPole = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 8, 8), woodMaterial); armPole.rotation.z = Math.PI / 2; armPole.position.y = 11; scarecrowGroup.add(armPole); const head = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 16), headMaterial); head.position.y = 14; scarecrowGroup.add(head); const hat = new THREE.Mesh(new THREE.ConeGeometry(1.5, 2, 16), clothMaterial); hat.position.y = 14.5; scarecrowGroup.add(hat); scarecrowGroup.traverse(node => { if (node.isMesh) node.castShadow = true; }); return scarecrowGroup; }
@@ -636,9 +610,7 @@
             requestAnimationFrame(animate);
             const delta = clock.getDelta();
             const elapsedTime = clock.getElapsedTime();
-
             if (cameraState === 'ZOOMING_IN') { camera.position.lerp(zoomTargetPosition, 0.05); camera.lookAt(landingSpot); if (camera.position.distanceTo(zoomTargetPosition) < 0.5) { cameraState = 'ZOOMED'; } } else if (cameraState === 'ZOOMED') { camera.lookAt(landingSpot); if (elapsedTime - zoomStartTime > 4) { cameraState = 'ZOOMING_OUT'; } } else if (cameraState === 'ZOOMING_OUT') { camera.position.lerp(originalCameraPosition, 0.05); controls.target.lerp(landingSpot, 0.05); if (camera.position.distanceTo(originalCameraPosition) < 0.5) { cameraState = 'IDLE'; camera.position.copy(originalCameraPosition); controls.target.copy(landingSpot); controls.enabled = true; } }
-
             crows.forEach(crow => {
                 const flapSpeed = 15;
                 switch(crow.userData.state) {
@@ -651,9 +623,7 @@
                     case 'FALLING': crow.position.y -= 15 * delta; crow.rotation.x += 10 * delta; crow.rotation.z += 5 * delta; if (crow.position.y < 0) { scene.remove(crow); crows = crows.filter(c => c !== crow); } break;
                 }
             });
-            
             for (let i = feathers.length - 1; i >= 0; i--) { const particle = feathers[i]; particle.velocity.add(gravity.clone().multiplyScalar(delta)); particle.mesh.position.add(particle.velocity.clone().multiplyScalar(delta)); particle.mesh.rotation.x += Math.random() * 0.1; particle.mesh.rotation.y += Math.random() * 0.1; if (particle.mesh.position.y < 0) { scene.remove(particle.mesh); feathers.splice(i, 1); } }
-
             if (controls && cameraState === 'IDLE') controls.update();
             renderer.render(scene, camera);
         }
@@ -661,22 +631,29 @@
         init();
     </script>
     
-    <!-- Connection & Leaderboard Engine -->
+    <!-- Step 1: Replaced Connection & Leaderboard Engine -->
     <script>
     // --- START OF CONNECTION & LEADERBOARD ENGINE ---
     (function() {
-        // --- CONFIGURATION ---
+        // --- Step 2: CONFIGURATION ---
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
-        // --- NEW: Updated Game Settings ---
         const GAME_ID = 'g1_1_1';
-        const GAME_MAX_POINTS = 5;                      // Max points is 5 (1 per question)
-        const PLATFORM_MAX_GRADE = 5;                   // Final grade in the platform
-        const METRIC_TYPE = 'time';                     // Lower time is better
-        const METRIC_LABEL = 'معدل الوقت (ثواني)';      // NEW: Label for average time
+        const GAME_MAX_POINTS = 5;
+        const PLATFORM_MAX_GRADE = 5;
+        const METRIC_TYPE = 'time';
+        const METRIC_LABEL = 'معدل الوقت (ثواني)';
 
-        let currentUser = null;
+        // --- Read URL Parameters ---
+        const urlParams = new URLSearchParams(window.location.search);
+        const studentId = urlParams.get('studentId');
+        const classId = urlParams.get('classId');
+        const studentName = urlParams.get('studentName');
+
+        let currentUser = (studentId && studentName) ? { id: studentId, name: studentName } : null;
 
         // --- CORE FUNCTIONS ---
+
+        // 1. الدالة الرئيسية التي تستدعيها عند انتهاء اللعبة
         window.saveAndFinishGame = function(points, metricValue) {
             const finalPoints = parseFloat(points) || 0;
             const finalMetric = parseFloat(metricValue) || 0;
@@ -685,20 +662,21 @@
 
             const resultDisplay = document.getElementById('final-result-display');
             if (resultDisplay) {
-                // NEW: Updated display labels
+                // Customized display to match game theme
                 resultDisplay.innerHTML = `
                     <p class="text-gray-200">صيد الغربان: <span class="font-bold text-xl text-white">${finalPoints} / ${maxPoints}</span></p>
                     <p class="text-blue-400">الدرجة في المنصة: <span class="font-bold text-2xl text-white">${finalGrade.toFixed(1)} / ${PLATFORM_MAX_GRADE}</span></p>
                 `;
             }
 
-            if (currentUser && currentUser.id) {
+            if (studentId && classId) {
                 const params = new URLSearchParams({
                     action: 'saveGrade',
-                    studentId: currentUser.id,
+                    studentId: studentId,
+                    classId: classId,
                     itemId: GAME_ID,
                     grade: finalGrade.toFixed(2),
-                    metricValue: finalMetric.toString()
+                    metricValue: Math.round(finalMetric).toString()
                 });
                 fetch(`${SCRIPT_URL}?${params.toString()}`)
                     .then(res => res.json())
@@ -711,10 +689,18 @@
             }
         }
 
+        // 2. دالة جلب وعرض سجل الأبطال
         function fetchAndShowLeaderboard() {
             const loader = document.getElementById('leaderboard-loader');
             const container = document.getElementById('leaderboard-container');
             if (!loader || !container) return;
+            
+            if (!classId) {
+                console.log("No classId found, skipping leaderboard for visitor.");
+                container.innerHTML = `<p class="text-center text-gray-400 mt-4">سجل الأبطال متاح للطلاب المسجلين فقط.</p>`;
+                showEndGameButtons();
+                return;
+            }
 
             loader.style.display = 'block';
             container.innerHTML = '';
@@ -722,7 +708,8 @@
             const params = new URLSearchParams({
                 action: 'getLeaderboard',
                 gameId: GAME_ID,
-                metricType: METRIC_TYPE
+                metricType: METRIC_TYPE,
+                classId: classId
             });
 
             fetch(`${SCRIPT_URL}?${params.toString()}`)
@@ -740,17 +727,18 @@
                 })
                 .finally(() => {
                     loader.style.display = 'none';
-                    showFinishButton();
+                    showEndGameButtons();
                 });
         }
         
+        // 3. دالة بناء جدول سجل الأبطال
         function displayLeaderboard(data) {
             const container = document.getElementById('leaderboard-container');
             if (!data || data.length === 0) {
                 container.innerHTML = `<p class="text-center text-gray-400 mt-4">لا توجد نتائج بعد. كن أول الأبطال!</p>`;
                 return;
             }
-
+            // Customized table style to match dark theme
             let tableHTML = `
                 <div class="mt-6 border-t border-gray-600 pt-4">
                     <h3 class="text-2xl font-bold text-center text-white mb-4">🏆 سجل الأبطال 🏆</h3>
@@ -764,17 +752,14 @@
                             </tr>
                         </thead>
                         <tbody class="text-gray-300">`;
-
             data.forEach((player, index) => {
                 const rank = index + 1;
                 let rankDisplay = rank;
                 if (rank === 1) rankDisplay = '🥇';
                 if (rank === 2) rankDisplay = '🥈';
                 if (rank === 3) rankDisplay = '🥉';
-
                 const isCurrentUser = (currentUser && player.name === currentUser.name);
                 const rowClass = isCurrentUser ? 'bg-blue-900 font-bold' : (index % 2 === 0 ? 'bg-gray-700' : '');
-
                 tableHTML += `
                     <tr class="${rowClass}">
                         <td class="text-center py-2 px-3 text-xl">${rankDisplay}</td>
@@ -783,30 +768,39 @@
                         <td class="text-center py-2 px-3">${player.metricValue}</td>
                     </tr>`;
             });
-
             tableHTML += `</tbody></table></div>`;
             container.innerHTML = tableHTML;
         }
 
-        function showFinishButton() {
+        // 4. إظهار أزرار النهاية
+        function showEndGameButtons() {
             const finishWrapper = document.getElementById('finish-game-wrapper');
             if (finishWrapper) {
                 finishWrapper.style.display = 'block';
             }
+            const restartWrapper = document.getElementById('restart-game-wrapper');
+            if(restartWrapper) {
+                restartWrapper.style.display = 'block';
+            }
         }
 
-        window.addEventListener('message', (event) => {
-            if (event.data && event.data.event === 'userData') {
-                currentUser = event.data.data;
-                console.log('User data received:', currentUser);
-            }
-        });
-
+        // 5. التعامل مع زر الإنهاء وتخصيص رسالة الترحيب
         document.addEventListener('DOMContentLoaded', () => {
+            // Personalize welcome message
+            const welcomeMessage = document.getElementById('welcomeMessage');
+            if (studentName && welcomeMessage) {
+                welcomeMessage.innerHTML = `أهلاً بك يا <span class="font-bold text-yellow-300">${studentName}</span>! مهمتك هي حماية حقل الذرة من الغربان الجائعة. أجب بشكل صحيح لإطلاق النار عليه، أو سيقوم بسرقة محصولك!`;
+            }
             const finishBtn = document.getElementById('finish-game-btn');
             if (finishBtn) {
                 finishBtn.addEventListener('click', () => {
                     window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*');
+                });
+            }
+            const restartBtn = document.getElementById('restart-button');
+            if (restartBtn) {
+                restartBtn.addEventListener('click', () => {
+                    location.reload();
                 });
             }
         });

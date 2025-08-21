@@ -100,6 +100,10 @@
             cursor: pointer; text-shadow: 0 0 5px #00bfff, 0 0 10px #00bfff;
             transition: all 0.3s ease; padding: 0.5rem; line-height: 1.4;
         }
+        .rune-answer .highlight-number {
+            color: #facc15; /* yellow-400 */
+            font-weight: bold;
+        }
         .rune-answer:hover { color: #ffffff; text-shadow: 0 0 10px #fff, 0 0 20px #fff, 0 0 30px #00bfff; }
         @keyframes pulse { 0% { opacity: 0.8; } 50% { opacity: 1; } 100% { opacity: 0.8; } }
         
@@ -540,6 +544,11 @@
             return array;
         }
 
+        function highlightNumbersInAnswers(text) {
+            // This regex finds numbers (including decimals) and wraps them
+            return text.replace(/(\d+\.\d+|\d+)/g, '<span class="highlight-number">$1</span>');
+        }
+
         function updateLivesUI() {
             const container = document.getElementById('livesContainer');
             container.innerHTML = '';
@@ -574,7 +583,7 @@
             answersDiv.innerHTML = '';
             quiz.answers.forEach(answer => {
                 const button = document.createElement('button');
-                button.innerText = answer;
+                button.innerHTML = highlightNumbersInAnswers(answer); // Apply highlighting
                 button.className = "rune-answer";
                 button.onclick = () => checkAnswer(answer);
                 answersDiv.appendChild(button);
@@ -961,17 +970,22 @@
     (function() {
         // --- CONFIGURATION (عدّل هذه الإعدادات لكل لعبة) ---
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
-        const GAME_ID = 'g1_3_2';         // Adjusted GAME_ID
-        const GAME_MAX_POINTS = 10;                     // أقصى نقاط في اللعبة
-        const PLATFORM_MAX_GRADE = 5;                   // الدرجة النهائية في المنصة
-        const METRIC_TYPE = 'time';                     // نوع المعيار: 'time', 'stars', 'errors'
-        const METRIC_LABEL = 'الوقت (ثواني)';           // اسم المعيار للعرض في الجدول
+        const GAME_ID = 'g1_3_2';
+        const GAME_MAX_POINTS = 10;
+        const PLATFORM_MAX_GRADE = 5;
+        const METRIC_TYPE = 'time';
+        const METRIC_LABEL = 'الوقت (ثواني)';
 
-        let currentUser = null;
+        // --- Read URL Parameters ---
+        const urlParams = new URLSearchParams(window.location.search);
+        const studentId = urlParams.get('studentId');
+        const classId = urlParams.get('classId');
+        const studentName = urlParams.get('studentName'); // Assuming name is also passed for leaderboard highlighting
+
+        let currentUser = (studentId && studentName) ? { id: studentId, name: studentName } : null;
 
         // --- CORE FUNCTIONS ---
 
-        // 1. الدالة الرئيسية التي تستدعيها عند انتهاء اللعبة
         window.saveAndFinishGame = function(points, metricValue) {
             const finalPoints = parseFloat(points) || 0;
             const finalMetric = parseFloat(metricValue) || 0;
@@ -986,10 +1000,11 @@
                 `;
             }
 
-            if (currentUser && currentUser.id) {
+            if (studentId && classId) {
                 const params = new URLSearchParams({
                     action: 'saveGrade',
-                    studentId: currentUser.id,
+                    studentId: studentId,
+                    classId: classId,
                     itemId: GAME_ID,
                     grade: finalGrade.toFixed(2),
                     metricValue: Math.round(finalMetric).toString()
@@ -1005,11 +1020,18 @@
             }
         }
 
-        // 2. دالة جلب وعرض سجل الأبطال
         function fetchAndShowLeaderboard() {
             const loader = document.getElementById('leaderboard-loader');
             const container = document.getElementById('leaderboard-container');
             if (!loader || !container) return;
+            
+            // classId is required for fetching the leaderboard
+            if (!classId) {
+                console.log("No classId found, skipping leaderboard for visitor.");
+                container.innerHTML = `<p class="text-center text-gray-500 mt-4">سجل الأبطال متاح للطلاب المسجلين فقط.</p>`;
+                showFinishButton();
+                return;
+            }
 
             loader.style.display = 'block';
             container.innerHTML = '';
@@ -1017,7 +1039,8 @@
             const params = new URLSearchParams({
                 action: 'getLeaderboard',
                 gameId: GAME_ID,
-                metricType: METRIC_TYPE
+                metricType: METRIC_TYPE,
+                classId: classId // Pass classId here
             });
 
             fetch(`${SCRIPT_URL}?${params.toString()}`)
@@ -1039,7 +1062,6 @@
                 });
         }
         
-        // 3. دالة بناء جدول سجل الأبطال
         function displayLeaderboard(data) {
             const container = document.getElementById('leaderboard-container');
             if (!data || data.length === 0) {
@@ -1084,7 +1106,6 @@
             container.innerHTML = tableHTML;
         }
 
-        // 4. إظهار زر الإنهاء
         function showFinishButton() {
             const finishWrapper = document.getElementById('finish-game-wrapper');
             if (finishWrapper) {
@@ -1092,15 +1113,6 @@
             }
         }
 
-        // 5. استقبال بيانات الطالب من المنصة الرئيسية
-        window.addEventListener('message', (event) => {
-            if (event.data && event.data.event === 'userData') {
-                currentUser = event.data.data;
-                console.log('User data received:', currentUser);
-            }
-        });
-
-        // 6. التعامل مع زر الإنهاء
         document.addEventListener('DOMContentLoaded', () => {
             const finishBtn = document.getElementById('finish-game-btn');
             if (finishBtn) {

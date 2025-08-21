@@ -310,8 +310,7 @@
     <div id="welcomeScreen" class="overlay visible">
         <h2>أهلاً بك في لعبة هداف الرياضيات</h2>
         <p>تصميم وبرمجة / أ. عبالعزيز خالد العبلان</p>
-        <p style="color: #FFD700; font-size: 1.6em; margin: 20px 0;">القيمة المطلقة هي المسافة بين العدد والصفر على خط الأعداد، وهي دائمًا قيمة موجبة.</p>
-        <p><strong>طريقة اللعب:</strong> أجب عن المسألة بشكل صحيح لتسديد الكرة وتسجيل هدف. إذا كانت إجابتك خاطئة، سيتصدى الحارس للكرة!</p>
+        <p id="welcomeMessage" style="color: #FFD700; font-size: 1.2em; margin: 20px 0;"><strong>طريقة اللعب:</strong> أجب عن المسألة بشكل صحيح لتسديد الكرة وتسجيل هدف. إذا كانت إجابتك خاطئة، سيتصدى الحارس للكرة!</p>
         <button id="startButton" class="option-button start-button">ابدأ اللعب</button>
     </div>
 
@@ -1329,7 +1328,13 @@
     const METRIC_TYPE = 'time';                     // نوع المعيار: 'time', 'stars', 'errors'
     const METRIC_LABEL = 'الوقت (ثواني)';           // اسم المعيار للعرض في الجدول
 
-    let currentUser = null;
+    // --- Read URL Parameters ---
+    const urlParams = new URLSearchParams(window.location.search);
+    const studentId = urlParams.get('studentId');
+    const classId = urlParams.get('classId');
+    const studentName = urlParams.get('studentName');
+
+    let currentUser = (studentId && studentName) ? { id: studentId, name: studentName } : null;
 
     // --- CORE FUNCTIONS ---
 
@@ -1348,13 +1353,14 @@
             `;
         }
 
-        if (currentUser && currentUser.id) {
+        if (studentId && classId) {
             const params = new URLSearchParams({
                 action: 'saveGrade',
-                studentId: currentUser.id,
+                studentId: studentId,
+                classId: classId,
                 itemId: GAME_ID,
                 grade: finalGrade.toFixed(2),
-                metricValue: finalMetric.toString()
+                metricValue: Math.round(finalMetric).toString()
             });
             fetch(`${SCRIPT_URL}?${params.toString()}`)
                 .then(res => res.json())
@@ -1372,6 +1378,13 @@
         const loader = document.getElementById('leaderboard-loader');
         const container = document.getElementById('leaderboard-container');
         if (!loader || !container) return;
+        
+        if (!classId) {
+            console.log("No classId found, skipping leaderboard for visitor.");
+            container.innerHTML = `<p class="text-center text-gray-500 mt-4">سجل الأبطال متاح للطلاب المسجلين فقط.</p>`;
+            showFinishButton();
+            return;
+        }
 
         loader.style.display = 'block';
         container.innerHTML = '';
@@ -1379,7 +1392,8 @@
         const params = new URLSearchParams({
             action: 'getLeaderboard',
             gameId: GAME_ID,
-            metricType: METRIC_TYPE
+            metricType: METRIC_TYPE,
+            classId: classId
         });
 
         fetch(`${SCRIPT_URL}?${params.toString()}`)
@@ -1393,7 +1407,7 @@
             })
             .catch(err => {
                 console.error("Leaderboard Error:", err);
-                container.innerHTML = `<p style="text-align: center; color: #ef4444;">حدث خطأ في تحميل سجل الأبطال.</p>`;
+                container.innerHTML = `<p class="text-center text-red-500">حدث خطأ في تحميل سجل الأبطال.</p>`;
             })
             .finally(() => {
                 loader.style.display = 'none';
@@ -1405,43 +1419,38 @@
     function displayLeaderboard(data) {
         const container = document.getElementById('leaderboard-container');
         if (!data || data.length === 0) {
-            container.innerHTML = `<p style="text-align: center; color: #6b7280; margin-top: 1rem;">لا توجد نتائج بعد. كن أول الأبطال!</p>`;
+            container.innerHTML = `<p class="text-center text-gray-500 mt-4">لا توجد نتائج بعد. كن أول الأبطال!</p>`;
             return;
         }
-
         let tableHTML = `
-            <div style="margin-top: 1.5rem; border-top: 1px solid #ccc; padding-top: 1rem;">
-                <h3 style="font-size: 1.5rem; font-weight: bold; text-align: center; color: #1f2937; margin-bottom: 1rem;">🏆 سجل الأبطال 🏆</h3>
-                <table style="min-width: 100%; background-color: white; border-radius: 0.5rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);">
-                    <thead style="background-color: #1f2937; color: white;">
+            <div class="mt-6 border-t pt-4">
+                <h3 class="text-2xl font-bold text-center text-gray-800 mb-4">🏆 سجل الأبطال 🏆</h3>
+                <table class="min-w-full bg-white shadow-md rounded-lg">
+                    <thead class="bg-gray-800 text-white">
                         <tr>
-                            <th style="text-align: center; padding: 0.5rem 0.75rem;">الترتيب</th>
-                            <th style="text-align: right; padding: 0.5rem 0.75rem;">اسم الطالب</th>
-                            <th style="text-align: center; padding: 0.5rem 0.75rem;">الدرجة</th>
-                            <th style="text-align: center; padding: 0.5rem 0.75rem;">${METRIC_LABEL}</th>
+                            <th class="text-center py-2 px-3">الترتيب</th>
+                            <th class="text-right py-2 px-3">اسم الطالب</th>
+                            <th class="text-center py-2 px-3">الدرجة</th>
+                            <th class="text-center py-2 px-3">${METRIC_LABEL}</th>
                         </tr>
                     </thead>
-                    <tbody style="color: #374151;">`;
-
+                    <tbody class="text-gray-700">`;
         data.forEach((player, index) => {
             const rank = index + 1;
             let rankDisplay = rank;
             if (rank === 1) rankDisplay = '🥇';
             if (rank === 2) rankDisplay = '🥈';
             if (rank === 3) rankDisplay = '🥉';
-
             const isCurrentUser = (currentUser && player.name === currentUser.name);
-            const rowStyle = isCurrentUser ? 'background-color: #dbeafe; font-weight: bold;' : (index % 2 === 0 ? 'background-color: #f3f4f6;' : '');
-
+            const rowClass = isCurrentUser ? 'bg-blue-100 font-bold' : (index % 2 === 0 ? 'bg-gray-100' : '');
             tableHTML += `
-                <tr style="${rowStyle}">
-                    <td style="text-align: center; padding: 0.5rem 0.75rem; font-size: 1.25rem;">${rankDisplay}</td>
-                    <td style="text-align: right; padding: 0.5rem 0.75rem;">${player.name}</td>
-                    <td style="text-align: center; padding: 0.5rem 0.75rem;">${player.grade.toFixed(1)}</td>
-                    <td style="text-align: center; padding: 0.5rem 0.75rem;">${player.metricValue}</td>
+                <tr class="${rowClass}">
+                    <td class="text-center py-2 px-3 text-xl">${rankDisplay}</td>
+                    <td class="text-right py-2 px-3">${player.name}</td>
+                    <td class="text-center py-2 px-3">${player.grade.toFixed(1)}</td>
+                    <td class="text-center py-2 px-3">${player.metricValue}</td>
                 </tr>`;
         });
-
         tableHTML += `</tbody></table></div>`;
         container.innerHTML = tableHTML;
     }
@@ -1454,16 +1463,13 @@
         }
     }
 
-    // 5. استقبال بيانات الطالب من المنصة الرئيسية
-    window.addEventListener('message', (event) => {
-        if (event.data && event.data.event === 'userData') {
-            currentUser = event.data.data;
-            console.log('User data received:', currentUser);
-        }
-    });
-
-    // 6. التعامل مع زر الإنهاء
+    // 5. التعامل مع زر الإنهاء وتخصيص رسالة الترحيب
     document.addEventListener('DOMContentLoaded', () => {
+        // Personalize welcome message
+        const welcomeMessage = document.getElementById('welcomeMessage');
+        if (studentName && welcomeMessage) {
+            welcomeMessage.innerHTML = `أهلاً بك يا <span style="font-weight: bold; color: #FFD700;">${studentName}</span>! استعد لتسديد ركلات الجزاء الحاسمة. كل إجابة صحيحة هي تسديدة نحو الهدف!`;
+        }
         const finishBtn = document.getElementById('finish-game-btn');
         if (finishBtn) {
             finishBtn.addEventListener('click', () => {

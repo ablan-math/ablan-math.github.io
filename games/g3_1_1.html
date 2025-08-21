@@ -318,13 +318,18 @@
             canvasHeight = gameContainer.clientHeight;
             canvas.width = canvasWidth;
             canvas.height = canvasHeight;
+            
+            // ** تحديث حجم الطائرة بناءً على حجم الشاشة الجديد **
+            plane.width = canvasWidth * 0.12;
+            plane.height = plane.width * 0.5;
         }
         window.addEventListener('resize', resizeCanvas);
-        resizeCanvas();
+        
 
         // --- الطائرة (اللاعب) ---
         const plane = {
-            x: canvasWidth / 5, y: canvasHeight / 2, width: 80, height: 40,
+            x: 0, y: 0, 
+            width: 80, height: 40, // ** سيتم تحديثها في resizeCanvas **
             verticalSpeed: 6, health: 3, isExploded: false,
             draw() {
                 if(this.isExploded) return;
@@ -348,7 +353,7 @@
                 ctx.fillRect(this.width * 0.4, this.height * 0.1, this.width * 0.2, this.height * 0.8);
                 ctx.fillStyle = '#555';
                 ctx.beginPath();
-                ctx.arc(this.width, 0, 5, 0, Math.PI * 2);
+                ctx.arc(this.width, 0, this.height * 0.125, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.restore();
             },
@@ -359,6 +364,8 @@
                 if (this.y > canvasHeight - this.height) this.y = canvasHeight - this.height;
             }
         };
+        
+        resizeCanvas(); // ** استدعاء أولي لضبط الأبعاد **
 
         // --- جزيئات الدخان والانفجار والألعاب النارية ---
         class Particle {
@@ -387,8 +394,9 @@
         // --- السحب (العقبات والإجابات) ---
         class Cloud {
             constructor(text, isCorrect, answerType, initialX) {
-                this.width = 150;
-                this.height = 90;
+                // ** تعديل: حجم الغيوم متجاوب **
+                this.width = canvasWidth * 0.25;
+                this.height = this.width * 0.6;
                 this.x = initialX;
                 this.y = Math.random() * (canvasHeight - this.height * 1.5) + this.height * 0.5;
                 this.speed = Math.random() * 0.5 + 0.8; 
@@ -414,11 +422,13 @@
                 ctx.globalAlpha = 1;
 
                 ctx.fillStyle = '#333';
-                ctx.font = 'bold 24px Cairo';
+                // ** تعديل: حجم الخط متجاوب **
+                const fontSize = this.width * 0.15;
+                ctx.font = `bold ${fontSize}px Cairo`;
                 ctx.textBaseline = 'middle';
                 
                 if (this.text.den) {
-                    drawFraction(this.text.prefix, this.text.val, this.text.den, this.x + this.width / 2, yPos);
+                    drawFraction(this.text.prefix, this.text.val, this.text.den, this.x + this.width / 2, yPos, fontSize);
                 } else {
                     ctx.textAlign = 'center';
                     ctx.fillText(this.text.prefix + toArabicNumerals(this.text.val), this.x + this.width / 2, yPos);
@@ -427,18 +437,18 @@
         }
         
         // --- دالة رسم الكسور ---
-        function drawFraction(prefix, num, den, x, y) {
+        function drawFraction(prefix, num, den, x, y, fontSize) {
             const numArabic = toArabicNumerals(num);
             const denArabic = toArabicNumerals(den);
             
             ctx.textAlign = 'right';
-            ctx.fillText(prefix, x + 30, y); 
+            ctx.fillText(prefix, x + (fontSize * 1.5), y); 
 
             ctx.textAlign = 'center';
-            const fractionX = x - ctx.measureText(prefix).width + 15; 
-            ctx.fillText(numArabic, fractionX, y - 12);
-            ctx.fillRect(fractionX - 15, y, 30, 3); 
-            ctx.fillText(denArabic, fractionX, y + 15);
+            const fractionX = x - ctx.measureText(prefix).width + (fontSize * 0.75); 
+            ctx.fillText(numArabic, fractionX, y - (fontSize * 0.5));
+            ctx.fillRect(fractionX - (fontSize * 0.75), y, fontSize * 1.5, 3); 
+            ctx.fillText(denArabic, fractionX, y + (fontSize * 0.75));
         }
 
         // --- التحكم في السحب والاصطدامات ---
@@ -609,9 +619,11 @@
             answers.push(correctIntercept);
             answers = answers.sort(() => Math.random() - 0.5);
 
-            for(let i = 0; i < 6; i++) { 
+            // ** تعديل: تقليل عدد الغيوم وزيادة المسافات **
+            for(let i = 0; i < 4; i++) { 
                 const ans = answers[i];
-                const initialX = canvasWidth + i * (canvasWidth / 4); 
+                if (!ans) continue; // Safety check
+                const initialX = canvasWidth + i * (canvasWidth / 2.5); 
                 clouds.push(new Cloud(ans.text, ans.isCorrect, ans.answerType, initialX));
             }
         }

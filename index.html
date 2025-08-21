@@ -296,7 +296,7 @@
 
     <script>
     (function() {
-        // **UPDATED**: This URL must match your deployed Google Apps Script URL.
+        // This URL must match your deployed Google Apps Script URL.
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
         const VISITOR_MAX_ATTEMPTS = 3;
 
@@ -365,6 +365,20 @@
         const closeDiagnosticModalBtn = document.getElementById('close-diagnostic-modal');
 
         /**
+         * **NEW**: Converts a full class name to its short identifier.
+         */
+        function getClassIdentifier(fullClassName) {
+            if (!fullClassName) return null;
+            const classMap = {
+                "ثالث / أول": "3-1",
+                "ثالث / ثاني": "3-2",
+                "ثالث / ثالث": "3-3"
+                // Add other class mappings here if needed
+            };
+            return classMap[fullClassName.trim()] || null;
+        }
+
+        /**
          * Parses a value that could be a number or a string with a comma into a float.
          */
         function robustParseFloat(value) {
@@ -421,12 +435,19 @@
             submitBtn.disabled = true;
             errorDiv.classList.add('hidden');
 
-            // **UPDATED**: Use the new 'findStudentById' action for login.
+            // Use the new 'findStudentById' action for login.
             fetch(`${SCRIPT_URL}?action=findStudentById&studentId=${studentId}`, { redirect: 'follow' })
                 .then(res => res.json())
                 .then(result => {
                     if (result.status === 'success' && result.data) {
-                        // The returned data now includes the class ID.
+                        // **NEW**: Add the class identifier to the student object before saving.
+                        result.data.classIdentifier = getClassIdentifier(result.data.class);
+                        if (!result.data.classIdentifier) {
+                             errorDiv.textContent = 'خطأ: لم يتم التعرف على صيغة الفصل للطالب.';
+                             errorDiv.classList.remove('hidden');
+                             return;
+                        }
+                        
                         localStorage.setItem('currentStudent', JSON.stringify(result.data));
                         switchView('app');
                         renderAppContent(result.data);
@@ -449,14 +470,16 @@
         /**
          * **UPDATED**: Refreshes student data using both studentId and classId for efficiency.
          */
-        function refreshStudentData(studentId, classId) {
-            if (!studentId || !classId) return;
+        function refreshStudentData(studentId, classIdentifier) {
+            if (!studentId || !classIdentifier) return;
 
-            // **UPDATED**: Use 'getStudentData' and pass classId for a direct lookup.
-            fetch(`${SCRIPT_URL}?action=getStudentData&studentId=${studentId}&classId=${classId}`, { redirect: 'follow' })
+            // Use 'getStudentData' and pass the correct classIdentifier for a direct lookup.
+            fetch(`${SCRIPT_URL}?action=getStudentData&studentId=${studentId}&classId=${classIdentifier}`, { redirect: 'follow' })
                 .then(res => res.json())
                 .then(result => {
                     if (result.status === 'success' && result.data) {
+                        // **NEW**: Ensure the refreshed data also has the identifier.
+                        result.data.classIdentifier = getClassIdentifier(result.data.class);
                         localStorage.setItem('currentStudent', JSON.stringify(result.data));
                         renderAppContent(result.data); 
                     }
@@ -543,7 +566,7 @@
             // Show modal only if no test has been taken
             const diagnostics = studentData.diagnostics || {};
             if (!diagnostics.d_best_weighted && !diagnostics.d_test_overall) {
-                showDiagnosticModal(studentData.id, studentData.class);
+                showDiagnosticModal(studentData.id, studentData.classIdentifier);
             }
 
             // Calculate and Render Overall Progress
@@ -582,7 +605,7 @@
         }
 
         /**
-         * **UPDATED**: Builds the learning path with correct links including classId.
+         * **UPDATED**: Builds the learning path with correct links including classIdentifier.
          */
         function buildLearningPath(studentData) {
             const learningPathContainer = document.getElementById('learning-path-section');
@@ -615,8 +638,8 @@
                         gradeHtml = `<span class="lesson-grade ${lessonGrade >= lesson.maxScore / 2 ? 'passed' : 'failed'}">${lessonGrade}/${lesson.maxScore}</span>`;
                     }
                     
-                    // **UPDATED**: Add studentId and classId to lesson link
-                    const lessonLink = studentData.id ? `lessons/${lesson.id}.html?studentId=${studentData.id}&classId=${studentData.class}` : `lessons/${lesson.id}.html`;
+                    // **UPDATED**: Add studentId and classIdentifier to lesson link
+                    const lessonLink = studentData.id ? `lessons/${lesson.id}.html?studentId=${studentData.id}&classId=${studentData.classIdentifier}` : `lessons/${lesson.id}.html`;
 
                     const gamesHtml = (lesson.games || []).map(game => {
                         const gameData = studentGames[game.id];
@@ -681,8 +704,8 @@
             const game1Icon = game1 ? getPerformanceIcon(game1Grade, game1.maxScore) : 'fa-times';
             const game2Icon = game2 ? getPerformanceIcon(game2Grade, game2.maxScore) : 'fa-times';
             
-            // **UPDATED**: Add studentId and classId to summary box lesson link
-            const lessonLink = studentData.id ? `lessons/${lesson.id}.html?studentId=${studentData.id}&classId=${studentData.class}` : `lessons/${lesson.id}.html`;
+            // **UPDATED**: Add studentId and classIdentifier to summary box lesson link
+            const lessonLink = studentData.id ? `lessons/${lesson.id}.html?studentId=${studentData.id}&classId=${studentData.classIdentifier}` : `lessons/${lesson.id}.html`;
 
             let content = `
                 <a href="${lessonLink}" target="_top" class="top-part">
@@ -716,15 +739,15 @@
         }
 
         /**
-         * **UPDATED**: Renders the test card with correct links including classId.
+         * **UPDATED**: Renders the test card with correct links including classIdentifier.
          */
         function renderTestCard(studentData) {
             const card = document.getElementById('diagnostic-card');
             if (!card) return;
 
             const diagnostics = studentData.diagnostics || {};
-            // **UPDATED**: Create the correct link with classId
-            const diagnosticLink = `diagnostic.html?studentId=${studentData.id}&classId=${studentData.class}`;
+            // **UPDATED**: Create the correct link with classIdentifier
+            const diagnosticLink = `diagnostic.html?studentId=${studentData.id}&classId=${studentData.classIdentifier}`;
 
             if (diagnostics.d_best_weighted !== undefined) {
                 const scoreData = diagnostics.d_best_weighted;
@@ -760,14 +783,14 @@
             }
         }
 
-        function showDiagnosticModal(studentId, classId) {
-            // **UPDATED**: Add classId to the modal button link
-            startDiagnosticBtn.href = `diagnostic.html?studentId=${studentId}&classId=${classId}`;
+        function showDiagnosticModal(studentId, classIdentifier) {
+            // **UPDATED**: Add classIdentifier to the modal button link
+            startDiagnosticBtn.href = `diagnostic.html?studentId=${studentId}&classId=${classIdentifier}`;
             diagnosticModal.classList.remove('hidden');
         }
 
         /**
-         * **UPDATED**: Opens the game modal and passes studentId and classId to the iframe.
+         * **UPDATED**: Opens the game modal and passes studentId and classIdentifier to the iframe.
          */
         window.openGameModal = (gameId) => {
             if (!gameId || gameId === 'null') return;
@@ -783,8 +806,8 @@
                  alert(`أنت تلعب كزائر. تبقى لديك ${VISITOR_MAX_ATTEMPTS - gameAttempts} محاولة لهذه اللعبة.`);
             }
             
-            // **UPDATED**: Append studentId and classId to the game URL
-            const gameSrc = student ? `games/${gameId}.html?studentId=${student.id}&classId=${student.class}` : `games/${gameId}.html`;
+            // **UPDATED**: Append studentId and classIdentifier to the game URL
+            const gameSrc = student ? `games/${gameId}.html?studentId=${student.id}&classId=${student.classIdentifier}` : `games/${gameId}.html`;
             gameIframe.src = gameSrc;
             
             gameIframe.onload = () => {
@@ -801,8 +824,8 @@
             gameIframe.src = 'about:blank';
             const student = getStudentFromStorage();
             if (student) {
-                // **UPDATED**: Pass classId to the refresh function
-                refreshStudentData(student.id, student.class);
+                // **UPDATED**: Pass classIdentifier to the refresh function
+                refreshStudentData(student.id, student.classIdentifier);
             }
         }
 
@@ -812,8 +835,8 @@
             if (student) {
                 switchView('app');
                 renderAppContent(student);
-                // **UPDATED**: Pass classId to the refresh function
-                refreshStudentData(student.id, student.class);
+                // **UPDATED**: Pass classIdentifier to the refresh function
+                refreshStudentData(student.id, student.classIdentifier);
             } else {
                 switchView('login');
                 buildFooter();

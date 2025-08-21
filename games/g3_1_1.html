@@ -131,7 +131,7 @@
             margin-top: 20px;
             width: 100%;
         }
-        #restart-button, #close-game-button {
+        #restart-button, #finish-game-btn {
             padding: 12px 25px;
             font-size: 1.1rem;
             font-weight: bold;
@@ -145,12 +145,12 @@
             background-color: #FFD700;
             color: #333;
         }
-        #close-game-button {
+        #finish-game-btn {
             background-color: #6c757d;
             color: white;
         }
         #restart-button:hover { transform: scale(1.05); background-color: #FFC700; }
-        #close-game-button:hover { transform: scale(1.05); background-color: #5a6268; }
+        #finish-game-btn:hover { transform: scale(1.05); background-color: #5a6268; }
         
         /* --- أنماط سجل الأبطال ومحرك الربط --- */
         .text-center { text-align: center; }
@@ -171,6 +171,7 @@
         .text-blue-600 { color: #2563EB; }
         .text-red-500 { color: #ef4444; }
         .text-white { color: #ffffff; }
+        .text-yellow-300 { color: #ca8a04; }
         
         #leaderboard-container table {
             min-width: 100%;
@@ -213,17 +214,20 @@
     <div id="game-container">
         <canvas id="gameCanvas"></canvas>
         <div id="ui-container">
-            <div id="top-bar">
+            <div id="top-bar" style="visibility: hidden;">
                 <div id="equation-display"></div>
                 <div id="task-display"></div>
             </div>
-            <div id="stats-container">
+            <div id="stats-container" style="visibility: hidden;">
                  <div id="health">الصحة: ❤️❤️❤️</div>
                  <div id="score">النقاط: ٠</div>
             </div>
             <div id="message-box">
-                <h1>لعبة المعادلات</h1>
-                <p>أوجد الميل والمقطع الصادي للمعادلة المعطاة!</p>
+                <h1>لعبة طائرة المعادلات</h1>
+                <p id="welcomeMessage">حلّق بطائرتك عبر سماء الرياضيات وأجب عن أسئلة معادلة الخط المستقيم لتصل إلى وجهتك بسلام.</p>
+                <div id="developer-info" class="mt-4 text-sm text-gray-500">
+                    <p>تطوير وبرمجة: الأستاذ عبدالعزيز خالد العبلان</p>
+                </div>
                 
                 <!-- 1. لعرض نتيجة الطالب الحالية -->
                 <div id="final-result-display" class="text-center text-xl mt-4"></div>
@@ -239,8 +243,10 @@
 
                 <!-- 4. حاوية الأزرار النهائية -->
                 <div id="end-game-buttons">
-                    <button id="restart-button">العب مرة أخرى</button>
-                    <button id="close-game-button">إنهاء والعودة</button>
+                    <button id="restart-button">بدء اللعبة</button>
+                </div>
+                <div id="finish-game-wrapper" style="display: none;" class="mt-4">
+                     <button id="finish-game-btn">إنهاء والعودة</button>
                 </div>
             </div>
         </div>
@@ -257,9 +263,10 @@
         const healthEl = document.getElementById('health');
         const messageBox = document.getElementById('message-box');
         const restartButton = document.getElementById('restart-button');
-        const closeGameButton = document.getElementById('close-game-button'); // ** زر الإغلاق الجديد **
         const equationDisplay = document.getElementById('equation-display');
         const taskDisplay = document.getElementById('task-display');
+        const topBar = document.getElementById('top-bar');
+        const statsContainer = document.getElementById('stats-container');
 
         let canvasWidth, canvasHeight;
         
@@ -746,11 +753,15 @@
                 fireworksInterval = null;
             }
             
+            // Hide end-game elements, show start-game elements
             document.getElementById('final-result-display').innerHTML = '';
             document.getElementById('leaderboard-container').innerHTML = '';
             document.getElementById('leaderboard-loader').style.display = 'none';
+            document.getElementById('finish-game-wrapper').style.display = 'none';
             messageBox.querySelector('h1').style.display = 'block';
-            messageBox.querySelector('p').style.display = 'block';
+            document.getElementById('welcomeMessage').style.display = 'block';
+            document.getElementById('developer-info').style.display = 'block';
+            restartButton.textContent = 'بدء اللعبة';
 
 
             gameOver = false;
@@ -766,6 +777,8 @@
             scoreEl.textContent = `النقاط: ${toArabicNumerals(score)}`;
             updateHealthDisplay();
             messageBox.style.display = 'none';
+            topBar.style.visibility = 'visible';
+            statsContainer.style.visibility = 'visible';
             nextProblem();
         }
 
@@ -773,9 +786,14 @@
         function endGame(isWin = false) {
             gameOver = true;
             
+            // Show end-game elements, hide start-game elements
             messageBox.style.display = 'flex';
             messageBox.querySelector('h1').style.display = 'none';
-            messageBox.querySelector('p').style.display = 'none';
+            document.getElementById('welcomeMessage').style.display = 'none';
+            document.getElementById('developer-info').style.display = 'none';
+            restartButton.textContent = 'العب مرة أخرى';
+            topBar.style.visibility = 'hidden';
+            statsContainer.style.visibility = 'hidden';
 
             // ** استدعاء دالة الحفظ وعرض السجل **
             saveAndFinishGame(score, errors);
@@ -804,10 +822,7 @@
         }, { passive: false });
         
         restartButton.addEventListener('click', startGame);
-        closeGameButton.addEventListener('click', () => {
-            window.parent.postMessage({ event: 'gameFinished', gameId: 'g1_1_2' }, '*');
-        });
-
+        
         // --- بدء الحلقة الرسومية ---
         animate();
     </script>
@@ -817,13 +832,19 @@
     (function() {
         // --- CONFIGURATION (عدّل هذه الإعدادات لكل لعبة) ---
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
-        const GAME_ID = 'g3_1_1';                       // ** تم التعديل: معرّف اللعبة **
-        const GAME_MAX_POINTS = 10;                     // ** تم التعديل: أقصى نقاط **
-        const PLATFORM_MAX_GRADE = 5;                   // الدرجة النهائية في المنصة
-        const METRIC_TYPE = 'errors';                   // ** تم التعديل: نوع المعيار **
-        const METRIC_LABEL = 'الأخطاء';                 // ** تم التعديل: اسم المعيار **
+        const GAME_ID = 'g3_1_1';
+        const GAME_MAX_POINTS = 10;
+        const PLATFORM_MAX_GRADE = 5;
+        const METRIC_TYPE = 'errors';
+        const METRIC_LABEL = 'الأخطاء';
 
-        let currentUser = null;
+        // --- Read URL Parameters ---
+        const urlParams = new URLSearchParams(window.location.search);
+        const studentId = urlParams.get('studentId');
+        const classId = urlParams.get('classId');
+        const studentName = urlParams.get('studentName');
+
+        let currentUser = (studentId && studentName) ? { id: studentId, name: studentName } : null;
 
         // --- CORE FUNCTIONS ---
 
@@ -834,7 +855,6 @@
             const maxPoints = parseFloat(GAME_MAX_POINTS) || 1;
             const finalGrade = (finalPoints / maxPoints) * PLATFORM_MAX_GRADE;
 
-            // عرض النتيجة الأولية للطالب
             const resultDisplay = document.getElementById('final-result-display');
             if (resultDisplay) {
                 resultDisplay.innerHTML = `
@@ -843,27 +863,20 @@
                 `;
             }
 
-            // حفظ النتيجة في الخلفية
-            if (currentUser && currentUser.id) {
-                console.log(`Saving grade ${finalGrade} and metric ${finalMetric} for student ${currentUser.id}`);
+            if (studentId && classId) {
                 const params = new URLSearchParams({
                     action: 'saveGrade',
-                    studentId: currentUser.id,
+                    studentId: studentId,
+                    classId: classId,
                     itemId: GAME_ID,
                     grade: finalGrade.toFixed(2),
-                    metricValue: finalMetric.toString()
+                    metricValue: Math.round(finalMetric).toString()
                 });
-
                 fetch(`${SCRIPT_URL}?${params.toString()}`)
                     .then(res => res.json())
-                    .then(result => {
-                        console.log('Save result:', result.status);
-                        fetchAndShowLeaderboard();
-                    })
-                    .catch(err => {
-                        console.error("Save Error:", err);
-                        fetchAndShowLeaderboard();
-                    });
+                    .then(result => console.log('Save result:', result.status))
+                    .catch(err => console.error("Save Error:", err))
+                    .finally(fetchAndShowLeaderboard);
             } else {
                 console.log(`Visitor finished. Score: ${finalPoints}, Metric: ${finalMetric}`);
                 fetchAndShowLeaderboard();
@@ -875,6 +888,13 @@
             const loader = document.getElementById('leaderboard-loader');
             const container = document.getElementById('leaderboard-container');
             if (!loader || !container) return;
+            
+            if (!classId) {
+                console.log("No classId found, skipping leaderboard for visitor.");
+                container.innerHTML = `<p class="text-center text-gray-500 mt-4">سجل الأبطال متاح للطلاب المسجلين فقط.</p>`;
+                showFinishButton();
+                return;
+            }
 
             loader.style.display = 'block';
             container.innerHTML = '';
@@ -882,13 +902,13 @@
             const params = new URLSearchParams({
                 action: 'getLeaderboard',
                 gameId: GAME_ID,
-                metricType: METRIC_TYPE
+                metricType: METRIC_TYPE,
+                classId: classId
             });
 
             fetch(`${SCRIPT_URL}?${params.toString()}`)
                 .then(res => res.json())
                 .then(response => {
-                    loader.style.display = 'none';
                     if (response.status === 'success' && response.data) {
                         displayLeaderboard(response.data);
                     } else {
@@ -896,9 +916,12 @@
                     }
                 })
                 .catch(err => {
-                    loader.style.display = 'none';
                     console.error("Leaderboard Error:", err);
                     container.innerHTML = `<p class="text-center text-red-500">حدث خطأ في تحميل سجل الأبطال.</p>`;
+                })
+                .finally(() => {
+                    loader.style.display = 'none';
+                    showFinishButton();
                 });
         }
         
@@ -947,19 +970,34 @@
             container.innerHTML = tableHTML;
         }
 
-        // 4. استقبال بيانات الطالب من المنصة الرئيسية
-        window.addEventListener('message', (event) => {
-            if (event.data && event.data.event === 'userData') {
-                currentUser = event.data.data;
-                console.log('User data received:', currentUser);
+        // 4. إظهار زر الإنهاء
+        function showFinishButton() {
+            const finishWrapper = document.getElementById('finish-game-wrapper');
+            if (finishWrapper) {
+                finishWrapper.style.display = 'block';
+            }
+        }
+
+        // 5. التعامل مع زر الإنهاء وتخصيص رسالة الترحيب
+        document.addEventListener('DOMContentLoaded', () => {
+            // Personalize welcome message
+            const welcomeMessage = document.getElementById('welcomeMessage');
+            if (studentName && welcomeMessage) {
+                // Decode the student's name from URL encoding (e.g., %20 becomes a space)
+                const decodedStudentName = decodeURIComponent(studentName);
+                welcomeMessage.innerHTML = `أهلاً بك يا <span class="font-bold text-yellow-300">${decodedStudentName}</span>! حلّق بطائرتك عبر سماء الرياضيات وأجب عن أسئلة معادلة الخط المستقيم لتصل إلى وجهتك بسلام.`;
+            }
+
+            const finishBtn = document.getElementById('finish-game-btn');
+            if (finishBtn) {
+                finishBtn.addEventListener('click', () => {
+                    window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*');
+                });
             }
         });
-
-        // طلب بيانات المستخدم عند تحميل اللعبة
-        window.parent.postMessage({ event: 'gameReady', gameId: GAME_ID }, '*');
     })();
+    // --- END OF CONNECTION & LEADERBOARD ENGINE ---
     </script>
-    <!-- --- END OF CONNECTION & LEADERBOARD ENGINE --- -->
-
+    
 </body>
 </html>

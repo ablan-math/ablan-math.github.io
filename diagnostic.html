@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>اختبارات  الرياضيات التشخيصية</title>
+    <title>اختبارات الرياضيات التشخيصية</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -722,9 +722,9 @@
                         <div class="explanation-card">
                              <div class="icon-wrapper"><i class="fas fa-coins"></i></div>
                              <div class="text-content">
-                                <h3>نظام النقاط</h3>
-                                <p id="pre-quiz-points-exp"></p>
-                            </div>
+                                 <h3>نظام النقاط</h3>
+                                 <p id="pre-quiz-points-exp"></p>
+                             </div>
                         </div>
                     </div>
                     <div class="quiz-nav">
@@ -811,6 +811,7 @@
         // --- State ---
         let studentId = '';
         let studentName = '';
+        let classId = ''; // <-- تم إضافة هذا المتغير
         let isVisitor = false;
         let currentQuizId = null;
         let currentDifficulty = null;
@@ -1010,8 +1011,10 @@
         }
         
         async function saveGradeToSheet(itemId, grade, points) {
-            if (isVisitor || !studentId) return; 
-            const url = `${SCRIPT_URL}?action=saveGrade&studentId=${studentId}&itemId=${itemId}&grade=${grade}&metricValue=${points}`;
+            // **UPDATED**: Check for classId before sending
+            if (isVisitor || !studentId || !classId) return; 
+            // **UPDATED**: Add classId to the URL
+            const url = `${SCRIPT_URL}?action=saveGrade&studentId=${studentId}&classId=${classId}&itemId=${itemId}&grade=${grade}&metricValue=${points}`;
             try {
                 const response = await fetch(url);
                 const result = await response.json();
@@ -1382,6 +1385,7 @@
         async function init() {
             const urlParams = new URLSearchParams(window.location.search);
             studentId = urlParams.get('studentId');
+            classId = urlParams.get('classId'); // <-- **تم التعديل هنا**
 
             if (!studentId) {
                 isVisitor = true;
@@ -1390,9 +1394,16 @@
                 showScreen('dashboard');
                 return;
             }
+
+            // **تمت إضافة هذا التحقق**
+            if (!classId) {
+                document.body.innerHTML = '<h1 style="text-align: center; padding: 50px; color: red;">خطأ: معرّف الفصل الدراسي مفقود. الرجاء العودة للمنصة الرئيسية والمحاولة مرة أخرى.</h1>';
+                return;
+            }
             
             try {
-                const response = await fetch(`${SCRIPT_URL}?action=getStudentData&studentId=${studentId}`);
+                // **تم التعديل هنا**
+                const response = await fetch(`${SCRIPT_URL}?action=getStudentData&studentId=${studentId}&classId=${classId}`);
                 const result = await response.json();
                 if (result.status === 'success' && result.data) {
                     studentName = result.data.name;
@@ -1400,17 +1411,12 @@
                     renderDashboard();
                     showScreen('dashboard');
                 } else {
-                    isVisitor = true;
-                    loadQuizData(null);
-                    renderDashboard();
-                    showScreen('dashboard');
+                    // Handle case where student is not found in the specific class sheet
+                    document.body.innerHTML = `<h1 style="text-align: center; padding: 50px; color: red;">خطأ: لم يتم العثور على الطالب بالرقم ${studentId} في الفصل ${classId}.</h1>`;
                 }
             } catch (error) {
                 console.error("Failed to fetch student data:", error);
-                isVisitor = true;
-                loadQuizData(null);
-                renderDashboard();
-                showScreen('dashboard');
+                document.body.innerHTML = '<h1 style="text-align: center; padding: 50px; color: red;">حدث خطأ أثناء تحميل بيانات الطالب.</h1>';
             }
         }
 

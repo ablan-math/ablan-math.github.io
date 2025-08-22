@@ -193,7 +193,7 @@
         if (!footerContainer) return;
         footerContainer.innerHTML = `<div class="container mx-auto px-6"><p class="text-center text-gray-600 text-sm">© 2024 جميع الحقوق محفوظة | تصميم وتطوير: أ. عبدالعزيز خالد العبلان</p></div>`;
     }
-    function initializeQuiz(lessonId, questions, studentData, classId) { 
+    function initializeQuiz(lessonId, questions, studentData) { 
         window.currentQuestions = questions; 
         const quizForm = document.getElementById('quizForm'); 
         if (!quizForm) return; 
@@ -201,11 +201,15 @@
             quizForm.innerHTML = `<p class="text-center text-gray-600">لا توجد أسئلة متاحة لهذا الدرس حالياً.</p>`; 
             return; 
         } 
-        let attemptsLeft = 1; 
-        if (studentData) {
-            const studentLessonData = studentData.lessons?.[lessonId] || { attempts: 0 };
-            attemptsLeft = MAX_ATTEMPTS - studentLessonData.attempts;
+        let attemptsLeft = MAX_ATTEMPTS; 
+        if (studentData && studentData.lessons && studentData.lessons[lessonId]) {
+            attemptsLeft = MAX_ATTEMPTS - studentData.lessons[lessonId].attempts;
+        } else if (studentData) {
+            attemptsLeft = MAX_ATTEMPTS;
+        } else {
+            attemptsLeft = 1;
         }
+
         const attemptsCounter = document.getElementById('attempts-counter'); 
         if (attemptsCounter) { 
             attemptsCounter.innerHTML = `المحاولات المتبقية: <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded-full">${attemptsLeft}</span>`; 
@@ -263,8 +267,8 @@
             const resultsDiv = document.getElementById('quiz-results'); 
             resultsDiv.classList.remove('hidden'); 
             document.getElementById('quiz-score').textContent = `${finalGrade} / 10`; 
-            if (studentData && classId) {
-                saveGrade(lessonId, finalGrade, studentData.id, classId); 
+            if (studentData) {
+                saveGrade(lessonId, finalGrade, studentData.id, studentData.classId); 
                 if (attemptsLeft - 1 > 0) {
                     document.getElementById('retake-quiz-btn').classList.remove('hidden');
                 }
@@ -324,21 +328,11 @@
     // --- END SCRIPT GENERAL ---
 
     document.addEventListener('DOMContentLoaded', () => {
-        const urlParams = new URLSearchParams(window.location.search);
-        const studentId = urlParams.get('studentId');
-        const classId = urlParams.get('classId');
-        const studentName = urlParams.get('studentName');
-        const studentDataFromUrl = studentId ? { id: studentId, name: studentName || `طالب ${studentId}` } : null;
-        
-        const studentDataFromStorage = getStudentFromStorage();
-
-        // Use data from storage if it matches the ID from URL, otherwise use URL data.
-        const studentData = studentDataFromStorage && studentDataFromStorage.id === studentId ? studentDataFromStorage : studentDataFromUrl;
-
-
         const lessonTitleElement = document.getElementById('lesson-title');
         const lessonTitle = lessonTitleElement ? lessonTitleElement.textContent : null;
         
+        const studentData = getStudentFromStorage();
+
         buildHeader(studentData, lessonTitle);
         buildFooter();
         
@@ -579,7 +573,7 @@
 
         // --- Quiz Section ---
         const quizQuestions = generateQuiz();
-        initializeQuiz(LESSON_ID, quizQuestions, studentData, classId); 
+        initializeQuiz(LESSON_ID, quizQuestions, studentData); 
         
         const retakeBtn = document.getElementById('retake-quiz-btn');
         if(retakeBtn) { retakeBtn.addEventListener('click', () => { window.location.reload(); }); }

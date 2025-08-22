@@ -179,7 +179,7 @@
             <div class="p-6 bg-white rounded-xl shadow-lg">
                 <header class="flex justify-between items-center mb-8 border-b pb-4 border-gray-200">
                     <h1 id="lesson-title" class="text-3xl font-bold text-blue-800">الدرس ٥-١: حل نظام من معادلتين خطيتين بيانياً</h1>
-                    <a href="../index.html" target="_top" class="text-sm text-blue-600 hover:underline">&larr; العودة إلى الفهرس</a>
+                    <!-- The "Return to Index" link that was here has been removed -->
                 </header>
 
                 <!-- Part 1: Basic Concepts -->
@@ -401,9 +401,37 @@
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
     const MAX_ATTEMPTS = 3;
     let currentQuestions = []; 
+    
+    // Read student and class IDs from URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const studentId = urlParams.get('studentId');
+    const classId = urlParams.get('classId');
+
     function getStudentFromStorage() { const d = localStorage.getItem('currentStudent'); return d ? JSON.parse(d) : null; }
-    function buildHeader(studentData, lessonTitle = null) { const h = document.getElementById('main-header'); if (!h) return; let t = lessonTitle ? `<div><h2 class="text-sm text-gray-500 leading-tight">منصة الرياضيات التفاعلية</h2><h1 class="text-xl font-bold text-indigo-700 leading-tight">${lessonTitle}</h1></div>` : `<a href="../index.html" target="_top"><h1 class="text-2xl font-bold text-blue-800">منصة الرياضيات التفاعلية</h1></a>`; let u = studentData ? `<div class="flex items-center gap-4"><span class="font-semibold">أهلاً، ${studentData.name}</span><a href="../index.html" target="_top" id="logout-link" class="bg-red-500 text-white py-1 px-3 rounded-lg hover:bg-red-600">خروج</a></div>` : `<p class="text-lg text-gray-600">زائر</p>`; h.innerHTML = `<div class="container mx-auto px-6 py-4 flex justify-between items-center">${t}${u}</div>`; const l = h.querySelector('#logout-link'); if(l) l.addEventListener('click', () => localStorage.removeItem('currentStudent')); }
+    
+    function buildHeader(studentData, lessonTitle = null) {
+        const h = document.getElementById('main-header');
+        if (!h) return;
+        let t = lessonTitle ? `<div><h2 class="text-sm text-gray-500 leading-tight">منصة الرياضيات التفاعلية</h2><h1 class="text-xl font-bold text-indigo-700 leading-tight">${lessonTitle}</h1></div>` : `<a href="../index.html" target="_top"><h1 class="text-2xl font-bold text-blue-800">منصة الرياضيات التفاعلية</h1></a>`;
+        let u = studentData ?
+            `<div class="text-right">
+                <div class="flex items-center gap-4 justify-end">
+                    <span class="font-semibold">أهلاً، ${studentData.name}</span>
+                    <a href="../index.html" target="_top" id="logout-link" class="bg-red-500 text-white py-1 px-3 rounded-lg hover:bg-red-600 text-sm">خروج</a>
+                </div>
+                <a href="../index.html" target="_top" class="text-xs text-blue-600 hover:underline">&larr; العودة إلى الفهرس</a>
+            </div>` :
+            `<div class="text-right">
+                <p class="text-lg text-gray-600">زائر</p>
+                <a href="../index.html" target="_top" class="text-xs text-blue-600 hover:underline">&larr; العودة إلى الفهرس</a>
+            </div>`;
+        h.innerHTML = `<div class="container mx-auto px-6 py-4 flex justify-between items-center">${t}${u}</div>`;
+        const l = h.querySelector('#logout-link');
+        if(l) l.addEventListener('click', () => localStorage.removeItem('currentStudent'));
+    }
+
     function buildFooter() { const f = document.getElementById('main-footer'); if (f) f.innerHTML = `<div class="container mx-auto px-6"><p class="text-center text-gray-600 text-sm">© 2024 جميع الحقوق محفوظة | تصميم وتطوير: أ. عبدالعزيز خالد العبلان</p></div>`; }
+    
     function initializeQuiz(lessonId, questions, studentData) {
         currentQuestions = questions;
         const qf = document.getElementById('quizForm');
@@ -429,11 +457,54 @@
             });
             const finalGrade = Math.round((score / questions.length) * 10);
             const rd = document.getElementById('quiz-results'); rd.classList.remove('hidden'); document.getElementById('quiz-score').textContent = `${finalGrade} / 10`;
-            if (studentData) { saveGrade(lessonId, finalGrade, studentData.id); if (attemptsLeft - 1 > 0) document.getElementById('retake-quiz-btn').classList.remove('hidden'); } else { document.getElementById('save-status').textContent = 'تم عرض نتيجتك. سجل الدخول لحفظ تقدمك.'; }
+            
+            if (studentId && classId) {
+                saveGrade(lessonId, finalGrade);
+                 if (studentData && attemptsLeft - 1 > 0) {
+                    document.getElementById('retake-quiz-btn').classList.remove('hidden');
+                }
+            } else {
+                document.getElementById('save-status').textContent = 'تم عرض نتيجتك. لا يمكن الحفظ لعدم وجود بيانات الطالب في الرابط.';
+            }
             e.target.querySelector('#submit-quiz-btn').disabled = true;
         };
     }
-    function saveGrade(lessonId, grade, studentId) { if (!studentId) return; const ss = document.getElementById('save-status'); ss.textContent = 'جارٍ حفظ نتيجتك...'; fetch(`${SCRIPT_URL}?action=saveGrade&studentId=${studentId}&lessonId=${lessonId}&grade=${grade}`).then(res => res.json()).then(result => { if (result.status === 'success') { ss.textContent = '✔ تم حفظ نتيجتك بنجاح!'; const sd = JSON.parse(localStorage.getItem('currentStudent')); if (!sd.lessons) sd.lessons = {}; if (!sd.lessons[lessonId] || sd.lessons[lessonId].grade < grade) { sd.lessons[lessonId] = { grade: grade, attempts: (sd.lessons[lessonId]?.attempts || 0) + 1 }; } else { sd.lessons[lessonId].attempts++; } localStorage.setItem('currentStudent', JSON.stringify(sd)); } else { throw new Error(result.message); } }).catch(error => { ss.textContent = '❌ حدث خطأ أثناء حفظ الدرجة.'; console.error("Save Grade Error:", error); }); }
+
+    function saveGrade(lessonId, grade) {
+        const ss = document.getElementById('save-status');
+        if (!studentId || !classId) {
+            console.error("Student ID or Class ID is missing from the URL.");
+            ss.textContent = '❌ خطأ: لا يمكن حفظ نتيجتك. بيانات الطالب أو الفصل غير موجودة.';
+            ss.className = 'mt-4 text-sm font-semibold text-red-600';
+            return;
+        }
+        ss.textContent = 'جارٍ حفظ نتيجتك...';
+        ss.className = 'mt-4 text-sm font-semibold text-gray-600';
+        fetch(`${SCRIPT_URL}?action=saveGrade&studentId=${studentId}&classId=${classId}&lessonId=${lessonId}&grade=${grade}`)
+            .then(res => res.json()).then(result => {
+                if (result.status === 'success') {
+                    ss.textContent = '✔ تم حفظ نتيجتك بنجاح!';
+                    ss.className = 'mt-4 text-sm font-semibold text-green-600';
+                    const sd = JSON.parse(localStorage.getItem('currentStudent'));
+                    if(sd && sd.id == studentId) {
+                        if (!sd.lessons) sd.lessons = {};
+                        if (!sd.lessons[lessonId] || sd.lessons[lessonId].grade < grade) {
+                            sd.lessons[lessonId] = { grade: grade, attempts: (sd.lessons[lessonId]?.attempts || 0) + 1 };
+                        } else {
+                            sd.lessons[lessonId].attempts++;
+                        }
+                        localStorage.setItem('currentStudent', JSON.stringify(sd));
+                    }
+                } else {
+                    throw new Error(result.message);
+                }
+            }).catch(error => {
+                ss.textContent = '❌ حدث خطأ أثناء حفظ الدرجة.';
+                ss.className = 'mt-4 text-sm font-semibold text-red-600';
+                console.error("Save Grade Error:", error);
+            });
+    }
+
     window.showExplanation = (i, type) => { const q = currentQuestions[i]; const m = document.getElementById('explanationModal'); const et = document.getElementById('explanationText'); if (!m || !et || !q) return; et.innerHTML = (type === 'smart' && q.smartExplanation) ? `<p>${q.smartExplanation}</p>` : `<p>${q.explanation}</p>`; m.classList.remove('hidden'); }
     function closeModal() { const m = document.getElementById('explanationModal'); if(m) m.classList.add('hidden'); }
     
@@ -640,7 +711,7 @@
                 "<strong>1. المعادلة <span class='text-blue-600'>ص = -س + ٣</span>:</strong><br>نحدد المقطع الصادي (ب = ٣) عند النقطة (٠، ٣).",
                 "<strong>2. نستخدم الميل <span class='text-blue-600'>م = <span class='math-eq'><span class='fraction'><span>-١</span><span>١</span></span></span></span>:</strong><br>نتحرك للأسفل ١ ولليمين ١ لنجد النقطة الثانية (١، ٢).",
                 "<strong>3. نرسم المستقيم الأول.</strong>",
-                "والآن، لنرسم المستقيم الثاني.",
+                "", // Empty step for summary to appear
                 "<strong>4. المعادلة <span class='text-red-600'>ص = ٢س</span>:</strong><br>نحدد المقطع الصادي (ب = ٠) عند النقطة (٠، ٠).",
                 "<strong>5. نستخدم الميل <span class='text-red-600'>م = <span class='math-eq'><span class='fraction'><span>+٢</span><span>١</span></span></span></span>:</strong><br>نتحرك للأعلى ٢ ولليمين ١ لنجد النقطة الثانية (١، ٢).",
                 "<strong>6. نرسم المستقيم الثاني.</strong>",
@@ -672,6 +743,7 @@
                 "<strong>2. نمثل معادلة صالح:</strong><br>نحدد المقطع الصادي (ب = ٦٥) عند النقطة (٠، ٦٥).",
                 "<strong>3. نستخدم الميل <span class='text-blue-600'>م = <span class='math-eq'><span class='fraction'><span>+٢٠</span><span>١</span></span></span></span>:</strong><br>نتحرك للأعلى ٢٠ (من ٦٥ إلى ٨٥) ولليمين ١ لنجد النقطة الثانية (١، ٨٥).",
                 "<strong>4. نرسم مستقيم صالح.</strong>",
+                "", // Empty step for summary to appear
                 "<strong>5. معادلة عبدالله:</strong><br>بدأ بـ ٨٥ صفحة (المقطع الصادي) ويقرأ ١٠ صفحات يومياً (الميل).<br>المعادلة هي <span class='math-eq text-green-600'>ص = ١٠س + ٨٥</span>",
                 "<strong>6. نمثل معادلة عبدالله:</strong><br>نحدد المقطع الصادي (ب = ٨٥) عند النقطة (٠، ٨٥).",
                 "<strong>7. نستخدم الميل <span class='text-green-600'>م = <span class='math-eq'><span class='fraction'><span>+١٠</span><span>١</span></span></span></span>:</strong><br>نتحرك للأعلى ١٠ (من ٨٥ إلى ٩٥) ولليمين ١ لنجد النقطة الثانية (١، ٩٥).",

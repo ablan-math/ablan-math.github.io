@@ -127,7 +127,7 @@
             <div class="p-6 bg-white rounded-xl shadow-lg">
                 <header class="flex justify-between items-center mb-8 border-b pb-4 border-gray-200">
                     <h1 id="lesson-title" class="text-3xl font-bold text-blue-800">الدرس ٣-١: معادلة المستقيم بصيغة الميل والمقطع</h1>
-                    <a href="../index.html" target="_top" class="text-sm text-blue-600 hover:underline">&larr; العودة إلى الفهرس</a>
+                    <!-- تم نقل رابط العودة للفهرس إلى الهيدر الرئيسي عبر الجافاسكربت -->
                 </header>
 
                 <!-- المحتوى القديم يبدأ هنا -->
@@ -341,9 +341,52 @@
     const MAX_ATTEMPTS = 3;
     let currentQuestions = []; 
     function getStudentFromStorage() { const studentDataString = localStorage.getItem('currentStudent'); if (studentDataString) { try { return JSON.parse(studentDataString); } catch (e) { return null; } } return null; }
-    function buildHeader(studentData, lessonTitle = null) { const headerContainer = document.getElementById('main-header'); if (!headerContainer) return; let titleHtml; if (lessonTitle) { titleHtml = `<div><h2 class="text-sm text-gray-500 leading-tight">منصة الرياضيات التفاعلية</h2><h1 class="text-xl font-bold text-indigo-700 leading-tight">${lessonTitle}</h1></div>`; } else { titleHtml = `<a href="../index.html" target="_top"><h1 class="text-2xl font-bold text-blue-800">منصة الرياضيات التفاعلية</h1></a>`; } let userInfoHtml = ''; if (studentData) { userInfoHtml = `<div class="flex items-center gap-4"><span class="font-semibold">أهلاً، ${studentData.name}</span><a href="../index.html" target="_top" id="logout-link" class="bg-red-500 text-white py-1 px-3 rounded-lg hover:bg-red-600">خروج</a></div>`; } else { userInfoHtml = `<p class="text-lg text-gray-600">زائر</p>`; } headerContainer.innerHTML = `<div class="container mx-auto px-6 py-4 flex justify-between items-center">${titleHtml}${userInfoHtml}</div>`; const logoutLink = headerContainer.querySelector('#logout-link'); if(logoutLink) { logoutLink.addEventListener('click', () => { localStorage.removeItem('currentStudent'); }); } }
+    
+    // --- START: Updated buildHeader function ---
+    function buildHeader(studentData, lessonTitle = null) {
+        const headerContainer = document.getElementById('main-header');
+        if (!headerContainer) return;
+        
+        let titleHtml;
+        if (lessonTitle) {
+            titleHtml = `<div><h2 class="text-sm text-gray-500 leading-tight">منصة الرياضيات التفاعلية</h2><h1 class="text-xl font-bold text-indigo-700 leading-tight">${lessonTitle}</h1></div>`;
+        } else {
+            titleHtml = `<a href="../index.html" target="_top"><h1 class="text-2xl font-bold text-blue-800">منصة الرياضيات التفاعلية</h1></a>`;
+        }
+        
+        let userInfoHtml = '';
+        if (studentData) {
+            userInfoHtml = `
+                <div class="text-left">
+                    <div class="flex items-center gap-4">
+                        <span class="font-semibold">أهلاً، ${studentData.name}</span>
+                        <a href="../index.html" target="_top" id="logout-link" class="bg-red-500 text-white py-1 px-3 rounded-lg hover:bg-red-600">خروج</a>
+                    </div>
+                    <a href="../index.html" target="_top" class="text-xs text-blue-600 hover:underline block mt-1">&larr; العودة إلى الفهرس</a>
+                </div>`;
+        } else {
+            userInfoHtml = `
+                <div class="text-left">
+                    <p class="text-lg text-gray-600">زائر</p>
+                    <a href="../index.html" target="_top" class="text-xs text-blue-600 hover:underline block mt-1">&larr; العودة إلى الفهرس</a>
+                </div>`;
+        }
+        
+        headerContainer.innerHTML = `<div class="container mx-auto px-6 py-4 flex justify-between items-center">${titleHtml}${userInfoHtml}</div>`;
+        
+        const logoutLink = headerContainer.querySelector('#logout-link');
+        if(logoutLink) {
+            logoutLink.addEventListener('click', () => {
+                localStorage.removeItem('currentStudent');
+            });
+        }
+    }
+    // --- END: Updated buildHeader function ---
+
     function buildFooter() { const footerContainer = document.getElementById('main-footer'); if (!footerContainer) return; footerContainer.innerHTML = `<div class="container mx-auto px-6"><p class="text-center text-gray-600 text-sm">© 2024 جميع الحقوق محفوظة | تصميم وتطوير: أ. عبدالعزيز خالد العبلان</p></div>`; }
-    function initializeQuiz(lessonId, questions, studentData) {
+    
+    // --- START: Updated initializeQuiz function ---
+    function initializeQuiz(lessonId, questions, studentData, studentId, classId) {
         currentQuestions = questions;
         const quizForm = document.getElementById('quizForm');
         if (!quizForm) return;
@@ -386,7 +429,7 @@
                 const userAnswer = e.target.elements[`q${index}`]?.value;
                 const feedbackEl = document.getElementById(`feedback-q${index}`);
                 const buttonsContainer = document.getElementById(`explanation-buttons-${index}`);
-                buttonsContainer.innerHTML = ''; // Clear previous buttons
+                buttonsContainer.innerHTML = ''; 
 
                 if (userAnswer === q.correct) {
                     score++;
@@ -419,18 +462,55 @@
             const resultsDiv = document.getElementById('quiz-results');
             resultsDiv.classList.remove('hidden');
             document.getElementById('quiz-score').textContent = `${finalGrade} / 10`;
-            if (studentData) {
-                saveGrade(lessonId, finalGrade, studentData.id);
+            if (studentId && classId) { // Check for URL params for saving
+                saveGrade(lessonId, finalGrade, studentId, classId);
                 if (attemptsLeft - 1 > 0) {
                     document.getElementById('retake-quiz-btn').classList.remove('hidden');
                 }
             } else {
-                document.getElementById('save-status').textContent = 'تم عرض نتيجتك. سجل الدخول لحفظ تقدمك.';
+                document.getElementById('save-status').textContent = 'تم عرض نتيجتك. سجل الدخول من المنصة الرئيسية لحفظ تقدمك.';
             }
             e.target.querySelector('#submit-quiz-btn').disabled = true;
         };
     }
-    function saveGrade(lessonId, grade, studentId) { if (!studentId) return; const saveStatus = document.getElementById('save-status'); saveStatus.textContent = 'جارٍ حفظ نتيجتك...'; const url = `${SCRIPT_URL}?action=saveGrade&studentId=${studentId}&lessonId=${lessonId}&grade=${grade}`; fetch(url) .then(res => res.json()) .then(result => { if (result.status === 'success') { saveStatus.textContent = '✔ تم حفظ نتيجتك بنجاح! ستظهر في لوحة التحكم عند العودة.'; const studentData = JSON.parse(localStorage.getItem('currentStudent')); if (!studentData.lessons) studentData.lessons = {}; if (!studentData.lessons[lessonId] || studentData.lessons[lessonId].grade < grade) { studentData.lessons[lessonId] = { grade: grade, attempts: (studentData.lessons[lessonId]?.attempts || 0) + 1 }; } else { studentData.lessons[lessonId].attempts++; } localStorage.setItem('currentStudent', JSON.stringify(studentData)); } else { throw new Error(result.message); } }) .catch(error => { saveStatus.textContent = '❌ حدث خطأ أثناء حفظ الدرجة.'; console.error("Save Grade Error:", error); }); }
+    // --- END: Updated initializeQuiz function ---
+
+    // --- START: Updated saveGrade function ---
+    function saveGrade(lessonId, grade, studentId, classId) {
+        const saveStatus = document.getElementById('save-status');
+        if (!studentId || !classId) {
+            saveStatus.textContent = '❌ خطأ: لا يمكن حفظ نتيجتك. بيانات الطالب أو الفصل غير موجودة.';
+            console.error("Student ID or Class ID is missing. Cannot save grade.");
+            return;
+        }
+        saveStatus.textContent = 'جارٍ حفظ نتيجتك...';
+        const url = `${SCRIPT_URL}?action=saveGrade&studentId=${studentId}&classId=${classId}&lessonId=${lessonId}&grade=${grade}`;
+        fetch(url)
+            .then(res => res.json())
+            .then(result => {
+                if (result.status === 'success') {
+                    saveStatus.textContent = '✔ تم حفظ نتيجتك بنجاح! ستظهر في لوحة التحكم عند العودة.';
+                    const studentData = getStudentFromStorage();
+                    if (studentData) {
+                        if (!studentData.lessons) studentData.lessons = {};
+                        if (!studentData.lessons[lessonId] || studentData.lessons[lessonId].grade < grade) {
+                            studentData.lessons[lessonId] = { grade: grade, attempts: (studentData.lessons[lessonId]?.attempts || 0) + 1 };
+                        } else {
+                            studentData.lessons[lessonId].attempts++;
+                        }
+                        localStorage.setItem('currentStudent', JSON.stringify(studentData));
+                    }
+                } else {
+                    throw new Error(result.message);
+                }
+            })
+            .catch(error => {
+                saveStatus.textContent = '❌ حدث خطأ أثناء حفظ الدرجة.';
+                console.error("Save Grade Error:", error);
+            });
+    }
+    // --- END: Updated saveGrade function ---
+
     window.showExplanation = function(questionIndex, type) {
         const modal = document.getElementById('explanationModal');
         const explanationText = document.getElementById('explanationText');
@@ -477,6 +557,12 @@
     
     // 3. تشغيل الكود عند تحميل الصفحة
     document.addEventListener('DOMContentLoaded', () => {
+        // --- START: Read URL Parameters ---
+        const urlParams = new URLSearchParams(window.location.search);
+        const studentId = urlParams.get('studentId');
+        const classId = urlParams.get('classId');
+        // --- END: Read URL Parameters ---
+
         // --- دوال الأمثلة التفاعلية القديمة ---
         function createInteractiveSection(config) {
             let currentStep = 0;
@@ -525,7 +611,7 @@
         buildHeader(student, lessonTitle);
         buildFooter();
         const questions = generateQuiz();
-        initializeQuiz(LESSON_ID, questions, student);
+        initializeQuiz(LESSON_ID, questions, student, studentId, classId); // Pass URL params
         const retakeBtn = document.getElementById('retake-quiz-btn');
         if(retakeBtn) { retakeBtn.addEventListener('click', () => { window.location.reload(); }); }
         const closeModalBtn = document.getElementById('closeModalBtn');

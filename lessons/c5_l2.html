@@ -220,14 +220,12 @@
     const MAX_ATTEMPTS = 3;
     let currentQuestions = []; 
 
-    //  =============  تعديل جديد: قراءة المعرفات من الرابط  =============
     const urlParams = new URLSearchParams(window.location.search);
     const studentIdFromUrl = urlParams.get('studentId');
     const classIdFromUrl = urlParams.get('classId');
 
     function getStudentFromStorage() { const studentDataString = localStorage.getItem('currentStudent'); if (studentDataString) { try { return JSON.parse(studentDataString); } catch (e) { return null; } } return null; }
     
-    //  =============  تعديل جديد: تحديث تصميم الشريط العلوي  =============
     function buildHeader(studentData, lessonTitle = null) {
         const headerContainer = document.getElementById('main-header');
         if (!headerContainer) return;
@@ -244,13 +242,90 @@
     }
 
     function buildFooter() { const footerContainer = document.getElementById('main-footer'); if (!footerContainer) return; footerContainer.innerHTML = `<div class="container mx-auto px-6"><p class="text-center text-gray-600 text-sm">© 2024 جميع الحقوق محفوظة | تصميم وتطوير: أ. عبدالعزيز خالد العبلان</p></div>`; }
-    function initializeQuiz(lessonId, questions, studentData) { currentQuestions = questions; const quizForm = document.getElementById('quizForm'); if (!quizForm) return; if (questions.length === 0) { quizForm.innerHTML = `<p class="text-center text-gray-600">لا توجد أسئلة متاحة لهذا الدرس حالياً.</p>`; return; } let attemptsLeft; if (studentData) { const studentLessonData = studentData.lessons?.[lessonId] || { attempts: 0 }; attemptsLeft = MAX_ATTEMPTS - studentLessonData.attempts; } else { attemptsLeft = 1; } const attemptsCounter = document.getElementById('attempts-counter'); if (attemptsCounter) { attemptsCounter.innerHTML = `المحاولات المتبقية: <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded-full">${attemptsLeft}</span>`; } const quizHtml = questions.map((q, index) => { const optionsHTML = q.options.map((opt, optIndex) => `<div><input type="radio" name="q${index}" value="${opt.value}" id="q${index}_opt${optIndex}" class="hidden"><label for="q${index}_opt${optIndex}" class="option-label">${opt.display}</label></div>`).join(''); const smartButtonHTML = q.smartExplanation ? `<button type="button" id="smart-explain-btn-${index}" class="hidden mt-2 text-xs text-purple-600 hover:underline font-semibold">🧠 الحل الذكي</button>` : ''; return `<div class="p-4 border-2 border-gray-200 rounded-lg"><p class="font-bold">${index + 1}. <span class="text-yellow-500">${q.level}</span> ${q.text}</p><div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">${optionsHTML}</div><div id="feedback-q${index}" class="mt-2 text-sm font-bold"></div><div class="flex items-center space-x-4 space-x-reverse">${smartButtonHTML}<button type="button" id="explain-btn-${index}" class="hidden mt-2 text-xs text-blue-600 hover:underline">اعرف لماذا؟</button></div></div>`; }).join(''); quizForm.innerHTML = quizHtml + `<button type="submit" id="submit-quiz-btn" class="w-full text-white bg-green-600 hover:bg-green-700 font-medium rounded-lg text-lg px-5 py-3 mt-8">تحقق من إجاباتي</button>`; questions.forEach((q, index) => { const explainBtn = document.getElementById(`explain-btn-${index}`); if(explainBtn) explainBtn.addEventListener('click', () => showExplanation(index)); if (q.smartExplanation) { const smartExplainBtn = document.getElementById(`smart-explain-btn-${index}`); if(smartExplainBtn) smartExplainBtn.addEventListener('click', () => showSmartExplanation(index)); } }); if (attemptsLeft <= 0) { const submitBtn = quizForm.querySelector('#submit-quiz-btn'); submitBtn.disabled = true; submitBtn.textContent = 'لا توجد محاولات متبقية'; submitBtn.classList.add('bg-gray-400', 'hover:bg-gray-400'); } quizForm.onsubmit = (e) => { e.preventDefault(); let score = 0; questions.forEach((q, index) => { const userAnswer = e.target.elements[`q${index}`]?.value; const feedbackEl = document.getElementById(`feedback-q${index}`); if (userAnswer === q.correct) { score++; feedbackEl.textContent = '✔ إجابة صحيحة!'; feedbackEl.className = 'mt-2 text-sm font-bold text-green-600'; } else { feedbackEl.textContent = `❌ إجابة خاطئة.`; feedbackEl.className = 'mt-2 text-sm font-bold text-red-600'; } document.getElementById(`explain-btn-${index}`).classList.remove('hidden'); if (q.smartExplanation) { document.getElementById(`smart-explain-btn-${index}`).classList.remove('hidden'); } }); const finalGrade = Math.round((score / questions.length) * 10); const resultsDiv = document.getElementById('quiz-results'); resultsDiv.classList.remove('hidden'); document.getElementById('quiz-score').textContent = `${finalGrade} / 10`; if (studentIdFromUrl && classIdFromUrl) { saveGrade(lessonId, finalGrade); } else { document.getElementById('save-status').textContent = 'لم يتم الحفظ. بيانات الطالب غير موجودة في الرابط.'; } e.target.querySelector('#submit-quiz-btn').disabled = true; }; }
     
-    //  =============  تعديل جديد: تحديث دالة حفظ الدرجة  =============
+    function initializeQuiz(lessonId, questions, studentData) {
+        currentQuestions = questions;
+        const quizForm = document.getElementById('quizForm');
+        if (!quizForm) return;
+        if (questions.length === 0) {
+            quizForm.innerHTML = `<p class="text-center text-gray-600">لا توجد أسئلة متاحة لهذا الدرس حالياً.</p>`;
+            return;
+        }
+        
+        let attemptsLeft;
+        if (studentData) {
+            const studentLessonData = studentData.lessons?.[lessonId] || { attempts: 0 };
+            attemptsLeft = MAX_ATTEMPTS - studentLessonData.attempts;
+        } else {
+            attemptsLeft = 1;
+        }
+        
+        const attemptsCounter = document.getElementById('attempts-counter');
+        if (attemptsCounter) {
+            attemptsCounter.innerHTML = `المحاولات المتبقية: <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded-full">${attemptsLeft}</span>`;
+        }
+        
+        const quizHtml = questions.map((q, index) => { const optionsHTML = q.options.map((opt, optIndex) => `<div><input type="radio" name="q${index}" value="${opt.value}" id="q${index}_opt${optIndex}" class="hidden"><label for="q${index}_opt${optIndex}" class="option-label">${opt.display}</label></div>`).join(''); const smartButtonHTML = q.smartExplanation ? `<button type="button" id="smart-explain-btn-${index}" class="hidden mt-2 text-xs text-purple-600 hover:underline font-semibold">🧠 الحل الذكي</button>` : ''; return `<div class="p-4 border-2 border-gray-200 rounded-lg"><p class="font-bold">${index + 1}. <span class="text-yellow-500">${q.level}</span> ${q.text}</p><div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">${optionsHTML}</div><div id="feedback-q${index}" class="mt-2 text-sm font-bold"></div><div class="flex items-center space-x-4 space-x-reverse">${smartButtonHTML}<button type="button" id="explain-btn-${index}" class="hidden mt-2 text-xs text-blue-600 hover:underline">اعرف لماذا؟</button></div></div>`; }).join('');
+        quizForm.innerHTML = quizHtml + `<button type="submit" id="submit-quiz-btn" class="w-full text-white bg-green-600 hover:bg-green-700 font-medium rounded-lg text-lg px-5 py-3 mt-8">تحقق من إجاباتي</button>`;
+        
+        questions.forEach((q, index) => {
+            const explainBtn = document.getElementById(`explain-btn-${index}`);
+            if (explainBtn) explainBtn.addEventListener('click', () => showExplanation(index));
+            if (q.smartExplanation) {
+                const smartExplainBtn = document.getElementById(`smart-explain-btn-${index}`);
+                if (smartExplainBtn) smartExplainBtn.addEventListener('click', () => showSmartExplanation(index));
+            }
+        });
+        
+        if (attemptsLeft <= 0) {
+            const submitBtn = quizForm.querySelector('#submit-quiz-btn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'لا توجد محاولات متبقية';
+            submitBtn.classList.add('bg-gray-400', 'hover:bg-gray-400');
+        }
+        
+        quizForm.onsubmit = (e) => {
+            e.preventDefault();
+            let score = 0;
+            questions.forEach((q, index) => {
+                const userAnswer = e.target.elements[`q${index}`]?.value;
+                const feedbackEl = document.getElementById(`feedback-q${index}`);
+                if (userAnswer === q.correct) {
+                    score++;
+                    feedbackEl.textContent = '✔ إجابة صحيحة!';
+                    feedbackEl.className = 'mt-2 text-sm font-bold text-green-600';
+                } else {
+                    feedbackEl.textContent = `❌ إجابة خاطئة.`;
+                    feedbackEl.className = 'mt-2 text-sm font-bold text-red-600';
+                }
+                document.getElementById(`explain-btn-${index}`).classList.remove('hidden');
+                if (q.smartExplanation) {
+                    document.getElementById(`smart-explain-btn-${index}`).classList.remove('hidden');
+                }
+            });
+            
+            const finalGrade = Math.round((score / questions.length) * 10);
+            const resultsDiv = document.getElementById('quiz-results');
+            resultsDiv.classList.remove('hidden');
+            document.getElementById('quiz-score').textContent = `${finalGrade} / 10`;
+            
+            if (studentIdFromUrl && classIdFromUrl) {
+                saveGrade(lessonId, finalGrade);
+                //  =============  تعديل جديد: إصلاح منطق زر إعادة الاختبار  =============
+                if (attemptsLeft - 1 > 0) {
+                    document.getElementById('retake-quiz-btn').classList.remove('hidden');
+                }
+            } else {
+                document.getElementById('save-status').textContent = 'لم يتم الحفظ. بيانات الطالب غير موجودة في الرابط.';
+            }
+            
+            e.target.querySelector('#submit-quiz-btn').disabled = true;
+        };
+    }
+    
     function saveGrade(lessonId, grade) {
         const saveStatus = document.getElementById('save-status');
         
-        // التحقق من وجود المعرفات قبل الإرسال
         if (!studentIdFromUrl || !classIdFromUrl) {
             console.error("Student ID or Class ID is missing from the URL.");
             saveStatus.textContent = '❌ خطأ: لا يمكن حفظ نتيجتك. بيانات الطالب أو الفصل غير موجودة في الرابط.';
@@ -265,7 +340,6 @@
             .then(result => {
                 if (result.status === 'success') {
                     saveStatus.textContent = '✔ تم حفظ نتيجتك بنجاح!';
-                    // تحديث بيانات المحاولات في localStorage إذا كان الطالب مسجلاً
                     const studentData = getStudentFromStorage();
                     if (studentData && studentData.id === studentIdFromUrl) {
                         if (!studentData.lessons) studentData.lessons = {};
@@ -299,20 +373,21 @@
     
     function generateQuiz() {
         const questionBank = [
+            //  =============  تعديل جديد: تنويع الإجابات الصحيحة  =============
             {
                 type: 'mcq',
                 level: '⭐',
                 topic: 'substitution',
                 text: 'ما هو حل النظام التالي؟ <br><span class="math-eq eq-1-bg eq-1-color">س = ص + ٣</span><br><span class="math-eq eq-2-bg eq-2-color">٢س + ص = ٩</span>',
                 options: [
-                    { display: '<span class="math-eq">(٤, ١)</span>', value: 'a' },
-                    { display: '<span class="math-eq">(١, ٤)</span>', value: 'b' },
-                    { display: '<span class="math-eq">(٣, ٠)</span>', value: 'c' },
+                    { display: '<span class="math-eq">(١, ٤)</span>', value: 'a' },
+                    { display: '<span class="math-eq">(٣, ٠)</span>', value: 'b' },
+                    { display: '<span class="math-eq">(٤, ١)</span>', value: 'c' },
                     { display: '<span class="math-eq">(٥, ٢)</span>', value: 'd' }
                 ],
-                correct: 'a',
+                correct: 'c',
                 explanation: '<strong>الخطوة ١:</strong> المعادلة الأولى <span class="math-eq eq-1-bg eq-1-color">س = ص + ٣</span> جاهزة للتعويض.<br><strong>الخطوة ٢:</strong> نعوض قيمة (س) في المعادلة الثانية: <span class="math-eq eq-2-bg eq-2-color">٢<span class="eq-1-color font-bold">(ص + ٣)</span> + ص = ٩</span>.<br><strong>الخطوة ٣:</strong> نحل المعادلة: <span class="math-eq">٢ص + ٦ + ص = ٩</span> ⟸ <span class="math-eq">٣ص = ٣</span> ⟸ <span class="math-eq">ص = ١</span>.<br><strong>الخطوة ٤:</strong> نجد قيمة س: <span class="math-eq">س = ١ + ٣ = ٤</span>.<br><strong>الحل:</strong> <span class="math-eq">(٤, ١)</span>.',
-                smartExplanation: 'الحل الأسرع هو تجربة الخيارات. لنبدأ بالخيار (أ) <span class="math-eq">(٤, ١)</span>.<br><strong>المعادلة الأولى:</strong> هل <span class="highlight-number">٤</span> = <span class="highlight-number">١</span> + <span class="highlight-number">٣</span>؟ نعم.<br><strong>المعادلة الثانية:</strong> هل <span class="highlight-number">٢</span>(<span class="highlight-number">٤</span>) + <span class="highlight-number">١</span> = <span class="highlight-number">٩</span>؟ هل <span class="highlight-number">٨</span> + <span class="highlight-number">١</span> = <span class="highlight-number">٩</span>؟ نعم. بما أنه يحقق المعادلتين، فهو الحل الصحيح.'
+                smartExplanation: 'الحل الأسرع هو تجربة الخيارات. لنبدأ بالخيار (ج) <span class="math-eq">(٤, ١)</span>.<br><strong>المعادلة الأولى:</strong> هل <span class="highlight-number">٤</span> = <span class="highlight-number">١</span> + <span class="highlight-number">٣</span>؟ نعم.<br><strong>المعادلة الثانية:</strong> هل <span class="highlight-number">٢</span>(<span class="highlight-number">٤</span>) + <span class="highlight-number">١</span> = <span class="highlight-number">٩</span>؟ هل <span class="highlight-number">٨</span> + <span class="highlight-number">١</span> = <span class="highlight-number">٩</span>؟ نعم. بما أنه يحقق المعادلتين، فهو الحل الصحيح.'
             },
             {
                 type: 'mcq',
@@ -334,12 +409,12 @@
                 topic: 'word_problem',
                 text: 'اشترى خالد قلمين ودفتر واحد بمبلغ <span class="highlight-number">١٠</span> ريالات. إذا كان ثمن الدفتر يزيد عن ثمن القلم بريال واحد، فما ثمن القلم الواحد؟',
                 options: [
-                    { display: '٣ ريالات', value: 'a' },
-                    { display: '٤ ريالات', value: 'b' },
+                    { display: '٤ ريالات', value: 'a' },
+                    { display: '٣ ريالات', value: 'b' },
                     { display: '٥ ريالات', value: 'c' },
                     { display: '٢.٥ ريال', value: 'd' }
                 ],
-                correct: 'a',
+                correct: 'b',
                 explanation: 'لنفرض أن س هو ثمن القلم و ص هو ثمن الدفتر.<br><strong>المعادلة ١:</strong> <span class="math-eq">٢س + ص = ١٠</span><br><strong>المعادلة ٢:</strong> <span class="math-eq">ص = س + ١</span><br>نعوض (ص) من المعادلة ٢ في ١: <span class="math-eq">٢س + (س + ١) = ١٠</span><br>نحل المعادلة: <span class="math-eq">٣س + ١ = ١٠</span> ⟸ <span class="math-eq">٣س = ٩</span> ⟸ <span class="math-eq">س = ٣</span>. إذن ثمن القلم ٣ ريالات.'
             },
             {
@@ -363,12 +438,12 @@
                 topic: 'substitution',
                 text: 'حل النظام: <span class="math-eq">ص = ٥</span> و <span class="math-eq">٢س + ص = ١٣</span>',
                 options: [
-                    { display: '<span class="math-eq">(٤, ٥)</span>', value: 'a' },
-                    { display: '<span class="math-eq">(٥, ٤)</span>', value: 'b' },
-                    { display: '<span class="math-eq">(٩, ٥)</span>', value: 'c' },
-                    { display: '<span class="math-eq">(٥, ٣)</span>', value: 'd' }
+                    { display: '<span class="math-eq">(٥, ٤)</span>', value: 'a' },
+                    { display: '<span class="math-eq">(٩, ٥)</span>', value: 'b' },
+                    { display: '<span class="math-eq">(٥, ٣)</span>', value: 'c' },
+                    { display: '<span class="math-eq">(٤, ٥)</span>', value: 'd' }
                 ],
-                correct: 'a',
+                correct: 'd',
                 explanation: 'هذا أبسط أنواع التعويض. بما أن <span class="math-eq">ص = ٥</span>، نعوض هذه القيمة مباشرة في المعادلة الثانية: <span class="math-eq">٢س + ٥ = ١٣</span>. نطرح <span class="highlight-number">٥</span> من الطرفين: <span class="math-eq">٢س = ٨</span>. نقسم على <span class="highlight-number">٢</span>: <span class="math-eq">س = ٤</span>. الحل هو <span class="math-eq">(٤, ٥)</span>.'
             },
             {
@@ -391,12 +466,12 @@
                 topic: 'solving_then_substitution',
                 text: 'ما هو حل النظام التالي؟<br><span class="math-eq">س - ٢ص = ٠</span><br><span class="math-eq">٢س - ٣ص = ٢</span>',
                 options: [
-                    { display: '<span class="math-eq">(٤, ٢)</span>', value: 'a' },
-                    { display: '<span class="math-eq">(٢, ١)</span>', value: 'b' },
+                    { display: '<span class="math-eq">(٢, ١)</span>', value: 'a' },
+                    { display: '<span class="math-eq">(٤, ٢)</span>', value: 'b' },
                     { display: '<span class="math-eq">(٦, ٣)</span>', value: 'c' },
                     { display: '<span class="math-eq">(-٢, -١)</span>', value: 'd' }
                 ],
-                correct: 'a',
+                correct: 'b',
                 explanation: 'من المعادلة الأولى، نجد أن <span class="math-eq">س = ٢ص</span>. نعوض هذا في المعادلة الثانية: <span class="math-eq">٢(٢ص) - ٣ص = ٢</span>. نبسط: <span class="math-eq">٤ص - ٣ص = ٢</span>، إذن <span class="math-eq">ص = ٢</span>. الآن نجد س: <span class="math-eq">س = ٢(٢) = ٤</span>. الحل هو <span class="math-eq">(٤, ٢)</span>.'
             },
             {

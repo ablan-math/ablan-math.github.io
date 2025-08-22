@@ -77,7 +77,6 @@
             <div class="p-6 bg-white rounded-xl shadow-lg">
                 <header class="flex justify-between items-center mb-8 border-b pb-4 border-gray-200">
                     <h1 id="lesson-title" class="text-3xl font-bold text-blue-800">الدرس ٥-٥: تطبيقات على النظام المكون من معادلتين خطيتين</h1>
-                    <a href="../index.html" target="_top" class="text-sm text-blue-600 hover:underline">&larr; العودة إلى الفهرس</a>
                 </header>
                 
                 <section class="mb-12">
@@ -165,49 +164,6 @@
     const MAX_ATTEMPTS = 3;
     let currentQuestions = []; 
 
-    function getStudentFromStorage() {
-        const studentDataString = localStorage.getItem('currentStudent');
-        if (studentDataString) {
-            try {
-                return JSON.parse(studentDataString);
-            } catch (e) {
-                console.error("Error parsing student data from localStorage:", e);
-                return null;
-            }
-        }
-        return null;
-    }
-
-    function saveGrade(lessonId, grade, studentId) {
-        if (!studentId) return;
-        const saveStatus = document.getElementById('save-status');
-        saveStatus.textContent = 'جارٍ حفظ نتيجتك...';
-        const url = `${SCRIPT_URL}?action=saveGrade&studentId=${studentId}&lessonId=${lessonId}&grade=${grade}`;
-        fetch(url)
-            .then(res => res.json())
-            .then(result => {
-                if (result.status === 'success') {
-                    saveStatus.textContent = '✔ تم حفظ نتيجتك بنجاح! ستظهر في لوحة التحكم عند العودة.';
-                    const studentData = getStudentFromStorage(); // Re-fetch to be safe
-                    if (studentData) {
-                        if (!studentData.lessons) studentData.lessons = {};
-                        if (!studentData.lessons[lessonId] || studentData.lessons[lessonId].grade < grade) {
-                            studentData.lessons[lessonId] = { grade: grade, attempts: (studentData.lessons[lessonId]?.attempts || 0) + 1 };
-                        } else {
-                            studentData.lessons[lessonId].attempts++;
-                        }
-                        localStorage.setItem('currentStudent', JSON.stringify(studentData));
-                    }
-                } else {
-                    throw new Error(result.message);
-                }
-            })
-            .catch(error => {
-                saveStatus.textContent = '❌ حدث خطأ أثناء حفظ الدرجة.';
-                console.error("Save Grade Error:", error);
-            });
-    }
-
     function buildHeader(studentData, lessonTitle = null) {
         const headerContainer = document.getElementById('main-header');
         if (!headerContainer) return;
@@ -216,14 +172,16 @@
             titleHtml = `<div><h2 class="text-sm text-gray-500 leading-tight">منصة الرياضيات التفاعلية</h2><h1 class="text-xl font-bold text-blue-700 leading-tight">${lessonTitle}</h1></div>`;
         }
         const studentName = studentData ? studentData.name : 'زائر';
-        headerContainer.innerHTML = `<div class="container mx-auto px-6 py-4 flex justify-between items-center">${titleHtml}<p class="text-lg text-gray-600">${studentName}</p></div>`;
+        // **FIX**: New header layout
+        const userInfoHtml = `<div class="text-left"><p class="text-lg text-gray-600">${studentName}</p><a href="../index.html" target="_top" class="text-sm text-blue-600 hover:underline">&larr; العودة إلى الفهرس</a></div>`;
+        headerContainer.innerHTML = `<div class="container mx-auto px-6 py-4 flex justify-between items-center">${titleHtml}${userInfoHtml}</div>`;
     }
     function buildFooter() {
         const footerContainer = document.getElementById('main-footer');
         if (!footerContainer) return;
         footerContainer.innerHTML = `<div class="container mx-auto px-6"><p class="text-center text-gray-600 text-sm">© 2024 جميع الحقوق محفوظة | تصميم وتطوير: أ. عبدالعزيز خالد العبلان</p></div>`;
     }
-    function initializeQuiz(lessonId, questions, studentData) { 
+    function initializeQuiz(lessonId, questions, studentData, classId) { 
         window.currentQuestions = questions; 
         const quizForm = document.getElementById('quizForm'); 
         if (!quizForm) return; 
@@ -231,13 +189,7 @@
             quizForm.innerHTML = `<p class="text-center text-gray-600">لا توجد أسئلة متاحة لهذا الدرس حالياً.</p>`; 
             return; 
         } 
-        let attemptsLeft;
-        if (studentData) {
-            const studentLessonData = studentData.lessons?.[lessonId] || { attempts: 0 };
-            attemptsLeft = MAX_ATTEMPTS - studentLessonData.attempts;
-        } else {
-            attemptsLeft = 1;
-        }
+        let attemptsLeft = 1; 
         const attemptsCounter = document.getElementById('attempts-counter'); 
         if (attemptsCounter) { 
             attemptsCounter.innerHTML = `المحاولات المتبقية: <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded-full">${attemptsLeft}</span>`; 
@@ -255,13 +207,6 @@
         }).join(''); 
         
         quizForm.innerHTML = quizHtml + `<button type="submit" id="submit-quiz-btn" class="w-full text-white bg-green-600 hover:bg-green-700 font-medium rounded-lg text-lg px-5 py-3 mt-8">تحقق من إجاباتي</button>`; 
-        
-        if (attemptsLeft <= 0) {
-            const submitBtn = quizForm.querySelector('#submit-quiz-btn');
-            submitBtn.disabled = true;
-            submitBtn.textContent = 'لا توجد محاولات متبقية';
-            submitBtn.classList.add('bg-gray-400', 'hover:bg-gray-400');
-        }
         
         questions.forEach((q, index) => { 
             const explainBtn = document.getElementById(`explain-btn-${index}`); 
@@ -295,17 +240,40 @@
             const resultsDiv = document.getElementById('quiz-results'); 
             resultsDiv.classList.remove('hidden'); 
             document.getElementById('quiz-score').textContent = `${finalGrade} / 10`; 
-            if (studentData) {
-                saveGrade(lessonId, finalGrade, studentData.id); 
-                if (attemptsLeft - 1 > 0) {
-                    document.getElementById('retake-quiz-btn').classList.remove('hidden');
-                }
+            if (studentData && classId) {
+                document.getElementById('save-status').textContent = 'يتم حفظ نتيجتك...';
+                saveGrade(lessonId, finalGrade, studentData.id, classId); 
             } else {
-                document.getElementById('save-status').textContent = 'تم عرض نتيجتك. سجل الدخول لحفظ تقدمك.';
+                document.getElementById('save-status').textContent = 'تم عرض نتيجتك. سجل الدخول من المنصة لحفظ تقدمك.';
             }
             e.target.querySelector('#submit-quiz-btn').disabled = true; 
         }; 
     }
+
+    function saveGrade(lessonId, grade, studentId, classId) {
+        const saveStatus = document.getElementById('save-status');
+        if (!studentId || !classId) {
+            saveStatus.textContent = 'خطأ: لا يمكن حفظ النتيجة. بيانات الطالب أو الفصل غير موجودة.';
+            console.error("Student ID or Class ID is missing.");
+            return;
+        }
+        saveStatus.textContent = 'جارٍ حفظ نتيجتك...';
+        const url = `${SCRIPT_URL}?action=saveGrade&studentId=${studentId}&classId=${classId}&lessonId=${lessonId}&grade=${grade}`;
+        fetch(url)
+            .then(res => res.json())
+            .then(result => {
+                if (result.status === 'success') {
+                    saveStatus.textContent = '✔ تم حفظ نتيجتك بنجاح!';
+                } else {
+                    throw new Error(result.message);
+                }
+            })
+            .catch(error => {
+                saveStatus.textContent = '❌ حدث خطأ أثناء حفظ الدرجة.';
+                console.error("Save Grade Error:", error);
+            });
+    }
+
     function showExplanation(questionIndex) { 
         const modal = document.getElementById('explanationModal'); 
         const explanationText = document.getElementById('explanationText'); 
@@ -331,11 +299,15 @@
     // --- END SCRIPT GENERAL ---
 
     document.addEventListener('DOMContentLoaded', () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const studentId = urlParams.get('studentId');
+        const classId = urlParams.get('classId');
+        // This is a simplified way to get studentData. In a real platform, you might fetch this from an API.
+        const studentData = studentId ? { id: studentId, name: `طالب ${studentId}` } : null;
+
         const lessonTitleElement = document.getElementById('lesson-title');
         const lessonTitle = lessonTitleElement ? lessonTitleElement.textContent : null;
         
-        const studentData = getStudentFromStorage();
-
         buildHeader(studentData, lessonTitle);
         buildFooter();
         
@@ -576,7 +548,7 @@
 
         // --- Quiz Section ---
         const quizQuestions = generateQuiz();
-        initializeQuiz(LESSON_ID, quizQuestions, studentData); 
+        initializeQuiz(LESSON_ID, quizQuestions, studentData, classId); 
         
         const retakeBtn = document.getElementById('retake-quiz-btn');
         if(retakeBtn) { retakeBtn.addEventListener('click', () => { window.location.reload(); }); }

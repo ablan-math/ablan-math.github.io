@@ -52,7 +52,7 @@
             <div class="p-6 bg-white rounded-xl shadow-lg">
                 <header class="flex justify-between items-center mb-8 border-b pb-4 border-gray-200">
                     <h1 id="lesson-title" class="text-3xl font-bold text-blue-800">الدرس ٤-٣: حل المتباينات المتعددة الخطوات</h1>
-                    <a href="../index.html" target="_top" class="text-sm text-blue-600 hover:underline">&larr; العودة إلى الفهرس</a>
+                    <!-- تم حذف رابط العودة القديم من هنا -->
                 </header>
 
                 <section class="mb-12">
@@ -311,7 +311,12 @@
     </div>
 
     <script>
-    // URL for Google Apps Script (for saving grades, replace with your actual URL)
+    // --- 1. Read IDs from URL ---
+    const urlParams = new URLSearchParams(window.location.search);
+    const studentId = urlParams.get('studentId');
+    const classId = urlParams.get('classId');
+
+    // URL for Google Apps Script (for saving grades)
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
     const MAX_ATTEMPTS = 3; // Maximum quiz attempts allowed for logged-in students
     let currentQuestions = []; // To hold the questions for the current quiz instance
@@ -335,28 +340,16 @@
         const headerContainer = document.getElementById('main-header');
         if (!headerContainer) return;
 
-        let titleHtml;
-        if (lessonTitle) {
-            titleHtml = `<div><h2 class="text-sm text-gray-500 leading-tight">منصة الرياضيات التفاعلية</h2><h1 class="text-xl font-bold text-indigo-700 leading-tight">${lessonTitle}</h1></div>`;
-        } else {
-            titleHtml = `<a href="../index.html" target="_top"><h1 class="text-2xl font-bold text-blue-800">منصة الرياضيات التفاعلية</h1></a>`;
-        }
-
+        let titleHtml = `<div><h2 class="text-sm text-gray-500 leading-tight">منصة الرياضيات التفاعلية</h2><h1 class="text-xl font-bold text-indigo-700 leading-tight">${lessonTitle}</h1></div>`;
+        
         let userInfoHtml = '';
         if (studentData) {
-            userInfoHtml = `<div class="flex items-center gap-4"><span class="font-semibold">أهلاً، ${studentData.name}</span><a href="../index.html" target="_top" id="logout-link" class="bg-red-500 text-white py-1 px-3 rounded-lg hover:bg-red-600">خروج</a></div>`;
+            userInfoHtml = `<div class="text-left"><p class="font-semibold text-lg">${studentData.name}</p><a href="../index.html" target="_top" class="text-sm text-blue-600 hover:underline">&larr; العودة إلى الفهرس</a></div>`;
         } else {
-            userInfoHtml = `<p class="text-lg text-gray-600">زائر</p>`;
+            userInfoHtml = `<div class="text-left"><p class="font-semibold text-lg">زائر</p><a href="../index.html" target="_top" class="text-sm text-blue-600 hover:underline">&larr; العودة إلى الفهرس</a></div>`;
         }
 
         headerContainer.innerHTML = `<div class="container mx-auto px-6 py-4 flex justify-between items-center">${titleHtml}${userInfoHtml}</div>`;
-        
-        const logoutLink = headerContainer.querySelector('#logout-link');
-        if(logoutLink) {
-            logoutLink.addEventListener('click', () => {
-                localStorage.removeItem('currentStudent');
-            });
-        }
     }
 
     // Function to build the main footer
@@ -440,7 +433,7 @@
             document.getElementById('quiz-score').textContent = `${finalGrade} / 10`;
 
             if (studentData) {
-                saveGrade(lessonId, finalGrade, studentData.id);
+                saveGrade(lessonId, finalGrade);
                 if (attemptsLeft - 1 > 0) {
                     document.getElementById('retake-quiz-btn').classList.remove('hidden');
                 }
@@ -451,27 +444,39 @@
         };
     }
 
-    // Function to save grade to Google Sheet via Apps Script
-    function saveGrade(lessonId, grade, studentId) {
-        if (!studentId) return;
+    // --- 2. Updated saveGrade function ---
+    function saveGrade(lessonId, grade) {
+        // Check for studentId and classId before sending
+        if (!studentId || !classId) {
+            console.error("Student ID or Class ID is missing from the URL.");
+            const saveStatus = document.getElementById('save-status');
+            saveStatus.textContent = '❌ خطأ: لا يمكن حفظ نتيجتك. بيانات الطالب أو الفصل غير موجودة.';
+            saveStatus.classList.add('text-red-600');
+            return;
+        }
+
         const saveStatus = document.getElementById('save-status');
         saveStatus.textContent = 'جارٍ حفظ نتيجتك...';
-        const url = `${SCRIPT_URL}?action=saveGrade&studentId=${studentId}&lessonId=${lessonId}&grade=${grade}`;
+        
+        // Append all required parameters to the URL
+        const url = `${SCRIPT_URL}?action=saveGrade&studentId=${studentId}&classId=${classId}&lessonId=${lessonId}&grade=${grade}`;
+        
         fetch(url)
             .then(res => res.json())
             .then(result => {
                 if (result.status === 'success') {
                     saveStatus.textContent = '✔ تم حفظ نتيجتك بنجاح! ستظهر في لوحة التحكم عند العودة.';
                     // Update localStorage
-                    const studentData = JSON.parse(localStorage.getItem('currentStudent'));
-                    if (!studentData.lessons) studentData.lessons = {};
-                    // Save the highest grade and increment attempts
-                    if (!studentData.lessons[lessonId] || studentData.lessons[lessonId].grade < grade) {
-                        studentData.lessons[lessonId] = { grade: grade, attempts: (studentData.lessons[lessonId]?.attempts || 0) + 1 };
-                    } else {
-                        studentData.lessons[lessonId].attempts++;
+                    const studentData = getStudentFromStorage();
+                    if(studentData){
+                        if (!studentData.lessons) studentData.lessons = {};
+                        if (!studentData.lessons[lessonId] || studentData.lessons[lessonId].grade < grade) {
+                            studentData.lessons[lessonId] = { grade: grade, attempts: (studentData.lessons[lessonId]?.attempts || 0) + 1 };
+                        } else {
+                            studentData.lessons[lessonId].attempts++;
+                        }
+                        localStorage.setItem('currentStudent', JSON.stringify(studentData));
                     }
-                    localStorage.setItem('currentStudent', JSON.stringify(studentData));
                 } else {
                     throw new Error(result.message);
                 }

@@ -164,6 +164,19 @@
     const MAX_ATTEMPTS = 3;
     let currentQuestions = []; 
 
+    function getStudentFromStorage() {
+        const studentDataString = localStorage.getItem('currentStudent');
+        if (studentDataString) {
+            try {
+                return JSON.parse(studentDataString);
+            } catch (e) {
+                console.error("Error parsing student data from localStorage:", e);
+                return null;
+            }
+        }
+        return null;
+    }
+
     function buildHeader(studentData, lessonTitle = null) {
         const headerContainer = document.getElementById('main-header');
         if (!headerContainer) return;
@@ -171,8 +184,7 @@
         if (lessonTitle) {
             titleHtml = `<div><h2 class="text-sm text-gray-500 leading-tight">منصة الرياضيات التفاعلية</h2><h1 class="text-xl font-bold text-blue-700 leading-tight">${lessonTitle}</h1></div>`;
         }
-        const studentName = studentData ? studentData.name : 'زائر';
-        // **FIX**: New header layout
+        const studentName = studentData ? `أهلاً، ${studentData.name}` : 'زائر';
         const userInfoHtml = `<div class="text-left"><p class="text-lg text-gray-600">${studentName}</p><a href="../index.html" target="_top" class="text-sm text-blue-600 hover:underline">&larr; العودة إلى الفهرس</a></div>`;
         headerContainer.innerHTML = `<div class="container mx-auto px-6 py-4 flex justify-between items-center">${titleHtml}${userInfoHtml}</div>`;
     }
@@ -190,6 +202,10 @@
             return; 
         } 
         let attemptsLeft = 1; 
+        if (studentData) {
+            const studentLessonData = studentData.lessons?.[lessonId] || { attempts: 0 };
+            attemptsLeft = MAX_ATTEMPTS - studentLessonData.attempts;
+        }
         const attemptsCounter = document.getElementById('attempts-counter'); 
         if (attemptsCounter) { 
             attemptsCounter.innerHTML = `المحاولات المتبقية: <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded-full">${attemptsLeft}</span>`; 
@@ -207,6 +223,13 @@
         }).join(''); 
         
         quizForm.innerHTML = quizHtml + `<button type="submit" id="submit-quiz-btn" class="w-full text-white bg-green-600 hover:bg-green-700 font-medium rounded-lg text-lg px-5 py-3 mt-8">تحقق من إجاباتي</button>`; 
+        
+        if (attemptsLeft <= 0) {
+            const submitBtn = quizForm.querySelector('#submit-quiz-btn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'لا توجد محاولات متبقية';
+            submitBtn.classList.add('bg-gray-400', 'hover:bg-gray-400');
+        }
         
         questions.forEach((q, index) => { 
             const explainBtn = document.getElementById(`explain-btn-${index}`); 
@@ -241,8 +264,10 @@
             resultsDiv.classList.remove('hidden'); 
             document.getElementById('quiz-score').textContent = `${finalGrade} / 10`; 
             if (studentData && classId) {
-                document.getElementById('save-status').textContent = 'يتم حفظ نتيجتك...';
                 saveGrade(lessonId, finalGrade, studentData.id, classId); 
+                if (attemptsLeft - 1 > 0) {
+                    document.getElementById('retake-quiz-btn').classList.remove('hidden');
+                }
             } else {
                 document.getElementById('save-status').textContent = 'تم عرض نتيجتك. سجل الدخول من المنصة لحفظ تقدمك.';
             }
@@ -302,8 +327,14 @@
         const urlParams = new URLSearchParams(window.location.search);
         const studentId = urlParams.get('studentId');
         const classId = urlParams.get('classId');
-        // This is a simplified way to get studentData. In a real platform, you might fetch this from an API.
-        const studentData = studentId ? { id: studentId, name: `طالب ${studentId}` } : null;
+        const studentName = urlParams.get('studentName');
+        const studentDataFromUrl = studentId ? { id: studentId, name: studentName || `طالب ${studentId}` } : null;
+        
+        const studentDataFromStorage = getStudentFromStorage();
+
+        // Use data from storage if it matches the ID from URL, otherwise use URL data.
+        const studentData = studentDataFromStorage && studentDataFromStorage.id === studentId ? studentDataFromStorage : studentDataFromUrl;
+
 
         const lessonTitleElement = document.getElementById('lesson-title');
         const lessonTitle = lessonTitleElement ? lessonTitleElement.textContent : null;

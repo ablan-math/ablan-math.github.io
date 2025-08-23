@@ -294,12 +294,11 @@
             <!-- NEW: Tabbed Card Container -->
             <div id="dashboard-container" class="tabbed-card-container">
                 <div class="card-tabs">
-                     <!-- CORRECTED ORDER TABS -->
-                    <button id="leaderboard-tab" class="tab-button">
-                        <i class="fas fa-trophy mr-2"></i>لوحة الأوائل
-                    </button>
                     <button id="student-data-tab" class="tab-button active">
                         <i class="fas fa-user-chart mr-2"></i>بيانات الطالب
+                    </button>
+                    <button id="leaderboard-tab" class="tab-button">
+                        <i class="fas fa-trophy mr-2"></i>لوحة الأوائل
                     </button>
                 </div>
                 <div class="card-content">
@@ -472,10 +471,12 @@
                 .then(result => {
                     if (result.status === 'success' && result.data) {
                         result.data.classIdentifier = getClassIdentifier(result.data.class);
-                        if (!result.data.classIdentifier) {
-                             errorDiv.textContent = 'خطأ: لم يتم التعرف على صيغة الفصل للطالب.';
-                             errorDiv.classList.remove('hidden');
-                             return;
+                        // The 'role' property is now expected from the Google Apps Script
+                        // e.g., result.data.role = 'teacher' or 'student'
+                        if (!result.data.classIdentifier && result.data.role !== 'teacher') {
+                                errorDiv.textContent = 'خطأ: لم يتم التعرف على صيغة الفصل للطالب.';
+                                errorDiv.classList.remove('hidden');
+                                return;
                         }
                         localStorage.setItem('currentStudent', JSON.stringify(result.data));
                         switchView('app');
@@ -503,6 +504,11 @@
                 .then(result => {
                     if (result.status === 'success' && result.data) {
                         result.data.classIdentifier = getClassIdentifier(result.data.class);
+                        // Preserve the role from the initial login
+                        const currentData = getStudentFromStorage();
+                        if(currentData && currentData.role) {
+                            result.data.role = currentData.role;
+                        }
                         localStorage.setItem('currentStudent', JSON.stringify(result.data));
                         renderAppContent(result.data); 
                     }
@@ -513,7 +519,7 @@
         function buildHeader(studentData) {
             const headerContainer = document.getElementById('main-header');
             if (!headerContainer) return;
-            let userInfoHtml = studentData ? `<div class="flex items-center gap-4"><span class="font-semibold">أهلاً، ${studentData.name}</span><button id="logout-btn" class="bg-red-500 text-white py-1 px-3 rounded-lg hover:bg-red-600 transition-colors">خروج</button></div>` : `<div class="flex items-center gap-4"><p class="text-lg text-gray-600">زائر</p><button id="visitor-login-btn" class="bg-blue-600 text-white py-1 px-3 rounded-lg hover:bg-blue-700 transition-colors">تسجيل الدخول</button></div>`;
+            let userInfoHtml = studentData ? `<div class="flex items-center gap-4"><span class="font-semibold">أهلاً، ${studentData.name} ${studentData.role === 'teacher' ? '(معلم)' : ''}</span><button id="logout-btn" class="bg-red-500 text-white py-1 px-3 rounded-lg hover:bg-red-600 transition-colors">خروج</button></div>` : `<div class="flex items-center gap-4"><p class="text-lg text-gray-600">زائر</p><button id="visitor-login-btn" class="bg-blue-600 text-white py-1 px-3 rounded-lg hover:bg-blue-700 transition-colors">تسجيل الدخول</button></div>`;
             headerContainer.innerHTML = `<div class="container mx-auto px-6 py-4 flex justify-between items-center"><a href="#" onclick="window.location.reload()" class="text-2xl font-bold text-blue-800">منصة الرياضيات التفاعلية</a>${userInfoHtml}</div>`;
             const logoutBtn = document.getElementById('logout-btn');
             if (logoutBtn) logoutBtn.addEventListener('click', () => { localStorage.removeItem('currentStudent'); window.location.reload(); });
@@ -659,7 +665,7 @@
                     const lessonData = studentLessons[lesson.id];
                     const lessonGrade = (lessonData !== undefined) ? robustParseFloat(lessonData.grade) : null;
                     
-                    // NEW: Lesson Locking Logic
+                    // Lesson Locking Logic
                     const rule = lessonRules[lesson.id];
                     let isLocked = true;
                     let unlockDate = null;
@@ -680,6 +686,15 @@
                     } else {
                         isLocked = false; // Default to open if no rule is set
                     }
+                    
+                    // =======================================================
+                    // NEW: Teacher Override Logic
+                    // If the logged-in user has the role 'teacher', unlock everything.
+                    if (studentData && studentData.role === 'teacher') {
+                        isLocked = false;
+                        unlockDate = null; // Also clear any "unlocks on" date message
+                    }
+                    // =======================================================
 
                     const game1 = lesson.games && lesson.games[0] ? lesson.games[0] : null;
                     const game1Data = game1 ? studentGames[game1.id] : null;

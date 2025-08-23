@@ -155,6 +155,31 @@
             transition: transform 0.3s;
         }
 
+        /* --- Lesson Locking Styles --- */
+        .lesson-checkpoint.locked .lesson-card {
+            opacity: 0.6;
+            background-color: #f3f4f6;
+            pointer-events: none; /* Disables clicks on card */
+        }
+        .lesson-checkpoint.locked .checkpoint-icon {
+            background-color: #9ca3af;
+            box-shadow: 0 0 0 3px #9ca3af;
+        }
+        .lesson-checkpoint.locked .lesson-title, .lesson-checkpoint.locked .game-card {
+            pointer-events: none; /* Specifically disable links */
+            cursor: not-allowed;
+        }
+        .unlock-date {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #4b5563;
+            background-color: #e5e7eb;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.5rem;
+            margin-top: 0.5rem;
+            display: inline-block;
+        }
+
         /* --- Other Styles from previous versions --- */
         .card { background-color: white; border-radius: 1rem; padding: 1.5rem; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05); }
         .chapter-card { background-color: white; border-radius: 1rem; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05); transition: all 0.3s ease-in-out; border: 1px solid #e5e7eb; }
@@ -262,11 +287,11 @@
             <div id="dashboard-container" class="tabbed-card-container">
                 <div class="card-tabs">
                      <!-- CORRECTED ORDER TABS -->
-                    <button id="student-data-tab" class="tab-button active">
-                        <i class="fas fa-user-chart mr-2"></i>بيانات الطالب
-                    </button>
                     <button id="leaderboard-tab" class="tab-button">
                         <i class="fas fa-trophy mr-2"></i>لوحة الأوائل
+                    </button>
+                    <button id="student-data-tab" class="tab-button active">
+                        <i class="fas fa-user-chart mr-2"></i>بيانات الطالب
                     </button>
                 </div>
                 <div class="card-content">
@@ -616,6 +641,8 @@
             const learningPathContainer = document.getElementById('learning-path-section');
             const studentLessons = studentData.lessons || {};
             const studentGames = studentData.games || {};
+            const lessonRules = studentData.lessonRules || {};
+
             learningPathContainer.innerHTML = '<h2 class="text-3xl font-bold text-center text-blue-800 mb-6">مسار الإنجاز</h2>';
             Object.keys(curriculumIndex).forEach((chapterKey) => {
                 const chapter = curriculumIndex[chapterKey];
@@ -623,23 +650,53 @@
                 const lessonsHtml = chapter.lessons.map((lesson, index) => {
                     const lessonData = studentLessons[lesson.id];
                     const lessonGrade = (lessonData !== undefined) ? robustParseFloat(lessonData.grade) : null;
+                    
+                    // NEW: Lesson Locking Logic
+                    const rule = lessonRules[lesson.id];
+                    let isLocked = true;
+                    let unlockDate = null;
+
+                    if (rule) {
+                        if (rule.method === 'يدوي' && rule.value === 'مفتوح') {
+                            isLocked = false;
+                        } else if (rule.method === 'تاريخ') {
+                            const today = new Date();
+                            const openDate = new Date(rule.value);
+                            today.setHours(0, 0, 0, 0); // Normalize today's date
+                            if (today >= openDate) {
+                                isLocked = false;
+                            } else {
+                                unlockDate = rule.value;
+                            }
+                        }
+                    } else {
+                        isLocked = false; // Default to open if no rule is set
+                    }
+
                     const game1 = lesson.games && lesson.games[0] ? lesson.games[0] : null;
                     const game1Data = game1 ? studentGames[game1.id] : null;
                     const game1Grade = (game1Data !== undefined) ? robustParseFloat(game1Data.grade) : null;
                     const game2 = lesson.games && lesson.games[1] ? lesson.games[1] : null;
                     const game2Data = game2 ? studentGames[game2.id] : null;
                     const game2Grade = (game2Data !== undefined) ? robustParseFloat(game2Data.grade) : null;
+                    
                     lessonSummariesHtml += buildSummaryBox(lesson, index, { lessonGrade, game1Grade, game2Grade }, studentData);
-                    const { state, icon } = getPerformanceDetails(lessonGrade, lesson.maxScore);
+
+                    const { state, icon } = isLocked ? { state: 'locked', icon: 'fa-lock' } : getPerformanceDetails(lessonGrade, lesson.maxScore);
                     let gradeHtml = `<span class="lesson-grade not-tested">لم يتم</span>`;
                     if (lessonGrade !== null) { gradeHtml = `<span class="lesson-grade ${lessonGrade >= lesson.maxScore / 2 ? 'passed' : 'failed'}">${lessonGrade}/${lesson.maxScore}</span>`; }
+                    
                     const lessonLink = studentData.id ? `lessons/${lesson.id}.html?studentId=${studentData.id}&classId=${studentData.classIdentifier}` : `lessons/${lesson.id}.html`;
+                    
                     const gamesHtml = (lesson.games || []).map(game => {
                         const gameData = studentGames[game.id];
                         const gameGrade = (gameData !== undefined) ? robustParseFloat(gameData.grade) : null;
                         return `<div onclick="openGameModal('${game.id}')" class="game-card"><div class="game-title">${game.title}</div><div class="game-grade">${gameGrade !== null ? `${gameGrade} / ${game.maxScore}` : '- / -'} ${gameGrade === game.maxScore ? '<i class="fas fa-star text-yellow-400 ml-1"></i>' : ''}</div></div>`;
                     }).join('');
-                    return `<div class="lesson-checkpoint ${state}"><div class="checkpoint-icon"><i class="fas ${icon}"></i></div><div class="checkpoint-content"><div class="lesson-card"><div class="lesson-card-header"><a href="${lessonLink}" target="_top" class="lesson-title">${lesson.title}</a>${gradeHtml}</div>${gamesHtml ? `<div class="games-grid">${gamesHtml}</div>` : ''}</div></div></div>`;
+
+                    const unlockDateHtml = unlockDate ? `<div class="unlock-date">يفتح بتاريخ: ${unlockDate}</div>` : '';
+
+                    return `<div class="lesson-checkpoint ${state}"><div class="checkpoint-icon"><i class="fas ${icon}"></i></div><div class="checkpoint-content"><div class="lesson-card"><div class="lesson-card-header"><a href="${lessonLink}" target="_top" class="lesson-title">${lesson.title}</a>${gradeHtml}</div>${unlockDateHtml}${gamesHtml ? `<div class="games-grid">${gamesHtml}</div>` : ''}</div></div></div>`;
                 }).join('');
                 const chapterCard = document.createElement('div');
                 chapterCard.className = 'chapter-card';
@@ -671,7 +728,7 @@
                 const score = robustParseFloat((typeof scoreData === 'object' && scoreData.grade !== undefined) ? scoreData.grade : scoreData);
                 const scoreColor = score >= 80 ? 'text-green-600' : (score >= 50 ? 'text-yellow-600' : 'text-red-600');
                 const totalPoints = (typeof scoreData === 'object' && scoreData.metricValue !== undefined) ? scoreData.metricValue : 'N/A';
-                card.innerHTML = `<h4 class="text-xl font-bold text-purple-700 mb-3">الاختبار التشخيصي</h4><div class="flex justify-around items-center text-center p-3 bg-purple-50 rounded-lg"><div><p class="text-sm font-bold text-gray-500 mb-1">المعدل الأفضل</p><span class="text-4xl font-extrabold ${scoreColor}">${score}%</span></div><div class="border-r border-purple-200 h-12 mx-2"></div><div><p class="text-sm font-bold text-gray-500 mb-1">مجموع النقاط</p><span class="text-4xl font-extrabold text-purple-800">${totalPoints} <span class="text-lg font-semibold text-gray-600">/ 144</span></span></div></div><a href="${diagnosticLink}" target="_top" class="mt-4 w-full text-center block bg-purple-100 text-purple-800 font-bold py-2 rounded-lg hover:bg-purple-200 transition-colors">الدخول للاختبار</a>`;
+                card.innerHTML = `<h4 class="text-xl font-bold text-purple-700 mb-3">الاختبار التحصيلي</h4><div class="flex justify-around items-center text-center p-3 bg-purple-50 rounded-lg"><div><p class="text-sm font-bold text-gray-500 mb-1">المعدل الأفضل</p><span class="text-4xl font-extrabold ${scoreColor}">${score}%</span></div><div class="border-r border-purple-200 h-12 mx-2"></div><div><p class="text-sm font-bold text-gray-500 mb-1">مجموع النقاط</p><span class="text-4xl font-extrabold text-purple-800">${totalPoints} <span class="text-lg font-semibold text-gray-600">/ 144</span></span></div></div><a href="${diagnosticLink}" target="_top" class="mt-4 w-full text-center block bg-purple-100 text-purple-800 font-bold py-2 rounded-lg hover:bg-purple-200 transition-colors">الدخول للاختبار</a>`;
             } else {
                 card.innerHTML = `<h4 class="text-xl font-bold text-purple-700 mb-2">الاختبار التشخيصي</h4><p class="text-gray-600 my-4 text-center font-semibold">لم يتم أداء الاختبار بعد.</p><a href="${diagnosticLink}" target="_top" class="w-full text-center block bg-green-500 text-white font-bold py-2 rounded-lg hover:bg-green-600 transition-colors shadow-md hover:shadow-lg">ابدأ الاختبار الآن</a>`;
             }

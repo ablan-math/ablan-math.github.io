@@ -159,7 +159,6 @@
         .lesson-checkpoint.locked .lesson-card {
             opacity: 0.6;
             background-color: #f3f4f6;
-            pointer-events: none; /* Disables clicks on card */
         }
         .lesson-checkpoint.locked .checkpoint-icon {
             background-color: #9ca3af;
@@ -168,6 +167,15 @@
         .lesson-checkpoint.locked .lesson-title, .lesson-checkpoint.locked .game-card {
             pointer-events: none; /* Specifically disable links */
             cursor: not-allowed;
+        }
+        .lesson-summary-box.locked {
+            opacity: 0.5;
+            background-color: #f8f8f8;
+            pointer-events: none;
+            cursor: not-allowed;
+        }
+        .lesson-summary-box.locked .summary-icon {
+            color: #b0b0b0 !important;
         }
         .unlock-date {
             font-size: 0.8rem;
@@ -191,7 +199,7 @@
         .expand-icon { transition: transform 0.3s ease-in-out; }
         .lesson-summary-grid { display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 1rem; justify-content: center; }
         .lesson-summary-box { width: 80px; height: 80px; border: 2px solid #e5e7eb; background-color: #f9fafb; border-radius: 0.75rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.25rem; padding: 0.25rem; transition: all 0.2s ease; }
-        .lesson-summary-box:hover { border-color: #4f46e5; transform: scale(1.05); box-shadow: 0 5px 10px rgba(0,0,0,0.1); }
+        .lesson-summary-box:hover:not(.locked) { border-color: #4f46e5; transform: scale(1.05); box-shadow: 0 5px 10px rgba(0,0,0,0.1); }
         .lesson-summary-box .top-part, .lesson-summary-box .bottom-part a { transition: background-color 0.2s ease; width: 100%; display: flex; justify-content: center; align-items: center; text-decoration: none; color: inherit; }
         .lesson-summary-box .top-part:hover, .lesson-summary-box .bottom-part a:hover { background-color: #eef2ff; }
         .lesson-summary-box .top-part { gap: 0.5rem; flex-grow: 1; border-top-left-radius: 0.6rem; border-top-right-radius: 0.6rem; }
@@ -680,7 +688,7 @@
                     const game2Data = game2 ? studentGames[game2.id] : null;
                     const game2Grade = (game2Data !== undefined) ? robustParseFloat(game2Data.grade) : null;
                     
-                    lessonSummariesHtml += buildSummaryBox(lesson, index, { lessonGrade, game1Grade, game2Grade }, studentData);
+                    lessonSummariesHtml += buildSummaryBox(lesson, index, { lessonGrade, game1Grade, game2Grade }, studentData, isLocked);
 
                     const { state, icon } = isLocked ? { state: 'locked', icon: 'fa-lock' } : getPerformanceDetails(lessonGrade, lesson.maxScore);
                     let gradeHtml = `<span class="lesson-grade not-tested">لم يتم</span>`;
@@ -705,16 +713,16 @@
                 chapterCard.querySelector('.chapter-card-header').addEventListener('click', (e) => { if (!e.target.closest('.lesson-summary-box')) { chapterCard.classList.toggle('expanded'); } });
             });
         }
-        function buildSummaryBox(lesson, index, grades, studentData) {
+        function buildSummaryBox(lesson, index, grades, studentData, isLocked) {
             const { lessonGrade, game1Grade, game2Grade } = grades;
-            const lessonIcon = getPerformanceIcon(lessonGrade, lesson.maxScore);
+            const lessonIcon = isLocked ? 'fa-lock' : getPerformanceIcon(lessonGrade, lesson.maxScore);
             const game1 = lesson.games && lesson.games[0];
             const game2 = lesson.games && lesson.games[1];
-            const game1Icon = game1 ? getPerformanceIcon(game1Grade, game1.maxScore) : 'fa-times';
-            const game2Icon = game2 ? getPerformanceIcon(game2Grade, game2.maxScore) : 'fa-times';
+            const game1Icon = isLocked ? 'fa-lock' : (game1 ? getPerformanceIcon(game1Grade, game1.maxScore) : 'fa-times');
+            const game2Icon = isLocked ? 'fa-lock' : (game2 ? getPerformanceIcon(game2Grade, game2.maxScore) : 'fa-times');
             const lessonLink = studentData.id ? `lessons/${lesson.id}.html?studentId=${studentData.id}&classId=${studentData.classIdentifier}` : `lessons/${lesson.id}.html`;
             let content = `<a href="${lessonLink}" target="_top" class="top-part"><span class="lesson-number">${index + 1}</span><i class="fas ${lessonIcon} summary-icon"></i></a><div class="bottom-part"><a href="#" onclick="openGameModal('${game1 ? game1.id : ''}'); return false;"><i class="fas ${game1Icon} summary-icon"></i></a><a href="#" onclick="openGameModal('${game2 ? game2.id : ''}'); return false;"><i class="fas ${game2Icon} summary-icon"></i></a></div>`;
-            return `<div class="lesson-summary-box" title="${lesson.title}">${content}</div>`;
+            return `<div class="lesson-summary-box ${isLocked ? 'locked' : ''}" title="${isLocked ? 'الدرس مغلق' : lesson.title}">${content}</div>`;
         }
         function getPerformanceIcon(grade, maxScore) { if (grade === null) return 'fa-circle-notch'; if (grade === maxScore) return 'fa-trophy'; if (grade >= maxScore / 2) return 'fa-check'; return 'fa-sync-alt'; }
         function getPerformanceDetails(grade, maxScore) { if (grade === null) return { state: 'not-started', icon: 'fa-book-open' }; if (grade === maxScore) return { state: 'excellent', icon: 'fa-trophy' }; if (grade >= maxScore / 2) return { state: 'good', icon: 'fa-check' }; return { state: 'improve', icon: 'fa-sync-alt' }; }

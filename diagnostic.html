@@ -59,7 +59,62 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
-        /* --- نهاية شاشة التحميل --- */
+        
+        /* --- النافذة المنبثقة (Modal) --- */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease-in-out;
+        }
+        .modal-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+        .modal-content {
+            background-color: white;
+            padding: 2.5rem;
+            border-radius: 20px;
+            width: 90%;
+            max-width: 500px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            transform: scale(0.9);
+            transition: all 0.3s ease-in-out;
+        }
+        .modal-overlay.active .modal-content {
+            transform: scale(1);
+        }
+        .modal-icon {
+            font-size: 4rem;
+            color: var(--accent);
+            margin-bottom: 1rem;
+        }
+        .modal-content h3 {
+            font-size: 1.8rem;
+            color: var(--dark);
+            margin-top: 0;
+            margin-bottom: 1rem;
+        }
+        .modal-content p {
+            font-size: 1.1rem;
+            color: #6c757d;
+            line-height: 1.8;
+            margin-bottom: 2rem;
+        }
+        .modal-close-btn {
+             background-color: var(--primary);
+        }
+        /* --- نهاية النافذة المنبثقة --- */
 
         .main-content {
             display: none; /* إخفاء المحتوى الرئيسي مبدئياً */
@@ -726,10 +781,20 @@
     </style>
 </head>
 <body>
-    <!-- شاشة التحميل المضافة -->
+    <!-- شاشة التحميل  -->
     <div id="loading-indicator">
         <i class="fas fa-spinner loader-icon"></i>
         <p>جاري تحميل بياناتك...</p>
+    </div>
+
+    <!-- النافذة المنبثقة للرسائل الإرشادية -->
+    <div id="guidance-modal" class="modal-overlay">
+        <div class="modal-content">
+            <i id="modal-icon" class="fas fa-star modal-icon"></i>
+            <h3 id="modal-title">عنوان الرسالة</h3>
+            <p id="modal-text">نص الرسالة هنا.</p>
+            <button id="modal-close-btn" class="btn modal-close-btn">فهمت!</button>
+        </div>
     </div>
 
     <div class="main-content">
@@ -818,8 +883,16 @@
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
         
         // --- DOM Elements ---
-        const loadingIndicator = document.getElementById('loading-indicator'); // <-- تم إضافة هذا
-        const mainContent = document.querySelector('.main-content'); // <-- تم إضافة هذا
+        const loadingIndicator = document.getElementById('loading-indicator');
+        const mainContent = document.querySelector('.main-content');
+        
+        // Modal Elements
+        const modalOverlay = document.getElementById('guidance-modal');
+        const modalTitle = document.getElementById('modal-title');
+        const modalText = document.getElementById('modal-text');
+        const modalIcon = document.getElementById('modal-icon');
+        const modalCloseBtn = document.getElementById('modal-close-btn');
+
 
         const screens = { 
             dashboard: document.getElementById('dashboard-screen'), 
@@ -859,7 +932,7 @@
         // --- State ---
         let studentId = '';
         let studentName = '';
-        let classId = ''; // <-- تم إضافة هذا المتغير
+        let classId = ''; 
         let isVisitor = false;
         let currentQuizId = null;
         let currentDifficulty = null;
@@ -1030,6 +1103,26 @@
             Object.values(screens).forEach(screen => screen.classList.remove('active'));
             screens[screenId].classList.add('active');
         }
+        
+        // --- Modal Functions ---
+        function showModal(icon, title, text) {
+            const modalId = `modal_${title.replace(/\s/g, '')}`;
+            if (sessionStorage.getItem(modalId)) {
+                return;
+            }
+
+            modalIcon.className = `fas ${icon} modal-icon`;
+            modalTitle.textContent = title;
+            modalText.innerHTML = text;
+            modalOverlay.classList.add('active');
+            
+            sessionStorage.setItem(modalId, 'true');
+        }
+
+        function hideModal() {
+            modalOverlay.classList.remove('active');
+        }
+        // --- End Modal Functions ---
 
         function loadQuizData(studentData) {
             let dataToLoad = null;
@@ -1059,9 +1152,7 @@
         }
         
         async function saveGradeToSheet(itemId, grade, points) {
-            // **UPDATED**: Check for classId before sending
             if (isVisitor || !studentId || !classId) return; 
-            // **UPDATED**: Add classId to the URL
             const url = `${SCRIPT_URL}?action=saveGrade&studentId=${studentId}&classId=${classId}&itemId=${itemId}&grade=${grade}&metricValue=${points}`;
             try {
                 const response = await fetch(url);
@@ -1096,15 +1187,37 @@
 
             const levelCounts = { easy: 0, medium: 0, hard: 0 };
             const levelScores = { easy: 0, medium: 0, hard: 0 };
+            let totalCompleted = 0;
             
             Object.values(quizData).forEach(skill => {
                 Object.entries(skill.levels).forEach(([levelKey, levelData]) => {
                     if(levelData.completed) {
+                        totalCompleted++;
                         levelCounts[levelKey]++;
                         levelScores[levelKey] += levelData.score;
                     }
                 });
             });
+
+            // --- Logic for Motivational Modals (UPDATED) ---
+            const avgEasyScore = levelCounts.easy > 0 ? levelScores.easy / levelCounts.easy : 0;
+            const avgMediumScore = levelCounts.medium > 0 ? levelScores.medium / levelCounts.medium : 0;
+            const avgHardScore = levelCounts.hard > 0 ? levelScores.hard / levelCounts.hard : 0;
+
+            if (totalCompleted === 1) {
+                 showModal('fa-flag-checkered', 'بداية رائعة!', 'أحسنت في إنهاء أول تحدٍ لك! لاحظ كيف تم تسجيل درجتك في لوحة الإنجازات. هدفك هو إكمال جميع المستويات لتقييم مهاراتك وجمع أكبر عدد من النقاط. بالتوفيق!');
+            }
+            if (levelCounts.easy === 6 && avgEasyScore >= 75 && levelCounts.medium < 6) {
+                showModal('fa-rocket', 'أداء رائع!', 'لقد أتممت جميع تحديات المستوى السهل بدرجة عالية. أنت الآن جاهز لتحديات أكبر! حاول إكمال المستوى المتوسط، فدرجته الموزونة أعلى (تقسم على ٢ فقط) مما يرفع تقييمك بشكل أسرع. استمر في التقدم!');
+            }
+            if (levelCounts.medium === 6 && avgMediumScore >= 75 && levelCounts.hard < 6) {
+                showModal('fa-crown', 'عمل مذهل!', 'لقد أتقنت المستوى المتوسط بدرجة ممتازة. لم يتبقَ إلا القمة! تحديات المستوى العالي تمنحك أعلى النقاط ودرجتها الموزونة هي الأعلى (لا تقسم). أثبت مهارتك وتصدر قائمة الأبطال!');
+            }
+            if (levelCounts.hard === 6 && avgHardScore >= 90 && (levelCounts.easy < 6 || levelCounts.medium < 6)) {
+                 showModal('fa-lightbulb', 'نصيحة الأبطال!', 'ممتاز! لقد حققت درجة عالية في أصعب المستويات، وهذا يدل على تمكنك. لا تترك النقاط السهلة! عد وأكمل تحديات المستويين السهل والمتوسط لتجمع أكبر عدد من النقاط وتضمن تفوقك على المنافسين.');
+            }
+            // --- End Logic for Modals ---
+
 
             let bestWeightedScore = -1;
             let bestLevelMessage = "";
@@ -1264,7 +1377,9 @@
             
             const models = quizzes[currentQuizId].levels[currentDifficulty];
             const modelIndex = Math.floor(Math.random() * models.length);
-            currentModel = models[modelIndex].sort(() => 0.5 - Math.random()).slice(0, 4);
+            // --- *** THE FIX IS HERE *** ---
+            // Create a copy of the model array before sorting it to prevent modifying the original.
+            currentModel = [...models[modelIndex]].sort(() => 0.5 - Math.random());
 
             const levelName = currentDifficulty === 'easy' ? 'سهل' : (currentDifficulty === 'medium' ? 'متوسط' : 'عالي');
             quizTitle.textContent = `${quizzes[currentQuizId].title} - مستوى ${levelName}`;
@@ -1426,6 +1541,13 @@
             showScreen('dashboard');
             updateAndRenderDashboard();
         });
+        
+        modalCloseBtn.addEventListener('click', hideModal);
+        modalOverlay.addEventListener('click', (e) => {
+            if (e.target === modalOverlay) {
+                hideModal();
+            }
+        });
 
         /**
          * Main initialization function.
@@ -1433,29 +1555,26 @@
         async function init() {
             const urlParams = new URLSearchParams(window.location.search);
             studentId = urlParams.get('studentId');
-            classId = urlParams.get('classId'); // <-- **تم التعديل هنا**
+            classId = urlParams.get('classId');
 
             if (!studentId) {
                 isVisitor = true;
                 loadQuizData(null);
                 renderDashboard();
                 showScreen('dashboard');
-                // --- إخفاء شاشة التحميل وإظهار المحتوى ---
                 loadingIndicator.style.opacity = '0';
                 setTimeout(() => { loadingIndicator.style.display = 'none'; }, 500);
                 mainContent.style.display = 'block';
                 return;
             }
 
-            // **تمت إضافة هذا التحقق**
             if (!classId) {
                 document.body.innerHTML = '<h1 style="text-align: center; padding: 50px; color: red;">خطأ: معرّف الفصل الدراسي مفقود. الرجاء العودة للمنصة الرئيسية والمحاولة مرة أخرى.</h1>';
-                loadingIndicator.style.display = 'none'; // إخفاء التحميل عند الخطأ
+                loadingIndicator.style.display = 'none';
                 return;
             }
             
             try {
-                // **تم التعديل هنا**
                 const response = await fetch(`${SCRIPT_URL}?action=getStudentData&studentId=${studentId}&classId=${classId}`);
                 const result = await response.json();
                 if (result.status === 'success' && result.data) {
@@ -1464,16 +1583,14 @@
                     renderDashboard();
                     showScreen('dashboard');
                 } else {
-                    // Handle case where student is not found in the specific class sheet
                     document.body.innerHTML = `<h1 style="text-align: center; padding: 50px; color: red;">خطأ: لم يتم العثور على الطالب بالرقم ${studentId} في الفصل ${classId}.</h1>`;
                 }
             } catch (error) {
                 console.error("Failed to fetch student data:", error);
                 document.body.innerHTML = '<h1 style="text-align: center; padding: 50px; color: red;">حدث خطأ أثناء تحميل بيانات الطالب.</h1>';
             } finally {
-                // --- إخفاء شاشة التحميل وإظهار المحتوى في كل الحالات ---
                 loadingIndicator.style.opacity = '0';
-                setTimeout(() => { loadingIndicator.style.display = 'none'; }, 500); // تأخير بسيط للتلاشي
+                setTimeout(() => { loadingIndicator.style.display = 'none'; }, 500);
                 mainContent.style.display = 'block';
             }
         }

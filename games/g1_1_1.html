@@ -12,32 +12,12 @@
             margin: 0; 
             overflow: hidden; 
             font-family: 'Cairo', sans-serif; 
-            background-color: #f0f0f0; /* Light grey background to see the container */
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
+            background-color: #111;
         }
-        
-        /* --- NEW: Main Game Container --- */
-        #game-container {
-            position: relative; /* This is the key change */
-            width: 100%;
-            height: 100%;
-            max-width: 100vw; /* Adjust as needed */
-            max-height: 100vh; /* Adjust as needed */
-            overflow: hidden;
-            border-radius: 15px; /* Optional: for rounded corners */
-            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
-        }
-
         canvas { 
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
             display: block;
+            width: 100%; /* Ensure canvas fills the width */
+            height: 100vh; /* Ensure canvas fills the height */
         }
         .overlay {
             position: absolute;
@@ -239,543 +219,555 @@
     </style>
 </head>
 <body>
-    <!-- NEW: Main Game Container -->
-    <div id="game-container">
-        <!-- All game elements are now inside this container -->
-        <div id="intro-screen" class="overlay visible">
-            <h1>لعبة حماية الذرة</h1>
-            <p id="welcomeMessage">مهمتك هي حماية حقل الذرة من الغربان الجائعة. سيظهر لك سؤال عندما يهبط غراب على الفزاعة. أجب بشكل صحيح لإطلاق النار عليه، أو سيقوم بسرقة محصولك!</p>
-            <p style="font-size: 0.9em; color: #ccc;">برمجة وتصميم : أ. عبدالعزيز خالد العبلان</p>
-            <button id="start-button">ابدأ اللعبة</button>
-        </div>
+    <div id="intro-screen" class="overlay visible">
+        <h1>لعبة حماية الذرة</h1>
+        <p id="welcomeMessage">مهمتك هي حماية حقل الذرة من الغربان الجائعة. سيظهر لك سؤال عندما يهبط غراب على الفزاعة. أجب بشكل صحيح لإطلاق النار عليه، أو سيقوم بسرقة محصولك!</p>
+        <p style="font-size: 0.9em; color: #ccc;">برمجة وتصميم : أ. عبدالعزيز خالد العبلان</p>
+        <button id="start-button">ابدأ اللعبة</button>
+    </div>
 
-        <div id="round-transition-screen" class="overlay hidden">
-            <h1 id="round-text"></h1>
-        </div>
+    <div id="round-transition-screen" class="overlay hidden">
+        <h1 id="round-text"></h1>
+    </div>
 
-        <div id="game-ui">
-            <div id="question-container">
-                <div id="question-text"></div>
-                <div id="question-timer"></div>
+    <div id="game-ui">
+        <div id="question-container">
+            <div id="question-text"></div>
+            <div id="question-timer"></div>
+        </div>
+        <div id="answers-container">
+            <button class="answer-button" data-index="0"></button>
+            <button class="answer-button" data-index="1"></button>
+            <button class="answer-button" data-index="2"></button>
+            <button class="answer-button" data-index="3"></button>
+        </div>
+    </div>
+    <div id="feedback-container" class="overlay hidden">
+        <div id="feedback-text"></div>
+        <button id="explanation-button">اعرف لماذا؟</button>
+        <div id="next-round-timer"></div>
+    </div>
+    <div id="score-container" class="overlay hidden">
+        <h1 id="score-title">انتهت اللعبة!</h1>
+        
+        <div id="final-result-display" class="text-center text-xl mt-4"></div>
+        <div id="leaderboard-loader" style="display: none;" class="text-center mt-6">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
+            <p>جاري تحميل سجل الأبطال...</p>
+        </div>
+        <div id="leaderboard-container" class="mt-4"></div>
+        
+        <div class="flex flex-wrap justify-center gap-4 mt-6">
+            <div id="finish-game-wrapper" style="display: none;">
+                <button id="finish-game-btn" class="px-6 py-3 bg-red-600 text-white font-bold rounded-lg shadow-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-opacity-75 transition-transform transform hover:scale-105">
+                    إنهاء والعودة للمنصة
+                </button>
             </div>
-            <div id="answers-container">
-                <button class="answer-button" data-index="0"></button>
-                <button class="answer-button" data-index="1"></button>
-                <button class="answer-button" data-index="2"></button>
-                <button class="answer-button" data-index="3"></button>
+            <div id="restart-game-wrapper" style="display: none;">
+                 <button id="restart-button" class="px-6 py-3 bg-blue-600 text-white font-bold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-75 transition-transform transform hover:scale-105">
+                    إعادة اللعبة
+                </button>
             </div>
         </div>
-        <div id="feedback-container" class="overlay hidden">
-            <div id="feedback-text"></div>
-            <button id="explanation-button">اعرف لماذا؟</button>
-            <div id="next-round-timer"></div>
-        </div>
-        <div id="score-container" class="overlay hidden">
-            <h1 id="score-title">انتهت اللعبة!</h1>
-            
-            <div id="final-result-display" class="text-center text-xl mt-4"></div>
-            <div id="leaderboard-loader" style="display: none;" class="text-center mt-6">
-                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
-                <p>جاري تحميل سجل الأبطال...</p>
-            </div>
-            <div id="leaderboard-container" class="mt-4"></div>
-            
-            <div class="flex flex-wrap justify-center gap-4 mt-6">
-                <div id="finish-game-wrapper" style="display: none;">
-                    <button id="finish-game-btn" class="px-6 py-3 bg-red-600 text-white font-bold rounded-lg shadow-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-opacity-75 transition-transform transform hover:scale-105">
-                        إنهاء والعودة للمنصة
-                    </button>
-                </div>
-                <div id="restart-game-wrapper" style="display: none;">
-                     <button id="restart-button" class="px-6 py-3 bg-blue-600 text-white font-bold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-75 transition-transform transform hover:scale-105">
-                        إعادة اللعبة
-                    </button>
-                </div>
-            </div>
-        </div>
-        <div id="explanation-modal" class="overlay hidden">
-            <div id="explanation-content"></div>
-            <button id="close-modal">أغلق</button>
-        </div>
+    </div>
+    <div id="explanation-modal" class="overlay hidden">
+        <div id="explanation-content"></div>
+        <button id="close-modal">أغلق</button>
+    </div>
 
-        <script type="importmap">
-            {
-                "imports": {
-                    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-                    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // ... (Game's 3D logic and setup remains the same, omitted for brevity) ...
+        let scene, camera, renderer, controls, clock;
+        let crows = [];
+        let feathers = [];
+        const cornCobs = [];
+        const gravity = new THREE.Vector3(0, -9.8, 0);
+        let landingSpot;
+        let perchedCrow = null;
+        let questionContainer, answersContainer, questionTextElement, questionTimerElement, feedbackContainer, feedbackText, explanationButton, nextRoundTimerElement, explanationModal, explanationContent, closeModalButton, scoreContainer, introScreen, startButton, roundTransitionScreen, roundText;
+        let cameraState = 'IDLE';
+        const originalCameraPosition = new THREE.Vector3();
+        const zoomTargetPosition = new THREE.Vector3();
+        let zoomStartTime = 0;
+        let questionStartTime = 0;
+        const answerTimes = [];
+        const questionBanks = [
+            [
+                { question: "ما هو حل المعادلة ٢س + ٥ = ١١ ؟", options: ["س = ٤", "س = ٣", "س = ٨", "س = ٥"], correctAnswer: 1, explanation: { steps: [{math: "٢س = ١١ - ٥", note: "بطرح ٥ من الطرفين"}, {math: "٢س = ٦", note: "بالتبسيط"}, {math: "س = ٣", note: "بالقسمة على ٢"}] } },
+                { question: "ما هو حل المعادلة ٣س - ٤ = ١١ ؟", options: ["س = ٥", "س = ٧", "س = ٣", "س = ٤"], correctAnswer: 0, explanation: { steps: [{math: "٣س = ١١ + ٤", note: "بإضافة ٤ للطرفين"}, {math: "٣س = ١٥", note: "بالتبسيط"}, {math: "س = ٥", note: "بالقسمة على ٣"}] } },
+                { question: "ما هو حل المعادلة ٤ص + ٢ = ٢٢ ؟", options: ["ص = ٦", "ص = ٤", "ص = ٥", "ص = ٧"], correctAnswer: 2, explanation: { steps: [{math: "٤ص = ٢٢ - ٢", note: "بطرح ٢ من الطرفين"}, {math: "٤ص = ٢٠", note: "بالتبسيط"}, {math: "ص = ٥", note: "بالقسمة على ٤"}] } }
+            ],
+            [
+                { question: "ما هي مجموعة حل المعادلة ن + ٨ = ن - ٢ ؟", options: ["{١٠}", "{-٦}", "{كل الأعداد الحقيقية}", "{لا يوجد حل}"], correctAnswer: 3, explanation: { steps: [{math: "٨ = -٢", note: "بطرح 'ن' من الطرفين"}, {math: "عبارة خاطئة", note: "لا يمكن أن تتساوى القيمتان"}] } },
+                { question: "ما هي مجموعة حل المعادلة ك - ٥ = ك + ١ ؟", options: ["{-٤}", "{كل الأعداد الحقيقية}", "{لا يوجد حل}", "{٦}"], correctAnswer: 2, explanation: { steps: [{math: "-٥ = ١", note: "بطرح 'ك' من الطرفين"}, {math: "عبارة خاطئة", note: "لا يمكن أن تتساوى القيمتان"}] } },
+                { question: "ما هي مجموعة حل المعادلة ٣ع + ٧ = ٣ع - ٣ ؟", options: ["{لا يوجد حل}", "{١٠}", "{كل الأعداد الحقيقية}", "{-٤}"], correctAnswer: 0, explanation: { steps: [{math: "٧ = -٣", note: "بطرح '٣ع' من الطرفين"}, {math: "عبارة خاطئة", note: "لا يمكن أن تتساوى القيمتان"}] } }
+            ],
+            [
+                { question: "حل المعادلة ٧ + ٢س = ٢(س + ١)", options: ["س = ٥", "{لا يوجد حل}", "{كل الأعداد الحقيقية}", "س = -٥"], correctAnswer: 1, explanation: { steps: [{math: "٧ + ٢س = ٢س + ٢", note: "باستخدام خاصية التوزيع"}, {math: "٧ = ٢", note: "بطرح ٢س من الطرفين"}, {math: "عبارة خاطئة", note: "إذاً لا يوجد حل"}] } },
+                { question: "حل المعادلة ٥(ل + ٢) = ٥ل + ٩", options: ["ل = ١", "{كل الأعداد الحقيقية}", "{لا يوجد حل}", "ل = -١"], correctAnswer: 2, explanation: { steps: [{math: "٥ل + ١٠ = ٥ل + ٩", note: "باستخدام خاصية التوزيع"}, {math: "١٠ = ٩", note: "بطرح ٥ل من الطرفين"}, {math: "عبارة خاطئة", note: "إذاً لا يوجد حل"}] } },
+                { question: "حل المعادلة ٣ + ٤ب = ٤(ب + ٢)", options: ["{لا يوجد حل}", "ب = ٨", "ب = ٥", "{كل الأعداد الحقيقية}"], correctAnswer: 0, explanation: { steps: [{math: "٣ + ٤ب = ٤ب + ٨", note: "باستخدام خاصية التوزيع"}, {math: "٣ = ٨", note: "بطرح ٤ب من الطرفين"}, {math: "عبارة خاطئة", note: "إذاً لا يوجد حل"}] } }
+            ],
+            [
+                { question: "أي العبارات التالية تجعل المعادلة ٤(م - ١) = ... متطابقة؟", options: ["٤م - ١", "م - ٤", "٤م - ٤", "٤م"], correctAnswer: 2, explanation: { steps: [{math: "٤ * م - ٤ * ١", note: "باستخدام خاصية التوزيع"}, {math: "٤م - ٤", note: "لكي تكون متطابقة يجب أن يتساوى الطرفان"}] } },
+                { question: "أي العبارات التالية تجعل المعادلة ٣(س + ٢) = ... متطابقة؟", options: ["٣س + ٢", "٣س + ٦", "س + ٦", "٥س"], correctAnswer: 1, explanation: { steps: [{math: "٣ * س + ٣ * ٢", note: "باستخدام خاصية التوزيع"}, {math: "٣س + ٦", note: "لكي تكون متطابقة يجب أن يتساوى الطرفان"}] } },
+                { question: "أي العبارات التالية تجعل المعادلة ٦(ص - ٣) = ... متطابقة؟", options: ["٦ص - ٣", "ص - ١٨", "٦ص + ١٨", "٦ص - ١٨"], correctAnswer: 3, explanation: { steps: [{math: "٦ * ص - ٦ * ٣", note: "باستخدام خاصية التوزيع"}, {math: "٦ص - ١٨", note: "لكي تكون متطابقة يجب أن يتساوى الطرفان"}] } }
+            ],
+            [
+                { question: "لجعل المعادلة ٥(ع - ٢) = ٥ع - ... صحيحة، ماذا يجب أن يكون العدد المفقود؟", options: ["٢", "٥", "٧", "١٠"], correctAnswer: 3, explanation: { steps: [{math: "٥ * ع - ٥ * ٢", note: "باستخدام خاصية التوزيع"}, {math: "٥ع - ١٠", note: "إذن العدد المفقود هو ١٠"}] } },
+                { question: "لجعل المعادلة ٢(س + ٦) = ٢س + ... صحيحة، ماذا يجب أن يكون العدد المفقود؟", options: ["٦", "٨", "١٢", "٢"], correctAnswer: 2, explanation: { steps: [{math: "٢ * س + ٢ * ٦", note: "باستخدام خاصية التوزيع"}, {math: "٢س + ١٢", note: "إذن العدد المفقود هو ١٢"}] } },
+                { question: "لجعل المعادلة ٧(ب - ١) = ٧ب - ... صحيحة، ماذا يجب أن يكون العدد المفقود؟", options: ["١", "١٤", "٧", "٦"], correctAnswer: 2, explanation: { steps: [{math: "٧ * ب - ٧ * ١", note: "باستخدام خاصية التوزيع"}, {math: "٧ب - ٧", note: "إذن العدد المفقود هو ٧"}] } }
+            ]
+        ];
+        let gameQuestions = [];
+        let currentQuestion = {};
+        let questionInterval, nextRoundInterval;
+        let nextRoundCountdownValue = 5;
+        const gameState = { score: 0, questionsAsked: 0, totalQuestions: 5, gameActive: false };
+        function init() {
+            clock = new THREE.Clock();
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x87CEEB);
+            scene.fog = new THREE.Fog(0x87CEEB, 15, 200);
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            document.body.appendChild(renderer.domElement);
+            introScreen = document.getElementById('intro-screen');
+            startButton = document.getElementById('start-button');
+            roundTransitionScreen = document.getElementById('round-transition-screen');
+            roundText = document.getElementById('round-text');
+            questionContainer = document.getElementById('question-container');
+            questionTextElement = document.getElementById('question-text');
+            questionTimerElement = document.getElementById('question-timer');
+            answersContainer = document.getElementById('answers-container');
+            feedbackContainer = document.getElementById('feedback-container');
+            feedbackText = document.getElementById('feedback-text');
+            explanationButton = document.getElementById('explanation-button');
+            nextRoundTimerElement = document.getElementById('next-round-timer');
+            explanationModal = document.getElementById('explanation-modal');
+            explanationContent = document.getElementById('explanation-content');
+            closeModalButton = document.getElementById('close-modal');
+            scoreContainer = document.getElementById('score-container');
+            document.querySelectorAll('.answer-button').forEach(button => { button.addEventListener('click', (event) => checkAnswer(parseInt(event.target.dataset.index))); });
+            explanationButton.addEventListener('click', showExplanation);
+            closeModalButton.addEventListener('click', hideExplanation);
+            startButton.addEventListener('click', startGame);
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
+            directionalLight.position.set(15, 40, 20);
+            directionalLight.castShadow = true;
+            scene.add(directionalLight);
+            const groundGeometry = new THREE.PlaneGeometry(300, 300);
+            const groundMaterial = new THREE.MeshPhongMaterial({ color: 0x556B2F });
+            const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+            ground.rotation.x = -Math.PI / 2;
+            ground.receiveShadow = true;
+            scene.add(ground);
+            const cornField = new THREE.Group();
+            for (let i = -10; i < 10; i++) { for (let j = -5; j < 12; j++) { const cornPlant = createCornPlant(); const x = i * 6 + (Math.random() - 0.5) * 2; const z = j * 6 + (Math.random() - 0.5) * 2; cornPlant.position.set(x, 0, z); cornPlant.rotation.y = Math.random() * Math.PI * 2; cornPlant.scale.setScalar(0.8 + Math.random() * 0.4); cornField.add(cornPlant); } }
+            scene.add(cornField);
+            const scarecrow = createScarecrow();
+            scarecrow.position.set(0, 0, 30);
+            scarecrow.scale.set(1.5, 1.5, 1.5);
+            scene.add(scarecrow);
+            landingSpot = new THREE.Vector3(scarecrow.position.x, 15.5 * scarecrow.scale.y, scarecrow.position.z);
+            const player = createPlayer();
+            player.position.set(0, 0, -45);
+            player.scale.set(3.5, 3.5, 3.5);
+            scene.add(player);
+            player.lookAt(landingSpot);
+            const playerWorldPosition = new THREE.Vector3();
+            player.getWorldPosition(playerWorldPosition);
+            camera.position.set(playerWorldPosition.x, playerWorldPosition.y + 20, playerWorldPosition.z - 10);
+            originalCameraPosition.copy(camera.position);
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.maxPolarAngle = Math.PI / 1.5;
+            controls.minDistance = 5;
+            controls.maxDistance = 150;
+            controls.target.copy(landingSpot);
+            for (let i = 0; i < 10; i++) { const crow = createCrow(); const radius = Math.random() * 20 + 60; const y = Math.random() * 10 + 35; const angle = Math.random() * Math.PI * 2; crow.position.set(Math.cos(angle) * radius, y, Math.sin(angle) * radius); crow.userData = { radius: radius, angle: angle, speed: Math.random() * 0.3 + 0.2, state: 'FLYING', originalY: y }; scene.add(crow); crows.push(crow); }
+            window.addEventListener('resize', onWindowResize, false);
+            animate();
+        }
+        function prepareGameQuestions() {
+            gameQuestions = [];
+            for (const bank of questionBanks) {
+                const randomIndex = Math.floor(Math.random() * bank.length);
+                gameQuestions.push(bank[randomIndex]);
+            }
+            for (let i = gameQuestions.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [gameQuestions[i], gameQuestions[j]] = [gameQuestions[j], gameQuestions[i]];
+            }
+        }
+        function startGame() {
+            introScreen.classList.remove('visible');
+            introScreen.classList.add('hidden');
+            prepareGameQuestions();
+            gameState.gameActive = true;
+            showRoundTransition();
+        }
+        function checkAnswer(selectedIndex) {
+            if (!perchedCrow) return;
+            clearInterval(questionInterval);
+            const timeTaken = (Date.now() - questionStartTime) / 1000;
+            answerTimes.push(timeTaken);
+            const answerButtons = document.querySelectorAll('.answer-button');
+            answerButtons.forEach(button => button.disabled = true);
+            const correct = selectedIndex === currentQuestion.correctAnswer;
+            if (correct) {
+                answerButtons[selectedIndex].classList.add('flash-correct');
+            } else {
+                if (selectedIndex >= 0) {
+                    answerButtons[selectedIndex].classList.add('flash-incorrect');
                 }
+                answerButtons[currentQuestion.correctAnswer].classList.add('flash-correct');
             }
-        </script>
-
-        <script type="module">
-            import * as THREE from 'three';
-            import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-
-            let scene, camera, renderer, controls, clock;
-            let crows = [];
-            let feathers = [];
-            const cornCobs = [];
-            const gravity = new THREE.Vector3(0, -9.8, 0);
-            let landingSpot;
-            let perchedCrow = null;
-            let questionContainer, answersContainer, questionTextElement, questionTimerElement, feedbackContainer, feedbackText, explanationButton, nextRoundTimerElement, explanationModal, explanationContent, closeModalButton, scoreContainer, introScreen, startButton, roundTransitionScreen, roundText;
-            let cameraState = 'IDLE';
-            const originalCameraPosition = new THREE.Vector3();
-            const zoomTargetPosition = new THREE.Vector3();
-            let zoomStartTime = 0;
-            let questionStartTime = 0;
-            const answerTimes = [];
-            const questionBanks = [
-                [
-                    { question: "ما هو حل المعادلة ٢س + ٥ = ١١ ؟", options: ["س = ٤", "س = ٣", "س = ٨", "س = ٥"], correctAnswer: 1, explanation: { steps: [{math: "٢س = ١١ - ٥", note: "بطرح ٥ من الطرفين"}, {math: "٢س = ٦", note: "بالتبسيط"}, {math: "س = ٣", note: "بالقسمة على ٢"}] } },
-                    { question: "ما هو حل المعادلة ٣س - ٤ = ١١ ؟", options: ["س = ٥", "س = ٧", "س = ٣", "س = ٤"], correctAnswer: 0, explanation: { steps: [{math: "٣س = ١١ + ٤", note: "بإضافة ٤ للطرفين"}, {math: "٣س = ١٥", note: "بالتبسيط"}, {math: "س = ٥", note: "بالقسمة على ٣"}] } },
-                    { question: "ما هو حل المعادلة ٤ص + ٢ = ٢٢ ؟", options: ["ص = ٦", "ص = ٤", "ص = ٥", "ص = ٧"], correctAnswer: 2, explanation: { steps: [{math: "٤ص = ٢٢ - ٢", note: "بطرح ٢ من الطرفين"}, {math: "٤ص = ٢٠", note: "بالتبسيط"}, {math: "ص = ٥", note: "بالقسمة على ٤"}] } }
-                ],
-                [
-                    { question: "ما هي مجموعة حل المعادلة ن + ٨ = ن - ٢ ؟", options: ["{١٠}", "{-٦}", "{كل الأعداد الحقيقية}", "{لا يوجد حل}"], correctAnswer: 3, explanation: { steps: [{math: "٨ = -٢", note: "بطرح 'ن' من الطرفين"}, {math: "عبارة خاطئة", note: "لا يمكن أن تتساوى القيمتان"}] } },
-                    { question: "ما هي مجموعة حل المعادلة ك - ٥ = ك + ١ ؟", options: ["{-٤}", "{كل الأعداد الحقيقية}", "{لا يوجد حل}", "{٦}"], correctAnswer: 2, explanation: { steps: [{math: "-٥ = ١", note: "بطرح 'ك' من الطرفين"}, {math: "عبارة خاطئة", note: "لا يمكن أن تتساوى القيمتان"}] } },
-                    { question: "ما هي مجموعة حل المعادلة ٣ع + ٧ = ٣ع - ٣ ؟", options: ["{لا يوجد حل}", "{١٠}", "{كل الأعداد الحقيقية}", "{-٤}"], correctAnswer: 0, explanation: { steps: [{math: "٧ = -٣", note: "بطرح '٣ع' من الطرفين"}, {math: "عبارة خاطئة", note: "لا يمكن أن تتساوى القيمتان"}] } }
-                ],
-                [
-                    { question: "حل المعادلة ٧ + ٢س = ٢(س + ١)", options: ["س = ٥", "{لا يوجد حل}", "{كل الأعداد الحقيقية}", "س = -٥"], correctAnswer: 1, explanation: { steps: [{math: "٧ + ٢س = ٢س + ٢", note: "باستخدام خاصية التوزيع"}, {math: "٧ = ٢", note: "بطرح ٢س من الطرفين"}, {math: "عبارة خاطئة", note: "إذاً لا يوجد حل"}] } },
-                    { question: "حل المعادلة ٥(ل + ٢) = ٥ل + ٩", options: ["ل = ١", "{كل الأعداد الحقيقية}", "{لا يوجد حل}", "ل = -١"], correctAnswer: 2, explanation: { steps: [{math: "٥ل + ١٠ = ٥ل + ٩", note: "باستخدام خاصية التوزيع"}, {math: "١٠ = ٩", note: "بطرح ٥ل من الطرفين"}, {math: "عبارة خاطئة", note: "إذاً لا يوجد حل"}] } },
-                    { question: "حل المعادلة ٣ + ٤ب = ٤(ب + ٢)", options: ["{لا يوجد حل}", "ب = ٨", "ب = ٥", "{كل الأعداد الحقيقية}"], correctAnswer: 0, explanation: { steps: [{math: "٣ + ٤ب = ٤ب + ٨", note: "باستخدام خاصية التوزيع"}, {math: "٣ = ٨", note: "بطرح ٤ب من الطرفين"}, {math: "عبارة خاطئة", note: "إذاً لا يوجد حل"}] } }
-                ],
-                [
-                    { question: "أي العبارات التالية تجعل المعادلة ٤(م - ١) = ... متطابقة؟", options: ["٤م - ١", "م - ٤", "٤م - ٤", "٤م"], correctAnswer: 2, explanation: { steps: [{math: "٤ * م - ٤ * ١", note: "باستخدام خاصية التوزيع"}, {math: "٤م - ٤", note: "لكي تكون متطابقة يجب أن يتساوى الطرفان"}] } },
-                    { question: "أي العبارات التالية تجعل المعادلة ٣(س + ٢) = ... متطابقة؟", options: ["٣س + ٢", "٣س + ٦", "س + ٦", "٥س"], correctAnswer: 1, explanation: { steps: [{math: "٣ * س + ٣ * ٢", note: "باستخدام خاصية التوزيع"}, {math: "٣س + ٦", note: "لكي تكون متطابقة يجب أن يتساوى الطرفان"}] } },
-                    { question: "أي العبارات التالية تجعل المعادلة ٦(ص - ٣) = ... متطابقة؟", options: ["٦ص - ٣", "ص - ١٨", "٦ص + ١٨", "٦ص - ١٨"], correctAnswer: 3, explanation: { steps: [{math: "٦ * ص - ٦ * ٣", note: "باستخدام خاصية التوزيع"}, {math: "٦ص - ١٨", note: "لكي تكون متطابقة يجب أن يتساوى الطرفان"}] } }
-                ],
-                [
-                    { question: "لجعل المعادلة ٥(ع - ٢) = ٥ع - ... صحيحة، ماذا يجب أن يكون العدد المفقود؟", options: ["٢", "٥", "٧", "١٠"], correctAnswer: 3, explanation: { steps: [{math: "٥ * ع - ٥ * ٢", note: "باستخدام خاصية التوزيع"}, {math: "٥ع - ١٠", note: "إذن العدد المفقود هو ١٠"}] } },
-                    { question: "لجعل المعادلة ٢(س + ٦) = ٢س + ... صحيحة، ماذا يجب أن يكون العدد المفقود؟", options: ["٦", "٨", "١٢", "٢"], correctAnswer: 2, explanation: { steps: [{math: "٢ * س + ٢ * ٦", note: "باستخدام خاصية التوزيع"}, {math: "٢س + ١٢", note: "إذن العدد المفقود هو ١٢"}] } },
-                    { question: "لجعل المعادلة ٧(ب - ١) = ٧ب - ... صحيحة، ماذا يجب أن يكون العدد المفقود؟", options: ["١", "١٤", "٧", "٦"], correctAnswer: 2, explanation: { steps: [{math: "٧ * ب - ٧ * ١", note: "باستخدام خاصية التوزيع"}, {math: "٧ب - ٧", note: "إذن العدد المفقود هو ٧"}] } }
-                ]
-            ];
-            let gameQuestions = [];
-            let currentQuestion = {};
-            let questionInterval, nextRoundInterval;
-            let nextRoundCountdownValue = 5;
-            const gameState = { score: 0, questionsAsked: 0, totalQuestions: 5, gameActive: false };
-            const gameContainer = document.getElementById('game-container'); // Get the container
-
-            function init() {
-                clock = new THREE.Clock();
-                scene = new THREE.Scene();
-                scene.background = new THREE.Color(0x87CEEB);
-                scene.fog = new THREE.Fog(0x87CEEB, 15, 200);
-                camera = new THREE.PerspectiveCamera(75, gameContainer.clientWidth / gameContainer.clientHeight, 0.1, 1000);
-                renderer = new THREE.WebGLRenderer({ antialias: true });
-                renderer.setSize(gameContainer.clientWidth, gameContainer.clientHeight);
-                renderer.shadowMap.enabled = true;
-                gameContainer.appendChild(renderer.domElement); // Append to container
-                introScreen = document.getElementById('intro-screen');
-                startButton = document.getElementById('start-button');
-                roundTransitionScreen = document.getElementById('round-transition-screen');
-                roundText = document.getElementById('round-text');
-                questionContainer = document.getElementById('question-container');
-                questionTextElement = document.getElementById('question-text');
-                questionTimerElement = document.getElementById('question-timer');
-                answersContainer = document.getElementById('answers-container');
-                feedbackContainer = document.getElementById('feedback-container');
-                feedbackText = document.getElementById('feedback-text');
-                explanationButton = document.getElementById('explanation-button');
-                nextRoundTimerElement = document.getElementById('next-round-timer');
-                explanationModal = document.getElementById('explanation-modal');
-                explanationContent = document.getElementById('explanation-content');
-                closeModalButton = document.getElementById('close-modal');
-                scoreContainer = document.getElementById('score-container');
-                document.querySelectorAll('.answer-button').forEach(button => { button.addEventListener('click', (event) => checkAnswer(parseInt(event.target.dataset.index))); });
-                explanationButton.addEventListener('click', showExplanation);
-                closeModalButton.addEventListener('click', hideExplanation);
-                startButton.addEventListener('click', startGame);
-                const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-                scene.add(ambientLight);
-                const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
-                directionalLight.position.set(15, 40, 20);
-                directionalLight.castShadow = true;
-                scene.add(directionalLight);
-                const groundGeometry = new THREE.PlaneGeometry(300, 300);
-                const groundMaterial = new THREE.MeshPhongMaterial({ color: 0x556B2F });
-                const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-                ground.rotation.x = -Math.PI / 2;
-                ground.receiveShadow = true;
-                scene.add(ground);
-                const cornField = new THREE.Group();
-                for (let i = -10; i < 10; i++) { for (let j = -5; j < 12; j++) { const cornPlant = createCornPlant(); const x = i * 6 + (Math.random() - 0.5) * 2; const z = j * 6 + (Math.random() - 0.5) * 2; cornPlant.position.set(x, 0, z); cornPlant.rotation.y = Math.random() * Math.PI * 2; cornPlant.scale.setScalar(0.8 + Math.random() * 0.4); cornField.add(cornPlant); } }
-                scene.add(cornField);
-                const scarecrow = createScarecrow();
-                scarecrow.position.set(0, 0, 30);
-                scarecrow.scale.set(1.5, 1.5, 1.5);
-                scene.add(scarecrow);
-                landingSpot = new THREE.Vector3(scarecrow.position.x, 15.5 * scarecrow.scale.y, scarecrow.position.z);
-                const player = createPlayer();
-                player.position.set(0, 0, -45);
-                player.scale.set(3.5, 3.5, 3.5);
-                scene.add(player);
-                player.lookAt(landingSpot);
-                const playerWorldPosition = new THREE.Vector3();
-                player.getWorldPosition(playerWorldPosition);
-                camera.position.set(playerWorldPosition.x, playerWorldPosition.y + 20, playerWorldPosition.z - 10);
-                originalCameraPosition.copy(camera.position);
-                controls = new OrbitControls(camera, renderer.domElement);
-                controls.enableDamping = true;
-                controls.dampingFactor = 0.05;
-                controls.maxPolarAngle = Math.PI / 1.5;
-                controls.minDistance = 5;
-                controls.maxDistance = 150;
-                controls.target.copy(landingSpot);
-                for (let i = 0; i < 10; i++) { const crow = createCrow(); const radius = Math.random() * 20 + 60; const y = Math.random() * 10 + 35; const angle = Math.random() * Math.PI * 2; crow.position.set(Math.cos(angle) * radius, y, Math.sin(angle) * radius); crow.userData = { radius: radius, angle: angle, speed: Math.random() * 0.3 + 0.2, state: 'FLYING', originalY: y }; scene.add(crow); crows.push(crow); }
-                window.addEventListener('resize', onWindowResize, false);
-                animate();
-            }
-            function prepareGameQuestions() {
-                gameQuestions = [];
-                for (const bank of questionBanks) {
-                    const randomIndex = Math.floor(Math.random() * bank.length);
-                    gameQuestions.push(bank[randomIndex]);
-                }
-                for (let i = gameQuestions.length - 1; i > 0; i--) {
-                    const j = Math.floor(Math.random() * (i + 1));
-                    [gameQuestions[i], gameQuestions[j]] = [gameQuestions[j], gameQuestions[i]];
-                }
-            }
-            function startGame() {
-                introScreen.classList.remove('visible');
-                introScreen.classList.add('hidden');
-                prepareGameQuestions();
-                gameState.gameActive = true;
-                showRoundTransition();
-            }
-            function checkAnswer(selectedIndex) {
-                if (!perchedCrow) return;
-                clearInterval(questionInterval);
-                const timeTaken = (Date.now() - questionStartTime) / 1000;
-                answerTimes.push(timeTaken);
-                const answerButtons = document.querySelectorAll('.answer-button');
-                answerButtons.forEach(button => button.disabled = true);
-                const correct = selectedIndex === currentQuestion.correctAnswer;
+            setTimeout(() => {
+                hideQuestion();
+                gameState.questionsAsked++;
                 if (correct) {
-                    answerButtons[selectedIndex].classList.add('flash-correct');
+                    gameState.score++;
+                    triggerShoot();
                 } else {
-                    if (selectedIndex >= 0) {
-                        answerButtons[selectedIndex].classList.add('flash-incorrect');
-                    }
-                    answerButtons[currentQuestion.correctAnswer].classList.add('flash-correct');
+                    triggerSteal();
                 }
                 setTimeout(() => {
-                    hideQuestion();
-                    gameState.questionsAsked++;
-                    if (correct) {
-                        gameState.score++;
-                        triggerShoot();
-                    } else {
-                        triggerSteal();
-                    }
-                    setTimeout(() => {
-                        feedbackText.textContent = correct ? "إجابة صحيحة!" : "إجابة خاطئة!";
-                        feedbackText.className = correct ? 'correct' : 'incorrect';
-                        feedbackContainer.classList.remove('hidden');
-                        feedbackContainer.classList.add('visible');
-                        startNextRoundCountdown(5);
-                    }, 1500);
-                }, 1200);
-            }
-            function startNextRoundCountdown(seconds) {
-                clearInterval(nextRoundInterval);
-                nextRoundCountdownValue = seconds;
+                    feedbackText.textContent = correct ? "إجابة صحيحة!" : "إجابة خاطئة!";
+                    feedbackText.className = correct ? 'correct' : 'incorrect';
+                    feedbackContainer.classList.remove('hidden');
+                    feedbackContainer.classList.add('visible');
+                    startNextRoundCountdown(5);
+                }, 1500);
+            }, 1200);
+        }
+        function startNextRoundCountdown(seconds) {
+            clearInterval(nextRoundInterval);
+            nextRoundCountdownValue = seconds;
+            nextRoundTimerElement.textContent = `الجولة التالية بعد ${nextRoundCountdownValue} ثوانٍ...`;
+            nextRoundInterval = setInterval(() => {
+                nextRoundCountdownValue--;
                 nextRoundTimerElement.textContent = `الجولة التالية بعد ${nextRoundCountdownValue} ثوانٍ...`;
-                nextRoundInterval = setInterval(() => {
-                    nextRoundCountdownValue--;
-                    nextRoundTimerElement.textContent = `الجولة التالية بعد ${nextRoundCountdownValue} ثوانٍ...`;
-                    if (nextRoundCountdownValue <= 0) {
-                        clearInterval(nextRoundInterval);
-                        feedbackContainer.classList.remove('visible');
-                        feedbackContainer.classList.add('hidden');
-                        if (gameState.questionsAsked >= gameState.totalQuestions) {
-                            endGame();
-                        } else {
-                            showRoundTransition();
-                        }
+                if (nextRoundCountdownValue <= 0) {
+                    clearInterval(nextRoundInterval);
+                    feedbackContainer.classList.remove('visible');
+                    feedbackContainer.classList.add('hidden');
+                    if (gameState.questionsAsked >= gameState.totalQuestions) {
+                        endGame();
+                    } else {
+                        showRoundTransition();
                     }
-                }, 1000);
-            }
-            function showRoundTransition() {
-                roundText.textContent = `السؤال ${gameState.questionsAsked + 1}`;
-                roundTransitionScreen.classList.remove('hidden');
-                roundTransitionScreen.classList.add('visible');
-                setTimeout(() => {
-                    roundTransitionScreen.classList.remove('visible');
-                    roundTransitionScreen.classList.add('hidden');
-                    const flyingCrows = crows.filter(c => c.userData.state === 'FLYING');
-                    if (flyingCrows.length > 0) {
-                        const luckyCrow = flyingCrows[Math.floor(Math.random() * flyingCrows.length)];
-                        luckyCrow.userData.state = 'LANDING';
-                    }
-                }, 2000);
-            }
-            function endGame() {
-                const totalTime = answerTimes.reduce((sum, time) => sum + time, 0);
-                const metricValue = answerTimes.length > 0 ? (totalTime / answerTimes.length).toFixed(2) : 0;
-                const points = gameState.score;
-                scoreContainer.classList.remove('hidden');
-                scoreContainer.classList.add('visible');
-                saveAndFinishGame(points, metricValue);
-            }
-            function triggerShoot() {
-                if (!perchedCrow) return;
-                cameraState = 'ZOOMING_IN';
-                zoomStartTime = clock.getElapsedTime();
-                controls.enabled = false;
-                zoomTargetPosition.copy(landingSpot).add(new THREE.Vector3(0, 5, -25));
-                createFeatherExplosion(perchedCrow.position);
-                perchedCrow.userData.state = 'FALLING';
-                perchedCrow = null;
-            }
-            function triggerSteal() {
-                if (!perchedCrow) return;
-                perchedCrow.userData.state = 'STEALING';
-                perchedCrow = null;
-            }
-            function displayNewQuestion() {
-                currentQuestion = gameQuestions[gameState.questionsAsked];
-                questionTextElement.textContent = currentQuestion.question;
-                const answerButtons = document.querySelectorAll('.answer-button');
-                answerButtons.forEach((button, index) => {
-                    button.textContent = currentQuestion.options[index];
-                    button.disabled = false;
-                    button.classList.remove('flash-correct', 'flash-incorrect');
-                });
-                questionContainer.style.visibility = 'visible';
-                answersContainer.style.visibility = 'visible';
-                questionStartTime = Date.now();
-                let timeLeft = 25;
+                }
+            }, 1000);
+        }
+        function showRoundTransition() {
+            roundText.textContent = `السؤال ${gameState.questionsAsked + 1}`;
+            roundTransitionScreen.classList.remove('hidden');
+            roundTransitionScreen.classList.add('visible');
+            setTimeout(() => {
+                roundTransitionScreen.classList.remove('visible');
+                roundTransitionScreen.classList.add('hidden');
+                const flyingCrows = crows.filter(c => c.userData.state === 'FLYING');
+                if (flyingCrows.length > 0) {
+                    const luckyCrow = flyingCrows[Math.floor(Math.random() * flyingCrows.length)];
+                    luckyCrow.userData.state = 'LANDING';
+                }
+            }, 2000);
+        }
+        function endGame() {
+            const totalTime = answerTimes.reduce((sum, time) => sum + time, 0);
+            const metricValue = answerTimes.length > 0 ? (totalTime / answerTimes.length).toFixed(2) : 0;
+            const points = gameState.score;
+            scoreContainer.classList.remove('hidden');
+            scoreContainer.classList.add('visible');
+            saveAndFinishGame(points, metricValue);
+        }
+        function triggerShoot() {
+            if (!perchedCrow) return;
+            cameraState = 'ZOOMING_IN';
+            zoomStartTime = clock.getElapsedTime();
+            controls.enabled = false;
+            zoomTargetPosition.copy(landingSpot).add(new THREE.Vector3(0, 5, -25));
+            createFeatherExplosion(perchedCrow.position);
+            perchedCrow.userData.state = 'FALLING';
+            perchedCrow = null;
+        }
+        function triggerSteal() {
+            if (!perchedCrow) return;
+            perchedCrow.userData.state = 'STEALING';
+            perchedCrow = null;
+        }
+        function displayNewQuestion() {
+            currentQuestion = gameQuestions[gameState.questionsAsked];
+            questionTextElement.textContent = currentQuestion.question;
+            const answerButtons = document.querySelectorAll('.answer-button');
+            answerButtons.forEach((button, index) => {
+                button.textContent = currentQuestion.options[index];
+                button.disabled = false;
+                button.classList.remove('flash-correct', 'flash-incorrect');
+            });
+            questionContainer.style.visibility = 'visible';
+            answersContainer.style.visibility = 'visible';
+            questionStartTime = Date.now();
+            let timeLeft = 25;
+            questionTimerElement.textContent = `الوقت المتبقي: ${timeLeft}`;
+            questionInterval = setInterval(() => {
+                timeLeft--;
                 questionTimerElement.textContent = `الوقت المتبقي: ${timeLeft}`;
-                questionInterval = setInterval(() => {
-                    timeLeft--;
-                    questionTimerElement.textContent = `الوقت المتبقي: ${timeLeft}`;
-                    if (timeLeft <= 0) {
-                        clearInterval(questionInterval);
-                        checkAnswer(-1);
-                    }
-                }, 1000);
-            }
-            function hideQuestion() {
-                questionContainer.style.visibility = 'hidden';
-                answersContainer.style.visibility = 'hidden';
-            }
-            function showExplanation() {
-                explanationContent.innerHTML = '';
-                const questionTitle = document.createElement('h3');
-                questionTitle.textContent = currentQuestion.question;
-                explanationContent.appendChild(questionTitle);
-                currentQuestion.explanation.steps.forEach(step => {
-                    const stepDiv = document.createElement('div');
-                    stepDiv.className = 'explanation-step';
-                    const mathP = document.createElement('p');
-                    mathP.className = 'math';
-                    mathP.textContent = step.math;
-                    const noteP = document.createElement('p');
-                    noteP.className = 'note';
-                    noteP.textContent = step.note;
-                    stepDiv.appendChild(noteP);
-                    stepDiv.appendChild(mathP);
-                    explanationContent.appendChild(stepDiv);
-                });
-                explanationModal.classList.remove('hidden');
-                explanationModal.classList.add('visible');
-                clearInterval(nextRoundInterval);
-            }
-            function hideExplanation() {
-                explanationModal.classList.remove('visible');
-                explanationModal.classList.add('hidden');
-                startNextRoundCountdown(nextRoundCountdownValue);
-            }
-            function createFeatherExplosion(position) { const featherCount = 50; const featherMaterial = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.DoubleSide }); const featherGeometry = new THREE.PlaneGeometry(0.2, 0.2); for (let i = 0; i < featherCount; i++) { const feather = new THREE.Mesh(featherGeometry, featherMaterial); feather.position.copy(position); const velocity = new THREE.Vector3((Math.random() - 0.5) * 5, (Math.random()) * 5, (Math.random() - 0.5) * 5); feathers.push({ mesh: feather, velocity: velocity }); scene.add(feather); } }
-            function createCrow() { const crowGroup = new THREE.Group(); const crowMaterial = new THREE.MeshPhongMaterial({ color: 0x1A1A1A }); const body = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 1.5), crowMaterial); crowGroup.add(body); const leftWing = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.1, 0.8), crowMaterial); leftWing.position.set(-1.5, 0, 0); crowGroup.add(leftWing); const rightWing = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.1, 0.8), crowMaterial); rightWing.position.set(1.5, 0, 0); crowGroup.add(rightWing); crowGroup.leftWing = leftWing; crowGroup.rightWing = rightWing; crowGroup.castShadow = true; return crowGroup; }
-            function createScarecrow() { const scarecrowGroup = new THREE.Group(); const woodMaterial = new THREE.MeshPhongMaterial({ color: 0x8B4513 }); const clothMaterial = new THREE.MeshPhongMaterial({ color: 0x5F4B32, side: THREE.DoubleSide }); const headMaterial = new THREE.MeshPhongMaterial({ color: 0xD2B48C }); const mainPole = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 15, 8), woodMaterial); mainPole.position.y = 7.5; scarecrowGroup.add(mainPole); const armPole = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 8, 8), woodMaterial); armPole.rotation.z = Math.PI / 2; armPole.position.y = 11; scarecrowGroup.add(armPole); const head = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 16), headMaterial); head.position.y = 14; scarecrowGroup.add(head); const hat = new THREE.Mesh(new THREE.ConeGeometry(1.5, 2, 16), clothMaterial); hat.position.y = 14.5; scarecrowGroup.add(hat); scarecrowGroup.traverse(node => { if (node.isMesh) node.castShadow = true; }); return scarecrowGroup; }
-            function createPlayer() { const playerGroup = new THREE.Group(); const skinMaterial = new THREE.MeshPhongMaterial({ color: 0x8B4513 }); const hairMaterial = new THREE.MeshPhongMaterial({ color: 0x111111 }); const shirtMaterial = new THREE.MeshPhongMaterial({ color: 0x006400 }); const pantsMaterial = new THREE.MeshPhongMaterial({ color: 0x00008B }); const strawMaterial = new THREE.MeshPhongMaterial({ color: 0xD2B48C }); const leftLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.15, 2.2, 8), pantsMaterial); leftLeg.position.set(-0.3, 1.1, -0.1); playerGroup.add(leftLeg); const rightLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.15, 2.2, 8), pantsMaterial); rightLeg.position.set(0.3, 1.1, 0.1); playerGroup.add(rightLeg); const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.4, 2, 8), shirtMaterial); torso.position.y = 3.2; playerGroup.add(torso); const head = new THREE.Mesh(new THREE.SphereGeometry(0.5, 16, 16), skinMaterial); head.position.y = 4.6; head.position.x = 0.1; head.rotation.z = -Math.PI / 12; head.rotation.y = -Math.PI / 18; playerGroup.add(head); const hair = new THREE.Mesh(new THREE.SphereGeometry(0.52, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2), hairMaterial); hair.position.copy(head.position); hair.rotation.copy(head.rotation); playerGroup.add(hair); const gunGroup = new THREE.Group(); const metalMaterial = new THREE.MeshPhongMaterial({ color: 0x333333 }); const woodMaterial = new THREE.MeshPhongMaterial({ color: 0x654321 }); const stock = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.4, 1.5), woodMaterial); stock.position.z = 0.5; gunGroup.add(stock); const gunBody = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.2, 1), metalMaterial); gunBody.position.z = -0.5; gunGroup.add(gunBody); const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.5, 8), metalMaterial); barrel.rotation.x = Math.PI / 2; barrel.position.z = -1.7; gunGroup.add(barrel); gunGroup.position.set(0.2, 4.1, 1.2); gunGroup.rotation.y = Math.PI; playerGroup.add(gunGroup); const armLength = 1.0; const upperArmGeometry = new THREE.BoxGeometry(0.25, armLength, 0.3); const lowerArmGeometry = new THREE.BoxGeometry(0.22, armLength, 0.3); const shoulderRight = new THREE.Group(); shoulderRight.position.set(0.4, 4.0, 0.3); playerGroup.add(shoulderRight); const upperRightArm = new THREE.Mesh(upperArmGeometry, shirtMaterial); upperRightArm.position.y = -armLength / 2; shoulderRight.add(upperRightArm); const elbowRight = new THREE.Group(); elbowRight.position.y = -armLength / 2; upperRightArm.add(elbowRight); const lowerRightArm = new THREE.Mesh(lowerArmGeometry, shirtMaterial); lowerRightArm.position.y = -armLength / 2; elbowRight.add(lowerRightArm); shoulderRight.rotation.z = Math.PI / 3; shoulderRight.rotation.x = Math.PI / 12; elbowRight.rotation.x = -Math.PI / 1.5; const shoulderLeft = new THREE.Group(); shoulderLeft.position.set(-0.4, 4.0, 0.3); playerGroup.add(shoulderLeft); const upperLeftArm = new THREE.Mesh(upperArmGeometry, shirtMaterial); upperLeftArm.position.y = -armLength / 2; shoulderLeft.add(upperLeftArm); const elbowLeft = new THREE.Group(); elbowLeft.position.y = -armLength / 2; upperLeftArm.add(elbowLeft); const lowerLeftArm = new THREE.Mesh(lowerArmGeometry, shirtMaterial); lowerLeftArm.position.y = -armLength / 2; elbowLeft.add(lowerLeftArm); shoulderLeft.rotation.z = -Math.PI / 3.5; shoulderLeft.rotation.x = -Math.PI / 4; elbowLeft.rotation.x = Math.PI / 1.8; const strawCloak = new THREE.Group(); const strawGeometry = new THREE.CylinderGeometry(0.008, 0.008, 4.5, 5); const strawCount = 1900; for (let i = 0; i < strawCount; i++) { const straw = new THREE.Mesh(strawGeometry, strawMaterial); const angle = (i / strawCount) * Math.PI * 2; const radius = 0.9; straw.position.x = Math.cos(angle) * radius; straw.position.z = Math.sin(angle) * radius; straw.position.y = 2.25; straw.rotation.x = (Math.random() - 0.5) * 0.2; straw.rotation.z = (Math.random() - 0.5) * 0.2; straw.rotation.y = Math.random() * Math.PI; straw.castShadow = true; strawCloak.add(straw); } playerGroup.add(strawCloak); playerGroup.traverse(node => { if (node.isMesh) node.castShadow = true; }); return playerGroup; }
-            function createCornPlant() { const plantGroup = new THREE.Group(); const stalkMaterial = new THREE.MeshPhongMaterial({ color: 0x3A9D23 }); const stalkGeometry = new THREE.CylinderGeometry(0.2, 0.3, 10, 8); const stalk = new THREE.Mesh(stalkGeometry, stalkMaterial); stalk.position.y = 5; stalk.castShadow = true; plantGroup.add(stalk); const leafMaterial = new THREE.MeshPhongMaterial({ color: 0x4CAF50, side: THREE.DoubleSide }); for (let i = 1; i < 9; i++) { const leafShape = new THREE.Shape(); leafShape.moveTo(0, 0); leafShape.bezierCurveTo(1, 0.5, 3, 0.3, 5, 0); leafShape.bezierCurveTo(3, -0.3, 1, -0.5, 0, 0); const extrudeSettings = { depth: 0.1, bevelEnabled: false }; const leafGeometry = new THREE.ExtrudeGeometry(leafShape, extrudeSettings); const leaf = new THREE.Mesh(leafGeometry, leafMaterial); leaf.position.y = i + 1; leaf.rotation.x = Math.PI / 6; leaf.rotation.y = (i * (Math.PI / 2)) + (Math.random() - 0.5) * 0.5; leaf.castShadow = true; plantGroup.add(leaf); } const cobGroup = new THREE.Group(); const huskMaterial = new THREE.MeshPhongMaterial({ color: 0x9CCC65 }); const cornMaterial = new THREE.MeshPhongMaterial({ color: 0xFFC107 }); const cornGeometry = new THREE.CapsuleGeometry(0.45, 1.6, 8, 16); const corn = new THREE.Mesh(cornGeometry, cornMaterial); cobGroup.add(corn); if (Math.random() > 0.3) { for (let i = 0; i < 5; i++) { const huskGeometry = new THREE.CylinderGeometry(0.5, 0.65, 3, 16, 1, true, 0, Math.PI * 0.4); const husk = new THREE.Mesh(huskGeometry, huskMaterial); husk.rotation.y = i * (Math.PI * 2 / 5); husk.castShadow = true; cobGroup.add(husk); } } cobGroup.position.set(0.5, 6, 0); cobGroup.rotation.z = -Math.PI / 8; plantGroup.add(cobGroup); cornCobs.push(cobGroup); return plantGroup; }
-            function onWindowResize() {
-                camera.aspect = gameContainer.clientWidth / gameContainer.clientHeight;
-                camera.updateProjectionMatrix();
-                renderer.setSize(gameContainer.clientWidth, gameContainer.clientHeight);
-            }
-            function animate() {
-                requestAnimationFrame(animate);
-                const delta = clock.getDelta();
-                const elapsedTime = clock.getElapsedTime();
-                if (cameraState === 'ZOOMING_IN') { camera.position.lerp(zoomTargetPosition, 0.05); camera.lookAt(landingSpot); if (camera.position.distanceTo(zoomTargetPosition) < 0.5) { cameraState = 'ZOOMED'; } } else if (cameraState === 'ZOOMED') { camera.lookAt(landingSpot); if (elapsedTime - zoomStartTime > 4) { cameraState = 'ZOOMING_OUT'; } } else if (cameraState === 'ZOOMING_OUT') { camera.position.lerp(originalCameraPosition, 0.05); controls.target.lerp(landingSpot, 0.05); if (camera.position.distanceTo(originalCameraPosition) < 0.5) { cameraState = 'IDLE'; camera.position.copy(originalCameraPosition); controls.target.copy(landingSpot); controls.enabled = true; } }
-                crows.forEach(crow => {
-                    const flapSpeed = 15;
-                    switch(crow.userData.state) {
-                        case 'FLYING': if (crow.userData.stolenCorn) { crow.remove(crow.userData.stolenCorn); crow.userData.stolenCorn = null; } crow.userData.angle += crow.userData.speed * delta; crow.position.x = Math.cos(crow.userData.angle) * crow.userData.radius; crow.position.z = Math.sin(crow.userData.angle) * crow.userData.radius; crow.position.y = crow.userData.originalY + Math.sin(elapsedTime * 5 + crow.userData.angle) * 0.05; const lookAtPosition = new THREE.Vector3(Math.cos(crow.userData.angle + 0.01) * crow.userData.radius, crow.position.y, Math.sin(crow.userData.angle + 0.01) * crow.userData.radius); crow.lookAt(lookAtPosition); crow.leftWing.rotation.z = Math.sin(elapsedTime * flapSpeed) * 0.7; crow.rightWing.rotation.z = -Math.sin(elapsedTime * flapSpeed) * 0.7; break;
-                        case 'LANDING': crow.position.lerp(landingSpot, 0.05); crow.lookAt(landingSpot); crow.leftWing.rotation.z = Math.sin(elapsedTime * flapSpeed) * 0.7; crow.rightWing.rotation.z = -Math.sin(elapsedTime * flapSpeed) * 0.7; if (crow.position.distanceTo(landingSpot) < 0.5) { crow.userData.state = 'PERCHED'; crow.position.copy(landingSpot); perchedCrow = crow; displayNewQuestion(); } break;
-                        case 'PERCHED': crow.leftWing.rotation.z = 0; crow.rightWing.rotation.z = 0; break;
-                        case 'STEALING': if (!crow.userData.targetCorn) { let closestCob = null; let minDistance = Infinity; cornCobs.forEach(cob => { if(cob.visible) { const distance = crow.position.distanceTo(cob.getWorldPosition(new THREE.Vector3())); if (distance < minDistance) { minDistance = distance; closestCob = cob; } } }); crow.userData.targetCorn = closestCob; } if (crow.userData.targetCorn) { const targetPos = crow.userData.targetCorn.getWorldPosition(new THREE.Vector3()); crow.position.lerp(targetPos, 0.08); crow.lookAt(targetPos); crow.leftWing.rotation.z = Math.sin(elapsedTime * flapSpeed) * 0.7; crow.rightWing.rotation.z = -Math.sin(elapsedTime * flapSpeed) * 0.7; if (crow.position.distanceTo(targetPos) < 1) { crow.userData.targetCorn.visible = false; crow.userData.state = 'FLEEING'; const cornMaterial = new THREE.MeshPhongMaterial({ color: 0xFFC107 }); const cornGeometry = new THREE.CapsuleGeometry(0.2, 0.8, 4, 8); const stolenCorn = new THREE.Mesh(cornGeometry, cornMaterial); stolenCorn.position.set(0, 0, 1.0); crow.add(stolenCorn); crow.userData.stolenCorn = stolenCorn; } } break;
-                        case 'FLEEING': const flyByTarget = new THREE.Vector3(originalCameraPosition.x + 10, originalCameraPosition.y - 10, originalCameraPosition.z + 20); crow.position.lerp(flyByTarget, 0.03); crow.lookAt(flyByTarget); crow.leftWing.rotation.z = Math.sin(elapsedTime * flapSpeed) * 0.7; crow.rightWing.rotation.z = -Math.sin(elapsedTime * flapSpeed) * 0.7; if (crow.position.distanceTo(flyByTarget) < 5) { crow.userData.state = 'TAKING_OFF'; } break;
-                        case 'TAKING_OFF': const takeOffTarget = new THREE.Vector3(crow.position.x, crow.userData.originalY, crow.position.z); crow.position.lerp(takeOffTarget, 0.05); crow.lookAt(takeOffTarget); crow.leftWing.rotation.z = Math.sin(elapsedTime * flapSpeed) * 0.7; crow.rightWing.rotation.z = -Math.sin(elapsedTime * flapSpeed) * 0.7; if (crow.position.distanceTo(takeOffTarget) < 1) { crow.userData.state = 'FLYING'; } break;
-                        case 'FALLING': crow.position.y -= 15 * delta; crow.rotation.x += 10 * delta; crow.rotation.z += 5 * delta; if (crow.position.y < 0) { scene.remove(crow); crows = crows.filter(c => c !== crow); } break;
-                    }
-                });
-                for (let i = feathers.length - 1; i >= 0; i--) { const particle = feathers[i]; particle.velocity.add(gravity.clone().multiplyScalar(delta)); particle.mesh.position.add(particle.velocity.clone().multiplyScalar(delta)); particle.mesh.rotation.x += Math.random() * 0.1; particle.mesh.rotation.y += Math.random() * 0.1; if (particle.mesh.position.y < 0) { scene.remove(particle.mesh); feathers.splice(i, 1); } }
-                if (controls && cameraState === 'IDLE') controls.update();
-                renderer.render(scene, camera);
-            }
-            init();
-        </script>
+                if (timeLeft <= 0) {
+                    clearInterval(questionInterval);
+                    checkAnswer(-1);
+                }
+            }, 1000);
+        }
+        function hideQuestion() {
+            questionContainer.style.visibility = 'hidden';
+            answersContainer.style.visibility = 'hidden';
+        }
+        function showExplanation() {
+            explanationContent.innerHTML = '';
+            const questionTitle = document.createElement('h3');
+            questionTitle.textContent = currentQuestion.question;
+            explanationContent.appendChild(questionTitle);
+            currentQuestion.explanation.steps.forEach(step => {
+                const stepDiv = document.createElement('div');
+                stepDiv.className = 'explanation-step';
+                const mathP = document.createElement('p');
+                mathP.className = 'math';
+                mathP.textContent = step.math;
+                const noteP = document.createElement('p');
+                noteP.className = 'note';
+                noteP.textContent = step.note;
+                stepDiv.appendChild(noteP);
+                stepDiv.appendChild(mathP);
+                explanationContent.appendChild(stepDiv);
+            });
+            explanationModal.classList.remove('hidden');
+            explanationModal.classList.add('visible');
+            clearInterval(nextRoundInterval);
+        }
+        function hideExplanation() {
+            explanationModal.classList.remove('visible');
+            explanationModal.classList.add('hidden');
+            startNextRoundCountdown(nextRoundCountdownValue);
+        }
+        function createFeatherExplosion(position) { const featherCount = 50; const featherMaterial = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.DoubleSide }); const featherGeometry = new THREE.PlaneGeometry(0.2, 0.2); for (let i = 0; i < featherCount; i++) { const feather = new THREE.Mesh(featherGeometry, featherMaterial); feather.position.copy(position); const velocity = new THREE.Vector3((Math.random() - 0.5) * 5, (Math.random()) * 5, (Math.random() - 0.5) * 5); feathers.push({ mesh: feather, velocity: velocity }); scene.add(feather); } }
+        function createCrow() { const crowGroup = new THREE.Group(); const crowMaterial = new THREE.MeshPhongMaterial({ color: 0x1A1A1A }); const body = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 1.5), crowMaterial); crowGroup.add(body); const leftWing = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.1, 0.8), crowMaterial); leftWing.position.set(-1.5, 0, 0); crowGroup.add(leftWing); const rightWing = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.1, 0.8), crowMaterial); rightWing.position.set(1.5, 0, 0); crowGroup.add(rightWing); crowGroup.leftWing = leftWing; crowGroup.rightWing = rightWing; crowGroup.castShadow = true; return crowGroup; }
+        function createScarecrow() { const scarecrowGroup = new THREE.Group(); const woodMaterial = new THREE.MeshPhongMaterial({ color: 0x8B4513 }); const clothMaterial = new THREE.MeshPhongMaterial({ color: 0x5F4B32, side: THREE.DoubleSide }); const headMaterial = new THREE.MeshPhongMaterial({ color: 0xD2B48C }); const mainPole = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 15, 8), woodMaterial); mainPole.position.y = 7.5; scarecrowGroup.add(mainPole); const armPole = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 8, 8), woodMaterial); armPole.rotation.z = Math.PI / 2; armPole.position.y = 11; scarecrowGroup.add(armPole); const head = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 16), headMaterial); head.position.y = 14; scarecrowGroup.add(head); const hat = new THREE.Mesh(new THREE.ConeGeometry(1.5, 2, 16), clothMaterial); hat.position.y = 14.5; scarecrowGroup.add(hat); scarecrowGroup.traverse(node => { if (node.isMesh) node.castShadow = true; }); return scarecrowGroup; }
+        function createPlayer() { const playerGroup = new THREE.Group(); const skinMaterial = new THREE.MeshPhongMaterial({ color: 0x8B4513 }); const hairMaterial = new THREE.MeshPhongMaterial({ color: 0x111111 }); const shirtMaterial = new THREE.MeshPhongMaterial({ color: 0x006400 }); const pantsMaterial = new THREE.MeshPhongMaterial({ color: 0x00008B }); const strawMaterial = new THREE.MeshPhongMaterial({ color: 0xD2B48C }); const leftLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.15, 2.2, 8), pantsMaterial); leftLeg.position.set(-0.3, 1.1, -0.1); playerGroup.add(leftLeg); const rightLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.15, 2.2, 8), pantsMaterial); rightLeg.position.set(0.3, 1.1, 0.1); playerGroup.add(rightLeg); const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.4, 2, 8), shirtMaterial); torso.position.y = 3.2; playerGroup.add(torso); const head = new THREE.Mesh(new THREE.SphereGeometry(0.5, 16, 16), skinMaterial); head.position.y = 4.6; head.position.x = 0.1; head.rotation.z = -Math.PI / 12; head.rotation.y = -Math.PI / 18; playerGroup.add(head); const hair = new THREE.Mesh(new THREE.SphereGeometry(0.52, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2), hairMaterial); hair.position.copy(head.position); hair.rotation.copy(head.rotation); playerGroup.add(hair); const gunGroup = new THREE.Group(); const metalMaterial = new THREE.MeshPhongMaterial({ color: 0x333333 }); const woodMaterial = new THREE.MeshPhongMaterial({ color: 0x654321 }); const stock = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.4, 1.5), woodMaterial); stock.position.z = 0.5; gunGroup.add(stock); const gunBody = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.2, 1), metalMaterial); gunBody.position.z = -0.5; gunGroup.add(gunBody); const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.5, 8), metalMaterial); barrel.rotation.x = Math.PI / 2; barrel.position.z = -1.7; gunGroup.add(barrel); gunGroup.position.set(0.2, 4.1, 1.2); gunGroup.rotation.y = Math.PI; playerGroup.add(gunGroup); const armLength = 1.0; const upperArmGeometry = new THREE.BoxGeometry(0.25, armLength, 0.3); const lowerArmGeometry = new THREE.BoxGeometry(0.22, armLength, 0.3); const shoulderRight = new THREE.Group(); shoulderRight.position.set(0.4, 4.0, 0.3); playerGroup.add(shoulderRight); const upperRightArm = new THREE.Mesh(upperArmGeometry, shirtMaterial); upperRightArm.position.y = -armLength / 2; shoulderRight.add(upperRightArm); const elbowRight = new THREE.Group(); elbowRight.position.y = -armLength / 2; upperRightArm.add(elbowRight); const lowerRightArm = new THREE.Mesh(lowerArmGeometry, shirtMaterial); lowerRightArm.position.y = -armLength / 2; elbowRight.add(lowerRightArm); shoulderRight.rotation.z = Math.PI / 3; shoulderRight.rotation.x = Math.PI / 12; elbowRight.rotation.x = -Math.PI / 1.5; const shoulderLeft = new THREE.Group(); shoulderLeft.position.set(-0.4, 4.0, 0.3); playerGroup.add(shoulderLeft); const upperLeftArm = new THREE.Mesh(upperArmGeometry, shirtMaterial); upperLeftArm.position.y = -armLength / 2; shoulderLeft.add(upperLeftArm); const elbowLeft = new THREE.Group(); elbowLeft.position.y = -armLength / 2; upperLeftArm.add(elbowLeft); const lowerLeftArm = new THREE.Mesh(lowerArmGeometry, shirtMaterial); lowerLeftArm.position.y = -armLength / 2; elbowLeft.add(lowerLeftArm); shoulderLeft.rotation.z = -Math.PI / 3.5; shoulderLeft.rotation.x = -Math.PI / 4; elbowLeft.rotation.x = Math.PI / 1.8; const strawCloak = new THREE.Group(); const strawGeometry = new THREE.CylinderGeometry(0.008, 0.008, 4.5, 5); const strawCount = 1900; for (let i = 0; i < strawCount; i++) { const straw = new THREE.Mesh(strawGeometry, strawMaterial); const angle = (i / strawCount) * Math.PI * 2; const radius = 0.9; straw.position.x = Math.cos(angle) * radius; straw.position.z = Math.sin(angle) * radius; straw.position.y = 2.25; straw.rotation.x = (Math.random() - 0.5) * 0.2; straw.rotation.z = (Math.random() - 0.5) * 0.2; straw.rotation.y = Math.random() * Math.PI; straw.castShadow = true; strawCloak.add(straw); } playerGroup.add(strawCloak); playerGroup.traverse(node => { if (node.isMesh) node.castShadow = true; }); return playerGroup; }
+        function createCornPlant() { const plantGroup = new THREE.Group(); const stalkMaterial = new THREE.MeshPhongMaterial({ color: 0x3A9D23 }); const stalkGeometry = new THREE.CylinderGeometry(0.2, 0.3, 10, 8); const stalk = new THREE.Mesh(stalkGeometry, stalkMaterial); stalk.position.y = 5; stalk.castShadow = true; plantGroup.add(stalk); const leafMaterial = new THREE.MeshPhongMaterial({ color: 0x4CAF50, side: THREE.DoubleSide }); for (let i = 1; i < 9; i++) { const leafShape = new THREE.Shape(); leafShape.moveTo(0, 0); leafShape.bezierCurveTo(1, 0.5, 3, 0.3, 5, 0); leafShape.bezierCurveTo(3, -0.3, 1, -0.5, 0, 0); const extrudeSettings = { depth: 0.1, bevelEnabled: false }; const leafGeometry = new THREE.ExtrudeGeometry(leafShape, extrudeSettings); const leaf = new THREE.Mesh(leafGeometry, leafMaterial); leaf.position.y = i + 1; leaf.rotation.x = Math.PI / 6; leaf.rotation.y = (i * (Math.PI / 2)) + (Math.random() - 0.5) * 0.5; leaf.castShadow = true; plantGroup.add(leaf); } const cobGroup = new THREE.Group(); const huskMaterial = new THREE.MeshPhongMaterial({ color: 0x9CCC65 }); const cornMaterial = new THREE.MeshPhongMaterial({ color: 0xFFC107 }); const cornGeometry = new THREE.CapsuleGeometry(0.45, 1.6, 8, 16); const corn = new THREE.Mesh(cornGeometry, cornMaterial); cobGroup.add(corn); if (Math.random() > 0.3) { for (let i = 0; i < 5; i++) { const huskGeometry = new THREE.CylinderGeometry(0.5, 0.65, 3, 16, 1, true, 0, Math.PI * 0.4); const husk = new THREE.Mesh(huskGeometry, huskMaterial); husk.rotation.y = i * (Math.PI * 2 / 5); husk.castShadow = true; cobGroup.add(husk); } } cobGroup.position.set(0.5, 6, 0); cobGroup.rotation.z = -Math.PI / 8; plantGroup.add(cobGroup); cornCobs.push(cobGroup); return plantGroup; }
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+        function animate() {
+            requestAnimationFrame(animate);
+            const delta = clock.getDelta();
+            const elapsedTime = clock.getElapsedTime();
+            if (cameraState === 'ZOOMING_IN') { camera.position.lerp(zoomTargetPosition, 0.05); camera.lookAt(landingSpot); if (camera.position.distanceTo(zoomTargetPosition) < 0.5) { cameraState = 'ZOOMED'; } } else if (cameraState === 'ZOOMED') { camera.lookAt(landingSpot); if (elapsedTime - zoomStartTime > 4) { cameraState = 'ZOOMING_OUT'; } } else if (cameraState === 'ZOOMING_OUT') { camera.position.lerp(originalCameraPosition, 0.05); controls.target.lerp(landingSpot, 0.05); if (camera.position.distanceTo(originalCameraPosition) < 0.5) { cameraState = 'IDLE'; camera.position.copy(originalCameraPosition); controls.target.copy(landingSpot); controls.enabled = true; } }
+            crows.forEach(crow => {
+                const flapSpeed = 15;
+                switch(crow.userData.state) {
+                    case 'FLYING': if (crow.userData.stolenCorn) { crow.remove(crow.userData.stolenCorn); crow.userData.stolenCorn = null; } crow.userData.angle += crow.userData.speed * delta; crow.position.x = Math.cos(crow.userData.angle) * crow.userData.radius; crow.position.z = Math.sin(crow.userData.angle) * crow.userData.radius; crow.position.y = crow.userData.originalY + Math.sin(elapsedTime * 5 + crow.userData.angle) * 0.05; const lookAtPosition = new THREE.Vector3(Math.cos(crow.userData.angle + 0.01) * crow.userData.radius, crow.position.y, Math.sin(crow.userData.angle + 0.01) * crow.userData.radius); crow.lookAt(lookAtPosition); crow.leftWing.rotation.z = Math.sin(elapsedTime * flapSpeed) * 0.7; crow.rightWing.rotation.z = -Math.sin(elapsedTime * flapSpeed) * 0.7; break;
+                    case 'LANDING': crow.position.lerp(landingSpot, 0.05); crow.lookAt(landingSpot); crow.leftWing.rotation.z = Math.sin(elapsedTime * flapSpeed) * 0.7; crow.rightWing.rotation.z = -Math.sin(elapsedTime * flapSpeed) * 0.7; if (crow.position.distanceTo(landingSpot) < 0.5) { crow.userData.state = 'PERCHED'; crow.position.copy(landingSpot); perchedCrow = crow; displayNewQuestion(); } break;
+                    case 'PERCHED': crow.leftWing.rotation.z = 0; crow.rightWing.rotation.z = 0; break;
+                    case 'STEALING': if (!crow.userData.targetCorn) { let closestCob = null; let minDistance = Infinity; cornCobs.forEach(cob => { if(cob.visible) { const distance = crow.position.distanceTo(cob.getWorldPosition(new THREE.Vector3())); if (distance < minDistance) { minDistance = distance; closestCob = cob; } } }); crow.userData.targetCorn = closestCob; } if (crow.userData.targetCorn) { const targetPos = crow.userData.targetCorn.getWorldPosition(new THREE.Vector3()); crow.position.lerp(targetPos, 0.08); crow.lookAt(targetPos); crow.leftWing.rotation.z = Math.sin(elapsedTime * flapSpeed) * 0.7; crow.rightWing.rotation.z = -Math.sin(elapsedTime * flapSpeed) * 0.7; if (crow.position.distanceTo(targetPos) < 1) { crow.userData.targetCorn.visible = false; crow.userData.state = 'FLEEING'; const cornMaterial = new THREE.MeshPhongMaterial({ color: 0xFFC107 }); const cornGeometry = new THREE.CapsuleGeometry(0.2, 0.8, 4, 8); const stolenCorn = new THREE.Mesh(cornGeometry, cornMaterial); stolenCorn.position.set(0, 0, 1.0); crow.add(stolenCorn); crow.userData.stolenCorn = stolenCorn; } } break;
+                    case 'FLEEING': const flyByTarget = new THREE.Vector3(originalCameraPosition.x + 10, originalCameraPosition.y - 10, originalCameraPosition.z + 20); crow.position.lerp(flyByTarget, 0.03); crow.lookAt(flyByTarget); crow.leftWing.rotation.z = Math.sin(elapsedTime * flapSpeed) * 0.7; crow.rightWing.rotation.z = -Math.sin(elapsedTime * flapSpeed) * 0.7; if (crow.position.distanceTo(flyByTarget) < 5) { crow.userData.state = 'TAKING_OFF'; } break;
+                    case 'TAKING_OFF': const takeOffTarget = new THREE.Vector3(crow.position.x, crow.userData.originalY, crow.position.z); crow.position.lerp(takeOffTarget, 0.05); crow.lookAt(takeOffTarget); crow.leftWing.rotation.z = Math.sin(elapsedTime * flapSpeed) * 0.7; crow.rightWing.rotation.z = -Math.sin(elapsedTime * flapSpeed) * 0.7; if (crow.position.distanceTo(takeOffTarget) < 1) { crow.userData.state = 'FLYING'; } break;
+                    case 'FALLING': crow.position.y -= 15 * delta; crow.rotation.x += 10 * delta; crow.rotation.z += 5 * delta; if (crow.position.y < 0) { scene.remove(crow); crows = crows.filter(c => c !== crow); } break;
+                }
+            });
+            for (let i = feathers.length - 1; i >= 0; i--) { const particle = feathers[i]; particle.velocity.add(gravity.clone().multiplyScalar(delta)); particle.mesh.position.add(particle.velocity.clone().multiplyScalar(delta)); particle.mesh.rotation.x += Math.random() * 0.1; particle.mesh.rotation.y += Math.random() * 0.1; if (particle.mesh.position.y < 0) { scene.remove(particle.mesh); feathers.splice(i, 1); } }
+            if (controls && cameraState === 'IDLE') controls.update();
+            renderer.render(scene, camera);
+        }
+        init();
+    </script>
     
-        <script>
-        // --- START OF CONNECTION & LEADERBOARD ENGINE ---
-        (function() {
-            const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
-            const GAME_ID = 'g1_1_1';
-            const GAME_MAX_POINTS = 5;
-            const PLATFORM_MAX_GRADE = 5;
-            const METRIC_TYPE = 'time';
-            const METRIC_LABEL = 'معدل الوقت (ثواني)';
-            const urlParams = new URLSearchParams(window.location.search);
-            const studentId = urlParams.get('studentId');
-            const classId = urlParams.get('classId');
-            const studentName = urlParams.get('studentName');
-            let currentUser = (studentId && studentName) ? { id: studentId, name: studentName } : null;
-            window.saveAndFinishGame = function(points, metricValue) {
-                const finalPoints = parseFloat(points) || 0;
-                const finalMetric = parseFloat(metricValue) || 0;
-                const maxPoints = parseFloat(GAME_MAX_POINTS) || 1;
-                const finalGrade = (finalPoints / maxPoints) * PLATFORM_MAX_GRADE;
-                const resultDisplay = document.getElementById('final-result-display');
-                if (resultDisplay) {
-                    resultDisplay.innerHTML = `
-                        <p class="text-gray-200">صيد الغربان: <span class="font-bold text-xl text-white">${finalPoints} / ${maxPoints}</span></p>
-                        <p class="text-blue-400">الدرجة في المنصة: <span class="font-bold text-2xl text-white">${finalGrade.toFixed(1)} / ${PLATFORM_MAX_GRADE}</span></p>
-                    `;
-                }
-                if (studentId && classId) {
-                    const params = new URLSearchParams({
-                        action: 'saveGrade',
-                        studentId: studentId,
-                        classId: classId,
-                        itemId: GAME_ID,
-                        grade: finalGrade.toFixed(2),
-                        metricValue: Math.round(finalMetric).toString()
-                    });
-                    fetch(`${SCRIPT_URL}?${params.toString()}`)
-                        .then(res => res.json())
-                        .then(result => console.log('Save result:', result.status))
-                        .catch(err => console.error("Save Error:", err))
-                        .finally(fetchAndShowLeaderboard);
-                } else {
-                    console.log(`Visitor finished. Score: ${finalPoints}, Metric: ${finalMetric}`);
-                    fetchAndShowLeaderboard();
-                }
+    <script>
+    // --- START OF CONNECTION & LEADERBOARD ENGINE ---
+    (function() {
+        // --- CONFIGURATION ---
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
+        const GAME_ID = 'g1_1_1';
+        const GAME_MAX_POINTS = 5;
+        const PLATFORM_MAX_GRADE = 5;
+        const METRIC_TYPE = 'time';
+        const METRIC_LABEL = 'معدل الوقت (ثواني)';
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const studentId = urlParams.get('studentId');
+        const classId = urlParams.get('classId');
+        const studentName = urlParams.get('studentName');
+
+        let currentUser = (studentId && studentName) ? { id: studentId, name: studentName } : null;
+
+        window.saveAndFinishGame = function(points, metricValue) {
+            const finalPoints = parseFloat(points) || 0;
+            const finalMetric = parseFloat(metricValue) || 0;
+            const maxPoints = parseFloat(GAME_MAX_POINTS) || 1;
+            const finalGrade = (finalPoints / maxPoints) * PLATFORM_MAX_GRADE;
+
+            const resultDisplay = document.getElementById('final-result-display');
+            if (resultDisplay) {
+                resultDisplay.innerHTML = `
+                    <p class="text-gray-200">صيد الغربان: <span class="font-bold text-xl text-white">${finalPoints} / ${maxPoints}</span></p>
+                    <p class="text-blue-400">الدرجة في المنصة: <span class="font-bold text-2xl text-white">${finalGrade.toFixed(1)} / ${PLATFORM_MAX_GRADE}</span></p>
+                `;
             }
-            function fetchAndShowLeaderboard() {
-                const loader = document.getElementById('leaderboard-loader');
-                const container = document.getElementById('leaderboard-container');
-                if (!loader || !container) return;
-                if (!classId) {
-                    console.log("No classId found, skipping leaderboard for visitor.");
-                    container.innerHTML = `<p class="text-center text-gray-400 mt-4">سجل الأبطال متاح للطلاب المسجلين فقط.</p>`;
-                    showEndGameButtons();
-                    return;
-                }
-                loader.style.display = 'block';
-                container.innerHTML = '';
+
+            if (studentId && classId) {
                 const params = new URLSearchParams({
-                    action: 'getLeaderboard',
-                    gameId: GAME_ID,
-                    metricType: METRIC_TYPE,
+                    action: 'saveGrade',
+                    studentId: studentId,
                     classId: classId,
-                    studentId: studentId
+                    itemId: GAME_ID,
+                    grade: finalGrade.toFixed(2),
+                    metricValue: Math.round(finalMetric).toString()
                 });
                 fetch(`${SCRIPT_URL}?${params.toString()}`)
                     .then(res => res.json())
-                    .then(response => {
-                        if (response.status === 'success' && response.data) {
-                            displayLeaderboard(response.data);
-                        } else {
-                            throw new Error(response.message || 'Failed to load leaderboard data.');
-                        }
-                    })
-                    .catch(err => {
-                        console.error("Leaderboard Error:", err);
-                        container.innerHTML = `<p class="text-center text-red-500">حدث خطأ في تحميل سجل الأبطال.</p>`;
-                    })
-                    .finally(() => {
-                        loader.style.display = 'none';
-                        showEndGameButtons();
-                    });
+                    .then(result => console.log('Save result:', result.status))
+                    .catch(err => console.error("Save Error:", err))
+                    .finally(fetchAndShowLeaderboard);
+            } else {
+                console.log(`Visitor finished. Score: ${finalPoints}, Metric: ${finalMetric}`);
+                fetchAndShowLeaderboard();
             }
-            function displayLeaderboard(data) {
-                const container = document.getElementById('leaderboard-container');
-                if (!data || data.length === 0) {
-                    container.innerHTML = `<p class="text-center text-gray-400 mt-4">لا توجد نتائج بعد. كن أول الأبطال!</p>`;
-                    return;
-                }
-                let tableHTML = `
-                    <div class="mt-6 border-t border-gray-600 pt-4">
-                        <h3 class="text-2xl font-bold text-center text-white mb-4">🏆 سجل الأبطال 🏆</h3>
-                        <table class="min-w-full bg-gray-800 text-white shadow-md rounded-lg">
-                            <thead class="bg-gray-900">
-                                <tr>
-                                    <th class="text-center py-2 px-3">الترتيب</th>
-                                    <th class="text-right py-2 px-3">اسم الطالب</th>
-                                    <th class="text-center py-2 px-3">الدرجة</th>
-                                    <th class="text-center py-2 px-3">${METRIC_LABEL}</th>
-                                </tr>
-                            </thead>
-                            <tbody class="text-gray-300">`;
-                data.forEach((player, index) => {
-                    const rank = index + 1;
-                    let rankDisplay = rank;
-                    if (rank === 1) rankDisplay = '🥇';
-                    if (rank === 2) rankDisplay = '🥈';
-                    if (rank === 3) rankDisplay = '🥉';
-                    const isCurrentUser = (currentUser && player.name === currentUser.name);
-                    const rowClass = isCurrentUser ? 'bg-blue-900 font-bold' : (index % 2 === 0 ? 'bg-gray-700' : '');
-                    tableHTML += `
-                        <tr class="${rowClass}">
-                            <td class="text-center py-2 px-3 text-xl">${rankDisplay}</td>
-                            <td class="text-right py-2 px-3">${player.name}</td>
-                            <td class="text-center py-2 px-3">${player.grade.toFixed(1)}</td>
-                            <td class="text-center py-2 px-3">${player.metricValue}</td>
-                        </tr>`;
-                });
-                tableHTML += `</tbody></table></div>`;
-                container.innerHTML = tableHTML;
+        }
+
+        // --- CORRECTED FUNCTION ---
+        function fetchAndShowLeaderboard() {
+            const loader = document.getElementById('leaderboard-loader');
+            const container = document.getElementById('leaderboard-container');
+            if (!loader || !container) return;
+            
+            // Check for classId directly from URL params
+            if (!classId) {
+                console.log("No classId found, skipping leaderboard for visitor.");
+                container.innerHTML = `<p class="text-center text-gray-400 mt-4">سجل الأبطال متاح للطلاب المسجلين فقط.</p>`;
+                showEndGameButtons();
+                return;
             }
-            function showEndGameButtons() {
-                const finishWrapper = document.getElementById('finish-game-wrapper');
-                if (finishWrapper) {
-                    finishWrapper.style.display = 'block';
-                }
-                const restartWrapper = document.getElementById('restart-game-wrapper');
-                if(restartWrapper) {
-                    restartWrapper.style.display = 'block';
-                }
-            }
-            document.addEventListener('DOMContentLoaded', () => {
-                const welcomeMessage = document.getElementById('welcomeMessage');
-                if (studentName && welcomeMessage) {
-                    welcomeMessage.innerHTML = `أهلاً بك يا <span class="font-bold text-yellow-300">${studentName}</span>! مهمتك هي حماية حقل الذرة من الغربان الجائعة. أجب بشكل صحيح لإطلاق النار عليه، أو سيقوم بسرقة محصولك!`;
-                }
-                const finishBtn = document.getElementById('finish-game-btn');
-                if (finishBtn) {
-                    finishBtn.addEventListener('click', () => {
-                        window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*');
-                    });
-                }
-                const restartBtn = document.getElementById('restart-button');
-                if (restartBtn) {
-                    restartBtn.addEventListener('click', () => {
-                        location.reload();
-                    });
-                }
+
+            loader.style.display = 'block';
+            container.innerHTML = '';
+
+            // Ensure studentId from URL is also passed, as it might be needed by the script
+            const params = new URLSearchParams({
+                action: 'getLeaderboard',
+                gameId: GAME_ID,
+                metricType: METRIC_TYPE,
+                classId: classId,
+                studentId: studentId // Added studentId to the request
             });
-        })();
-        // --- END OF CONNECTION & LEADERBOARD ENGINE ---
-        </script>
-    </div>
+
+            fetch(`${SCRIPT_URL}?${params.toString()}`)
+                .then(res => res.json())
+                .then(response => {
+                    if (response.status === 'success' && response.data) {
+                        displayLeaderboard(response.data);
+                    } else {
+                        throw new Error(response.message || 'Failed to load leaderboard data.');
+                    }
+                })
+                .catch(err => {
+                    console.error("Leaderboard Error:", err);
+                    container.innerHTML = `<p class="text-center text-red-500">حدث خطأ في تحميل سجل الأبطال.</p>`;
+                })
+                .finally(() => {
+                    loader.style.display = 'none';
+                    showEndGameButtons();
+                });
+        }
+        
+        function displayLeaderboard(data) {
+            const container = document.getElementById('leaderboard-container');
+            if (!data || data.length === 0) {
+                container.innerHTML = `<p class="text-center text-gray-400 mt-4">لا توجد نتائج بعد. كن أول الأبطال!</p>`;
+                return;
+            }
+            let tableHTML = `
+                <div class="mt-6 border-t border-gray-600 pt-4">
+                    <h3 class="text-2xl font-bold text-center text-white mb-4">🏆 سجل الأبطال 🏆</h3>
+                    <table class="min-w-full bg-gray-800 text-white shadow-md rounded-lg">
+                        <thead class="bg-gray-900">
+                            <tr>
+                                <th class="text-center py-2 px-3">الترتيب</th>
+                                <th class="text-right py-2 px-3">اسم الطالب</th>
+                                <th class="text-center py-2 px-3">الدرجة</th>
+                                <th class="text-center py-2 px-3">${METRIC_LABEL}</th>
+                            </tr>
+                        </thead>
+                        <tbody class="text-gray-300">`;
+            data.forEach((player, index) => {
+                const rank = index + 1;
+                let rankDisplay = rank;
+                if (rank === 1) rankDisplay = '🥇';
+                if (rank === 2) rankDisplay = '🥈';
+                if (rank === 3) rankDisplay = '🥉';
+                const isCurrentUser = (currentUser && player.name === currentUser.name);
+                const rowClass = isCurrentUser ? 'bg-blue-900 font-bold' : (index % 2 === 0 ? 'bg-gray-700' : '');
+                tableHTML += `
+                    <tr class="${rowClass}">
+                        <td class="text-center py-2 px-3 text-xl">${rankDisplay}</td>
+                        <td class="text-right py-2 px-3">${player.name}</td>
+                        <td class="text-center py-2 px-3">${player.grade.toFixed(1)}</td>
+                        <td class="text-center py-2 px-3">${player.metricValue}</td>
+                    </tr>`;
+            });
+            tableHTML += `</tbody></table></div>`;
+            container.innerHTML = tableHTML;
+        }
+
+        function showEndGameButtons() {
+            const finishWrapper = document.getElementById('finish-game-wrapper');
+            if (finishWrapper) {
+                finishWrapper.style.display = 'block';
+            }
+            const restartWrapper = document.getElementById('restart-game-wrapper');
+            if(restartWrapper) {
+                restartWrapper.style.display = 'block';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const welcomeMessage = document.getElementById('welcomeMessage');
+            if (studentName && welcomeMessage) {
+                welcomeMessage.innerHTML = `أهلاً بك يا <span class="font-bold text-yellow-300">${studentName}</span>! مهمتك هي حماية حقل الذرة من الغربان الجائعة. أجب بشكل صحيح لإطلاق النار عليه، أو سيقوم بسرقة محصولك!`;
+            }
+            const finishBtn = document.getElementById('finish-game-btn');
+            if (finishBtn) {
+                finishBtn.addEventListener('click', () => {
+                    window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*');
+                });
+            }
+            const restartBtn = document.getElementById('restart-button');
+            if (restartBtn) {
+                restartBtn.addEventListener('click', () => {
+                    location.reload();
+                });
+            }
+        });
+    })();
+    // --- END OF CONNECTION & LEADERBOARD ENGINE ---
+    </script>
 </body>
 </html>

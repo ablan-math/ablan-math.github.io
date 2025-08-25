@@ -362,6 +362,13 @@
             pointer-events: none;
         }
         
+        .level-attempts {
+            font-size: 0.75rem;
+            color: #7f8c8d;
+            margin-top: 4px;
+            font-weight: 600;
+        }
+        
         .student-progress {
             padding: 1.5rem;
             margin-bottom: 2rem;
@@ -1142,7 +1149,8 @@
                     quizData[key].levels[levelKey] = { 
                         score: levelData ? levelData.grade : null, 
                         completed: !!levelData,
-                        points: levelData ? levelData.metricValue || 0 : 0
+                        points: levelData ? levelData.metricValue || 0 : 0,
+                        attempts: levelData ? levelData.attempts || 0 : 0
                     };
                     if(levelData) {
                         totalPoints += levelData.metricValue || 0;
@@ -1151,9 +1159,9 @@
             });
         }
         
-        async function saveGradeToSheet(itemId, grade, points) {
+        async function saveGradeToSheet(itemId, grade, points, attempts) {
             if (isVisitor || !studentId || !classId) return; 
-            const url = `${SCRIPT_URL}?action=saveGrade&studentId=${studentId}&classId=${classId}&itemId=${itemId}&grade=${grade}&metricValue=${points}`;
+            const url = `${SCRIPT_URL}?action=saveGrade&studentId=${studentId}&classId=${classId}&itemId=${itemId}&grade=${grade}&metricValue=${points}&attempts=${attempts}`;
             try {
                 const response = await fetch(url);
                 const result = await response.json();
@@ -1268,7 +1276,7 @@
                         </div>
                     </div>
                 `;
-                saveGradeToSheet('d_best_weighted', Math.round(bestWeightedScore), totalPoints);
+                saveGradeToSheet('d_best_weighted', Math.round(bestWeightedScore), totalPoints, 0); // Attempts not relevant for overall score
             }
 
             progressHTML += '<div class="progress-grid">';
@@ -1327,13 +1335,25 @@
                         const style = getScoreStyle(levelData.score);
                         scoreHTML = `<div class="level-score ${style.class}"><i class="fas ${style.icon}"></i> ${toArabicNumerals(levelData.score)}%</div>`;
                     }
+                    
+                    let attemptsHTML = '';
+                    if (!isVisitor && levelData.completed) {
+                        const remaining = 3 - levelData.attempts;
+                        if (remaining > 0) {
+                            attemptsHTML = `<div class="level-attempts">${toArabicNumerals(remaining)} محاولة متبقية</div>`;
+                        } else {
+                            attemptsHTML = `<div class="level-attempts">لا توجد محاولات</div>`;
+                        }
+                    }
+
                     const levelName = levelKey === 'easy' ? 'سهل' : (levelKey === 'medium' ? 'متوسط' : 'عالي');
                     const multiplier = levelKey === 'easy' ? '<i class="fas fa-star"></i>' : (levelKey === 'medium' ? '<i class="fas fa-star"></i><i class="fas fa-star"></i>' : '<i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i>');
                     levelsHTML += `<div class="level-wrapper" data-quiz-id="${key}" data-difficulty="${levelKey}">
-                                        <div class="level-bubble ${levelData.completed && isVisitor ? 'disabled' : ''}">
+                                        <div class="level-bubble ${(levelData.completed && isVisitor) || (!isVisitor && levelData.attempts >= 3) ? 'disabled' : ''}">
                                             <div class="level-name">${levelName}</div>
                                             ${scoreHTML}
                                         </div>
+                                        ${attemptsHTML}
                                         <div class="level-stars">${multiplier}</div>
                                    </div>`;
                 });
@@ -1377,8 +1397,6 @@
             
             const models = quizzes[currentQuizId].levels[currentDifficulty];
             const modelIndex = Math.floor(Math.random() * models.length);
-            // --- *** THE FIX IS HERE *** ---
-            // Create a copy of the model array before sorting it to prevent modifying the original.
             currentModel = [...models[modelIndex]].sort(() => 0.5 - Math.random());
 
             const levelName = currentDifficulty === 'easy' ? 'سهل' : (currentDifficulty === 'medium' ? 'متوسط' : 'عالي');
@@ -1476,16 +1494,17 @@
             const currentLevelData = quizData[currentQuizId].levels[currentDifficulty];
             currentLevelData.score = percentageScore; 
             currentLevelData.completed = true;
+            currentLevelData.attempts = (currentLevelData.attempts || 0) + 1;
             
             const pointsEarned = calculatePoints(score, currentDifficulty);
             currentLevelData.points = pointsEarned;
             
             const skillId = `d_${currentQuizId}_${currentDifficulty}`;
-            saveGradeToSheet(skillId, percentageScore, pointsEarned);
+            saveGradeToSheet(skillId, percentageScore, pointsEarned, currentLevelData.attempts);
 
             if(isVisitor) {
                 let visitorData = JSON.parse(sessionStorage.getItem('visitorDiagnosticData')) || {};
-                visitorData[skillId] = { grade: percentageScore, metricValue: pointsEarned };
+                visitorData[skillId] = { grade: percentageScore, metricValue: pointsEarned, attempts: 1 };
                 sessionStorage.setItem('visitorDiagnosticData', JSON.stringify(visitorData));
             }
             
@@ -1499,7 +1518,7 @@
             resultIcon.className = `fas ${style.icon} result-icon`;
             resultIcon.style.color = style.class === 'score-high' ? 'var(--score-high)' : (style.class === 'score-medium)' ? 'var(--score-medium)' : 'var(--score-low)');
 
-            retryFromResultBtn.style.display = isVisitor ? 'none' : 'inline-flex';
+            retryFromResultBtn.style.display = (isVisitor || currentLevelData.attempts >= 3) ? 'none' : 'inline-flex';
 
             showScreen('result');
         }

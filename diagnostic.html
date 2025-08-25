@@ -362,13 +362,6 @@
             pointer-events: none;
         }
         
-        .level-attempts {
-            font-size: 0.75rem;
-            color: #7f8c8d;
-            margin-top: 4px;
-            font-weight: 600;
-        }
-        
         .student-progress {
             padding: 1.5rem;
             margin-bottom: 2rem;
@@ -682,6 +675,13 @@
             color: var(--dark);
             margin-top: 0.5rem;
         }
+        
+        .attempts-info {
+            margin-top: 1.5rem;
+            font-size: 1rem;
+            color: #7f8c8d;
+            font-weight: 600;
+        }
 
         /* Final Result Card Styles */
         .final-result-card {
@@ -848,6 +848,7 @@
                         <button id="start-actual-quiz-btn" class="btn"><i class="fas fa-play"></i> ابدأ الاختبار</button>
                         <button id="back-from-pre-quiz-btn" class="btn btn-secondary"><i class="fas fa-arrow-right"></i> تراجع</button>
                     </div>
+                    <p id="pre-quiz-attempts" class="attempts-info"></p>
                 </div>
             </div>
         </div>
@@ -919,6 +920,7 @@
         const preQuizPointsExp = document.getElementById('pre-quiz-points-exp');
         const startActualQuizBtn = document.getElementById('start-actual-quiz-btn');
         const backFromPreQuizBtn = document.getElementById('back-from-pre-quiz-btn');
+        const preQuizAttempts = document.getElementById('pre-quiz-attempts');
 
         const quizTitle = document.getElementById('quiz-title');
         const questionCounter = document.getElementById('question-counter');
@@ -1336,16 +1338,6 @@
                         scoreHTML = `<div class="level-score ${style.class}"><i class="fas ${style.icon}"></i> ${toArabicNumerals(levelData.score)}%</div>`;
                     }
                     
-                    let attemptsHTML = '';
-                    if (!isVisitor && levelData.completed) {
-                        const remaining = 3 - levelData.attempts;
-                        if (remaining > 0) {
-                            attemptsHTML = `<div class="level-attempts">${toArabicNumerals(remaining)} محاولة متبقية</div>`;
-                        } else {
-                            attemptsHTML = `<div class="level-attempts">لا توجد محاولات</div>`;
-                        }
-                    }
-
                     const levelName = levelKey === 'easy' ? 'سهل' : (levelKey === 'medium' ? 'متوسط' : 'عالي');
                     const multiplier = levelKey === 'easy' ? '<i class="fas fa-star"></i>' : (levelKey === 'medium' ? '<i class="fas fa-star"></i><i class="fas fa-star"></i>' : '<i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i>');
                     levelsHTML += `<div class="level-wrapper" data-quiz-id="${key}" data-difficulty="${levelKey}">
@@ -1353,7 +1345,6 @@
                                             <div class="level-name">${levelName}</div>
                                             ${scoreHTML}
                                         </div>
-                                        ${attemptsHTML}
                                         <div class="level-stars">${multiplier}</div>
                                    </div>`;
                 });
@@ -1387,6 +1378,21 @@
 
             preQuizWeightExp.innerHTML = `سيتم قسمة درجتك في هذا المستوى على <strong>${toArabicNumerals(weight)}</strong> لحساب النتيجة الموزونة.`;
             preQuizPointsExp.innerHTML = `ستحصل على <strong>${pointsText}</strong> عن كل إجابة صحيحة لإضافتها إلى مجموعك.`;
+
+            // --- Logic for attempts text ---
+            preQuizAttempts.innerHTML = ''; // Clear previous text
+            if (!isVisitor) {
+                const levelData = quizData[quizId].levels[difficulty];
+                const attempts = levelData.attempts || 0;
+                const remaining = 3 - attempts;
+
+                if (remaining > 0) {
+                    preQuizAttempts.innerHTML = `لديك <strong style="color: var(--primary);">${toArabicNumerals(remaining)}</strong> محاولة متبقية لهذا الاختبار.`;
+                } else {
+                    preQuizAttempts.innerHTML = `لقد استنفدت جميع محاولاتك لهذا الاختبار.`;
+                }
+            }
+            // --- End logic for attempts text ---
 
             showScreen('preQuiz');
         }
@@ -1492,19 +1498,23 @@
             const percentageScore = Math.round((score / totalQuestions) * 100);
             
             const currentLevelData = quizData[currentQuizId].levels[currentDifficulty];
-            currentLevelData.score = percentageScore; 
+            
+            // Update score only if it's better than the previous one
+            if (percentageScore > (currentLevelData.score || 0)) {
+                currentLevelData.score = percentageScore;
+                const pointsEarned = calculatePoints(score, currentDifficulty);
+                currentLevelData.points = pointsEarned;
+            }
+            
             currentLevelData.completed = true;
             currentLevelData.attempts = (currentLevelData.attempts || 0) + 1;
             
-            const pointsEarned = calculatePoints(score, currentDifficulty);
-            currentLevelData.points = pointsEarned;
-            
             const skillId = `d_${currentQuizId}_${currentDifficulty}`;
-            saveGradeToSheet(skillId, percentageScore, pointsEarned, currentLevelData.attempts);
+            saveGradeToSheet(skillId, currentLevelData.score, currentLevelData.points, currentLevelData.attempts);
 
             if(isVisitor) {
                 let visitorData = JSON.parse(sessionStorage.getItem('visitorDiagnosticData')) || {};
-                visitorData[skillId] = { grade: percentageScore, metricValue: pointsEarned, attempts: 1 };
+                visitorData[skillId] = { grade: percentageScore, metricValue: currentLevelData.points, attempts: 1 };
                 sessionStorage.setItem('visitorDiagnosticData', JSON.stringify(visitorData));
             }
             
@@ -1512,7 +1522,7 @@
             resultTitle.textContent = `نتيجتك في المستوى - ${levelName}`;
             resultScore.textContent = `${toArabicNumerals(percentageScore)}%`;
             
-            resultPoints.textContent = `لقد كسبت ${toArabicNumerals(pointsEarned)} نقطة!`;
+            resultPoints.textContent = `لقد كسبت ${toArabicNumerals(currentLevelData.points)} نقطة!`;
             
             const style = getScoreStyle(percentageScore);
             resultIcon.className = `fas ${style.icon} result-icon`;

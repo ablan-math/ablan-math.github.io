@@ -101,6 +101,7 @@
             justify-content: space-between;
             align-items: center;
             pointer-events: none;
+            z-index: 100; /* <-- FIX: Added z-index to bring UI above the 3D canvas */
         }
         #question-container {
             width: 90%;
@@ -318,27 +319,33 @@
             let zoomStartTime = 0;
             let questionStartTime = 0;
             const answerTimes = [];
+            
             const questionBanks = [
+                // Bank 1: Order of Operations
                 [
-                    { question: "ما هو حل المعادلة ٢س + ٥ = ١١ ؟", options: ["س = ٤", "س = ٣", "س = ٨", "س = ٥"], correctAnswer: 1, explanation: { steps: [{math: "٢س = ١١ - ٥", note: "بطرح ٥ من الطرفين"}, {math: "٢س = ٦", note: "بالتبسيط"}, {math: "س = ٣", note: "بالقسمة على ٢"}] } },
-                    { question: "ما هو حل المعادلة ٣س - ٤ = ١١ ؟", options: ["س = ٥", "س = ٧", "س = ٣", "س = ٤"], correctAnswer: 0, explanation: { steps: [{math: "٣س = ١١ + ٤", note: "بإضافة ٤ للطرفين"}, {math: "٣س = ١٥", note: "بالتبسيط"}, {math: "س = ٥", note: "بالقسمة على ٣"}] } },
-                    { question: "ما هو حل المعادلة ٤ص + ٢ = ٢٢ ؟", options: ["ص = ٦", "ص = ٤", "ص = ٥", "ص = ٧"], correctAnswer: 2, explanation: { steps: [{math: "٤ص = ٢٢ - ٢", note: "بطرح ٢ من الطرفين"}, {math: "٤ص = ٢٠", note: "بالتبسيط"}, {math: "ص = ٥", note: "بالقسمة على ٤"}] } }
+                    { question: "ما هو حل المعادلة: ت = ٣ + ٢ × ٥ ؟", options: ["ت = ١٣", "ت = ٢٥", "ت = ١٠", "ت = ١٧"], correctAnswer: 0, explanation: { steps: [{math: "٢ × ٥ = ١٠", note: "الضرب أولاً"}, {math: "ت = ٣ + ١٠", note: "ثم الجمع"}, {math: "ت = ١٣", note: "الحل النهائي"}] } },
+                    { question: "ما هو حل المعادلة: ت = ٨١ ÷ (٥ - ٢) ؟", options: ["ت = ٣", "ت = ١٦.٢", "ت = ٢٧", "ت = ٨١"], correctAnswer: 2, explanation: { steps: [{math: "٥ - ٢ = ٣", note: "الأقواس أولاً"}, {math: "ت = ٨١ ÷ ٣", note: "ثم القسمة"}, {math: "ت = ٢٧", note: "الحل النهائي"}] } },
+                    { question: "ما هو حل المعادلة: ب = ٦ + (٥² - ٥) ÷ ٢ ؟", options: ["ب = ١٣", "ب = ١٦", "ب = ٦", "ب = ٢٠"], correctAnswer: 1, explanation: { steps: [{math: "٥² = ٢٥", note: "الأسس داخل الأقواس أولاً"}, {math: "٢٥ - ٥ = ٢٠", note: "الطرح داخل الأقواس ثانياً"},{math: "٢٠ ÷ ٢ = ١٠", note: "القسمة ثالثاً"},{math: "ب = ٦ + ١٠", note: "الجمع أخيراً"},{math: "ب = ١٦", note: "الحل النهائي"}] } }
                 ],
+                // Bank 2: No Solution Equations
                 [
                     { question: "ما هي مجموعة حل المعادلة ن + ٨ = ن - ٢ ؟", options: ["{١٠}", "{-٦}", "{كل الأعداد الحقيقية}", "{لا يوجد حل}"], correctAnswer: 3, explanation: { steps: [{math: "٨ = -٢", note: "بطرح 'ن' من الطرفين"}, {math: "عبارة خاطئة", note: "لا يمكن أن تتساوى القيمتان"}] } },
                     { question: "ما هي مجموعة حل المعادلة ك - ٥ = ك + ١ ؟", options: ["{-٤}", "{كل الأعداد الحقيقية}", "{لا يوجد حل}", "{٦}"], correctAnswer: 2, explanation: { steps: [{math: "-٥ = ١", note: "بطرح 'ك' من الطرفين"}, {math: "عبارة خاطئة", note: "لا يمكن أن تتساوى القيمتان"}] } },
                     { question: "ما هي مجموعة حل المعادلة ٣ع + ٧ = ٣ع - ٣ ؟", options: ["{لا يوجد حل}", "{١٠}", "{كل الأعداد الحقيقية}", "{-٤}"], correctAnswer: 0, explanation: { steps: [{math: "٧ = -٣", note: "بطرح '٣ع' من الطرفين"}, {math: "عبارة خاطئة", note: "لا يمكن أن تتساوى القيمتان"}] } }
                 ],
+                // Bank 3: No Solution Equations with Brackets
                 [
                     { question: "حل المعادلة ٧ + ٢س = ٢(س + ١)", options: ["س = ٥", "{لا يوجد حل}", "{كل الأعداد الحقيقية}", "س = -٥"], correctAnswer: 1, explanation: { steps: [{math: "٧ + ٢س = ٢س + ٢", note: "باستخدام خاصية التوزيع"}, {math: "٧ = ٢", note: "بطرح ٢س من الطرفين"}, {math: "عبارة خاطئة", note: "إذاً لا يوجد حل"}] } },
                     { question: "حل المعادلة ٥(ل + ٢) = ٥ل + ٩", options: ["ل = ١", "{كل الأعداد الحقيقية}", "{لا يوجد حل}", "ل = -١"], correctAnswer: 2, explanation: { steps: [{math: "٥ل + ١٠ = ٥ل + ٩", note: "باستخدام خاصية التوزيع"}, {math: "١٠ = ٩", note: "بطرح ٥ل من الطرفين"}, {math: "عبارة خاطئة", note: "إذاً لا يوجد حل"}] } },
                     { question: "حل المعادلة ٣ + ٤ب = ٤(ب + ٢)", options: ["{لا يوجد حل}", "ب = ٨", "ب = ٥", "{كل الأعداد الحقيقية}"], correctAnswer: 0, explanation: { steps: [{math: "٣ + ٤ب = ٤ب + ٨", note: "باستخدام خاصية التوزيع"}, {math: "٣ = ٨", note: "بطرح ٤ب من الطرفين"}, {math: "عبارة خاطئة", note: "إذاً لا يوجد حل"}] } }
                 ],
+                // Bank 4: Identities (Complete the Expression)
                 [
                     { question: "أي العبارات التالية تجعل المعادلة ٤(م - ١) = ... متطابقة؟", options: ["٤م - ١", "م - ٤", "٤م - ٤", "٤م"], correctAnswer: 2, explanation: { steps: [{math: "٤ * م - ٤ * ١", note: "باستخدام خاصية التوزيع"}, {math: "٤م - ٤", note: "لكي تكون متطابقة يجب أن يتساوى الطرفان"}] } },
                     { question: "أي العبارات التالية تجعل المعادلة ٣(س + ٢) = ... متطابقة؟", options: ["٣س + ٢", "٣س + ٦", "س + ٦", "٥س"], correctAnswer: 1, explanation: { steps: [{math: "٣ * س + ٣ * ٢", note: "باستخدام خاصية التوزيع"}, {math: "٣س + ٦", note: "لكي تكون متطابقة يجب أن يتساوى الطرفان"}] } },
                     { question: "أي العبارات التالية تجعل المعادلة ٦(ص - ٣) = ... متطابقة؟", options: ["٦ص - ٣", "ص - ١٨", "٦ص + ١٨", "٦ص - ١٨"], correctAnswer: 3, explanation: { steps: [{math: "٦ * ص - ٦ * ٣", note: "باستخدام خاصية التوزيع"}, {math: "٦ص - ١٨", note: "لكي تكون متطابقة يجب أن يتساوى الطرفان"}] } }
                 ],
+                // Bank 5: Identities (Find the Missing Number)
                 [
                     { question: "لجعل المعادلة ٥(ع - ٢) = ٥ع - ... صحيحة، ماذا يجب أن يكون العدد المفقود؟", options: ["٢", "٥", "٧", "١٠"], correctAnswer: 3, explanation: { steps: [{math: "٥ * ع - ٥ * ٢", note: "باستخدام خاصية التوزيع"}, {math: "٥ع - ١٠", note: "إذن العدد المفقود هو ١٠"}] } },
                     { question: "لجعل المعادلة ٢(س + ٦) = ٢س + ... صحيحة، ماذا يجب أن يكون العدد المفقود؟", options: ["٦", "٨", "١٢", "٢"], correctAnswer: 2, explanation: { steps: [{math: "٢ * س + ٢ * ٦", note: "باستخدام خاصية التوزيع"}, {math: "٢س + ١٢", note: "إذن العدد المفقود هو ١٢"}] } },
@@ -623,7 +630,7 @@
         (function() {
             const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
             const GAME_ID = 'g1_1_1';
-            const GAME_MAX_POINTS = 5;
+            const GAME_MAX_POINTS = 5; 
             const PLATFORM_MAX_GRADE = 5;
             const METRIC_TYPE = 'time';
             const METRIC_LABEL = 'معدل الوقت (ثواني)';
@@ -675,7 +682,6 @@
                 }
                 loader.style.display = 'block';
                 container.innerHTML = '';
-                // --- CORRECTED: Removed studentId from leaderboard request ---
                 const params = new URLSearchParams({
                     action: 'getLeaderboard',
                     gameId: GAME_ID,

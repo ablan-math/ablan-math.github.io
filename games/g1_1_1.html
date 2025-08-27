@@ -324,7 +324,6 @@
                 // Bank 1: Order of Operations
                 [
                     { question: "ما هو حل المعادلة: ت = ٣ + ٢ × ٥ ؟", options: ["ت = ١٣", "ت = ٢٥", "ت = ١٠", "ت = ١٧"], correctAnswer: 0, explanation: { steps: [{math: "٢ × ٥ = ١٠", note: "الضرب أولاً"}, {math: "ت = ٣ + ١٠", note: "ثم الجمع"}, {math: "ت = ١٣", note: "الحل النهائي"}] } },
-                    // --- FIX: Updated question to use exponential form and updated explanation ---
                     { question: "ما هو حل المعادلة: ت = ٩² ÷ (٥ - ٢) ؟", options: ["ت = ٣", "ت = ١٦.٢", "ت = ٢٧", "ت = ٨١"], correctAnswer: 2, explanation: { steps: [{math: "٥ - ٢ = ٣", note: "الأقواس أولاً"}, {math: "٩² = ٨١", note: "الأسس ثانياً"}, {math: "ت = ٨١ ÷ ٣", note: "ثم القسمة"}, {math: "ت = ٢٧", note: "الحل النهائي"}] } },
                     { question: "ما هو حل المعادلة: ب = ٦ + (٥² - ٥) ÷ ٢ ؟", options: ["ب = ١٣", "ب = ١٦", "ب = ٦", "ب = ٢٠"], correctAnswer: 1, explanation: { steps: [{math: "٥² = ٢٥", note: "الأسس داخل الأقواس أولاً"}, {math: "٢٥ - ٥ = ٢٠", note: "الطرح داخل الأقواس ثانياً"},{math: "٢٠ ÷ ٢ = ١٠", note: "القسمة ثالثاً"},{math: "ب = ٦ + ١٠", note: "الجمع أخيراً"},{math: "ب = ١٦", note: "الحل النهائي"}] } }
                 ],
@@ -629,29 +628,39 @@
         <script>
         // --- START OF CONNECTION & LEADERBOARD ENGINE ---
         (function() {
+            // --- CONFIGURATION (عدّل هذه الإعدادات لكل لعبة) ---
             const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
-            const GAME_ID = 'g1_1_1';
-            const GAME_MAX_POINTS = 5; 
-            const PLATFORM_MAX_GRADE = 5;
-            const METRIC_TYPE = 'time';
-            const METRIC_LABEL = 'معدل الوقت (ثواني)';
+            const GAME_ID = 'g1_1_1';         // مثال: 'g1_1_1'
+            const GAME_MAX_POINTS = 5;                     // أقصى نقاط في اللعبة
+            const PLATFORM_MAX_GRADE = 5;                   // الدرجة النهائية في المنصة
+            const METRIC_TYPE = 'time';                     // نوع المعيار: 'time', 'stars', 'errors'
+            const METRIC_LABEL = 'معدل الوقت (ثواني)';      // اسم المعيار للعرض في الجدول
+
+            // --- Read URL Parameters ---
             const urlParams = new URLSearchParams(window.location.search);
             const studentId = urlParams.get('studentId');
             const classId = urlParams.get('classId');
             const studentName = urlParams.get('studentName');
+
             let currentUser = (studentId && studentName) ? { id: studentId, name: studentName } : null;
+
+            // --- CORE FUNCTIONS ---
+
+            // 1. الدالة الرئيسية التي تستدعيها عند انتهاء اللعبة
             window.saveAndFinishGame = function(points, metricValue) {
                 const finalPoints = parseFloat(points) || 0;
                 const finalMetric = parseFloat(metricValue) || 0;
                 const maxPoints = parseFloat(GAME_MAX_POINTS) || 1;
                 const finalGrade = (finalPoints / maxPoints) * PLATFORM_MAX_GRADE;
+
                 const resultDisplay = document.getElementById('final-result-display');
                 if (resultDisplay) {
-                    resultDisplay.innerHTML = `
+                     resultDisplay.innerHTML = `
                         <p class="text-gray-200">صيد الغربان: <span class="font-bold text-xl text-white">${finalPoints} / ${maxPoints}</span></p>
                         <p class="text-blue-400">الدرجة في المنصة: <span class="font-bold text-2xl text-white">${finalGrade.toFixed(1)} / ${PLATFORM_MAX_GRADE}</span></p>
                     `;
                 }
+
                 if (studentId && classId) {
                     const params = new URLSearchParams({
                         action: 'saveGrade',
@@ -671,25 +680,30 @@
                     fetchAndShowLeaderboard();
                 }
             }
+
+            // 2. دالة جلب وعرض سجل الأبطال
             function fetchAndShowLeaderboard() {
                 const loader = document.getElementById('leaderboard-loader');
                 const container = document.getElementById('leaderboard-container');
                 if (!loader || !container) return;
+                
                 if (!classId) {
                     console.log("No classId found, skipping leaderboard for visitor.");
                     container.innerHTML = `<p class="text-center text-gray-400 mt-4">سجل الأبطال متاح للطلاب المسجلين فقط.</p>`;
                     showEndGameButtons();
                     return;
                 }
+
                 loader.style.display = 'block';
                 container.innerHTML = '';
+
                 const params = new URLSearchParams({
                     action: 'getLeaderboard',
-                    // --- FIX: Changed gameId to itemId to match the server script's expected parameter ---
-                    itemId: GAME_ID,
+                    itemId: GAME_ID, // Corrected from gameId to itemId
                     metricType: METRIC_TYPE,
                     classId: classId
                 });
+
                 fetch(`${SCRIPT_URL}?${params.toString()}`)
                     .then(res => res.json())
                     .then(response => {
@@ -708,12 +722,15 @@
                         showEndGameButtons();
                     });
             }
+            
+            // 3. دالة بناء جدول سجل الأبطال
             function displayLeaderboard(data) {
                 const container = document.getElementById('leaderboard-container');
                 if (!data || data.length === 0) {
                     container.innerHTML = `<p class="text-center text-gray-400 mt-4">لا توجد نتائج بعد. كن أول الأبطال!</p>`;
                     return;
                 }
+
                 let tableHTML = `
                     <div class="mt-6 border-t border-gray-600 pt-4">
                         <h3 class="text-2xl font-bold text-center text-white mb-4">🏆 سجل الأبطال 🏆</h3>
@@ -727,14 +744,17 @@
                                 </tr>
                             </thead>
                             <tbody class="text-gray-300">`;
+
                 data.forEach((player, index) => {
                     const rank = index + 1;
                     let rankDisplay = rank;
                     if (rank === 1) rankDisplay = '🥇';
                     if (rank === 2) rankDisplay = '🥈';
                     if (rank === 3) rankDisplay = '🥉';
+
                     const isCurrentUser = (currentUser && player.name === currentUser.name);
                     const rowClass = isCurrentUser ? 'bg-blue-900 font-bold' : (index % 2 === 0 ? 'bg-gray-700' : '');
+
                     tableHTML += `
                         <tr class="${rowClass}">
                             <td class="text-center py-2 px-3 text-xl">${rankDisplay}</td>
@@ -743,9 +763,12 @@
                             <td class="text-center py-2 px-3">${player.metricValue}</td>
                         </tr>`;
                 });
+
                 tableHTML += `</tbody></table></div>`;
                 container.innerHTML = tableHTML;
             }
+
+            // 4. إظهار أزرار النهاية
             function showEndGameButtons() {
                 const finishWrapper = document.getElementById('finish-game-wrapper');
                 if (finishWrapper) {
@@ -756,18 +779,21 @@
                     restartWrapper.style.display = 'block';
                 }
             }
+
+            // 5. التعامل مع الأزرار وتخصيص رسالة الترحيب
             document.addEventListener('DOMContentLoaded', () => {
                 const welcomeMessage = document.getElementById('welcomeMessage');
                 if (studentName && welcomeMessage) {
                     welcomeMessage.innerHTML = `أهلاً بك يا <span class="font-bold text-yellow-300">${studentName}</span>! مهمتك هي حماية حقل الذرة من الغربان الجائعة. أجب بشكل صحيح لإطلاق النار عليه، أو سيقوم بسرقة محصولك!`;
                 }
+
                 const finishBtn = document.getElementById('finish-game-btn');
                 if (finishBtn) {
                     finishBtn.addEventListener('click', () => {
                         window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*');
                     });
                 }
-                const restartBtn = document.getElementById('restart-button');
+                 const restartBtn = document.getElementById('restart-button');
                 if (restartBtn) {
                     restartBtn.addEventListener('click', () => {
                         location.reload();

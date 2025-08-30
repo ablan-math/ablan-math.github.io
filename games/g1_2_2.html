@@ -1,1 +1,542 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مهمة فك الشفرة</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&family=Noto+Sans+SC:wght@400;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Cairo', sans-serif;
+            background-color: #0d1117;
+            color: #00ff00; /* Bright green terminal color */
+            text-shadow: 0 0 5px #00ff00;
+            position: relative;
+            overflow: hidden;
+        }
+        /* Matrix background canvas */
+        #matrix-canvas {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: -2; display: none;
+        }
+        /* Scanline effect */
+        body::after {
+            content: " "; display: block; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background-image: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%);
+            background-size: 100% 4px; z-index: -1; pointer-events: none; animation: scan 10s linear infinite;
+        }
+        @keyframes scan { from { background-position-y: 0; } to { background-position-y: -100px; } }
+
+        .terminal-font { font-family: 'Share Tech Mono', monospace; }
+        .chinese-font { font-family: 'Noto Sans SC', sans-serif; font-weight: 700; }
+
+        .terminal-card {
+            background: rgba(0, 20, 0, 0.7); border: 2px solid #00ff00;
+            box-shadow: 0 0 15px #00ff00, inset 0 0 10px rgba(0, 255, 0, 0.5);
+            backdrop-filter: blur(3px);
+        }
+        
+        .code-letter {
+            background: rgba(0,0,0,0.3); border: 1px solid #008f00; display: flex; align-items: center;
+            justify-content: center; color: #00ff00; transition: all 0.3s ease;
+        }
+        .code-letter.revealed { background: #00ff00; color: #0d1117; text-shadow: none; transform: scale(1.1); }
+
+        .option-btn { background-color: transparent; border: 2px solid #00ff00; transition: all 0.2s ease; }
+        .option-btn:hover:not(:disabled) { background-color: rgba(0, 255, 0, 0.1); box-shadow: 0 0 10px #00ff00; }
+        .option-btn.correct { background-color: #00ff00 !important; color: #0d1117 !important; text-shadow: none; }
+        .option-btn.incorrect { background-color: #ff0000 !important; border-color: #ff0000 !important; color: white !important; text-shadow: 0 0 5px #ff0000; }
+        .option-btn:disabled { opacity: 0.7; cursor: not-allowed; }
+
+        .attempt-shield { color: #00fff9; text-shadow: 0 0 8px #00fff9; transition: all 0.5s ease; }
+        .attempt-shield.lost { color: #ff005d; text-shadow: 0 0 8px #ff005d; transform: scale(0); opacity: 0; }
+        
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.7); backdrop-filter: blur(5px);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 1000;
+        }
+        
+        .fraction-container { display: inline-flex; align-items: center; justify-content: center; }
+        .fraction { display: inline-flex; flex-direction: column; align-items: center; vertical-align: middle; margin: 0 0.3em; font-size: 1.2em; }
+        .numerator { padding: 0 0.4em; border-bottom: 2px solid currentColor; }
+        .denominator { padding: 0 0.4em; }
+
+        .glitch { animation: glitch 1.5s linear infinite; }
+        @keyframes glitch { 2%,64% { transform: translate(2px,0) skew(0deg); } 4%,60% { transform: translate(-2px,0) skew(0deg); } 62% { transform: translate(0,0) skew(5deg); } }
+        .glitch:before, .glitch:after { content: attr(data-text); position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #0d1117; }
+        .glitch:before { left: 2px; text-shadow: -2px 0 #ff005d; clip: rect(44px, 450px, 56px, 0); animation: glitch-anim 5s infinite linear alternate-reverse; }
+        .glitch:after { left: -2px; text-shadow: -2px 0 #00fff9, 2px 2px #ff005d; clip: rect(86px, 450px, 140px, 0); animation: glitch-anim2 1s infinite linear alternate-reverse; }
+        @keyframes glitch-anim { 0% { clip: rect(4px, 9999px, 33px, 0); } }
+        @keyframes glitch-anim2 { 0% { clip: rect(40px, 9999px, 98px, 0); } }
+
+        /* Custom styles for leaderboard */
+        #finish-game-wrapper, #finish-game-wrapper-failure { display: none; }
+        #leaderboard-loader, #leaderboard-loader-failure {
+            border: 4px solid #f3f3f3; border-top: 4px solid #00ff00;
+            border-radius: 50%; width: 40px; height: 40px;
+            animation: spin 1s linear infinite; margin: 20px auto;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="flex items-center justify-center h-screen p-2">
+    
+    <canvas id="matrix-canvas"></canvas>
+
+    <!-- Welcome Screen -->
+    <div id="welcome-screen" class="w-full max-w-2xl mx-auto">
+        <div class="terminal-card rounded-lg p-6 text-center">
+            <h1 class="text-3xl md:text-4xl font-bold terminal-font">[ مهمة فك الشفرة ]</h1>
+            <p id="welcomeMessage" class="text-lg md:text-xl mt-4 text-gray-200">مرحباً بك أيها العميل السري. مهمتك هي اختراق نظام العدو عن طريق حل الألغاز لكشف كلمة السر النهائية.</p>
+            <p class="text-base mt-3 text-yellow-300">هذه المهمة ستختبر مهارتك في درس "حل المعادلات ذات الخطوة الواحدة".</p>
+            <button onclick="initializeGame()" class="option-btn text-white font-bold py-3 px-10 rounded-lg text-2xl mt-8 animate-pulse">> بدء المهمة</button>
+            <footer class="mt-8 text-sm text-green-700">تصميم وبرمجة: الأستاذ عبد العزيز خالد العبلان</footer>
+        </div>
+    </div>
+
+    <!-- Quiz Container (Initially Hidden) -->
+    <div id="quiz-container" class="w-full max-w-2xl mx-auto flex-col justify-center hidden">
+        <header class="text-center mb-1"><h1 class="text-2xl md:text-3xl terminal-font tracking-widest">[ CODE BREAKER MISSION ]</h1><p class="text-base text-gray-300 mt-1">مهمتك: حل الألغاز لكشف كلمة السر.</p></header>
+        
+        <div id="top-stats-container" class="flex justify-center items-center w-full px-2 my-1 gap-x-8 md:gap-x-12">
+            <div id="attempts-container" class="flex items-center gap-3"><span class="terminal-font">SHIELDS:</span><div id="shields-display" class="flex gap-2 text-2xl"></div></div>
+            <div id="timer-container" class="terminal-font text-xl">TIME: <span id="question-timer">00:00</span></div>
+        </div>
+
+        <div class="mb-3"><div id="code-container" class="flex justify-center gap-2 md:gap-4"></div></div>
+
+        <div id="question-card" class="terminal-card rounded-lg p-4 md:p-6">
+            <div class="mb-2 flex flex-col justify-center min-h-[7rem]"><p class="terminal-font text-sm text-green-400 mb-2">> INCOMING TRANSMISSION...</p><div id="question-text" class="text-xl md:text-2xl font-bold text-center"></div></div>
+            <div id="options-grid" class="grid grid-cols-2 gap-3 mt-4"></div>
+        </div>
+
+        <div id="feedback-card" class="terminal-card rounded-lg p-6 text-center hidden">
+            <h2 id="feedback-text" class="text-4xl font-bold mb-4"></h2>
+            <button id="solution-button" onclick="showSolution()" class="option-btn text-white font-bold py-2 px-6 rounded-lg text-lg">> طريقة الحل</button>
+        </div>
+
+        <!-- UPDATED Success & Failure Cards -->
+        <div id="success-card" class="terminal-card rounded-lg p-6 text-center hidden text-white">
+            <h2 class="text-3xl font-bold text-yellow-300 mb-2 terminal-font">[ MISSION COMPLETE ]</h2>
+            <p class="text-2xl mb-4">تم فك الشفرة بنجاح!</p>
+            <p id="final-password" class="text-5xl font-bold text-cyan-300 mb-6 chinese-font tracking-normal"></p>
+            
+            <div id="final-result-display" class="my-4 text-lg"></div>
+            <div id="leaderboard-loader" style="display: none;"></div>
+            <div id="leaderboard-container"></div>
+            <div id="finish-game-wrapper" class="mt-6">
+                <button id="finish-game-btn" class="option-btn text-white font-bold py-3 px-8 rounded-lg text-xl bg-blue-600 border-blue-600 hover:bg-blue-700">العودة للمنصة</button>
+            </div>
+        </div>
+        <div id="failure-card" class="terminal-card border-red-500 rounded-lg p-6 text-center hidden text-white">
+            <h2 class="text-4xl font-bold text-red-500 mb-2 terminal-font glitch" data-text="[ SYSTEM BREACHED ]">[ SYSTEM BREACHED ]</h2>
+            <p class="text-2xl mb-6">فشل في المهمة!</p>
+
+            <div id="final-result-display-failure" class="my-4 text-lg"></div>
+            <div id="leaderboard-loader-failure" style="display: none;"></div>
+            <div id="leaderboard-container-failure"></div>
+            <div id="finish-game-wrapper-failure" class="mt-6">
+                 <button id="finish-game-btn-failure" class="option-btn text-white font-bold py-3 px-8 rounded-lg text-xl bg-blue-600 border-blue-600 hover:bg-blue-700">العودة للمنصة</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Solution Modal -->
+    <div id="solution-modal" class="modal-overlay hidden">
+        <div class="terminal-card rounded-lg p-6 text-right w-11/12 max-w-lg relative">
+            <button onclick="hideSolution()" class="absolute top-2 left-3 text-3xl text-red-500 hover:text-red-400">&times;</button>
+            <div id="solution-content">
+                <h3 class="text-lg text-yellow-300 border-b border-yellow-300/50 pb-2 mb-3">السؤال:</h3><p id="solution-q" class="mb-4"></p>
+                <h3 class="text-lg text-cyan-300 border-b border-cyan-300/50 pb-2 mb-3">المعادلة:</h3><div id="solution-eq" class="mb-4 text-center terminal-font text-2xl"></div>
+                <h3 class="text-lg text-green-300 border-b border-green-300/50 pb-2 mb-3">خطوات الحل:</h3><div id="solution-steps" class="whitespace-pre-wrap text-center"></div>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        // --- GAME LOGIC ---
+        const allQuestions = [
+            [
+                { question: "خصص وليد خُمس مساحة لوحة زجاجية للون الأزرق، وهذه المساحة بلغت ٢٨٨ سم². ما هي المساحة الكلية للوحة؟", options: ["١٤٤٠", "١٢٢٠", "١٥٥٠", "١٣٣٠"], answer: "١٤٤٠", solution: { equation: `<div class="fraction-container"><div class="fraction"><span class="numerator">س</span><span class="denominator">٥</span></div> = ٢٨٨</div>`, steps: `لإيجاد قيمة س، نضرب طرفي المعادلة في ٥.<br>س = ٢٨٨ &times; ٥ = ١٤٤٠` } },
+                { question: "رُبع مساحة حديقة مدرسة مغطى بالأزهار، وهذه المساحة تبلغ ٥٠ مترًا مربعًا. ما هي المساحة الإجمالية للحديقة؟", options: ["١٥٠", "٢٥٠", "٢٠٠", "٣٠٠"], answer: "٢٠٠", solution: { equation: `<div class="fraction-container"><div class="fraction"><span class="numerator">س</span><span class="denominator">٤</span></div> = ٥٠</div>`, steps: `لإيجاد قيمة س، نضرب طرفي المعادلة في ٤.<br>س = ٥٠ &times; ٤ = ٢٠٠` } },
+                { question: "وصفة كعكة تتطلب ثلث كوب من السكر، وهو ما يعادل ٧٥ جرامًا. كم جرامًا في الكوب الكامل من السكر؟", options: ["٢٥٠", "٢٢٥", "٢٠٠", "٣٠٠"], answer: "٢٢٥", solution: { equation: `<div class="fraction-container"><div class="fraction"><span class="numerator">س</span><span class="denominator">٣</span></div> = ٧٥</div>`, steps: `لإيجاد قيمة س، نضرب طرفي المعادلة في ٣.<br>س = ٧٥ &times; ٣ = ٢٢٥` } },
+                { question: "سُدس سعة بطارية هاتف مشحونة، وهو ما يعادل ٥٠٠ مللي أمبير. ما هي السعة الكاملة للبطارية؟", options: ["٢٥٠٠", "٣٠٠٠", "٢٠٠٠", "٣٥٠٠"], answer: "٣٠٠٠", solution: { equation: `<div class="fraction-container"><div class="fraction"><span class="numerator">س</span><span class="denominator">٦</span></div> = ٥٠٠</div>`, steps: `لإيجاد قيمة س، نضرب طرفي المعادلة في ٦.<br>س = ٥٠٠ &times; ٦ = ٣٠٠٠` } }
+            ],
+            [
+                { question: "مُلئ ثلث خزان ماء بما يعادل ١٥٠ لترًا. كم لترًا يتسع الخزان بأكمله؟", options: ["٣٥٠", "٤٥٠", "٥٠٠", "٤٠٠"], answer: "٤٥٠", solution: { equation: `<div class="fraction-container"><div class="fraction"><span class="numerator">س</span><span class="denominator">٣</span></div> = ١٥٠</div>`, steps: `لإيجاد قيمة س، نضرب طرفي المعادلة في ٣.<br>س = ١٥٠ &times; ٣ = ٤٥٠` } },
+                { question: "قُطع ثُمن مسافة رحلة، وهو ما يعادل ٦٠ كيلومترًا. ما هي المسافة الكلية للرحلة؟", options: ["٤٨٠", "٤٢٠", "٥٦٠", "٥٠٠"], answer: "٤٨٠", solution: { equation: `<div class="fraction-container"><div class="fraction"><span class="numerator">س</span><span class="denominator">٨</span></div> = ٦٠</div>`, steps: `لإيجاد قيمة س، نضرب طرفي المعادلة في ٨.<br>س = ٦٠ &times; ٨ = ٤٨٠` } },
+                { question: "استُخدم عُشر كيس من الدقيق، وهو ما يزن ٢٠٠ جرام. كم وزن الكيس كاملاً بالجرام؟", options: ["١٠٠٠", "٢٥٠٠", "٢٠٠٠", "٣٠٠٠"], answer: "٢٠٠٠", solution: { equation: `<div class="fraction-container"><div class="fraction"><span class="numerator">س</span><span class="denominator">١٠</span></div> = ٢٠٠</div>`, steps: `لإيجاد قيمة س، نضرب طرفي المعادلة في ١٠.<br>س = ٢٠٠ &times; ١٠ = ٢٠٠٠` } },
+                { question: "أُنفق سُبع الراتب على الإيجار، وهو مبلغ ٩٠٠ ريال. كم يبلغ الراتب كاملاً؟", options: ["٧٠٠٠", "٥٦٠٠", "٦٣٠٠", "٧٢٠٠"], answer: "٦٣٠٠", solution: { equation: `<div class="fraction-container"><div class="fraction"><span class="numerator">س</span><span class="denominator">٧</span></div> = ٩٠٠</div>`, steps: `لإيجاد قيمة س، نضرب طرفي المعادلة في ٧.<br>س = ٩٠٠ &times; ٧ = ٦٣٠٠` } }
+            ],
+            [
+                { question: "بعد أن قرأ أحمد ثلثي صفحات كتاب، لاحظ أن المتبقي له ٣٠ صفحة فقط. كم عدد صفحات الكتاب الإجمالي؟", options: ["١٢٠", "٨٠", "٩٠", "١٨٠"], answer: "٩٠", solution: { equation: `<div class="fraction-container">س - <div class="fraction"><span class="numerator">٢</span><span class="denominator">٣</span></div>س = ٣٠</div>`, steps: `الجزء المتبقي هو ثلث الكتاب.<br>إذن: <div class="fraction-container" style="font-size: 0.9em;"><div class="fraction"><span class="numerator">١</span><span class="denominator">٣</span></div>س = ٣٠</div><br>لإيجاد س، نضرب الطرفين في ٣.<br>س = ٣٠ × ٣ = ٩٠` } },
+                { question: "أُكلت ثلاثة أرباع فطيرة بيتزا، وتبقى شريحتان. كم كان عدد الشرائح في الفطيرة كاملة؟", options: ["٨", "١٠", "٦", "١٢"], answer: "٨", solution: { equation: `<div class="fraction-container">س - <div class="fraction"><span class="numerator">٣</span><span class="denominator">٤</span></div>س = ٢</div>`, steps: `الجزء المتبقي هو ربع الفطيرة.<br>إذن: <div class="fraction-container" style="font-size: 0.9em;"><div class="fraction"><span class="numerator">١</span><span class="denominator">٤</span></div>س = ٢</div><br>لإيجاد س، نضرب الطرفين في ٤.<br>س = ٢ × ٤ = ٨` } },
+                { question: "أُنجز أربعة أخماس مشروع، وتبقى ١٠ كيلومترات لإنهائه. ما هي المسافة الكلية للمشروع؟", options: ["٤٠", "٥٠", "٦٠", "٨٠"], answer: "٥٠", solution: { equation: `<div class="fraction-container">س - <div class="fraction"><span class="numerator">٤</span><span class="denominator">٥</span></div>س = ١٠</div>`, steps: `الجزء المتبقي هو خُمس المشروع.<br>إذن: <div class="fraction-container" style="font-size: 0.9em;"><div class="fraction"><span class="numerator">١</span><span class="denominator">٥</span></div>س = ١٠</div><br>لإيجاد س، نضرب الطرفين في ٥.<br>س = ١٠ × ٥ = ٥٠` } },
+                { question: "اكتمل خمسة أسداس عمل، وتبقى ٣ ساعات لإنهائه. كم عدد الساعات الكلي اللازم للعمل؟", options: ["١٥", "٢٤", "١٨", "٣٠"], answer: "١٨", solution: { equation: `<div class="fraction-container">س - <div class="fraction"><span class="numerator">٥</span><span class="denominator">٦</span></div>س = ٣</div>`, steps: `الجزء المتبقي هو سُدس العمل.<br>إذن: <div class="fraction-container" style="font-size: 0.9em;"><div class="fraction"><span class="numerator">١</span><span class="denominator">٦</span></div>س = ٣</div><br>لإيجاد س، نضرب الطرفين في ٦.<br>س = ٣ × ٦ = ١٨` } }
+            ],
+            [
+                { question: "كانت درجة الحرارة عدداً ما، ثم ارتفعت ٧ درجات لتصل إلى ٢٥ درجة. أي معادلة تمثل المسألة؟", options: ["س + ٧ = ٢٥", "س - ٧ = ٢٥", "٢٥ + ٧ = س", "س = ٢٥ + ٧"], answer: "س + ٧ = ٢٥", solution: { equation: `س + ٧ = ٢٥`, steps: `الحرارة الأصلية (س) زادت بمقدار ٧ لتصل إلى ٢٥.` } },
+                { question: "مبنى كان له ارتفاع معين، ثم أُضيفت له ١٥ مترًا ليصبح ارتفاعه ٥٠ مترًا. أي معادلة تمثل ارتفاعه الأصلي؟", options: ["س - ١٥ = ٥٠", "س + ١٥ = ٥٠", "٥٠ + ١٥ = س", "س = ٥٠ + ١٥"], answer: "س + ١٥ = ٥٠", solution: { equation: `س + ١٥ = ٥٠`, steps: `الارتفاع الأصلي (س) زاد بمقدار ١٥ ليصل إلى ٥٠.` } },
+                { question: "كان مع فاطمة مبلغ من المال، أضافت إليه ١٠٠ ريال فأصبح مجموع ما معها ٤٥٠ ريالاً. أي معادلة تمثل المبلغ الأصلي؟", options: ["س + ١٠٠ = ٤٥٠", "س - ١٠٠ = ٤٥٠", "٤٥٠ + ١٠٠ = س", "س = ٤٥٠ - ١٠٠"], answer: "س + ١٠٠ = ٤٥٠", solution: { equation: `س + ١٠٠ = ٤٥٠`, steps: `المبلغ الأصلي (س) زاد بمقدار ١٠٠ ليصل إلى ٤٥٠.` } },
+                { question: "إناء يحتوي على كمية من السائل، أُضيف إليها ٢٠٠ مل ليصبح المجموع ٧٠٠ مل. أي معادلة تمثل الكمية الأصلية؟", options: ["٧٠٠ - س = ٢٠٠", "س - ٢٠٠ = ٧٠٠", "س + ٢٠٠ = ٧٠٠", "س + ٧٠٠ = ٢٠٠"], answer: "س + ٢٠٠ = ٧٠٠", solution: { equation: `س + ٢٠٠ = ٧٠٠`, steps: `الكمية الأصلية (س) زادت بمقدار ٢٠٠ لتصل إلى ٧٠٠.` } }
+            ],
+            [
+                { question: "متجر كان به عدد من القمصان، وبعد أن باع ٢٠ قميصًا، تبقى لديه ٦٠. أي معادلة تمثل العدد الأصلي للقمصان؟", options: ["س - ٢٠ = ٦٠", "س + ٢٠ = ٦٠", "٦٠ - ٢٠ = س", "س = ٦٠ - ٢٠"], answer: "س - ٢٠ = ٦٠", solution: { equation: `س - ٢٠ = ٦٠`, steps: `العدد الأصلي (س) نقص بمقدار ٢٠ ليتبقى ٦٠.` } },
+                { question: "شخص يتبع حمية غذائية فقد ٥ كيلوجرامات من وزنه، وأصبح وزنه الحالي ٧٥ كيلوجرامًا. أي معادلة تمثل وزنه الأصلي؟", options: ["٧٥ - س = ٥", "س + ٥ = ٧٥", "س - ٥ = ٧٥", "س = ٧٥ - ٥"], answer: "س - ٥ = ٧٥", solution: { equation: `س - ٥ = ٧٥`, steps: `الوزن الأصلي (س) نقص بمقدار ٥ ليصبح ٧٥.` } },
+                { question: "مكتبة كان بها عدد من الكتب، استعير منها ٥٠ كتابًا فتبقى ٢٥٠ كتابًا. أي معادلة تمثل عدد الكتب الكلي؟", options: ["س - ٥٠ = ٢٥٠", "س + ٥٠ = ٢٥٠", "٢٥٠ - ٥٠ = س", "س = ٢٥٠ + ٥٠"], answer: "س - ٥٠ = ٢٥٠", solution: { equation: `س - ٥٠ = ٢٥٠`, steps: `العدد الكلي (س) نقص بمقدار ٥٠ ليتبقى ٢٥٠.` } },
+                { question: "خزان وقود سيارة كان ممتلئاً، وبعد استهلاك ١٢ لترًا، تبقى فيه ٣٨ لترًا. أي معادلة تمثل سعته الكلية؟", options: ["س + ١٢ = ٣٨", "س - ١٢ = ٣٨", "٣٨ - ١٢ = س", "س = ٣٨ + ١٢"], answer: "س - ١٢ = ٣٨", solution: { equation: `س - ١٢ = ٣٨`, steps: `السعة الكلية (س) نقصت بمقدار ١٢ ليتبقى ٣٨.` } }
+            ]
+        ];
+        const secretWord = "勇氣與智慧";
+        const MAX_ATTEMPTS = 3;
+
+        const welcomeScreen = document.getElementById('welcome-screen');
+        const quizContainer = document.getElementById('quiz-container');
+        const questionCard = document.getElementById('question-card');
+        const feedbackCard = document.getElementById('feedback-card');
+        const feedbackText = document.getElementById('feedback-text');
+        const successCard = document.getElementById('success-card');
+        const failureCard = document.getElementById('failure-card');
+        const questionText = document.getElementById('question-text');
+        const optionsGrid = document.getElementById('options-grid');
+        const codeContainer = document.getElementById('code-container');
+        const finalPassword = document.getElementById('final-password');
+        const shieldsDisplay = document.getElementById('shields-display');
+        const matrixCanvas = document.getElementById('matrix-canvas');
+        const solutionModal = document.getElementById('solution-modal');
+        const questionTimerDisplay = document.getElementById('question-timer');
+
+        let gameQuestionGroups = [], currentQuestionIndex = 0, subQuestionAttempt = 0, mistakesLeft = MAX_ATTEMPTS;
+        let totalGameTimeStart, questionTimerInterval, typingInterval, feedbackTimeout, matrixInterval, drops;
+
+        function setupMatrix() { matrixCanvas.width = window.innerWidth; matrixCanvas.height = window.innerHeight; const columns = matrixCanvas.width / 14; drops = []; for (let x = 0; x < columns; x++) drops[x] = 1; }
+        function drawMatrix() { const ctx = matrixCanvas.getContext('2d'); ctx.fillStyle = "rgba(13, 17, 23, 0.05)"; ctx.fillRect(0, 0, matrixCanvas.width, matrixCanvas.height); ctx.fillStyle = "#00ff00"; ctx.font = "14px arial"; for (let i = 0; i < drops.length; i++) { const text = "01".charAt(Math.floor(Math.random() * 2)); ctx.fillText(text, i * 14, drops[i] * 14); if (drops[i] * 14 > matrixCanvas.height && Math.random() > 0.975) drops[i] = 0; drops[i]++; } }
+        function startMatrix() { matrixCanvas.style.display = 'block'; if (!matrixInterval) { setupMatrix(); matrixInterval = setInterval(drawMatrix, 33); } }
+        function stopMatrix() { matrixCanvas.style.display = 'none'; if (matrixInterval) { clearInterval(matrixInterval); matrixInterval = null; } }
+        function shuffleArray(array) { for (let i = array.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [array[i], array[j]] = [array[j], array[i]]; } return array; }
+        
+        window.addEventListener('resize', setupMatrix);
+
+        function initializeGame() {
+            gameQuestionGroups = allQuestions.map(group => shuffleArray([...group]));
+            welcomeScreen.classList.add('hidden');
+            quizContainer.classList.remove('hidden'); quizContainer.classList.add('flex');
+            currentQuestionIndex = 0; subQuestionAttempt = 0; mistakesLeft = MAX_ATTEMPTS;
+            totalGameTimeStart = Date.now();
+            if (questionTimerInterval) clearInterval(questionTimerInterval);
+            stopMatrix(); clearTimeout(feedbackTimeout);
+            successCard.classList.add('hidden'); failureCard.classList.add('hidden');
+            feedbackCard.classList.add('hidden'); questionCard.classList.remove('hidden');
+            updateAttemptsDisplay(); setupCodeContainer(); showQuestion();
+        }
+
+        function setupCodeContainer() {
+            codeContainer.innerHTML = '';
+            for (let i = 0; i < allQuestions.length; i++) {
+                const letterBox = document.createElement('div');
+                letterBox.classList.add('code-letter', 'chinese-font', 'w-12', 'h-14', 'md:w-14', 'md:h-16', 'text-3xl', 'md:text-4xl');
+                letterBox.id = `letter-${i}`; letterBox.textContent = '_';
+                codeContainer.appendChild(letterBox);
+            }
+        }
+        
+        function updateAttemptsDisplay() {
+            shieldsDisplay.innerHTML = '';
+            for(let i = 0; i < MAX_ATTEMPTS; i++) {
+                const shield = document.createElement('span'); shield.innerHTML = '🛡️';
+                shield.classList.add('attempt-shield');
+                if (i >= mistakesLeft) { shield.classList.add('lost'); }
+                shieldsDisplay.appendChild(shield);
+            }
+        }
+
+        function showQuestion() {
+            if (typingInterval) clearInterval(typingInterval);
+            if (questionTimerInterval) clearInterval(questionTimerInterval);
+            const questionTimeStart = Date.now();
+            questionTimerInterval = setInterval(() => {
+                const secondsPassed = Math.floor((Date.now() - questionTimeStart) / 1000);
+                const minutes = Math.floor(secondsPassed / 60).toString().padStart(2, '0');
+                const seconds = (secondsPassed % 60).toString().padStart(2, '0');
+                questionTimerDisplay.textContent = `${minutes}:${seconds}`;
+            }, 1000);
+
+            optionsGrid.innerHTML = ''; questionText.textContent = '';
+            const currentQuestion = gameQuestionGroups[currentQuestionIndex][subQuestionAttempt];
+            const shuffledOptions = shuffleArray([...currentQuestion.options]);
+
+            shuffledOptions.forEach(option => {
+                const button = document.createElement('button'); button.textContent = option;
+                button.classList.add('option-btn', 'w-full', 'p-3', 'rounded-lg', 'text-lg', 'font-semibold', 'terminal-font');
+                button.onclick = () => selectAnswer(button, option); button.disabled = true;
+                optionsGrid.appendChild(button);
+            });
+
+            const textToType = currentQuestion.question;
+            let charIndex = 0;
+            typingInterval = setInterval(() => {
+                if (charIndex < textToType.length) {
+                    questionText.textContent += textToType.charAt(charIndex++);
+                } else {
+                    clearInterval(typingInterval);
+                    optionsGrid.querySelectorAll('button').forEach(btn => btn.disabled = false);
+                }
+            }, 40);
+        }
+
+        function advanceToNextStep(isCorrect) {
+            feedbackCard.classList.add('hidden');
+            if (isCorrect) {
+                currentQuestionIndex++; subQuestionAttempt = 0;
+                if (currentQuestionIndex >= gameQuestionGroups.length) {
+                    showEndScreen(true);
+                } else {
+                    questionCard.classList.remove('hidden'); showQuestion();
+                }
+            } else {
+                stopMatrix();
+                if (mistakesLeft <= 0) { showEndScreen(false); return; }
+                subQuestionAttempt++;
+                if (subQuestionAttempt >= gameQuestionGroups[currentQuestionIndex].length) {
+                    showEndScreen(false);
+                } else {
+                    questionCard.classList.remove('hidden'); showQuestion();
+                }
+            }
+        }
+        
+        function selectAnswer(button, selectedOption) {
+            if (questionTimerInterval) clearInterval(questionTimerInterval);
+            optionsGrid.querySelectorAll('button').forEach(btn => btn.disabled = true);
+            const currentQuestion = gameQuestionGroups[currentQuestionIndex][subQuestionAttempt];
+            const isCorrect = selectedOption === currentQuestion.answer;
+            
+            questionCard.classList.add('hidden'); feedbackCard.classList.remove('hidden');
+
+            if (isCorrect) {
+                feedbackText.textContent = 'أحسنت!';
+                feedbackText.classList.remove('text-red-500'); feedbackText.classList.add('text-green-400');
+                revealLetter(currentQuestionIndex);
+                feedbackTimeout = setTimeout(() => advanceToNextStep(true), 5000);
+            } else {
+                feedbackText.textContent = 'حاول مرة أخرى!';
+                feedbackText.classList.remove('text-green-400'); feedbackText.classList.add('text-red-500');
+                mistakesLeft--;
+                updateAttemptsDisplay(); startMatrix();
+                feedbackTimeout = setTimeout(() => advanceToNextStep(false), 5000);
+            }
+        }
+
+        function revealLetter(index) {
+            const letterBox = document.getElementById(`letter-${index}`);
+            if(letterBox) { letterBox.textContent = secretWord[index]; letterBox.classList.add('revealed'); }
+        }
+        
+        function showEndScreen(isSuccess) {
+            if (questionTimerInterval) clearInterval(questionTimerInterval);
+            const totalTimeInSeconds = Math.round((Date.now() - totalGameTimeStart) / 1000);
+            
+            // --- UPDATED SCORING LOGIC ---
+            // Score is based on correct answers (currentQuestionIndex) minus a penalty for lost shields.
+            const baseScore = currentQuestionIndex; // 1 point for each correct answer
+            const penalty = (MAX_ATTEMPTS - mistakesLeft) * 0.5;
+            const finalScore = Math.max(0, baseScore - penalty);
+
+            if (isSuccess) {
+                successCard.classList.remove('hidden');
+                finalPassword.textContent = secretWord;
+            } else {
+                failureCard.classList.remove('hidden');
+            }
+            
+            if (window.saveAndFinishGame) {
+                window.saveAndFinishGame(finalScore, totalTimeInSeconds);
+            }
+        }
+
+        function showSolution() {
+            clearTimeout(feedbackTimeout);
+            const currentQuestion = gameQuestionGroups[currentQuestionIndex][subQuestionAttempt];
+            document.getElementById('solution-q').textContent = currentQuestion.question;
+            document.getElementById('solution-eq').innerHTML = currentQuestion.solution.equation;
+            document.getElementById('solution-steps').innerHTML = currentQuestion.solution.steps;
+            solutionModal.classList.remove('hidden');
+        }
+
+        function hideSolution() {
+            solutionModal.classList.add('hidden');
+            const lastAnswerWasCorrect = feedbackText.textContent === 'أحسنت!';
+            advanceToNextStep(lastAnswerWasCorrect);
+        }
+
+    </script>
+
+    <script>
+        // --- START OF CONNECTION & LEADERBOARD ENGINE ---
+(function() {
+    // --- CONFIGURATION ---
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
+    const GAME_ID = 'g1_2_2';
+    const GAME_MAX_POINTS = 5;
+    const PLATFORM_MAX_GRADE = 5;
+    const METRIC_TYPE = 'time';
+    const METRIC_LABEL = 'الوقت (ثواني)';
+
+    // --- Read URL Parameters ---
+    const urlParams = new URLSearchParams(window.location.search);
+    const studentId = urlParams.get('studentId');
+    const classId = urlParams.get('classId');
+    const studentName = urlParams.get('studentName');
+    let currentUser = (studentId && studentName) ? { id: studentId, name: studentName } : null;
+
+    // --- CORE FUNCTIONS ---
+
+    window.saveAndFinishGame = function(points, metricValue) {
+        const finalPoints = parseFloat(points) || 0;
+        const finalMetric = parseFloat(metricValue) || 0;
+        const finalGrade = finalPoints;
+
+        const successCardVisible = !document.getElementById('success-card').classList.contains('hidden');
+        const resultDisplayId = successCardVisible ? 'final-result-display' : 'final-result-display-failure';
+        const resultDisplay = document.getElementById(resultDisplayId);
+        
+        if (resultDisplay) {
+            resultDisplay.innerHTML = `
+                <p class="text-gray-400" style="color: white;">الدرجة النهائية: <span class="font-bold text-2xl">${finalGrade.toFixed(1)} / ${PLATFORM_MAX_GRADE}</span></p>
+                <p class="text-gray-400" style="color: white;">الوقت المستغرق: <span class="font-bold text-xl">${finalMetric} ثانية</span></p>
+            `;
+        }
+
+        if (studentId && classId) {
+            const params = new URLSearchParams({
+                action: 'saveGrade', studentId, classId, itemId: GAME_ID,
+                grade: finalGrade.toFixed(2), metricValue: Math.round(finalMetric).toString()
+            });
+            fetch(`${SCRIPT_URL}?${params.toString()}`)
+                .then(res => res.json()).then(result => console.log('Save result:', result.status))
+                .catch(err => console.error("Save Error:", err)).finally(fetchAndShowLeaderboard);
+        } else {
+            console.log(`Visitor finished. Score: ${finalPoints}, Metric: ${finalMetric}`);
+            fetchAndShowLeaderboard();
+        }
+    }
+
+    function fetchAndShowLeaderboard() {
+        const successCardVisible = !document.getElementById('success-card').classList.contains('hidden');
+        const loaderId = successCardVisible ? 'leaderboard-loader' : 'leaderboard-loader-failure';
+        const containerId = successCardVisible ? 'leaderboard-container' : 'leaderboard-container-failure';
+        const loader = document.getElementById(loaderId);
+        const container = document.getElementById(containerId);
+
+        if (!loader || !container) return;
+        if (!classId) {
+            container.innerHTML = `<p class="text-center text-gray-500 mt-4">سجل الأبطال متاح للطلاب المسجلين فقط.</p>`;
+            showFinishButton();
+            return;
+        }
+
+        loader.style.display = 'block';
+        container.innerHTML = '';
+
+        const params = new URLSearchParams({ action: 'getLeaderboard', gameId: GAME_ID, metricType: METRIC_TYPE, classId: classId });
+        fetch(`${SCRIPT_URL}?${params.toString()}`)
+            .then(res => res.json())
+            .then(response => {
+                if (response.status === 'success' && response.data) {
+                    displayLeaderboard(response.data, container);
+                } else {
+                    throw new Error(response.message || 'Failed to load leaderboard data.');
+                }
+            })
+            .catch(err => {
+                console.error("Leaderboard Error:", err);
+                container.innerHTML = `<p class="text-center text-red-500">حدث خطأ في تحميل سجل الأبطال.</p>`;
+            })
+            .finally(() => {
+                loader.style.display = 'none';
+                showFinishButton();
+            });
+    }
+    
+    function displayLeaderboard(data, container) {
+        if (!data || data.length === 0) {
+            container.innerHTML = `<p class="text-center text-gray-500 mt-4">لا توجد نتائج بعد. كن أول الأبطال!</p>`;
+            return;
+        }
+
+        let tableHTML = `
+            <div class="mt-6 border-t border-green-500/50 pt-4" style="color: white; background-color: rgba(0,0,0,0.3);">
+                <h3 class="text-2xl font-bold text-center text-yellow-300 mb-4">🏆 سجل الأبطال 🏆</h3>
+                <table class="min-w-full rounded-lg">
+                    <thead style="background-color: rgba(0, 255, 0, 0.1);">
+                        <tr>
+                            <th class="text-center py-2 px-3">الترتيب</th>
+                            <th class="text-right py-2 px-3">اسم الطالب</th>
+                            <th class="text-center py-2 px-3">الدرجة</th>
+                            <th class="text-center py-2 px-3">${METRIC_LABEL}</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+        data.forEach((player, index) => {
+            const rank = index + 1;
+            let rankDisplay = rank;
+            if (rank === 1) rankDisplay = '🥇';
+            if (rank === 2) rankDisplay = '🥈';
+            if (rank === 3) rankDisplay = '🥉';
+
+            const isCurrentUser = (currentUser && player.name === currentUser.name);
+            const rowClass = isCurrentUser ? 'bg-blue-500/30 font-bold' : (index % 2 === 0 ? 'bg-green-500/10' : 'bg-green-500/20');
+
+            tableHTML += `
+                <tr class="${rowClass}">
+                    <td class="text-center py-2 px-3 text-xl">${rankDisplay}</td>
+                    <td class="text-right py-2 px-3">${player.name}</td>
+                    <td class="text-center py-2 px-3">${player.grade.toFixed(1)}</td>
+                    <td class="text-center py-2 px-3">${player.metricValue}</td>
+                </tr>`;
+        });
+
+        tableHTML += `</tbody></table></div>`;
+        container.innerHTML = tableHTML;
+    }
+
+    function showFinishButton() {
+        const successCardVisible = !document.getElementById('success-card').classList.contains('hidden');
+        const wrapperId = successCardVisible ? 'finish-game-wrapper' : 'finish-game-wrapper-failure';
+        const finishWrapper = document.getElementById(wrapperId);
+        if (finishWrapper) {
+            finishWrapper.style.display = 'block';
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const welcomeMessage = document.getElementById('welcomeMessage');
+        if (studentName && welcomeMessage) {
+            welcomeMessage.innerHTML = `مرحباً بك أيها العميل السري <span class="font-bold text-yellow-300">${studentName}</span>. مهمتك هي اختراق نظام العدو عن طريق حل الألغاز لكشف كلمة السر النهائية.`;
+        }
+
+        const finishBtns = document.querySelectorAll('#finish-game-btn, #finish-game-btn-failure');
+        if (finishBtns) {
+            finishBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*');
+                });
+            });
+        }
+    });
+})();
+// --- END OF CONNECTION & LEADERBOARD ENGINE ---
+    </script>
+
+</body>
+</html>
+
 

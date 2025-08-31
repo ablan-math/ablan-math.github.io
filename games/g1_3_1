@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مهمة تجميع الروبوت</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Cairo', sans-serif;
+            background: linear-gradient(135deg, #111827, #1F2937); /* Dark blue-gray gradient */
+            color: #e5e7eb; /* Light gray text */
+            position: relative;
+            overflow: hidden;
+        }
+        
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(rgba(203, 213, 225, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(203, 213, 225, 0.05) 1px, transparent 1px);
+            background-size: 30px 30px;
+            z-index: -1;
+            opacity: 0.5;
+        }
+
+        .title-font { font-family: 'Orbitron', sans-serif; }
+
+        .game-card {
+            background: rgba(31, 41, 55, 0.85);
+            border: 1px solid #4b5563;
+            box-shadow: 0 0 25px rgba(6, 182, 212, 0.3), inset 0 0 10px rgba(55, 65, 81, 0.5);
+            backdrop-filter: blur(5px);
+        }
+        
+        #quiz-container {
+            position: relative;
+        }
+        
+        /* --- REVISED ROBOT STROKE GLOW & RESPONSIVENESS --- */
+        #robot-display-container {
+            position: absolute;
+            top: 53%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 85vw; /* Use viewport width for small screens */
+            max-width: 320px; /* Cap the size on larger screens */
+            height: auto; /* Maintain aspect ratio */
+            z-index: -1;
+            margin: 0;
+        }
+        .robot-part {
+            fill: transparent;
+            stroke: #06b6d4;
+            stroke-width: 2px;
+            stroke-dasharray: 8;
+            transition: all 0.5s ease-in-out;
+            filter: 
+                drop-shadow(0 0 3px rgba(103, 232, 249, 0.9)) 
+                drop-shadow(0 0 10px rgba(6, 182, 212, 0.7));
+        }
+        .robot-part.revealed {
+            fill: rgba(6, 182, 212, 0.3);
+            stroke: #f0f9ff;
+            stroke-width: 3px;
+            stroke-dasharray: 0;
+            filter: 
+                drop-shadow(0 0 15px #67e8f9) 
+                drop-shadow(0 0 40px #06b6d4); 
+            opacity: 1;
+        }
+        /* --- END OF REVISED STYLES --- */
+
+        /* --- ERROR FEEDBACK STYLES --- */
+        @keyframes screen-shake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+            20%, 40%, 60%, 80% { transform: translateX(5px); }
+        }
+        #error-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: radial-gradient(ellipse at center, transparent 30%, rgba(239, 68, 68, 0.4) 100%);
+            z-index: 2000;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s ease-out;
+        }
+        #error-overlay.active {
+            opacity: 1;
+            animation: screen-shake 0.4s ease-in-out;
+        }
+        /* --- END OF ERROR STYLES --- */
+
+        .option-btn { 
+            background-color: rgba(55, 65, 81, 0.5); 
+            border: 2px solid #6b7280; 
+            transition: all 0.2s ease; 
+        }
+        .option-btn:hover:not(:disabled) { 
+            background-color: rgba(75, 85, 99, 0.8); 
+            border-color: #06b6d4;
+            box-shadow: 0 0 10px #06b6d4;
+            transform: translateY(-2px);
+        }
+        .option-btn.correct { 
+            background-color: #10b981 !important; 
+            border-color: #10b981 !important; 
+            color: white !important;
+        }
+        .option-btn.incorrect { 
+            background-color: #ef4444 !important; 
+            border-color: #ef4444 !important; 
+            color: white !important; 
+        }
+        .option-btn:disabled { opacity: 0.7; cursor: not-allowed; }
+
+        .attempt-icon { color: #f59e0b; text-shadow: 0 0 8px #f59e0b; transition: all 0.5s ease; font-size: 1.5rem; }
+        .attempt-icon.lost { color: #4b5563; text-shadow: none; transform: scale(0.8); opacity: 0.5; }
+        
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(17, 24, 39, 0.8); backdrop-filter: blur(5px);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 1000;
+        }
+
+        .fraction-container { display: inline-flex; align-items: center; justify-content: center; }
+        .fraction { display: inline-flex; flex-direction: column; align-items: center; vertical-align: middle; margin: 0 0.3em; font-size: 1.2em; }
+        .numerator { padding: 0 0.4em; border-bottom: 2px solid currentColor; }
+        .denominator { padding: 0 0.4em; }
+
+        #finish-game-wrapper, #finish-game-wrapper-failure { display: none; }
+        #leaderboard-loader, #leaderboard-loader-failure {
+            border: 4px solid #4b5563; border-top: 4px solid #06b6d4;
+            border-radius: 50%; width: 40px; height: 40px;
+            animation: spin 1s linear infinite; margin: 20px auto;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="flex items-center justify-center h-screen p-2">
+    
+    <div id="error-overlay"></div>
+
+    <div id="welcome-screen" class="w-full max-w-2xl mx-auto">
+        <div class="game-card rounded-lg p-4 md:p-6 text-center">
+            <h1 class="text-2xl md:text-4xl font-bold title-font text-cyan-400">[ مهمة تجميع الروبوت ]</h1>
+            <p id="welcomeMessage" class="text-base md:text-xl mt-3 text-gray-200">مرحباً بك أيها المهندس. مهمتك هي تجميع الروبوت "العملاق" عن طريق حل الألغاز الهندسية لتفعيل أنظمته.</p>
+            <p class="text-sm md:text-base mt-2 text-yellow-400">هذه المهمة ستختبر مهارتك في درس "حل المعادلات المتعددة الخطوات".</p>
+            <button onclick="initializeGame()" class="option-btn text-white font-bold py-2 px-8 rounded-lg text-xl md:text-2xl mt-6 animate-pulse hover:animate-none">> بدء التجميع</button>
+            <footer class="mt-6 text-xs text-gray-500">تصميم وبرمجة: الأستاذ عبد العزيز خالد العبلان</footer>
+        </div>
+    </div>
+
+    <div id="quiz-container" class="w-full max-w-2xl mx-auto flex-col justify-start hidden h-[90vh]">
+        <header class="text-center mb-1">
+            <h1 class="text-xl md:text-3xl title-font tracking-widest text-cyan-400">[ MECH ASSEMBLY PROTOCOL ]</h1>
+            <p class="text-sm md:text-base text-gray-300">مهمتك: حل الألغاز لتركيب أجزاء الروبوت.</p>
+        </header>
+        
+        <div id="top-stats-container" class="flex justify-between items-center w-full px-4 my-2">
+            <div id="attempts-container" class="flex items-center gap-2">
+                <span class="title-font text-sm text-yellow-400">الطاقة:</span>
+                <div id="power-cells-display" class="flex gap-2"></div>
+            </div>
+            <div id="timer-container" class="title-font text-lg md:text-xl">الوقت: <span id="question-timer">00:00</span></div>
+        </div>
+
+        <div id="robot-display-container">
+            <!-- SVG of the robot to be assembled will be injected here -->
+        </div>
+        
+        <div class="w-full mt-4 sm:mt-9 relative z-10">
+            <div id="question-card" class="game-card rounded-lg p-3 md:p-6">
+                <div class="mb-2 flex flex-col justify-center min-h-[6rem]">
+                    <p class="title-font text-xs text-cyan-400 mb-1">> تحليل المخطط الهندسي...</p>
+                    <div id="question-text" class="text-lg md:text-2xl font-bold text-center"></div>
+                </div>
+                <div id="options-grid" class="grid grid-cols-2 gap-2 mt-2"></div>
+            </div>
+
+            <div id="feedback-card" class="game-card rounded-lg p-4 text-center hidden">
+                <h2 id="feedback-text" class="text-3xl font-bold mb-3"></h2>
+                <button id="solution-button" onclick="showSolution()" class="option-btn text-white font-bold py-2 px-5 rounded-lg text-base">> طريقة الحل</button>
+            </div>
+        </div>
+
+        <div id="success-card" class="game-card rounded-lg p-4 text-center hidden text-white">
+            <h2 class="text-xl md:text-2xl font-bold text-yellow-300 mb-1 title-font">[ ASSEMBLY COMPLETE ]</h2>
+            <p class="text-lg md:text-xl mb-2">اكتمل تجميع الروبوت بنجاح!</p>
+            <p id="final-password" class="text-3xl md:text-4xl font-bold text-cyan-300 mb-4 title-font tracking-widest"></p>
+            
+            <div id="final-result-display" class="my-3 text-base"></div>
+            <div id="leaderboard-loader" style="display: none;"></div>
+            <div id="leaderboard-container"></div>
+            <div id="finish-game-wrapper" class="mt-4">
+                <button id="finish-game-btn" class="option-btn text-white font-bold py-2 px-6 rounded-lg text-lg bg-blue-600 border-blue-600 hover:bg-blue-700">العودة للمنصة</button>
+            </div>
+        </div>
+        <div id="failure-card" class="game-card border-red-500 rounded-lg p-4 text-center hidden text-white">
+            <h2 class="text-2xl md:text-3xl font-bold text-red-500 mb-1 title-font">[ SYSTEM OVERLOAD ]</h2>
+            <p class="text-lg md:text-xl mb-4">فشل في المهمة!</p>
+
+            <div id="final-result-display-failure" class="my-3 text-base"></div>
+            <div id="leaderboard-loader-failure" style="display: none;"></div>
+            <div id="leaderboard-container-failure"></div>
+            <div id="finish-game-wrapper-failure" class="mt-4">
+                 <button id="finish-game-btn-failure" class="option-btn text-white font-bold py-2 px-6 rounded-lg text-lg bg-blue-600 border-blue-600 hover:bg-blue-700">العودة للمنصة</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="solution-modal" class="modal-overlay hidden">
+        <div class="game-card rounded-lg p-6 text-right w-11/12 max-w-lg relative">
+            <button onclick="hideSolution()" class="absolute top-2 left-3 text-3xl text-red-500 hover:text-red-400">&times;</button>
+            <div id="solution-content">
+                <h3 class="text-lg text-yellow-400 border-b border-yellow-400/50 pb-2 mb-3">السؤال:</h3><p id="solution-q" class="mb-4"></p>
+                <h3 class="text-lg text-cyan-400 border-b border-cyan-400/50 pb-2 mb-3">المعادلة:</h3><div id="solution-eq" class="mb-4 text-center title-font text-2xl"></div>
+                <h3 class="text-lg text-green-400 border-b border-green-400/50 pb-2 mb-3">خطوات الحل:</h3><div id="solution-steps" class="whitespace-pre-wrap text-center"></div>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        // --- GAME LOGIC ---
+        const allQuestions = [
+            // Bank 1: Verbal Problems
+            [
+                { question: "ثلاثة أعداد فردية متتالية مجموعها ٧٥. ما المعادلة التي تمثل هذه المسألة؟ (افرض أن أصغر عدد هو ن)", options: ["ن+(ن+٢)+(ن+٤)=٧٥", "ن+(ن+١)+(ن+٢)=٧٥", "٣ن=٧٥", "ن(ن+٢)(ن+٤)=٧٥"], answer: "ن+(ن+٢)+(ن+٤)=٧٥", solution: { equation: `ن + (ن+٢) + (ن+٤) = ٧٥`, steps: `العدد الفردي الأول هو ن.<br>العدد الفردي الذي يليه هو ن+٢.<br>العدد الفردي الثالث هو ن+٤.` } },
+                { question: "ثلاثة أعداد صحيحة متتالية مجموعها ٣٣. ما المعادلة التي تمثل المسألة؟", options: ["ن+(ن-١)+(ن-٢)=٣٣", "٣ن=٣٣", "ن+(ن+٢)+(ن+٤)=٣٣", "ن+(ن+١)+(ن+٢)=٣٣"], answer: "ن+(ن+١)+(ن+٢)=٣٣", solution: { equation: `ن + (ن+١) + (ن+٢) = ٣٣`, steps: `العدد الصحيح الأول هو ن.<br>العدد الصحيح الذي يليه هو ن+١.<br>العدد الصحيح الثالث هو ن+٢.` } },
+                { question: "مجموع عددين زوجيين متتاليين هو ٤٦. ما المعادلة التي تمثل المسألة؟ (افرض أن أصغر عدد هو ن)", options: ["٢ن=٤٦", "ن+(ن+١)=٤٦", "ن+(ن+٢)=٤٦", "ن+٢=٤٦"], answer: "ن+(ن+٢)=٤٦", solution: { equation: `ن + (ن+٢) = ٤٦`, steps: `العدد الزوجي الأول هو ن.<br>العدد الزوجي الذي يليه هو ن+٢.` } },
+                { question: "خمسة أمثال عدد، مطروحاً منه ٣، يساوي ٢٧. ما المعادلة التي تمثل المسألة؟", options: ["٥ن-٣=٢٧", "٥(ن-٣)=٢٧", "٣-٥ن=٢٧", "ن-٣=٢٧"], answer: "٥ن-٣=٢٧", solution: { equation: `٥ن - ٣ = ٢٧`, steps: `خمسة أمثال العدد هو ٥ن.<br>مطروحاً منه ٣ يعني ٥ن-٣.` } }
+            ],
+            // Bank 2: Fractions and Division
+            [
+                { question: 'حل المعادلة: <div class="fraction-container" style="display:inline-flex; vertical-align: middle;"><div class="fraction"><span class="numerator">ك - ٥</span><span class="denominator">-٢</span></div></div> = ٨', options: ["-١١", "-٢١", "٢١", "١١"], answer: "-١١", solution: { equation: `<div class="fraction-container"><div class="fraction"><span class="numerator">ك - ٥</span><span class="denominator">-٢</span></div> = ٨</div>`, steps: `نضرب طرفي المعادلة في -٢.<br>ك - ٥ = ٨ &times; -٢<br>ك - ٥ = -١٦<br>نضيف ٥ إلى الطرفين.<br>ك = -١١` } },
+                { question: 'حل المعادلة: <div class="fraction-container" style="display:inline-flex; vertical-align: middle;"><div class="fraction"><span class="numerator">٢</span><span class="denominator">٣</span></div></div> س + ٤ = ٢', options: ["-٣", "٣", "٩", "-٩"], answer: "-٣", solution: { equation: `<div class="fraction-container"><div class="fraction"><span class="numerator">٢</span><span class="denominator">٣</span></div>س + ٤ = ٢</div>`, steps: `نطرح ٤ من الطرفين.<br>٢/٣ س = -٢<br>نضرب الطرفين في مقلوب الكسر (٣/٢).<br>س = -٢ &times; (٣/٢) = -٣` } },
+                { question: 'حل المعادلة: <div class="fraction-container" style="display:inline-flex; vertical-align: middle;"><div class="fraction"><span class="numerator">م + ٧</span><span class="denominator">٣</span></div></div> = -١', options: ["-٤", "-١٠", "٤", "١٠"], answer: "-١٠", solution: { equation: `<div class="fraction-container"><div class="fraction"><span class="numerator">م + ٧</span><span class="denominator">٣</span></div> = -١</div>`, steps: `نضرب طرفي المعادلة في ٣.<br>م + ٧ = -٣<br>نطرح ٧ من الطرفين.<br>م = -١٠` } },
+                { question: 'حل المعادلة: <div class="fraction-container" style="display:inline-flex; vertical-align: middle;"><div class="fraction"><span class="numerator">١</span><span class="denominator">٢</span></div></div> ص - ٥ = ١', options: ["٨", "١٠", "١٢", "-٨"], answer: "١٢", solution: { equation: `<div class="fraction-container"><div class="fraction"><span class="numerator">١</span><span class="denominator">٢</span></div>ص - ٥ = ١</div>`, steps: `نضيف ٥ إلى الطرفين.<br>١/٢ ص = ٦<br>نضرب الطرفين في ٢.<br>ص = ١٢` } }
+            ],
+            // Bank 3: Two-Step Equations
+            [
+                { question: "حل المعادلة: ٢س + ١ = ٧", options: ["٣", "٤", "٥", "٦"], answer: "٣", solution: { equation: `٢س + ١ = ٧`, steps: `نطرح ١ من طرفي المعادلة.<br>٢س = ٦<br>نقسم الطرفين على ٢.<br>س = ٣` } },
+                { question: "حل المعادلة: -١ = ٥ + ٢ن", options: ["-٣", "٣", "-٢", "٢"], answer: "-٣", solution: { equation: `-١ = ٥ + ٢ن`, steps: `نطرح ٥ من الطرفين.<br>-٦ = ٢ن<br>نقسم الطرفين على ٢.<br>ن = -٣` } },
+                { question: "حل المعادلة: ٤ل - ٦ = ١٤", options: ["٣", "٥", "-٥", "٨"], answer: "٥", solution: { equation: `٤ل - ٦ = ١٤`, steps: `نضيف ٦ إلى طرفي المعادلة.<br>٤ل = ٢٠<br>نقسم الطرفين على ٤.<br>ل = ٥` } },
+                { question: "حل المعادلة: ١٥ = -٣ع + ٣", options: ["-٤", "٤", "٦", "-٦"], answer: "-٤", solution: { equation: `١٥ = -٣ع + ٣`, steps: `نطرح ٣ من الطرفين.<br>١٢ = -٣ع<br>نقسم الطرفين على -٣.<br>ع = -٤` } }
+            ],
+            // Bank 4: Parentheses and Distribution
+            [
+                { question: "حل المعادلة: ٣(س - ٥) = ١٢", options: ["٩", "-١", "١", "-٩"], answer: "٩", solution: { equation: `٣(س - ٥) = ١٢`, steps: `نقسم طرفي المعادلة على ٣.<br>س - ٥ = ٤<br>نضيف ٥ إلى الطرفين.<br>س = ٩` } },
+                { question: "حل المعادلة: -٢(ب + ٤) = ١٠", options: ["-١", "١", "-٩", "٩"], answer: "-٩", solution: { equation: `-٢(ب + ٤) = ١٠`, steps: `نقسم الطرفين على -٢.<br>ب + ٤ = -٥<br>نطرح ٤ من الطرفين.<br>ب = -٩` } },
+                { question: "حل المعادلة: ٥(٢ - ف) = -١٥", options: ["-٥", "٥", "-١", "١"], answer: "٥", solution: { equation: `٥(٢ - ف) = -١٥`, steps: `نقسم الطرفين على ٥.<br>٢ - ف = -٣<br>نطرح ٢ من الطرفين.<br>-ف = -٥<br>ف = ٥` } },
+                { question: "حل المعادلة: ٤٢ = ٦(ص + ٣)", options: ["-٤", "-٣", "٣", "٤"], answer: "٤", solution: { equation: `٤٢ = ٦(ص + ٣)`, steps: `نقسم الطرفين على ٦.<br>٧ = ص + ٣<br>نطرح ٣ من الطرفين.<br>ص = ٤` } }
+            ],
+            // Bank 5: Mixed Review
+            [
+                { question: 'حل المعادلة: <div class="fraction-container" style="display:inline-flex; vertical-align: middle;"><div class="fraction"><span class="numerator">٨ - د</span><span class="denominator">٣</span></div></div> = ٢', options: ["-٢", "٢", "١٤", "-١٤"], answer: "٢", solution: { equation: `<div class="fraction-container"><div class="fraction"><span class="numerator">٨ - د</span><span class="denominator">٣</span></div> = ٢</div>`, steps: `نضرب طرفي المعادلة في ٣.<br>٨ - د = ٦<br>نطرح ٨ من الطرفين.<br>-د = -٢<br>د = ٢` } },
+                { question: "حل المعادلة: -٧ + ٤س = -٢٧", options: ["-٥", "٥", "-٨.٥", "٨.٥"], answer: "-٥", solution: { equation: `-٧ + ٤س = -٢٧`, steps: `نضيف ٧ إلى الطرفين.<br>٤س = -٢٠<br>نقسم الطرفين على ٤.<br>س = -٥` } },
+                { question: "مجموع أربعة أعداد صحيحة متتالية هو ٥٠. ما المعادلة التي تمثل المسألة؟", options: ["٤ن=٥٠", "ن+(ن+١)+(ن+٢)+(ن+٣)=٥٠", "ن+(ن+٢)+(ن+٤)+(ن+٦)=٥٠", "ن+٦=٥٠"], answer: "ن+(ن+١)+(ن+٢)+(ن+٣)=٥٠", solution: { equation: `ن+(ن+١)+(ن+٢)+(ن+٣)=٥٠`, steps: `الأعداد هي ن, ن+١, ن+٢, ن+٣.` } },
+                { question: "حل المعادلة: -٥(م - ١) = -٢٠", options: ["-٥", "-٣", "٣", "٥"], answer: "٥", solution: { equation: `-٥(م - ١) = -٢٠`, steps: `نقسم الطرفين على -٥.<br>م - ١ = ٤<br>نضيف ١ إلى الطرفين.<br>م = ٥` } }
+            ]
+        ];
+        const robotCodename = "فـولاذ";
+        const MAX_ATTEMPTS = 3;
+
+        const welcomeScreen = document.getElementById('welcome-screen');
+        const quizContainer = document.getElementById('quiz-container');
+        const questionCard = document.getElementById('question-card');
+        const feedbackCard = document.getElementById('feedback-card');
+        const feedbackText = document.getElementById('feedback-text');
+        const successCard = document.getElementById('success-card');
+        const failureCard = document.getElementById('failure-card');
+        const questionText = document.getElementById('question-text');
+        const optionsGrid = document.getElementById('options-grid');
+        const robotDisplayContainer = document.getElementById('robot-display-container');
+        const finalPassword = document.getElementById('final-password');
+        const powerCellsDisplay = document.getElementById('power-cells-display');
+        const solutionModal = document.getElementById('solution-modal');
+        const questionTimerDisplay = document.getElementById('question-timer');
+        const errorOverlay = document.getElementById('error-overlay');
+
+        let gameQuestionGroups = [], currentQuestionIndex = 0, subQuestionAttempt = 0, mistakesLeft = MAX_ATTEMPTS;
+        let totalGameTimeStart, questionTimerInterval, feedbackTimeout;
+
+        function shuffleArray(array) { for (let i = array.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[array[i], array[j]] = [array[j], array[i]]; } return array; }
+        
+        function initializeGame() {
+            // Shuffle questions within each bank
+            gameQuestionGroups = allQuestions.map(group => shuffleArray([...group]));
+            // Shuffle the order of the banks themselves for a random assembly order
+            shuffleArray(gameQuestionGroups);
+            
+            welcomeScreen.classList.add('hidden');
+            quizContainer.classList.remove('hidden'); quizContainer.classList.add('flex');
+            currentQuestionIndex = 0; subQuestionAttempt = 0; mistakesLeft = MAX_ATTEMPTS;
+            totalGameTimeStart = Date.now();
+            if (questionTimerInterval) clearInterval(questionTimerInterval);
+            clearTimeout(feedbackTimeout);
+            successCard.classList.add('hidden'); failureCard.classList.add('hidden');
+            feedbackCard.classList.add('hidden'); questionCard.classList.remove('hidden');
+            updateAttemptsDisplay();
+            setupRobotAssembly();
+            showQuestion();
+        }
+
+        function setupRobotAssembly() {
+            robotDisplayContainer.innerHTML = `
+                <svg viewBox="0 0 150 200" xmlns="http://www.w3.org/2000/svg">
+                    <g id="part-4" class="robot-part">
+                        <rect x="45" y="140" width="25" height="50" rx="5" />
+                        <rect x="80" y="140" width="25" height="50" rx="5" />
+                    </g>
+                    <rect id="part-1" class="robot-part" x="35" y="60" width="80" height="85" rx="10"/>
+                    <rect id="part-3" class="robot-part" x="120" y="65" width="20" height="70" rx="8"/>
+                    <rect id="part-2" class="robot-part" x="10" y="65" width="20" height="70" rx="8"/>
+                    <rect id="part-0" class="robot-part" x="50" y="20" width="50" height="35" rx="8"/>
+                </svg>
+            `;
+        }
+        
+        function updateAttemptsDisplay() {
+            powerCellsDisplay.innerHTML = '';
+            for(let i = 0; i < MAX_ATTEMPTS; i++) {
+                const powerCell = document.createElement('span'); 
+                powerCell.innerHTML = '🔋';
+                powerCell.classList.add('attempt-icon');
+                if (i >= mistakesLeft) { powerCell.classList.add('lost'); }
+                powerCellsDisplay.appendChild(powerCell);
+            }
+        }
+
+        function showQuestion() {
+            if (questionTimerInterval) clearInterval(questionTimerInterval);
+            const questionTimeStart = Date.now();
+            questionTimerInterval = setInterval(() => {
+                const secondsPassed = Math.floor((Date.now() - questionTimeStart) / 1000);
+                const minutes = Math.floor(secondsPassed / 60).toString().padStart(2, '0');
+                const seconds = (secondsPassed % 60).toString().padStart(2, '0');
+                questionTimerDisplay.textContent = `${minutes}:${seconds}`;
+            }, 1000);
+
+            optionsGrid.innerHTML = ''; 
+            const currentQuestion = gameQuestionGroups[currentQuestionIndex][subQuestionAttempt];
+            
+            questionText.innerHTML = currentQuestion.question; 
+
+            const shuffledOptions = shuffleArray([...currentQuestion.options]);
+
+            shuffledOptions.forEach(option => {
+                const button = document.createElement('button'); button.innerHTML = option;
+                button.classList.add('option-btn', 'w-full', 'p-2', 'rounded-lg', 'text-base', 'font-semibold', 'title-font');
+                button.onclick = () => selectAnswer(button, option);
+                optionsGrid.appendChild(button);
+            });
+        }
+
+        function advanceToNextStep(isCorrect) {
+            feedbackCard.classList.add('hidden');
+            if (isCorrect) {
+                currentQuestionIndex++; subQuestionAttempt = 0;
+                if (currentQuestionIndex >= gameQuestionGroups.length) {
+                    showEndScreen(true);
+                } else {
+                    questionCard.classList.remove('hidden'); showQuestion();
+                }
+            } else {
+                if (mistakesLeft <= 0) { showEndScreen(false); return; }
+                subQuestionAttempt++;
+                if (subQuestionAttempt >= gameQuestionGroups[currentQuestionIndex].length) {
+                    showEndScreen(false);
+                } else {
+                    questionCard.classList.remove('hidden'); showQuestion();
+                }
+            }
+        }
+        
+        function selectAnswer(button, selectedOption) {
+            if (questionTimerInterval) clearInterval(questionTimerInterval);
+            optionsGrid.querySelectorAll('button').forEach(btn => btn.disabled = true);
+            const currentQuestion = gameQuestionGroups[currentQuestionIndex][subQuestionAttempt];
+            const isCorrect = selectedOption === currentQuestion.answer;
+            
+            questionCard.classList.add('hidden'); feedbackCard.classList.remove('hidden');
+
+            if (isCorrect) {
+                feedbackText.textContent = 'أحسنت!';
+                feedbackText.classList.remove('text-red-500'); feedbackText.classList.add('text-green-400');
+                revealRobotPart(currentQuestionIndex);
+                feedbackTimeout = setTimeout(() => advanceToNextStep(true), 2000);
+            } else {
+                feedbackText.textContent = 'حاول مرة أخرى!';
+                feedbackText.classList.remove('text-green-400'); feedbackText.classList.add('text-red-500');
+                mistakesLeft--;
+                updateAttemptsDisplay();
+                
+                errorOverlay.classList.add('active');
+                setTimeout(() => {
+                    errorOverlay.classList.remove('active');
+                }, 400);
+
+                feedbackTimeout = setTimeout(() => advanceToNextStep(false), 2000);
+            }
+        }
+
+        function revealRobotPart(index) {
+            const part = document.getElementById(`part-${index}`);
+            if(part) { 
+                if(part.tagName.toLowerCase() === 'g') {
+                    Array.from(part.children).forEach(child => child.classList.add('revealed'));
+                }
+                part.classList.add('revealed'); 
+            }
+        }
+        
+        function showEndScreen(isSuccess) {
+            if (questionTimerInterval) clearInterval(questionTimerInterval);
+            const totalTimeInSeconds = Math.round((Date.now() - totalGameTimeStart) / 1000);
+            
+            const baseScore = currentQuestionIndex;
+            const penalty = (MAX_ATTEMPTS - mistakesLeft) * 0.5;
+            const finalScore = Math.max(0, baseScore - penalty);
+
+            if (isSuccess) {
+                successCard.classList.remove('hidden');
+                finalPassword.textContent = robotCodename;
+            } else {
+                failureCard.classList.remove('hidden');
+            }
+            
+            if (window.saveAndFinishGame) {
+                window.saveAndFinishGame(finalScore, totalTimeInSeconds);
+            }
+        }
+
+        function showSolution() {
+            clearTimeout(feedbackTimeout);
+            const currentQuestion = gameQuestionGroups[currentQuestionIndex][subQuestionAttempt];
+            document.getElementById('solution-q').innerHTML = currentQuestion.question;
+            document.getElementById('solution-eq').innerHTML = currentQuestion.solution.equation;
+            document.getElementById('solution-steps').innerHTML = currentQuestion.solution.steps;
+            solutionModal.classList.remove('hidden');
+        }
+
+        function hideSolution() {
+            solutionModal.classList.add('hidden');
+            const lastAnswerWasCorrect = feedbackText.textContent === 'أحسنت!';
+            advanceToNextStep(lastAnswerWasCorrect);
+        }
+
+    </script>
+    <script>
+        // --- START OF CONNECTION & LEADERBOARD ENGINE ---
+(function() {
+    // --- CONFIGURATION ---
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
+    const GAME_ID = 'g1_3_1';
+    const GAME_MAX_POINTS = 5;
+    const PLATFORM_MAX_GRADE = 5;
+    const METRIC_TYPE = 'time';
+    const METRIC_LABEL = 'الوقت (ثواني)';
+
+    // --- Read URL Parameters ---
+    const urlParams = new URLSearchParams(window.location.search);
+    const studentId = urlParams.get('studentId');
+    const classId = urlParams.get('classId');
+    const studentName = urlParams.get('studentName');
+    let currentUser = (studentId && studentName) ? { id: studentId, name: studentName } : null;
+
+    // --- CORE FUNCTIONS ---
+
+    window.saveAndFinishGame = function(points, metricValue) {
+        const finalPoints = parseFloat(points) || 0;
+        const finalMetric = parseFloat(metricValue) || 0;
+        const finalGrade = finalPoints;
+
+        const successCardVisible = !document.getElementById('success-card').classList.contains('hidden');
+        const resultDisplayId = successCardVisible ? 'final-result-display' : 'final-result-display-failure';
+        const resultDisplay = document.getElementById(resultDisplayId);
+        
+        if (resultDisplay) {
+            resultDisplay.innerHTML = `
+                <p class="text-gray-300">الدرجة النهائية: <span class="font-bold text-2xl text-white">${finalGrade.toFixed(1)} / ${PLATFORM_MAX_GRADE}</span></p>
+                <p class="text-gray-300">الوقت المستغرق: <span class="font-bold text-xl text-white">${finalMetric} ثانية</span></p>
+            `;
+        }
+
+        if (studentId && classId) {
+            const params = new URLSearchParams({
+                action: 'saveGrade', studentId, classId, itemId: GAME_ID,
+                grade: finalGrade.toFixed(2), metricValue: Math.round(finalMetric).toString()
+            });
+            fetch(`${SCRIPT_URL}?${params.toString()}`)
+                .then(res => res.json()).then(result => console.log('Save result:', result.status))
+                .catch(err => console.error("Save Error:", err)).finally(fetchAndShowLeaderboard);
+        } else {
+            console.log(`Visitor finished. Score: ${finalPoints}, Metric: ${finalMetric}`);
+            fetchAndShowLeaderboard();
+        }
+    }
+
+    function fetchAndShowLeaderboard() {
+        const successCardVisible = !document.getElementById('success-card').classList.contains('hidden');
+        const loaderId = successCardVisible ? 'leaderboard-loader' : 'leaderboard-loader-failure';
+        const containerId = successCardVisible ? 'leaderboard-container' : 'leaderboard-container-failure';
+        const loader = document.getElementById(loaderId);
+        const container = document.getElementById(containerId);
+
+        if (!loader || !container) return;
+        if (!classId) {
+            container.innerHTML = `<p class="text-center text-gray-500 mt-4">سجل الأبطال متاح للطلاب المسجلين فقط.</p>`;
+            showFinishButton();
+            return;
+        }
+
+        loader.style.display = 'block';
+        container.innerHTML = '';
+
+        const params = new URLSearchParams({ action: 'getLeaderboard', gameId: GAME_ID, metricType: METRIC_TYPE, classId: classId });
+        fetch(`${SCRIPT_URL}?${params.toString()}`)
+            .then(res => res.json())
+            .then(response => {
+                if (response.status === 'success' && response.data) {
+                    displayLeaderboard(response.data, container);
+                } else {
+                    throw new Error(response.message || 'Failed to load leaderboard data.');
+                }
+            })
+            .catch(err => {
+                console.error("Leaderboard Error:", err);
+                container.innerHTML = `<p class="text-center text-red-500">حدث خطأ في تحميل سجل الأبطال.</p>`;
+            })
+            .finally(() => {
+                loader.style.display = 'none';
+                showFinishButton();
+            });
+    }
+    
+    function displayLeaderboard(data, container) {
+        if (!data || data.length === 0) {
+            container.innerHTML = `<p class="text-center text-gray-400 mt-4">لا توجد نتائج بعد. كن أول الأبطال!</p>`;
+            return;
+        }
+
+        let tableHTML = `
+            <div class="mt-6 border-t border-gray-600 pt-4">
+                <h3 class="text-2xl font-bold text-center text-yellow-300 mb-4">🏆 سجل الأبطال 🏆</h3>
+                <table class="min-w-full rounded-lg text-white">
+                    <thead style="background-color: rgba(75, 85, 99, 0.2);">
+                        <tr>
+                            <th class="text-center py-2 px-3">الترتيب</th>
+                            <th class="text-right py-2 px-3">اسم الطالب</th>
+                            <th class="text-center py-2 px-3">الدرجة</th>
+                            <th class="text-center py-2 px-3">${METRIC_LABEL}</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+        data.forEach((player, index) => {
+            const rank = index + 1;
+            let rankDisplay = rank;
+            if (rank === 1) rankDisplay = '🥇';
+            if (rank === 2) rankDisplay = '🥈';
+            if (rank === 3) rankDisplay = '🥉';
+
+            const isCurrentUser = (currentUser && player.name === currentUser.name);
+            const rowClass = isCurrentUser ? 'bg-blue-500/30 font-bold' : (index % 2 === 0 ? 'bg-gray-700/30' : 'bg-gray-700/50');
+
+            tableHTML += `
+                <tr class="${rowClass}">
+                    <td class="text-center py-2 px-3 text-xl">${rankDisplay}</td>
+                    <td class="text-right py-2 px-3">${player.name}</td>
+                    <td class="text-center py-2 px-3">${player.grade.toFixed(1)}</td>
+                    <td class="text-center py-2 px-3">${player.metricValue}</td>
+                </tr>`;
+        });
+
+        tableHTML += `</tbody></table></div>`;
+        container.innerHTML = tableHTML;
+    }
+
+    function showFinishButton() {
+        const successCardVisible = !document.getElementById('success-card').classList.contains('hidden');
+        const wrapperId = successCardVisible ? 'finish-game-wrapper' : 'finish-game-wrapper-failure';
+        const finishWrapper = document.getElementById(wrapperId);
+        if (finishWrapper) {
+            finishWrapper.style.display = 'block';
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const welcomeMessage = document.getElementById('welcomeMessage');
+        if (studentName && welcomeMessage) {
+            welcomeMessage.innerHTML = `مرحباً بك أيها المهندس <span class="font-bold text-yellow-300">${studentName}</span>. مهمتك هي تجميع الروبوت "العملاق" عن طريق حل الألغاز الهندسية لتفعيل أنظمته.`;
+        }
+
+        const finishBtns = document.querySelectorAll('#finish-game-btn, #finish-game-btn-failure');
+        if (finishBtns) {
+            finishBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*');
+                });
+            });
+        }
+    });
+})();
+// --- END OF CONNECTION & LEADERBOARD ENGINE ---
+    </script>
+
+</body>
+</html>
+

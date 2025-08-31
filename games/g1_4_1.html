@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مهمة بناء جسر النجاح</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&family=Changa:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Cairo', sans-serif;
+            background: linear-gradient(to top, #6b7280, #bfdbfe); /* Grayish ground to light blue sky */
+            color: #1f2937;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .title-font { font-family: 'Changa', sans-serif; }
+
+        .game-card {
+            background: rgba(255, 255, 255, 0.75);
+            border: 2px solid #4b5563;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2), inset 0 0 10px rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(5px);
+        }
+
+        /* تعديل جديد: إزالة إطار السؤال ووضع السؤال في مربع شفاف خاص */
+        #question-card {
+            background: transparent;
+            border: none;
+            box-shadow: none;
+            backdrop-filter: none;
+        }
+        #question-text {
+            background: rgba(255, 255, 255, 0.7); /* خلفية شفافة للمربع */
+            border: 1px solid rgba(75, 85, 99, 0.2);
+            border-radius: 0.75rem; /* حواف دائرية */
+            padding: 0.75rem 1rem; /* مساحة داخلية */
+            color: #1f2937;
+            font-weight: 700;
+            text-shadow: none;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1); /* ظل للمربع */
+            /* font-family: 'Changa', sans-serif; تم إزالته لتوحيد الخط */
+        }
+        #question-card .title-font {
+            color: #4b5563;
+            text-shadow: 0px 1px 2px rgba(255, 255, 255, 0.5);
+        }
+        /* نهاية التعديل */
+        
+        #quiz-container {
+            position: relative;
+        }
+
+        /* --- BRIDGE BUILDING STYLES --- */
+        #bridge-display-container {
+            position: absolute;
+            top: 40%; /* تم الرفع للأعلى */
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 90vw;
+            max-width: 450px;
+            height: auto;
+            z-index: -1;
+            margin: 0;
+        }
+        .bridge-part {
+            fill: transparent;
+            stroke: #4b5563;
+            stroke-width: 2.5px;
+            stroke-dasharray: 10;
+            transition: all 0.6s ease-in-out;
+            opacity: 0.8;
+            filter: drop-shadow(0 0 3px #6b7280);
+        }
+        .bridge-part.revealed {
+            fill: rgba(107, 114, 128, 0.4);
+            stroke: #1f2937;
+            stroke-width: 2px;
+            stroke-dasharray: 0;
+            opacity: 1;
+            transform-origin: bottom center;
+            animation: build-up 0.5s ease-out;
+        }
+        @keyframes build-up {
+            from { transform: scaleY(0); }
+            to { transform: scaleY(1); }
+        }
+
+        /* --- ERROR FEEDBACK STYLES --- */
+        @keyframes screen-shake {
+            0%, 100% { transform: translateX(0); } 10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); } 20%, 40%, 60%, 80% { transform: translateX(5px); }
+        }
+        #error-overlay {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: radial-gradient(ellipse at center, transparent 30%, rgba(239, 68, 68, 0.4) 100%);
+            z-index: 2000; pointer-events: none; opacity: 0; transition: opacity 0.2s ease-out;
+        }
+        #error-overlay.active { opacity: 1; animation: screen-shake 0.4s ease-in-out; }
+
+        .option-btn {  
+            background-color: rgba(229, 231, 235, 0.8);  
+            border: 2px solid #6b7280; color: #374151; transition: all 0.2s ease;
+            /* font-family: 'Changa', sans-serif; تم إزالة هذا السطر لإعادة الخط السابق */
+        }
+        .option-btn:hover:not(:disabled) {  
+            background-color: #4b5563; border-color: #1f2937; color: white;
+            transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+        .option-btn.correct { background-color: #10b981 !important; border-color: #10b981 !important; color: white !important; }
+        .option-btn.incorrect { background-color: #ef4444 !important; border-color: #ef4444 !important; color: white !important; }
+        .option-btn:disabled { opacity: 0.7; cursor: not-allowed; }
+
+        .attempt-icon { color: #4b5563; text-shadow: 0 0 5px #d1d5db; transition: all 0.5s ease; font-size: 1.7rem; }
+        .attempt-icon.lost { color: #9ca3af; text-shadow: none; transform: scale(0.8); opacity: 0.5; }
+        
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(17, 24, 39, 0.8); backdrop-filter: blur(5px);
+            display: flex; align-items: center; justify-content: center; z-index: 1000;
+        }
+        .modal-card { background: rgba(255, 255, 255, 0.95); color: #1f2937; }
+        .fraction-container { display: inline-flex; align-items: center; justify-content: center; }
+        .fraction { display: inline-flex; flex-direction: column; align-items: center; vertical-align: middle; margin: 0 0.3em; font-size: 1.2em; }
+        .numerator { padding: 0 0.4em; border-bottom: 2px solid currentColor; }
+        .denominator { padding: 0 0.4em; }
+
+        #finish-game-wrapper, #finish-game-wrapper-failure { display: none; }
+        #leaderboard-loader, #leaderboard-loader-failure {
+            border: 4px solid #9ca3af; border-top: 4px solid #374151;
+            border-radius: 50%; width: 40px; height: 40px;
+            animation: spin 1s linear infinite; margin: 20px auto;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        #leaderboard-container, #leaderboard-container-failure {
+            max-height: 25vh; overflow-y: auto; padding-left: 10px;
+        }
+        #leaderboard-container::-webkit-scrollbar, #leaderboard-container-failure::-webkit-scrollbar { width: 8px; }
+        #leaderboard-container::-webkit-scrollbar-track, #leaderboard-container-failure::-webkit-scrollbar-track { background: rgba(156, 163, 175, 0.2); border-radius: 4px; }
+        #leaderboard-container::-webkit-scrollbar-thumb, #leaderboard-container-failure::-webkit-scrollbar-thumb { background: #6b7280; border-radius: 4px; }
+        #leaderboard-container::-webkit-scrollbar-thumb:hover, #leaderboard-container-failure::-webkit-scrollbar-thumb:hover { background: #4b5563; }
+    </style>
+</head>
+<body class="flex items-center justify-center h-screen p-2">
+    
+    <div id="error-overlay"></div>
+
+    <div id="welcome-screen" class="w-full max-w-2xl mx-auto">
+        <div class="game-card rounded-lg p-4 md:p-6 text-center">
+            <h1 class="text-2xl md:text-4xl font-bold title-font text-gray-800">[ بنــاء جســر النجــاح ]</h1>
+            <p id="welcomeMessage" class="text-base md:text-xl mt-3 text-gray-700">مرحباً بك أيها المهندس. مهمتك هي بناء جسر يربط بين ضفتي النهر عن طريق حل المعادلات الهندسية اللازمة.</p>
+            <p class="text-sm md:text-base mt-2 text-gray-600 font-bold">هذه المهمة ستختبر مهارتك في "حل المعادلات ذات المتغير في طرفيها".</p>
+            
+            <!-- الإضافة الجديدة: رسالة الورقة والقلم -->
+            <div class="mt-4 p-3 bg-yellow-100 border-l-4 border-yellow-500 rounded-r-lg flex items-center justify-center gap-3">
+                <!-- أيقونة القلم -->
+                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-yellow-700 flex-shrink-0"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path><path d="m15 5 4 4"></path></svg>
+                <p class="text-sm md:text-base text-yellow-800 font-semibold">نصيحة: جهّز ورقة وقلمًا لمساعدتك في حل المعادلات!</p>
+            </div>
+            <!-- نهاية الإضافة -->
+
+            <button onclick="initializeGame()" class="option-btn text-gray-800 font-bold py-2 px-8 rounded-lg text-xl md:text-2xl mt-6 animate-pulse hover:animate-none">> بدء البناء</button>
+            <footer class="mt-6 text-xs text-gray-500">تصميم وبرمجة: الأستاذ عبد العزيز خالد العبلان</footer>
+        </div>
+    </div>
+
+    <div id="quiz-container" class="w-full max-w-2xl mx-auto flex-col justify-start hidden h-[90vh]">
+        <header class="text-center mb-1">
+            <h1 class="text-xl md:text-3xl title-font tracking-widest text-gray-800">[ مخططات الجسر ]</h1>
+            <p class="text-sm md:text-base text-gray-600">مهمتك: حل المعادلات لوضع أساسات الجسر وتركيبه.</p>
+        </header>
+        
+        <div id="top-stats-container" class="flex justify-between items-center w-full px-4 my-2">
+            <div id="attempts-container" class="flex items-center gap-2">
+                <span class="title-font text-sm text-gray-600 font-bold">أدوات:</span>
+                <div id="power-cells-display" class="flex gap-1"></div>
+            </div>
+            <div id="timer-container" class="title-font text-lg md:text-xl">الوقت: <span id="question-timer">00:00</span></div>
+        </div>
+
+        <div id="bridge-display-container">
+            <!-- SVG of the bridge to be built will be injected here -->
+        </div>
+        
+        <div id="question-area-wrapper" class="w-full mt-24 sm:mt-32 relative z-10"> <!-- تم التنزيل للأسفل وإضافة ID -->
+            <div id="question-card" class="p-3 md:p-6">
+                <div class="mb-2 flex flex-col items-center justify-center min-h-[6rem]"> <!-- تم إضافة items-center لمحاذاة مربع السؤال -->
+                    <p class="title-font text-xs text-gray-600 mb-1">> تحليل المخطط الهندسي...</p>
+                    <div id="question-text" class="text-lg md:text-2xl font-bold text-center"></div>
+                </div>
+                <div id="options-grid" class="grid grid-cols-2 gap-2 mt-4"></div> <!-- زيادة المسافة العلوية للخيارات -->
+            </div>
+
+            <div id="feedback-card" class="game-card rounded-lg p-4 text-center hidden">
+                <h2 id="feedback-text" class="text-3xl font-bold mb-3"></h2>
+                <button id="solution-button" onclick="showSolution()" class="option-btn text-gray-800 font-bold py-2 px-5 rounded-lg text-base">> طريقة الحل</button>
+            </div>
+        </div>
+
+        <div id="success-card" class="game-card rounded-lg p-4 text-center hidden">
+            <h2 class="text-xl md:text-2xl font-bold text-green-600 mb-1 title-font">[ اكتمل الجسر ]</h2>
+            <p class="text-lg md:text-xl mb-2">ممتاز! لقد تم بناء الجسر بنجاح!</p>
+            <p id="final-password" class="text-3xl md:text-4xl font-bold text-gray-800 mb-4 title-font tracking-widest"></p>
+            <div id="final-result-display" class="my-3 text-base"></div>
+            <div id="leaderboard-loader" style="display: none;"></div>
+            <div id="leaderboard-container"></div>
+            <div id="finish-game-wrapper" class="mt-4">
+                <button id="finish-game-btn" class="option-btn font-bold py-2 px-6 rounded-lg text-lg bg-blue-600 border-blue-600 text-white hover:bg-blue-700">العودة للمنصة</button>
+            </div>
+        </div>
+        <div id="failure-card" class="game-card border-red-500 rounded-lg p-4 text-center hidden">
+            <h2 class="text-2xl md:text-3xl font-bold text-red-500 mb-1 title-font">[ انهيار في البناء ]</h2>
+            <p class="text-lg md:text-xl mb-4">فشلت المهمة!</p>
+            <div id="final-result-display-failure" class="my-3 text-base"></div>
+            <div id="leaderboard-loader-failure" style="display: none;"></div>
+            <div id="leaderboard-container-failure"></div>
+            <div id="finish-game-wrapper-failure" class="mt-4">
+                 <button id="finish-game-btn-failure" class="option-btn font-bold py-2 px-6 rounded-lg text-lg bg-blue-600 border-blue-600 text-white hover:bg-blue-700">العودة للمنصة</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="solution-modal" class="modal-overlay hidden">
+        <div class="modal-card game-card rounded-lg p-6 text-right w-11/12 max-w-lg relative">
+            <button onclick="hideSolution()" class="absolute top-2 left-3 text-3xl text-red-500 hover:text-red-400">&times;</button>
+            <div id="solution-content">
+                <h3 class="text-lg text-yellow-600 border-b border-yellow-600/50 pb-2 mb-3">السؤال:</h3><p id="solution-q" class="mb-4"></p>
+                <h3 class="text-lg text-blue-600 border-b border-blue-600/50 pb-2 mb-3">المعادلة:</h3><div id="solution-eq" class="mb-4 text-center title-font text-2xl"></div>
+                <h3 class="text-lg text-green-600 border-b border-green-600/50 pb-2 mb-3">خطوات الحل:</h3><div id="solution-steps" class="whitespace-pre-wrap text-center"></div>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        // --- GAME LOGIC ---
+        const allQuestions = [
+            // Bank 1: Basic equations
+            [
+                { question: "حل المعادلة: ٨س + ٣ = ٦س + ١١", options: ["٤", "٥", "٧", "-٤"], answer: "٤", solution: { equation: `٨س + ٣ = ٦س + ١١`, steps: `نطرح ٦س من الطرفين: ٢س + ٣ = ١١<br>نطرح ٣: ٢س = ٨<br>نقسم على ٢: س = ٤` } },
+                { question: "حل المعادلة: ٩م - ٤ = ٢م + ١٠", options: ["-٢", "٢", "١٤", "١"], answer: "٢", solution: { equation: `٩م - ٤ = ٢م + ١٠`, steps: `نطرح ٢م من الطرفين: ٧م - ٤ = ١٠<br>نضيف ٤: ٧م = ١٤<br>نقسم على ٧: م = ٢` } },
+                { question: "حل المعادلة: ٥ + ٤ص = ص + ٢٠", options: ["٣", "-٥", "١٥", "٥"], answer: "٥", solution: { equation: `٥ + ٤ص = ص + ٢٠`, steps: `نطرح ص من الطرفين: ٥ + ٣ص = ٢٠<br>نطرح ٥: ٣ص = ١٥<br>نقسم على ٣: ص = ٥` } }
+            ],
+            // Bank 2: Negative numbers
+            [
+                { question: "حل المعادلة: ٣ - ٤س = ١٨ + س", options: ["٣", "-٣", "٥", "-٥"], answer: "-٣", solution: { equation: `٣ - ٤س = ١٨ + س`, steps: `نضيف ٤س للطرفين: ٣ = ١٨ + ٥س<br>نطرح ١٨: -١٥ = ٥س<br>نقسم على ٥: س = -٣` } },
+                { question: "حل المعادلة: ٥ك + ١٢ = -٣ك - ٤", options: ["٢", "-١", "-٢", "٨"], answer: "-٢", solution: { equation: `٥ك + ١٢ = -٣ك - ٤`, steps: `نضيف ٣ك للطرفين: ٨ك + ١٢ = -٤<br>نطرح ١٢: ٨ك = -١٦<br>نقسم على ٨: ك = -٢` } },
+                { question: "حل المعادلة: -٧ن - ٨ = -٥ن + ٢", options: ["-٥", "٥", "-٣", "٣"], answer: "-٥", solution: { equation: `-٧ن - ٨ = -٥ن + ٢`, steps: `نضيف ٧ن للطرفين: -٨ = ٢ن + ٢<br>نطرح ٢: -١٠ = ٢ن<br>نقسم على ٢: ن = -٥` } }
+            ],
+            // Bank 3: Distribution
+            [
+                { question: "حل المعادلة: ٧(أ - ٢) = ٤(أ + ١)", options: ["٦", "-٦", "١٨", "٣"], answer: "٦", solution: { equation: `٧(أ - ٢) = ٤(أ + ١)`, steps: `نوزع: ٧أ - ١٤ = ٤أ + ٤<br>نطرح ٤أ: ٣أ - ١٤ = ٤<br>نضيف ١٤: ٣أ = ١٨<br>نقسم على ٣: أ = ٦` } },
+                { question: "حل المعادلة: ٥(ل + ٣) = ٣ل + ٢١", options: ["٣", "٦", "-٣", "١٨"], answer: "٣", solution: { equation: `٥(ل + ٣) = ٣ل + ٢١`, steps: `نوزع: ٥ل + ١٥ = ٣ل + ٢١<br>نطرح ٣ل: ٢ل + ١٥ = ٢١<br>نطرح ١٥: ٢ل = ٦<br>نقسم على ٢: ل = ٣` } },
+                { question: "حل المعادلة: -٢(س + ٦) = ٣س + ٨", options: ["-٤", "٤", "٢", "-٢٠"], answer: "-٤", solution: { equation: `-٢(س + ٦) = ٣س + ٨`, steps: `نوزع: -٢س - ١٢ = ٣س + ٨<br>نضيف ٢س: -١٢ = ٥س + ٨<br>نطرح ٨: -٢٠ = ٥س<br>نقسم على ٥: س = -٤` } }
+            ],
+            // Bank 4: Fractions
+            [
+                { question: 'حل المعادلة: <div class="fraction-container" style="display:inline-flex; vertical-align: middle;"><div class="fraction"><span class="numerator">ك</span><span class="denominator">٢</span></div></div> + ٥ = ك - ١', options: ["١٢", "٤", "-١٢", "٦"], answer: "١٢", solution: { equation: `<div class="fraction-container" style="display:inline-flex; vertical-align: middle;"><div class="fraction"><span class="numerator">ك</span><span class="denominator">٢</span></div></div> + ٥ = ك - ١`, steps: `نطرح <div class="fraction-container" style="display:inline-flex; vertical-align: middle;"><div class="fraction"><span class="numerator">ك</span><span class="denominator">٢</span></div></div> من الطرفين: ٥ = <div class="fraction-container" style="display:inline-flex; vertical-align: middle;"><div class="fraction"><span class="numerator">ك</span><span class="denominator">٢</span></div></div> - ١<br>نضيف ١: ٦ = <div class="fraction-container" style="display:inline-flex; vertical-align: middle;"><div class="fraction"><span class="numerator">ك</span><span class="denominator">٢</span></div></div><br>نضرب في ٢: ك = ١٢` } },
+                { question: 'حل المعادلة: <div class="fraction-container" style="display:inline-flex; vertical-align: middle;"><div class="fraction"><span class="numerator">ص + ١٠</span><span class="denominator">٣</span></div></div> = ص - ٢', options: ["-٨", "٤", "١٦", "٨"], answer: "٨", solution: { equation: `<div class="fraction-container" style="display:inline-flex; vertical-align: middle;"><div class="fraction"><span class="numerator">ص + ١٠</span><span class="denominator">٣</span></div></div> = ص - ٢`, steps: `نضرب الطرفين في ٣: ص + ١٠ = ٣(ص - ٢)<br>نوزع: ص + ١٠ = ٣ص - ٦<br>نطرح ص: ١٠ = ٢ص - ٦<br>نضيف ٦: ١٦ = ٢ص<br>نقسم على ٢: ص = ٨` } },
+                { question: 'حل المعادلة: <div class="fraction-container" style="display:inline-flex; vertical-align: middle;"><div class="fraction"><span class="numerator">ن</span><span class="denominator">٣</span></div></div> + ٤ = <div class="fraction-container" style="display:inline-flex; vertical-align: middle;"><div class="fraction"><span class="numerator">ن</span><span class="denominator">٢</span></div></div> + ٢', options: ["٦", "-١٢", "١٢", "-٦"], answer: "١٢", solution: { equation: `<div class="fraction-container" style="display:inline-flex; vertical-align: middle;"><div class="fraction"><span class="numerator">ن</span><span class="denominator">٣</span></div></div> + ٤ = <div class="fraction-container" style="display:inline-flex; vertical-align: middle;"><div class="fraction"><span class="numerator">ن</span><span class="denominator">٢</span></div></div> + ٢`, steps: `نضرب المعادلة كلها في ٦: ٢ن + ٢٤ = ٣ن + ١٢<br>نطرح ٢ن: ٢٤ = ن + ١٢<br>نطرح ١٢: ن = ١٢` } }
+            ],
+             // Bank 5: Special cases
+            [
+                { question: "حل المعادلة: ٣(م - ١) + ٥ = ٣م + ٢", options: ["٠", "١", "جميع الأعداد الحقيقية", "لا يوجد حل"], answer: "جميع الأعداد الحقيقية", solution: { equation: `٣(م - ١) + ٥ = ٣م + ٢`, steps: `نوزع: ٣م - ٣ + ٥ = ٣م + ٢<br>نبسط: ٣م + ٢ = ٣م + ٢<br>الطرفان متطابقان، الحل هو جميع الأعداد الحقيقية.` } },
+                { question: "حل المعادلة: ٤(س - ٢) - س = ٣س + ٥", options: ["١", "-٨", "جميع الأعداد الحقيقية", "لا يوجد حل"], answer: "لا يوجد حل", solution: { equation: `٤(س - ٢) - س = ٣س + ٥`, steps: `نوزع: ٤س - ٨ - س = ٣س + ٥<br>نبسط: ٣س - ٨ = ٣س + ٥<br>نطرح ٣س: -٨ = ٥<br>عبارة خاطئة، لذا لا يوجد حل.` } },
+                { question: "عددان، أحدهما يزيد عن الآخر بمقدار ٥. إذا كان أربعة أمثال أصغرهما يساوي ثلاثة أمثال أكبرهما، فما العددان؟ (المعادلة: ٤س = ٣(س+٥))", options: ["١٠ و ١٥", "١٥ و ٢٠", "٥ و ١٠", "٢٠ و ٢٥"], answer: "١٥ و ٢٠", solution: { equation: `٤س = ٣(س+٥)`, steps: `نوزع: ٤س = ٣س + ١٥<br>نطرح ٣س: س = ١٥<br>العدد الأصغر ١٥، والأكبر ٢٠.` } }
+            ]
+        ];
+        const bridgeCodename = "الـعـبـور";
+        const MAX_ATTEMPTS = 3;
+
+        const welcomeScreen = document.getElementById('welcome-screen');
+        const quizContainer = document.getElementById('quiz-container');
+        const questionCard = document.getElementById('question-card');
+        const feedbackCard = document.getElementById('feedback-card');
+        const feedbackText = document.getElementById('feedback-text');
+        const successCard = document.getElementById('success-card');
+        const failureCard = document.getElementById('failure-card');
+        const questionText = document.getElementById('question-text');
+        const optionsGrid = document.getElementById('options-grid');
+        const bridgeDisplayContainer = document.getElementById('bridge-display-container');
+        const finalPassword = document.getElementById('final-password');
+        const powerCellsDisplay = document.getElementById('power-cells-display');
+        const solutionModal = document.getElementById('solution-modal');
+        const questionTimerDisplay = document.getElementById('question-timer');
+        const errorOverlay = document.getElementById('error-overlay');
+
+        let gameQuestionGroups = [], currentQuestionIndex = 0, subQuestionAttempt = 0, mistakesLeft = MAX_ATTEMPTS;
+        let totalGameTimeStart, questionTimerInterval, feedbackTimeout;
+
+        function shuffleArray(array) { for (let i = array.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[array[i], array[j]] = [array[j], array[i]]; } return array; }
+        
+        function initializeGame() {
+            gameQuestionGroups = allQuestions.map(group => shuffleArray([...group]));
+            shuffleArray(gameQuestionGroups);
+            
+            welcomeScreen.classList.add('hidden');
+            quizContainer.classList.remove('hidden'); quizContainer.classList.add('flex');
+            currentQuestionIndex = 0; subQuestionAttempt = 0; mistakesLeft = MAX_ATTEMPTS;
+            totalGameTimeStart = Date.now();
+            if (questionTimerInterval) clearInterval(questionTimerInterval);
+            clearTimeout(feedbackTimeout);
+            
+            successCard.classList.add('hidden'); failureCard.classList.add('hidden');
+            feedbackCard.classList.add('hidden'); questionCard.classList.remove('hidden');
+            document.getElementById('top-stats-container').classList.remove('hidden');
+            document.getElementById('bridge-display-container').classList.remove('hidden');
+            document.querySelector('#quiz-container header').classList.remove('hidden');
+            document.getElementById('question-area-wrapper').classList.remove('hidden'); // تم الإصلاح
+            quizContainer.classList.add('justify-start');
+            quizContainer.classList.remove('justify-center');
+            
+            updateAttemptsDisplay();
+            setupBridgeAssembly();
+            showQuestion();
+        }
+
+        function setupBridgeAssembly() {
+            bridgeDisplayContainer.innerHTML = `
+                <svg viewBox="0 0 400 200" xmlns="http://www.w3.org/2000/svg">
+                    <!-- Cliffs -->
+                    <path d="M0 120 C 20 100, 40 150, 60 140 L 60 200 L 0 200 Z" fill="#a16207"/>
+                    <path d="M400 120 C 380 100, 360 150, 340 140 L 340 200 L 400 200 Z" fill="#a16207"/>
+                     <!-- Water -->
+                    <rect x="60" y="150" width="280" height="50" fill="#60a5fa" />
+                    <!-- Bridge Parts -->
+                    <g id="part-0" class="bridge-part"><rect x="70" y="90" width="20" height="60" /></g>
+                    <g id="part-1" class="bridge-part"><rect x="310" y="90" width="20" height="60" /></g>
+                    <g id="part-2" class="bridge-part"><rect x="90" y="90" width="110" height="15" /></g>
+                    <g id="part-3" class="bridge-part"><rect x="200" y="90" width="110" height="15" /></g>
+                    <g id="part-4" class="bridge-part">
+                        <path d="M 80 90 Q 200 40, 320 90" stroke="#374151" stroke-width="4" fill="none" class="revealed"/>
+                    </g>
+                </svg>
+            `;
+        }
+        
+        function updateAttemptsDisplay() {
+            powerCellsDisplay.innerHTML = '';
+            for(let i = 0; i < MAX_ATTEMPTS; i++) {
+                const powerCell = document.createElement('span');  
+                powerCell.innerHTML = '🔩';
+                powerCell.classList.add('attempt-icon');
+                if (i >= mistakesLeft) { powerCell.classList.add('lost'); }
+                powerCellsDisplay.appendChild(powerCell);
+            }
+        }
+
+        function showQuestion() {
+            if (questionTimerInterval) clearInterval(questionTimerInterval);
+            const questionTimeStart = Date.now();
+            questionTimerInterval = setInterval(() => {
+                const secondsPassed = Math.floor((Date.now() - questionTimeStart) / 1000);
+                const minutes = Math.floor(secondsPassed / 60).toString().padStart(2, '0');
+                const seconds = (secondsPassed % 60).toString().padStart(2, '0');
+                questionTimerDisplay.textContent = `${minutes}:${seconds}`;
+            }, 1000);
+
+            optionsGrid.innerHTML = '';  
+            const currentQuestion = gameQuestionGroups[currentQuestionIndex][subQuestionAttempt];
+            
+            questionText.innerHTML = currentQuestion.question;  
+
+            const shuffledOptions = shuffleArray([...currentQuestion.options]);
+
+            shuffledOptions.forEach(option => {
+                const button = document.createElement('button'); button.innerHTML = option;
+                button.classList.add('option-btn', 'w-full', 'p-2', 'rounded-lg', 'text-lg', 'font-bold'); /* تكبير الخط وتسميكه قليلاً */
+                button.onclick = () => selectAnswer(button, option);
+                optionsGrid.appendChild(button);
+            });
+        }
+
+        function advanceToNextStep(isCorrect) {
+            feedbackCard.classList.add('hidden');
+            if (isCorrect) {
+                currentQuestionIndex++; subQuestionAttempt = 0;
+                if (currentQuestionIndex >= gameQuestionGroups.length) {
+                    showEndScreen(true);
+                } else {
+                    questionCard.classList.remove('hidden'); showQuestion();
+                }
+            } else {
+                if (mistakesLeft <= 0) { showEndScreen(false); return; }
+                subQuestionAttempt++;
+                if (subQuestionAttempt >= gameQuestionGroups[currentQuestionIndex].length) {
+                    showEndScreen(false);
+                } else {
+                    questionCard.classList.remove('hidden'); showQuestion();
+                }
+            }
+        }
+        
+        function selectAnswer(button, selectedOption) {
+            if (questionTimerInterval) clearInterval(questionTimerInterval);
+            optionsGrid.querySelectorAll('button').forEach(btn => btn.disabled = true);
+            const currentQuestion = gameQuestionGroups[currentQuestionIndex][subQuestionAttempt];
+            const isCorrect = selectedOption === currentQuestion.answer;
+            
+            questionCard.classList.add('hidden'); feedbackCard.classList.remove('hidden');
+
+            if (isCorrect) {
+                feedbackText.textContent = 'أحسنت!';
+                feedbackText.classList.remove('text-red-500'); feedbackText.classList.add('text-green-500');
+                revealBridgePart(currentQuestionIndex);
+                feedbackTimeout = setTimeout(() => advanceToNextStep(true), 3000); /* إبطاء الانتقال لرؤية الحدث */
+            } else {
+                feedbackText.textContent = 'إجابة خاطئة!';
+                feedbackText.classList.remove('text-green-500'); feedbackText.classList.add('text-red-500');
+                mistakesLeft--;
+                updateAttemptsDisplay();
+                
+                errorOverlay.classList.add('active');
+                setTimeout(() => { errorOverlay.classList.remove('active'); }, 400);
+
+                feedbackTimeout = setTimeout(() => advanceToNextStep(false), 3000); /* إبطاء الانتقال لرؤية الحدث */
+            }
+        }
+
+        function revealBridgePart(index) {
+            const part = document.getElementById(`part-${index}`);
+            if(part) {  part.classList.add('revealed'); }
+        }
+        
+        function showEndScreen(isSuccess) {
+            document.getElementById('top-stats-container').classList.add('hidden');
+            document.getElementById('bridge-display-container').classList.add('hidden');
+            document.querySelector('#quiz-container header').classList.add('hidden');
+            document.getElementById('question-area-wrapper').classList.add('hidden'); // تم الإصلاح
+            feedbackCard.classList.add('hidden');
+            questionCard.classList.add('hidden');
+            
+            if (questionTimerInterval) clearInterval(questionTimerInterval);
+            const totalTimeInSeconds = Math.round((Date.now() - totalGameTimeStart) / 1000);
+            
+            const baseScore = currentQuestionIndex;
+            const penalty = (MAX_ATTEMPTS - mistakesLeft) * 0.5;
+            const finalScore = Math.max(0, baseScore - penalty);
+
+            if (isSuccess) {
+                successCard.classList.remove('hidden');
+                finalPassword.textContent = bridgeCodename;
+            } else {
+                failureCard.classList.remove('hidden');
+            }
+            
+            quizContainer.classList.remove('justify-start');
+            quizContainer.classList.add('justify-center');
+
+            if (window.saveAndFinishGame) {
+                window.saveAndFinishGame(finalScore, totalTimeInSeconds);
+            }
+        }
+
+        function showSolution() {
+            clearTimeout(feedbackTimeout);
+            const currentQuestion = gameQuestionGroups[currentQuestionIndex][subQuestionAttempt];
+            document.getElementById('solution-q').innerHTML = currentQuestion.question;
+            document.getElementById('solution-eq').innerHTML = currentQuestion.solution.equation;
+            document.getElementById('solution-steps').innerHTML = currentQuestion.solution.steps;
+            solutionModal.classList.remove('hidden');
+        }
+
+        function hideSolution() {
+            solutionModal.classList.add('hidden');
+            const lastAnswerWasCorrect = feedbackText.textContent === 'أحسنت!';
+            advanceToNextStep(lastAnswerWasCorrect);
+        }
+
+    </script>
+    <script>
+        // --- START OF CONNECTION & LEADERBOARD ENGINE ---
+(function() {
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
+    const GAME_ID = 'g1_4_1'; // New unique ID for the bridge game
+    const GAME_MAX_POINTS = 5;
+    const PLATFORM_MAX_GRADE = 5;
+    const METRIC_TYPE = 'time';
+    const METRIC_LABEL = 'الوقت (ثواني)';
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const studentId = urlParams.get('studentId');
+    const classId = urlParams.get('classId');
+    const studentName = urlParams.get('studentName');
+    let currentUser = (studentId && studentName) ? { id: studentId, name: studentName } : null;
+
+    window.saveAndFinishGame = function(points, metricValue) {
+        const finalPoints = parseFloat(points) || 0;
+        const finalMetric = parseFloat(metricValue) || 0;
+        const finalGrade = finalPoints;
+
+        const successCardVisible = !document.getElementById('success-card').classList.contains('hidden');
+        const resultDisplayId = successCardVisible ? 'final-result-display' : 'final-result-display-failure';
+        const resultDisplay = document.getElementById(resultDisplayId);
+        
+        if (resultDisplay) {
+            resultDisplay.innerHTML = `
+                <p class="text-gray-600">الدرجة النهائية: <span class="font-bold text-2xl text-gray-800">${finalGrade.toFixed(1)} / ${PLATFORM_MAX_GRADE}</span></p>
+                <p class="text-gray-600">الوقت المستغرق: <span class="font-bold text-xl text-gray-800">${finalMetric} ثانية</span></p>
+            `;
+        }
+
+        if (studentId && classId) {
+            const params = new URLSearchParams({
+                action: 'saveGrade', studentId, classId, itemId: GAME_ID,
+                grade: finalGrade.toFixed(2), metricValue: Math.round(finalMetric).toString()
+            });
+            fetch(`${SCRIPT_URL}?${params.toString()}`)
+                .then(res => res.json()).then(result => console.log('Save result:', result.status))
+                .catch(err => console.error("Save Error:", err)).finally(fetchAndShowLeaderboard);
+        } else {
+            console.log(`Visitor finished. Score: ${finalPoints}, Metric: ${finalMetric}`);
+            fetchAndShowLeaderboard();
+        }
+    }
+
+    function fetchAndShowLeaderboard() {
+        const successCardVisible = !document.getElementById('success-card').classList.contains('hidden');
+        const loaderId = successCardVisible ? 'leaderboard-loader' : 'leaderboard-loader-failure';
+        const containerId = successCardVisible ? 'leaderboard-container' : 'leaderboard-container-failure';
+        const loader = document.getElementById(loaderId);
+        const container = document.getElementById(containerId);
+
+        if (!loader || !container) return;
+        if (!classId) {
+            container.innerHTML = `<p class="text-center text-gray-500 mt-4">سجل الأبطال متاح للطلاب المسجلين فقط.</p>`;
+            showFinishButton();
+            return;
+        }
+
+        loader.style.display = 'block'; container.innerHTML = '';
+        const params = new URLSearchParams({ action: 'getLeaderboard', gameId: GAME_ID, metricType: METRIC_TYPE, classId: classId });
+        fetch(`${SCRIPT_URL}?${params.toString()}`)
+            .then(res => res.json())
+            .then(response => {
+                if (response.status === 'success' && response.data) {
+                    displayLeaderboard(response.data, container);
+                } else { throw new Error(response.message || 'Failed to load leaderboard data.'); }
+            })
+            .catch(err => {
+                console.error("Leaderboard Error:", err);
+                container.innerHTML = `<p class="text-center text-red-500">حدث خطأ في تحميل سجل الأبطال.</p>`;
+            })
+            .finally(() => { loader.style.display = 'none'; showFinishButton(); });
+    }
+    
+    function displayLeaderboard(data, container) {
+        if (!data || data.length === 0) {
+            container.innerHTML = `<p class="text-center text-gray-500 mt-4">لا توجد نتائج بعد. كن أول الأبطال!</p>`;
+            return;
+        }
+
+        let tableHTML = `
+            <div class="mt-6 border-t border-gray-400 pt-4">
+                <h3 class="text-2xl font-bold text-center text-gray-700 mb-4">🏆 سجل الأبطال 🏆</h3>
+                <table class="min-w-full rounded-lg">
+                    <thead style="background-color: rgba(209, 213, 219, 0.4);">
+                        <tr>
+                            <th class="text-center py-2 px-3">الترتيب</th>
+                            <th class="text-right py-2 px-3">اسم الطالب</th>
+                            <th class="text-center py-2 px-3">الدرجة</th>
+                            <th class="text-center py-2 px-3">${METRIC_LABEL}</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+        data.forEach((player, index) => {
+            const rank = index + 1;
+            let rankDisplay = rank;
+            if (rank === 1) rankDisplay = '🥇'; if (rank === 2) rankDisplay = '🥈'; if (rank === 3) rankDisplay = '🥉';
+            const isCurrentUser = (currentUser && player.name === currentUser.name);
+            const rowClass = isCurrentUser ? 'bg-blue-200/50 font-bold' : (index % 2 === 0 ? 'bg-gray-200/50' : 'bg-gray-200/30');
+            tableHTML += `<tr class="${rowClass}"><td class="text-center py-2 px-3 text-xl">${rankDisplay}</td><td class="text-right py-2 px-3">${player.name}</td><td class="text-center py-2 px-3">${player.grade.toFixed(1)}</td><td class="text-center py-2 px-3">${player.metricValue}</td></tr>`;
+        });
+        tableHTML += `</tbody></table></div>`;
+        container.innerHTML = tableHTML;
+    }
+
+    function showFinishButton() {
+        const successCardVisible = !document.getElementById('success-card').classList.contains('hidden');
+        const wrapperId = successCardVisible ? 'finish-game-wrapper' : 'finish-game-wrapper-failure';
+        const finishWrapper = document.getElementById(wrapperId);
+        if (finishWrapper) { finishWrapper.style.display = 'block'; }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const welcomeMessage = document.getElementById('welcomeMessage');
+        if (studentName && welcomeMessage) {
+            welcomeMessage.innerHTML = `مرحباً بك أيها المهندس <span class="font-bold text-gray-700">${studentName}</span>. مهمتك هي بناء جسر يربط بين ضفتي النهر عن طريق حل المعادلات الهندسية اللازمة.`;
+        }
+        const finishBtns = document.querySelectorAll('#finish-game-btn, #finish-game-btn-failure');
+        if (finishBtns) {
+            finishBtns.forEach(btn => {
+                btn.addEventListener('click', () => { window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*'); });
+            });
+        }
+    });
+})();
+// --- END OF CONNECTION & LEADERBOARD ENGINE ---
+    </script>
+
+</body>
+</html>

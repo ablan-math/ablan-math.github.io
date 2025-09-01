@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مهمة تسلق قمة الجبل</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&family=Changa:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        html, body {
+            height: 100%;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+        body {
+            font-family: 'Cairo', sans-serif;
+            background: linear-gradient(to top, #6b7280, #bfdbfe);
+            color: #1f2937;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .title-font { font-family: 'Changa', sans-serif; }
+
+        .game-card {
+            background: rgba(255, 255, 255, 0.75);
+            border: 2px solid #4b5563;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2), inset 0 0 10px rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(5px);
+        }
+
+        #question-card {
+            background: transparent;
+            border: none;
+            box-shadow: none;
+            backdrop-filter: none;
+        }
+        #question-text {
+            background: rgba(255, 255, 255, 0.85);
+            border: 1px solid rgba(75, 85, 99, 0.2);
+            border-radius: 0.75rem;
+            padding: 0.75rem 1rem;
+            color: #1f2937;
+            font-weight: 700;
+            text-shadow: none;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+        #question-card .title-font {
+            color: #4b5563;
+            text-shadow: 0px 1px 2px rgba(255, 255, 255, 0.5);
+        }
+        
+        #quiz-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            max-width: 500px;
+        }
+
+        #mountain-display-container {
+            position: absolute;
+            top: 45%; 
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100%;
+            max-width: 450px;
+            height: auto;
+            z-index: 0;
+        }
+        #question-area-wrapper {
+             position: absolute;
+             bottom: 5%;
+             left: 50%;
+             transform: translateX(-50%);
+             width: 95%;
+             max-width: 450px;
+             z-index: 10;
+        }
+        .mountain-path-part {
+            fill: none;
+            stroke: #e5e7eb;
+            stroke-width: 4px;
+            stroke-dasharray: 8;
+            transition: all 0.6s ease-in-out;
+            opacity: 0.8;
+        }
+        .mountain-path-part.revealed {
+            stroke: #f59e0b;
+            stroke-width: 5px;
+            stroke-dasharray: 0;
+            opacity: 1;
+            animation: reveal-path 0.5s ease-out;
+            filter: drop-shadow(0 0 4px #f59e0b);
+        }
+        .stage-dot {
+            fill: rgba(75, 85, 99, 0.5);
+            stroke: #f9fafb;
+            stroke-width: 1.5px;
+            transition: all 0.5s ease;
+        }
+        .stage-dot.lit {
+            fill: #f59e0b;
+            filter: drop-shadow(0 0 5px #f59e0b);
+            transform: scale(1.2);
+        }
+        @keyframes reveal-path {
+            from { opacity: 0; transform: scaleX(0); }
+            to { opacity: 1; transform: scaleX(1); }
+        }
+
+        @keyframes screen-shake {
+            0%, 100% { transform: translateX(0); } 10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); } 20%, 40%, 60%, 80% { transform: translateX(5px); }
+        }
+        #error-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(ellipse at center, transparent 30%, rgba(239, 68, 68, 0.4) 100%);
+            z-index: 2000; pointer-events: none; opacity: 0; transition: opacity 0.2s ease-out;
+        }
+        #error-overlay.active { opacity: 1; animation: screen-shake 0.4s ease-in-out; }
+
+        .option-btn {  
+            background-color: rgba(229, 231, 235, 0.8);  
+            border: 2px solid #6b7280; color: #374151; transition: all 0.2s ease;
+        }
+        .option-btn:hover:not(:disabled) {  
+            background-color: #4b5563; border-color: #1f2937; color: white;
+            transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+        .option-btn.correct { background-color: #10b981 !important; border-color: #10b981 !important; color: white !important; }
+        .option-btn.incorrect { background-color: #ef4444 !important; border-color: #ef4444 !important; color: white !important; }
+        .option-btn:disabled { opacity: 0.7; cursor: not-allowed; }
+
+        .attempt-icon { color: #4b5563; text-shadow: 0 0 5px #d1d5db; transition: all 0.5s ease; font-size: 1.7rem; }
+        .attempt-icon.lost { color: #9ca3af; text-shadow: none; transform: scale(0.8); opacity: 0.5; }
+        
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(17, 24, 39, 0.8); backdrop-filter: blur(5px);
+            display: flex; align-items: center; justify-content: center; z-index: 1000;
+        }
+        .modal-card { background: rgba(255, 255, 255, 0.95); color: #1f2937; }
+        .fraction-container { display: inline-flex; align-items: center; justify-content: center; }
+        .fraction { display: inline-flex; flex-direction: column; align-items: center; vertical-align: middle; margin: 0 0.3em; font-size: 1.2em; }
+        .numerator { padding: 0 0.4em; border-bottom: 2px solid currentColor; }
+        .denominator { padding: 0 0.4em; }
+
+        #finish-game-wrapper, #finish-game-wrapper-failure { display: none; }
+        #leaderboard-loader, #leaderboard-loader-failure {
+            border: 4px solid #9ca3af; border-top: 4px solid #374151;
+            border-radius: 50%; width: 40px; height: 40px;
+            animation: spin 1s linear infinite; margin: 20px auto;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        #leaderboard-container, #leaderboard-container-failure {
+            max-height: 25vh; overflow-y: auto; padding-left: 10px; padding-right: 5px;
+        }
+        #leaderboard-container::-webkit-scrollbar, #leaderboard-container-failure::-webkit-scrollbar { width: 8px; }
+        #leaderboard-container::-webkit-scrollbar-track, #leaderboard-container-failure::-webkit-scrollbar-track { background: rgba(156, 163, 175, 0.2); border-radius: 4px; }
+        #leaderboard-container::-webkit-scrollbar-thumb, #leaderboard-container-failure::-webkit-scrollbar-thumb { background: #6b7280; border-radius: 4px; }
+        #leaderboard-container::-webkit-scrollbar-thumb:hover, #leaderboard-container-failure::-webkit-scrollbar-thumb:hover { background: #4b5563; }
+    </style>
+</head>
+<body>
+    
+    <div id="error-overlay"></div>
+
+    <div id="welcome-screen" class="w-full max-w-2xl mx-auto p-4">
+        <div class="game-card rounded-lg p-4 md:p-6 text-center">
+            <h1 class="text-2xl md:text-4xl font-bold title-font text-gray-800">[ تسلــق قمــة الجبــل ]</h1>
+            <p id="welcomeMessage" class="text-base md:text-xl mt-3 text-gray-700">مرحباً بك أيها المتسلق الجريء. مهمتك هي تسلق هذا الجبل الشاهق بالوصول إلى قمته عن طريق حل التحديات الرياضية التي ستواجهك.</p>
+            <p class="text-sm md:text-base mt-2 text-gray-600 font-bold">هذه المهمة ستختبر مهارتك في "حل المعادلات ذات المتغير في طرفيها".</p>
+            
+            <div class="mt-4 p-3 bg-yellow-100 border-l-4 border-yellow-500 rounded-r-lg flex items-center justify-center gap-3">
+                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-yellow-700 flex-shrink-0"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path><path d="m15 5 4 4"></path></svg>
+                <p class="text-sm md:text-base text-yellow-800 font-semibold">نصيحة: جهّز ورقة وقلمًا لمساعدتك في حل المعادلات!</p>
+            </div>
+
+            <button onclick="initializeGame()" class="option-btn text-gray-800 font-bold py-2 px-8 rounded-lg text-xl md:text-2xl mt-6 animate-pulse hover:animate-none">> بدء التسلق</button>
+            <footer class="mt-6 text-xs text-gray-500">تصميم وبرمجة: الأستاذ عبد العزيز خالد العبلان</footer>
+        </div>
+    </div>
+
+    <div id="quiz-container" class="w-full flex-col justify-start hidden h-full">
+        <header class="text-center mb-1 px-2">
+            <h1 class="text-xl md:text-3xl title-font tracking-widest text-gray-800">[ خريطــة التســلق ]</h1>
+             <p class="text-sm md:text-base text-gray-600">حل العقبات للتقدم نحو القمة</p>
+        </header>
+        
+        <div id="top-stats-container" class="flex justify-between items-center w-full px-4 my-2">
+            <div id="attempts-container" class="flex items-center gap-2">
+                <span class="title-font text-sm text-gray-600 font-bold">محاولات:</span>
+                <div id="power-cells-display" class="flex gap-1"></div>
+            </div>
+            <div id="timer-container" class="title-font text-lg md:text-xl">الوقت: <span id="question-timer">00:00</span></div>
+        </div>
+
+        <div id="mountain-display-container">
+            <!-- SVG of the mountain to be climbed will be injected here -->
+        </div>
+        
+        <div id="question-area-wrapper">
+            <div id="question-card" class="p-3 md:p-6">
+                <div class="mb-2 flex flex-col items-center justify-center min-h-[6rem]">
+                    <p class="title-font text-xs text-gray-600 mb-1">> تحليل العقبة الحالية...</p>
+                    <div id="question-text" class="text-lg md:text-xl font-bold text-center"></div>
+                </div>
+                <div id="options-grid" class="grid grid-cols-2 gap-2 mt-4"></div>
+            </div>
+
+            <div id="feedback-card" class="game-card rounded-lg p-4 text-center hidden">
+                <h2 id="feedback-text" class="text-3xl font-bold mb-3"></h2>
+                <button id="solution-button" onclick="showSolution()" class="option-btn text-gray-800 font-bold py-2 px-5 rounded-lg text-base">> طريقة الحل</button>
+            </div>
+        </div>
+
+        <div id="success-card" class="game-card rounded-lg p-4 text-center hidden">
+            <h2 class="text-xl md:text-2xl font-bold text-green-600 mb-1 title-font">[ تم الوصول للقمة! ]</h2>
+            <p class="text-lg md:text-xl mb-2">ممتاز! لقد وصلت إلى القمة بنجاح!</p>
+            <p id="final-password" class="text-3xl md:text-4xl font-bold text-gray-800 mb-4 title-font tracking-widest"></p>
+            <div id="final-result-display" class="my-3 text-base"></div>
+            <div id="leaderboard-loader" style="display: none;"></div>
+            <div id="leaderboard-container"></div>
+            <div id="finish-game-wrapper" class="mt-4">
+                <button id="finish-game-btn" class="option-btn font-bold py-2 px-6 rounded-lg text-lg bg-blue-600 border-blue-600 text-white hover:bg-blue-700">العودة للمنصة</button>
+            </div>
+        </div>
+        <div id="failure-card" class="game-card border-red-500 rounded-lg p-4 text-center hidden">
+            <h2 class="text-2xl md:text-3xl font-bold text-red-500 mb-1 title-font">[ فشل التسلق ]</h2>
+            <p class="text-lg md:text-xl mb-4">فشلت المهمة!</p>
+            <div id="final-result-display-failure" class="my-3 text-base"></div>
+            <div id="leaderboard-loader-failure" style="display: none;"></div>
+            <div id="leaderboard-container-failure"></div>
+            <div id="finish-game-wrapper-failure" class="mt-4">
+                 <button id="finish-game-btn-failure" class="option-btn font-bold py-2 px-6 rounded-lg text-lg bg-blue-600 border-blue-600 text-white hover:bg-blue-700">العودة للمنصة</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="solution-modal" class="modal-overlay hidden">
+        <div class="modal-card game-card rounded-lg p-6 text-right w-11/12 max-w-lg relative">
+            <button onclick="hideSolution()" class="absolute top-2 left-3 text-3xl text-red-500 hover:text-red-400">&times;</button>
+            <div id="solution-content">
+                <h3 class="text-lg text-yellow-600 border-b border-yellow-600/50 pb-2 mb-3">السؤال:</h3><p id="solution-q" class="mb-4"></p>
+                <h3 class="text-lg text-blue-600 border-b border-blue-600/50 pb-2 mb-3">المعادلة:</h3><div id="solution-eq" class="mb-4 text-center title-font text-2xl"></div>
+                <h3 class="text-lg text-green-600 border-b border-green-600/50 pb-2 mb-3">خطوات الحل:</h3><div id="solution-steps" class="whitespace-pre-wrap text-center"></div>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        // --- GAME LOGIC ---
+        const allQuestions = [
+            // Bank 1: مسائل هندسية
+            [
+                { question: "مستطيل ومربع لهما نفس المحيط. طول المستطيل ١٠ سم وعرضه (س) سم. طول ضلع المربع (س+٢) سم. ما قيمة س؟", options: ["٦", "٤", "٨", "١٢"], answer: "٦", solution: { equation: `٢(١٠ + س) = ٤(س + ٢)`, steps: `نوزع: ٢٠ + ٢س = ٤س + ٨<br>نطرح ٢س: ٢٠ = ٢س + ٨<br>نطرح ٨: ١٢ = ٢س<br>نقسم على ٢: س = ٦` } },
+                { question: "مثلث متطابق الضلعين، طول أحد الضلعين المتطابقين (٢س + ٥) سم وطول الضلع الثالث (س) سم. إذا كان محيطه ٣٥ سم، فما قيمة س؟", options: ["٥", "٧", "١٠", "٣"], answer: "٥", solution: { equation: `(٢س + ٥) + (٢س + ٥) + س = ٣٥`, steps: `نجمع الحدود: ٥س + ١٠ = ٣٥<br>نطرح ١٠: ٥س = ٢٥<br>نقسم على ٥: س = ٥` } },
+                { question: "مربع طول ضلعه (٣س - ١). ومستطيل بعداه (س) و (٤س). إذا كان محيطهما متساويًا، فما قيمة س؟", options: ["٢", "٣", "٤", "١"], answer: "٢", solution: { equation: `٤(٣س - ١) = ٢(س + ٤س)`, steps: `نوزع ونبسط: ١٢س - ٤ = ٢(٥س)<br>١٢س - ٤ = ١٠س<br>نطرح ١٠س ونضيف ٤: ٢س = ٤<br>نقسم على ٢: س = ٢` } }
+            ],
+            // Bank 2: مسائل أعداد متتالية (إيجاد العدد)
+            [
+                { question: "عددان زوجيان متتاليان، يقل أربعة أمثال أصغرهما عن مثلي أكبرهما بمقدار ١٢. فما العددان؟", options: ["-٤ و -٢", "٤ و ٦", "١٠ و ١٢", "-٦ و -٤"], answer: "-٤ و -٢", solution: { equation: `٢(ن + ٢) - ٤ن = ١٢`, steps: `نفرض العددين ن، ن+٢<br>٢ن + ٤ - ٤ن = ١٢<br>نبسط: -٢ن + ٤ = ١٢<br>نطرح ٤: -٢ن = ٨<br>نقسم على -٢: ن = -٤<br>العددان هما -٤ و -٢` } },
+                { question: "ثلاثة أعداد صحيحة فردية متتالية مجموعها ٥٧. فما هي هذه الأعداد؟", options: ["١٧، ١٩، ٢١", "١٥، ١٧، ١٩", "١٩، ٢١، ٢٣", "١٣، ١٥، ١٧"], answer: "١٧، ١٩، ٢١", solution: { equation: `ن + (ن + ٢) + (ن + ٤) = ٥٧`, steps: `نفرض الأعداد ن، ن+٢، ن+٤<br>نجمع: ٣ن + ٦ = ٥٧<br>نطرح ٦: ٣ن = ٥١<br>نقسم على ٣: ن = ١٧<br>الأعداد هي ١٧، ١٩، ٢١` } },
+                { question: "عددان زوجيان متتاليان، مجموع ثلاثة أمثال أصغرهما ومثلي أكبرهما يساوي ٨٤. فما العددان؟", options: ["١٦ و ١٨", "١٤ و ١٦", "١٨ و ٢٠", "١٢ و ١٤"], answer: "١٦ و ١٨", solution: { equation: `٣ن + ٢(ن + ٢) = ٨٤`, steps: `نفرض العددين ن، ن+٢<br>٣ن + ٢ن + ٤ = ٨٤<br>نجمع: ٥ن + ٤ = ٨٤<br>نطرح ٤: ٥ن = ٨٠<br>نقسم على ٥: ن = ١٦<br>العددان هما ١٦ و ١٨` } }
+            ],
+            // Bank 3: مسائل أعداد متتالية (تكوين المعادلة)
+            [
+                { question: "عددان فرديان متتاليان، يقل مثلي أصغرهما عن ثلاثة أمثال أكبرهما بمقدار ٩. أي المعادلات التالية تمثل هذه المسألة؟ (ن: أصغر عدد)", options: ["٢ن = ٣(ن + ٢) - ٩", "٣ن = ٢(ن + ٢) + ٩", "٢ن = ٣ن + ٢ - ٩", "٢ن = ٣(ن + ٢) + ٩"], answer: "٢ن = ٣(ن + ٢) - ٩", solution: { equation: `٢ن = ٣(ن + ٢) - ٩`, steps: `الأصغر = ن<br>الأكبر = ن + ٢<br>مثلي الأصغر = ٢ن<br>ثلاثة أمثال الأكبر = ٣(ن+٢)<br>المعادلة: ٢ن = ٣(ن + ٢) - ٩` } },
+                { question: "عددان زوجيان متتاليان، يقل خمسة أمثال أكبرهما عن سبعة أمثال أصغرهما بمقدار ٤. أي المعادلات التالية تمثل هذه المسألة؟ (ن: أصغر عدد)", options: ["٥(ن + ٢) = ٧ن - ٤", "٥(ن + ٢) = ٧ن + ٤", "٥ن = ٧(ن + ٢) - ٤", "٧ن = ٥(ن + ٢) - ٤"], answer: "٥(ن + ٢) = ٧ن - ٤", solution: { equation: `٥(ن + ٢) = ٧ن - ٤`, steps: `الأصغر = ن<br>الأكبر = ن + ٢<br>خمسة أمثال الأكبر = ٥(ن+٢)<br>سبعة أمثال الأصغر = ٧ن<br>المعادلة: ٥(ن + ٢) = ٧ن - ٤` } },
+                { question: "عددان متتاليان، مجموع ثلاثة أمثال أصغرهما مع خمسة أمثال أكبرهما يساوي ٧٧. أي المعادلات التالية تمثل هذه المسألة؟ (ن: أصغر عدد)", options: ["٣ن + ٥(ن + ١) = ٧٧", "٥ن + ٣(ن + ١) = ٧٧", "٣ن + ٥ن + ١ = ٧٧", "٣ن + ٥(ن - ١) = ٧٧"], answer: "٣ن + ٥(ن + ١) = ٧٧", solution: { equation: `٣ن + ٥(ن + ١) = ٧٧`, steps: `الأصغر = ن<br>الأكبر = ن + ١<br>ثلاثة أمثال الأصغر = ٣ن<br>خمسة أمثال الأكبر = ٥(ن+١)<br>المعادلة: ٣ن + ٥(ن + ١) = ٧٧` } }
+            ],
+             // Bank 4: مسائل الأعمار
+            [
+                { question: "عمر أحمد يزيد ٦ سنوات عن عمر أخيه علي. بعد ٤ سنوات سيصبح مجموع عمريهما ٤٠ سنة. فما عمر كل منهما الآن؟", options: ["علي ١٣، أحمد ١٩", "علي ١٠، أحمد ١٦", "علي ١٥، أحمد ٢١", "علي ١٤، أحمد ٢٠"], answer: "علي ١٣، أحمد ١٩", solution: { equation: `(س + ٤) + (س + ٦ + ٤) = ٤٠`, steps: `عمر علي = س، عمر أحمد = س+٦<br>بعد ٤ سنوات: (س+٤) + (س+١٠) = ٤٠<br>٢س + ١٤ = ٤٠<br>٢س = ٢٦<br>س = ١٣<br>علي ١٣، أحمد ١٩` } },
+                { question: "عمر أب يساوي ثلاثة أمثال عمر ابنه. قبل ١٠ سنوات، كان عمر الأب خمسة أمثال عمر ابنه. فما عمر كل منهما الآن؟", options: ["الابن ٢٠، الأب ٦٠", "الابن ١٥، الأب ٤٥", "الابن ١٠، الأب ٣٠", "الابن ٢٥، الأب ٧٥"], answer: "الابن ٢٠، الأب ٦٠", solution: { equation: `٣س - ١٠ = ٥(س - ١٠)`, steps: `عمر الابن=س، الأب=٣س<br>قبل ١٠ سنوات: ٣س-١٠ = ٥(س-١٠)<br>٣س - ١٠ = ٥س - ٥٠<br>٤٠ = ٢س<br>س = ٢٠<br>الابن ٢٠، الأب ٦٠` } },
+                { question: "سارة أكبر من أختها نورة بـ ٤ سنوات. بعد ٦ سنوات، سيصبح مجموع عمريهما ٣٤ سنة. فما عمرهما الآن؟", options: ["نورة ٩، سارة ١٣", "نورة ٨، سارة ١٢", "نورة ١٠، سارة ١٤", "نورة ٧، سارة ١١"], answer: "نورة ٩، سارة ١٣", solution: { equation: `(س + ٦) + (س + ٤ + ٦) = ٣٤`, steps: `عمر نورة = س، سارة = س+٤<br>بعد ٦ سنوات: (س+٦) + (س+١٠) = ٣٤<br>٢س + ١٦ = ٣٤<br>٢س = ١٨<br>س = ٩<br>نورة ٩، سارة ١٣` } }
+            ],
+            // Bank 5: مسائل لفظية متنوعة
+            [
+                { question: "إذا أضيف العدد ٧ إلى خمسة أمثال عدد ما، كان الناتج ٤٢. فما هو العدد؟", options: ["٧", "٥", "٩", "٨"], answer: "٧", solution: { equation: `٥س + ٧ = ٤٢`, steps: `نفرض العدد س<br>٥س + ٧ = ٤٢<br>٥س = ٣٥<br>س = ٧` } },
+                { question: "مجموع ثلاثة أعداد صحيحة متتالية هو ٩٦. ما هو أصغر هذه الأعداد؟", options: ["٣١", "٣٢", "٣٠", "٣٣"], answer: "٣١", solution: { equation: `ن + (ن + ١) + (ن + ٢) = ٩٦`, steps: `نفرض الأعداد ن، ن+١، ن+٢<br>٣ن + ٣ = ٩٦<br>٣ن = ٩٣<br>ن = ٣١` } },
+                { question: "اشترى خالد كتابًا وآلة حاسبة بمبلغ ٧٥ ريالاً. إذا كان ثمن الكتاب ضعف ثمن الآلة الحاسبة، فما ثمن كل منهما؟", options: ["الحاسبة ٢٥، الكتاب ٥٠", "الحاسبة ٣٠، الكتاب ٤٥", "الحاسبة ٢٠، الكتاب ٥٥", "الحاسبة ٣٥، الكتاب ٤٠"], answer: "الحاسبة ٢٥، الكتاب ٥٠", solution: { equation: `س + ٢س = ٧٥`, steps: `ثمن الحاسبة = س، الكتاب = ٢س<br>س + ٢س = ٧٥<br>٣س = ٧٥<br>س = ٢٥<br>الحاسبة ٢٥، الكتاب ٥٠` } }
+            ]
+        ];
+        const mountainCodename = "الـقـمـة";
+        const MAX_ATTEMPTS = 3;
+
+        const welcomeScreen = document.getElementById('welcome-screen');
+        const quizContainer = document.getElementById('quiz-container');
+        const questionCard = document.getElementById('question-card');
+        const feedbackCard = document.getElementById('feedback-card');
+        const feedbackText = document.getElementById('feedback-text');
+        const successCard = document.getElementById('success-card');
+        const failureCard = document.getElementById('failure-card');
+        const questionText = document.getElementById('question-text');
+        const optionsGrid = document.getElementById('options-grid');
+        const mountainDisplayContainer = document.getElementById('mountain-display-container');
+        const finalPassword = document.getElementById('final-password');
+        const powerCellsDisplay = document.getElementById('power-cells-display');
+        const solutionModal = document.getElementById('solution-modal');
+        const questionTimerDisplay = document.getElementById('question-timer');
+        const errorOverlay = document.getElementById('error-overlay');
+
+        let gameQuestionGroups = [], currentQuestionIndex = 0, subQuestionAttempt = 0, mistakesLeft = MAX_ATTEMPTS;
+        let totalGameTimeStart, questionTimerInterval, feedbackTimeout;
+
+        function shuffleArray(array) { for (let i = array.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[array[i], array[j]] = [array[j], array[i]]; } return array; }
+        
+        function initializeGame() {
+            gameQuestionGroups = allQuestions.map(group => shuffleArray([...group]));
+            shuffleArray(gameQuestionGroups);
+            
+            welcomeScreen.classList.add('hidden');
+            quizContainer.classList.remove('hidden'); quizContainer.classList.add('flex');
+            currentQuestionIndex = 0; subQuestionAttempt = 0; mistakesLeft = MAX_ATTEMPTS;
+            totalGameTimeStart = Date.now();
+            if (questionTimerInterval) clearInterval(questionTimerInterval);
+            clearTimeout(feedbackTimeout);
+            
+            successCard.classList.add('hidden'); failureCard.classList.add('hidden');
+            feedbackCard.classList.add('hidden'); questionCard.classList.remove('hidden');
+            document.getElementById('top-stats-container').classList.remove('hidden');
+            document.getElementById('mountain-display-container').classList.remove('hidden');
+            document.querySelector('#quiz-container header').classList.remove('hidden');
+            document.getElementById('question-area-wrapper').classList.remove('hidden');
+            quizContainer.classList.add('justify-start');
+            quizContainer.classList.remove('justify-center');
+            
+            updateAttemptsDisplay();
+            setupMountainGraphic();
+            document.querySelectorAll('.stage-dot').forEach(dot => dot.classList.remove('lit'));
+            showQuestion();
+        }
+
+        function setupMountainGraphic() {
+            mountainDisplayContainer.innerHTML = `
+                <svg viewBox="0 0 400 250" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <linearGradient id="mountainGradient" x1="0%" y1="100%" x2="0%" y2="0%">
+                            <stop offset="0%" style="stop-color:#6b4629;stop-opacity:1" /> 
+                            <stop offset="60%" style="stop-color:#926c47;stop-opacity:1" />
+                            <stop offset="100%" style="stop-color:#ffffff;stop-opacity:1" />
+                        </linearGradient>
+                    </defs>
+                    <path d="M 20 250 L 200 40 L 280 150 L 320 120 L 380 250 Z" fill="url(#mountainGradient)" filter="drop-shadow(3px 5px 2px rgb(0 0 0 / 0.2))" />
+                    <g transform="translate(200, 22)">
+                        <line x1="0" y1="0" x2="0" y2="18" stroke="#374151" stroke-width="2.5"/>
+                        <polygon points="0,0 18,6 0,12" fill="#ef4444"/>
+                    </g>
+                    <!-- Path Segments -->
+                    <g id="part-0" class="mountain-path-part"><path d="M 40 240 C 80 210, 120 220, 150 190" /></g>
+                    <g id="part-1" class="mountain-path-part"><path d="M 150 190 C 180 160, 230 170, 260 145" /></g>
+                    <g id="part-2" class="mountain-path-part"><path d="M 260 145 C 290 120, 250 110, 240 90" /></g>
+                    <g id="part-3" class="mountain-path-part"><path d="M 240 90 C 230 70, 190 80, 200 60" /></g>
+                    <g id="part-4" class="mountain-path-part"><path d="M 200 60 C 210 50, 205 45, 200 40" /></g>
+                    <!-- Stage Markers -->
+                    <g class="stage-markers">
+                        <circle id="stage-dot-0" class="stage-dot" cx="100" cy="215" r="5" />
+                        <circle id="stage-dot-1" class="stage-dot" cx="205" cy="165" r="5" />
+                        <circle id="stage-dot-2" class="stage-dot" cx="250" cy="115" r="5" />
+                        <circle id="stage-dot-3" class="stage-dot" cx="215" cy="75" r="5" />
+                        <circle id="stage-dot-4" class="stage-dot" cx="200" cy="50" r="5" />
+                    </g>
+                </svg>
+            `;
+        }
+        
+        function updateAttemptsDisplay() {
+            powerCellsDisplay.innerHTML = '';
+            for(let i = 0; i < MAX_ATTEMPTS; i++) {
+                const powerCell = document.createElement('span');  
+                powerCell.innerHTML = '🧗';
+                powerCell.classList.add('attempt-icon');
+                if (i >= mistakesLeft) { powerCell.classList.add('lost'); }
+                powerCellsDisplay.appendChild(powerCell);
+            }
+        }
+
+        function showQuestion() {
+            if (questionTimerInterval) clearInterval(questionTimerInterval);
+            const questionTimeStart = Date.now();
+            questionTimerInterval = setInterval(() => {
+                const secondsPassed = Math.floor((Date.now() - questionTimeStart) / 1000);
+                const minutes = Math.floor(secondsPassed / 60).toString().padStart(2, '0');
+                const seconds = (secondsPassed % 60).toString().padStart(2, '0');
+                questionTimerDisplay.textContent = `${minutes}:${seconds}`;
+            }, 1000);
+
+            optionsGrid.innerHTML = '';  
+            const currentQuestion = gameQuestionGroups[currentQuestionIndex][subQuestionAttempt];
+            
+            questionText.innerHTML = currentQuestion.question;  
+
+            const shuffledOptions = shuffleArray([...currentQuestion.options]);
+
+            shuffledOptions.forEach(option => {
+                const button = document.createElement('button'); button.innerHTML = option;
+                button.classList.add('option-btn', 'w-full', 'p-2', 'rounded-lg', 'text-lg', 'font-bold');
+                button.onclick = () => selectAnswer(button, option);
+                optionsGrid.appendChild(button);
+            });
+        }
+        
+        function lightUpStageDot(index) {
+            const dot = document.getElementById(`stage-dot-${index}`);
+            if (dot) {
+                dot.classList.add('lit');
+            }
+        }
+
+        function advanceToNextStep(isCorrect) {
+            feedbackCard.classList.add('hidden');
+            if (isCorrect) {
+                currentQuestionIndex++; subQuestionAttempt = 0;
+                if (currentQuestionIndex >= gameQuestionGroups.length) {
+                    showEndScreen(true);
+                } else {
+                    questionCard.classList.remove('hidden'); showQuestion();
+                }
+            } else {
+                if (mistakesLeft <= 0) { showEndScreen(false); return; }
+                subQuestionAttempt++;
+                if (subQuestionAttempt >= gameQuestionGroups[currentQuestionIndex].length) {
+                    showEndScreen(false);
+                } else {
+                    questionCard.classList.remove('hidden'); showQuestion();
+                }
+            }
+        }
+        
+        function selectAnswer(button, selectedOption) {
+            if (questionTimerInterval) clearInterval(questionTimerInterval);
+            optionsGrid.querySelectorAll('button').forEach(btn => btn.disabled = true);
+            const currentQuestion = gameQuestionGroups[currentQuestionIndex][subQuestionAttempt];
+            const isCorrect = selectedOption === currentQuestion.answer;
+            
+            questionCard.classList.add('hidden'); feedbackCard.classList.remove('hidden');
+
+            if (isCorrect) {
+                feedbackText.textContent = 'أحسنت!';
+                feedbackText.classList.remove('text-red-500'); feedbackText.classList.add('text-green-500');
+                revealMountainPathPart(currentQuestionIndex);
+                lightUpStageDot(currentQuestionIndex);
+                feedbackTimeout = setTimeout(() => advanceToNextStep(true), 2000);
+            } else {
+                feedbackText.textContent = 'إجابة خاطئة!';
+                feedbackText.classList.remove('text-green-500'); feedbackText.classList.add('text-red-500');
+                mistakesLeft--;
+                updateAttemptsDisplay();
+                
+                errorOverlay.classList.add('active');
+                setTimeout(() => { errorOverlay.classList.remove('active'); }, 400);
+
+                feedbackTimeout = setTimeout(() => advanceToNextStep(false), 2000);
+            }
+        }
+
+        function revealMountainPathPart(index) {
+            const part = document.getElementById(`part-${index}`);
+            if(part) {  part.classList.add('revealed'); }
+        }
+        
+        function showEndScreen(isSuccess) {
+            document.getElementById('top-stats-container').classList.add('hidden');
+            document.getElementById('mountain-display-container').classList.add('hidden');
+            document.querySelector('#quiz-container header').classList.add('hidden');
+            document.getElementById('question-area-wrapper').classList.add('hidden');
+            feedbackCard.classList.add('hidden');
+            questionCard.classList.add('hidden');
+            
+            if (questionTimerInterval) clearInterval(questionTimerInterval);
+            const totalTimeInSeconds = Math.round((Date.now() - totalGameTimeStart) / 1000);
+            
+            const baseScore = currentQuestionIndex;
+            const penalty = (MAX_ATTEMPTS - mistakesLeft) * 0.5;
+            const finalScore = Math.max(0, baseScore - penalty);
+
+            if (isSuccess) {
+                successCard.classList.remove('hidden');
+                finalPassword.textContent = mountainCodename;
+            } else {
+                failureCard.classList.remove('hidden');
+            }
+            
+            quizContainer.classList.remove('justify-start');
+            quizContainer.classList.add('justify-center');
+
+            if (window.saveAndFinishGame) {
+                window.saveAndFinishGame(finalScore, totalTimeInSeconds);
+            }
+        }
+
+        function showSolution() {
+            clearTimeout(feedbackTimeout);
+            const currentQuestion = gameQuestionGroups[currentQuestionIndex][subQuestionAttempt];
+            document.getElementById('solution-q').innerHTML = currentQuestion.question;
+            document.getElementById('solution-eq').innerHTML = currentQuestion.solution.equation;
+            document.getElementById('solution-steps').innerHTML = currentQuestion.solution.steps;
+            solutionModal.classList.remove('hidden');
+        }
+
+        function hideSolution() {
+            solutionModal.classList.add('hidden');
+            const lastAnswerWasCorrect = feedbackText.textContent === 'أحسنت!';
+            advanceToNextStep(lastAnswerWasCorrect);
+        }
+
+    </script>
+    <script>
+        // --- START OF CONNECTION & LEADERBOARD ENGINE ---
+(function() {
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
+    const GAME_ID = 'g1_4_1_v3'; // New unique ID for the mountain game with new questions
+    const GAME_MAX_POINTS = 5;
+    const PLATFORM_MAX_GRADE = 5;
+    const METRIC_TYPE = 'time';
+    const METRIC_LABEL = 'الوقت (ثواني)';
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const studentId = urlParams.get('studentId');
+    const classId = urlParams.get('classId');
+    const studentName = urlParams.get('studentName');
+    let currentUser = (studentId && studentName) ? { id: studentId, name: studentName } : null;
+
+    window.saveAndFinishGame = function(points, metricValue) {
+        const finalPoints = parseFloat(points) || 0;
+        const finalMetric = parseFloat(metricValue) || 0;
+        const finalGrade = finalPoints;
+
+        const successCardVisible = !document.getElementById('success-card').classList.contains('hidden');
+        const resultDisplayId = successCardVisible ? 'final-result-display' : 'final-result-display-failure';
+        const resultDisplay = document.getElementById(resultDisplayId);
+        
+        if (resultDisplay) {
+            resultDisplay.innerHTML = `
+                <p class="text-gray-600">الدرجة النهائية: <span class="font-bold text-2xl text-gray-800">${finalGrade.toFixed(1)} / ${PLATFORM_MAX_GRADE}</span></p>
+                <p class="text-gray-600">الوقت المستغرق: <span class="font-bold text-xl text-gray-800">${finalMetric} ثانية</span></p>
+            `;
+        }
+
+        if (studentId && classId) {
+            const params = new URLSearchParams({
+                action: 'saveGrade', studentId, classId, itemId: GAME_ID,
+                grade: finalGrade.toFixed(2), metricValue: Math.round(finalMetric).toString()
+            });
+            fetch(`${SCRIPT_URL}?${params.toString()}`)
+                .then(res => res.json()).then(result => console.log('Save result:', result.status))
+                .catch(err => console.error("Save Error:", err)).finally(fetchAndShowLeaderboard);
+        } else {
+            console.log(`Visitor finished. Score: ${finalPoints}, Metric: ${finalMetric}`);
+            fetchAndShowLeaderboard();
+        }
+    }
+
+    function fetchAndShowLeaderboard() {
+        const successCardVisible = !document.getElementById('success-card').classList.contains('hidden');
+        const loaderId = successCardVisible ? 'leaderboard-loader' : 'leaderboard-loader-failure';
+        const containerId = successCardVisible ? 'leaderboard-container' : 'leaderboard-container-failure';
+        const loader = document.getElementById(loaderId);
+        const container = document.getElementById(containerId);
+
+        if (!loader || !container) return;
+        if (!classId) {
+            container.innerHTML = `<p class="text-center text-gray-500 mt-4">سجل الأبطال متاح للطلاب المسجلين فقط.</p>`;
+            showFinishButton();
+            return;
+        }
+
+        loader.style.display = 'block'; container.innerHTML = '';
+        const params = new URLSearchParams({ action: 'getLeaderboard', gameId: GAME_ID, metricType: METRIC_TYPE, classId: classId });
+        fetch(`${SCRIPT_URL}?${params.toString()}`)
+            .then(res => res.json())
+            .then(response => {
+                if (response.status === 'success' && response.data) {
+                    displayLeaderboard(response.data, container);
+                } else { throw new Error(response.message || 'Failed to load leaderboard data.'); }
+            })
+            .catch(err => {
+                console.error("Leaderboard Error:", err);
+                container.innerHTML = `<p class="text-center text-red-500">حدث خطأ في تحميل سجل الأبطال.</p>`;
+            })
+            .finally(() => { loader.style.display = 'none'; showFinishButton(); });
+    }
+    
+    function displayLeaderboard(data, container) {
+        if (!data || data.length === 0) {
+            container.innerHTML = `<p class="text-center text-gray-500 mt-4">لا توجد نتائج بعد. كن أول الأبطال!</p>`;
+            return;
+        }
+
+        let tableHTML = `
+            <div class="mt-6 border-t border-gray-400 pt-4">
+                <h3 class="text-2xl font-bold text-center text-gray-700 mb-4">🏆 سجل الأبطال 🏆</h3>
+                <table class="min-w-full rounded-lg">
+                    <thead style="background-color: rgba(209, 213, 219, 0.4);">
+                        <tr>
+                            <th class="text-center py-2 px-3">الترتيب</th>
+                            <th class="text-right py-2 px-3">اسم الطالب</th>
+                            <th class="text-center py-2 px-3">الدرجة</th>
+                            <th class="text-center py-2 px-3">${METRIC_LABEL}</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+        data.forEach((player, index) => {
+            const rank = index + 1;
+            let rankDisplay = rank;
+            if (rank === 1) rankDisplay = '🥇'; if (rank === 2) rankDisplay = '🥈'; if (rank === 3) rankDisplay = '🥉';
+            const isCurrentUser = (currentUser && player.name === currentUser.name);
+            const rowClass = isCurrentUser ? 'bg-blue-200/50 font-bold' : (index % 2 === 0 ? 'bg-gray-200/50' : 'bg-gray-200/30');
+            tableHTML += `<tr class="${rowClass}"><td class="text-center py-2 px-3 text-xl">${rankDisplay}</td><td class="text-right py-2 px-3">${player.name}</td><td class="text-center py-2 px-3">${player.grade.toFixed(1)}</td><td class="text-center py-2 px-3">${player.metricValue}</td></tr>`;
+        });
+        tableHTML += `</tbody></table></div>`;
+        container.innerHTML = tableHTML;
+    }
+
+    function showFinishButton() {
+        const successCardVisible = !document.getElementById('success-card').classList.contains('hidden');
+        const wrapperId = successCardVisible ? 'finish-game-wrapper' : 'finish-game-wrapper-failure';
+        const finishWrapper = document.getElementById(wrapperId);
+        if (finishWrapper) { finishWrapper.style.display = 'block'; }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const welcomeMessage = document.getElementById('welcomeMessage');
+        if (studentName && welcomeMessage) {
+            welcomeMessage.innerHTML = `مرحباً بك أيها المتسلق الجريء <span class="font-bold text-gray-700">${studentName}</span>. مهمتك هي تسلق هذا الجبل الشاهق بالوصول إلى قمته عن طريق حل التحديات الرياضية التي ستواجهك.`;
+        }
+        const finishBtns = document.querySelectorAll('#finish-game-btn, #finish-game-btn-failure');
+        if (finishBtns) {
+            finishBtns.forEach(btn => {
+                btn.addEventListener('click', () => { window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*'); });
+            });
+        }
+    });
+})();
+// --- END OF CONNECTION & LEADERBOARD ENGINE ---
+    </script>
+
+</body>
+</html>
+

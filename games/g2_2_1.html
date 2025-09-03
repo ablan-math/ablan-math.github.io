@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لعبة محقق الدوال</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        html, body {
+            height: 100%;
+            overflow: hidden; /* Prevent scrolling */
+        }
+        body {
+            font-family: 'Cairo', sans-serif;
+            color: #e2e8f0; /* Light gray text */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+        .card {
+            background-color: #2d3748; /* Darker card background */
+            border: 2px solid #4a5568; /* Gray border */
+            transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+        }
+        .card:hover {
+            transform: translateY(-3px);
+            border-color: #a0aec0;
+        }
+        .card.correct {
+            border-color: #48bb78; /* Green */
+            box-shadow: 0 0 10px rgba(72, 187, 120, 0.6);
+        }
+        .card.incorrect {
+            border-color: #f56565; /* Red */
+            box-shadow: 0 0 10px rgba(245, 101, 101, 0.6);
+        }
+        .btn-primary {
+            background-color: #4299e1; /* Blue */
+            transition: background-color 0.2s;
+        }
+        .btn-primary:hover {
+            background-color: #3182ce;
+        }
+        svg text {
+            fill: #e2e8f0;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        svg .domain-box, svg .range-box {
+            fill: #4a5568;
+            stroke: #a0aec0;
+            stroke-width: 1.5;
+        }
+        svg line {
+            stroke: #cbd5e0;
+            stroke-width: 2;
+        }
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 15px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .modal-overlay {
+            transition: opacity 0.3s ease;
+        }
+        .modal-content {
+            transition: transform 0.3s ease;
+            border-width: 3px;
+            border-style: solid;
+        }
+        .feedback-timer-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-weight: bold;
+            font-size: 1.125rem; /* text-lg */
+        }
+    </style>
+</head>
+<body class="p-2 sm:p-4" style="background-image: url('https://raw.githubusercontent.com/ablan-math/ablan-math.github.io/refs/heads/main/img/g2_2_1.jpeg');">
+
+    <div class="max-w-4xl w-full mx-auto text-center bg-gray-900 bg-opacity-80 p-4 rounded-2xl shadow-2xl">
+        
+        <!-- Start Screen -->
+        <div id="start-screen">
+            <h1 class="text-3xl sm:text-4xl font-bold text-white flex items-center justify-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-400"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                محقق الدوال
+            </h1>
+            <div class="mt-4 text-gray-300">
+                <p id="welcomeMessage" class="text-base max-w-xl mx-auto">لعبة تعليمية ممتعة تضعك في دور المحقق الذكي. مهمتك هي فحص الأدلة وكشف "المشتبه به" الذي يخالف قوانين الدوال.</p>
+                <p class="text-sm text-gray-400 mt-4">تصميم وبرمجة: أ. عبد العزيز خالد العبلان</p>
+            </div>
+            <button id="start-game-btn" class="btn-primary text-white font-bold py-2 px-6 rounded-lg text-lg mt-6">
+                ابدأ التحقيق
+            </button>
+        </div>
+
+        <!-- Game Screen -->
+        <div id="game-screen" class="hidden">
+            <!-- Header -->
+            <header class="mb-2">
+                 <h1 class="text-2xl sm:text-3xl font-bold text-white flex items-center justify-center gap-2">
+                    محقق الدوال
+                </h1>
+            </header>
+
+            <!-- Game Info Bar -->
+            <div class="flex justify-between items-center bg-gray-700 bg-opacity-70 p-2 rounded-lg mb-3 text-base">
+                <div>القضية: <span id="case-number" class="font-bold text-lg text-blue-300">١</span> / ١٠</div>
+                <div id="timer" class="font-bold text-lg text-yellow-300 transition-colors duration-300">الوقت: ٢٠</div>
+                <div>النقاط: <span id="score" class="font-bold text-lg text-green-300">٠</span></div>
+            </div>
+            
+            <!-- Investigation Question -->
+            <div id="investigation-question" class="bg-black bg-opacity-30 p-2 rounded-lg mb-3">
+                <p class="text-lg text-yellow-300">أيها المحقق، تفحص الأدلة التالية بعناية. مشتبه به واحد فقط هو "المجرم". حدده!</p>
+            </div>
+
+            <!-- Suspects Container -->
+            <main id="suspects-container" class="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
+                <!-- Suspect cards will be generated here by JavaScript -->
+            </main>
+        </div>
+
+        <!-- End Screen -->
+        <div id="end-screen" class="hidden p-4 md:p-6">
+            <h2 class="text-2xl font-bold text-white mb-3">انتهى التحقيق!</h2>
+            <div id="final-result-display" class="bg-gray-700 bg-opacity-70 p-3 rounded-lg text-white text-base mb-4">
+                <!-- Final results will be displayed here -->
+            </div>
+            <div id="leaderboard-loader" class="loader" style="display: none;"></div>
+            <div id="leaderboard-container" class="max-h-48 overflow-y-auto">
+                <!-- Leaderboard will be displayed here -->
+            </div>
+            <div id="finish-game-wrapper" style="display: none;" class="mt-4 flex flex-col sm:flex-row justify-center items-center gap-3">
+                <button id="play-again-btn" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-6 rounded-lg text-lg w-full sm:w-auto">
+                    إعادة اللعب
+                </button>
+                <button id="finish-game-btn" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-lg text-lg w-full sm:w-auto">
+                    العودة للمنصة
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Feedback Modal -->
+    <div id="feedback-modal-overlay" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50 modal-overlay">
+        <div id="feedback-modal-content" class="modal-content bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-sm text-center transform scale-95">
+            <div id="feedback-modal-icon" class="mb-4"></div>
+            <div class="flex justify-center items-center gap-x-3 mb-6">
+                <h3 id="feedback-modal-title" class="text-2xl font-bold"></h3>
+                <div id="feedback-timer-container" class="relative w-10 h-10"></div>
+            </div>
+            <div id="feedback-modal-buttons" class="flex justify-center items-center gap-x-4"></div>
+        </div>
+    </div>
+
+    <!-- Explanation Modal -->
+    <div id="explanation-modal-overlay" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50 modal-overlay">
+        <div class="modal-content bg-gray-700 rounded-lg shadow-xl p-4 w-full max-w-sm text-center transform scale-95">
+            <h3 id="explanation-modal-title" class="text-xl font-bold text-yellow-300 mb-2"></h3>
+            <div id="explanation-culprit-card" class="mb-1 transform scale-75 mx-auto w-3/4"></div>
+            <p id="explanation-modal-reason" class="text-lg text-white mb-3"></p>
+            <button id="explanation-modal-close-btn" class="btn-primary text-white font-bold py-2 px-6 rounded-lg">فهمت</button>
+        </div>
+    </div>
+
+    <script>
+        const allQuestionBanks = {
+            bankA: [
+                // 2 Mappings
+                { suspects: [ { type: 'mapping', domain: ['أ', 'ب', 'ج'], range: [1, 2, 3], mappings: [[0, 0], [0, 1], [2, 2]], isCulprit: true, reason: "العنصر 'أ' من المجال ارتبط بعنصرين في المدى." }, { type: 'mapping', domain: ['أ', 'ب', 'ج'], range: [1, 2, 3], mappings: [[0, 0], [1, 1], [2, 2]], isCulprit: false }, { type: 'mapping', domain: ['أ', 'ب'], range: [1, 2, 3], mappings: [[0, 2], [1, 0]], isCulprit: false }, { type: 'mapping', domain: ['س', 'ص'], range: [1, 2, 3], mappings: [[0, 1], [1, 2]], isCulprit: false } ] },
+                { suspects: [ { type: 'mapping', domain: [5, 10, 15], range: ['س', 'ص', 'ع'], mappings: [[0, 1], [1, 2], [2, 1]], isCulprit: false }, { type: 'mapping', domain: [5, 10, 15], range: ['س', 'ص', 'ع'], mappings: [[0, 0], [2, 1]], isCulprit: true, reason: "العنصر '10' من المجال لم يرتبط بأي عنصر." }, { type: 'mapping', domain: [5, 10], range: ['س', 'ص', 'ع'], mappings: [[0, 2], [1, 2]], isCulprit: false }, { type: 'mapping', domain: [1, 2, 3], range: ['أ', 'ب'], mappings: [[0, 0], [1, 1], [2, 1]], isCulprit: false } ] },
+                // 2 Tables
+                { suspects: [ { type: 'table', rows: [[2, 1], [3, -2], [4, 1]], isCulprit: false }, { type: 'table', rows: [[-1, 1], [0, 0], [1, 1]], isCulprit: false }, { type: 'table', rows: [[1, 5], [3, -4], [1, 2]], isCulprit: true, reason: "العنصر '١' في المجال (س) ارتبط بقيمتين مختلفتين في المدى (ص)." }, { type: 'table', rows: [[0, 5], [1, 6], [2, 7]], isCulprit: false } ] },
+                { suspects: [ { type: 'table', rows: [[10, 20], [20, 30], [30, 40]], isCulprit: false }, { type: 'table', rows: [[5, 1], [5, 2], [5, 3]], isCulprit: true, reason: "العنصر '٥' في المجال (س) ارتبط بثلاث قيم مختلفة." }, { type: 'table', rows: [[1, 1], [2, 1], [3, 1]], isCulprit: false }, { type: 'table', rows: [[-2, 4], [-1, 1], [0, 0]], isCulprit: false } ] },
+                // 2 Graphs
+                { suspects: [ { type: 'graph', pathData: 'M 10 90 C 25 25, 75 25, 90 90', isCulprit: false }, { type: 'graph', pathData: 'M 90 10 Q 10 50 90 90', isCulprit: true, reason: 'هذا الرسم لا يمثل دالة لأنه يفشل في اختبار الخط الرأسي.' }, { type: 'graph', pathData: 'M 10 90 L 90 10', isCulprit: false }, { type: 'graph', points: [[20, 80], [40, 60], [60, 40], [80, 20]], isCulprit: false } ] },
+                { suspects: [ { type: 'graph', points: [[20, 20], [40, 40], [60, 60], [80, 80]], isCulprit: false }, { type: 'graph', pathData: 'M 10 10 L 90 90', isCulprit: false }, { type: 'graph', pathData: 'M 50 20 L 80 80 L 20 80 Z', isCulprit: true, reason: 'هذا الرسم (المثلث) لا يمثل دالة.' }, { type: 'graph', points: [[20, 80], [40, 60], [60, 80], [80, 60]], isCulprit: false } ] }, 
+                // 4 Mixed
+                { suspects: [ { type: 'table', rows: [[4, -1], [5, 0], [4, 1]], isCulprit: true, reason: "العنصر '٤' في المجال (س) ارتبط بقيمتين مختلفتين في المدى (ص)." }, { type: 'mapping', domain: ['أ', 'ب'], range: [1, 2, 3], mappings: [[0, 1], [1, 1]], isCulprit: false }, { type: 'graph', pathData: 'M 10 10 L 90 90', isCulprit: false }, { type: 'graph', points: [[25, 75], [50, 50], [75, 25]], isCulprit: false } ] },
+                { suspects: [ { type: 'mapping', domain: [1, 2, 3], range: ['أ', 'ب'], mappings: [[0, 0], [1, 1], [2, 1]], isCulprit: false }, { type: 'graph', points: [[20, 80], [50, 50], [80, 80]], isCulprit: false }, { type: 'table', rows: [[-1, -2], [0, 0], [1, 2]], isCulprit: false }, { type: 'mapping', domain: [5, 10], range: ['س', 'ص'], mappings: [[0, 0], [0, 1]], isCulprit: true, reason: "العنصر '5' من المجال ارتبط بعنصرين." } ] },
+                { suspects: [ { type: 'graph', pathData: 'M 20 50 C 50 20, 50 80, 80 50', isCulprit: false }, { type: 'table', rows: [[0,0]], isCulprit: false }, { type: 'graph', points: [[50, 10], [50, 90]], isCulprit: true, reason: 'هذه العلاقة المنفصلة ليست دالة لوجود نقطتين على نفس الخط الرأسي.' }, { type: 'table', rows: [[6,1],[7,2],[8,3]], isCulprit: false } ] }, 
+                { suspects: [ { type: 'mapping', domain: ['x','y','z'], range:[1,2], mappings: [[0,0],[1,1],[2,1]], isCulprit: false }, { type: 'graph', pathData: 'M 20 80 C 40 20, 60 20, 80 80', isCulprit: false }, { type: 'mapping', domain: [1,2,3], range:[4,5,6], mappings: [[0,0],[1,1]], isCulprit: true, reason: "العنصر '3' من المجال لم يرتبط بأي عنصر." }, { type: 'table', rows: [[100,5],[200,5],[300,5]], isCulprit: false } ] }
+            ],
+            bankB: [
+                // 2 Mappings
+                { suspects: [ { type: 'mapping', domain: [1,2,3], range:['a','b','c'], mappings: [[0,0],[1,1],[2,1]], isCulprit: false }, { type: 'mapping', domain: [1,2,3], range:['a','b','c'], mappings: [[0,0],[1,1],[0,2]], isCulprit: true, reason: "العنصر '1' من المجال ارتبط بعنصرين." }, { type: 'mapping', domain: [1,2], range:['a','b','c'], mappings: [[0,2],[1,0]], isCulprit: false }, { type: 'mapping', domain: [1,2,3], range:['a','b','c'], mappings: [[0,0],[1,2],[2,1]], isCulprit: false } ] },
+                { suspects: [ { type: 'mapping', domain: ['س','ص','ع'], range:[4,5,6], mappings: [[0,0],[1,1],[2,2]], isCulprit: false }, { type: 'mapping', domain: ['س','ص','ع'], range:[4,5,6], mappings: [[0,1],[1,2],[2,0]], isCulprit: false }, { type: 'mapping', domain: ['س','ص','ع'], range:[4,5,6], mappings: [[0,0],[2,2]], isCulprit: true, reason: "العنصر 'ص' من المجال لم يرتبط بأي عنصر." }, { type: 'mapping', domain: ['س','ص'], range:[4,5,6], mappings: [[0,1],[1,1]], isCulprit: false } ] },
+                // 2 Tables
+                { suspects: [ { type: 'table', rows: [[-3,9],[-2,4],[-1,1]], isCulprit: false }, { type: 'table', rows: [[4,-2],[1,-1],[0,0]], isCulprit: false }, { type: 'table', rows: [[8,2],[8,3],[9,4]], isCulprit: true, reason: "العنصر '٨' في المجال (س) ارتبط بقيمتين." }, { type: 'table', rows: [[1,1],[2,2],[3,3]], isCulprit: false } ] },
+                { suspects: [ { type: 'table', rows: [[1,0],[2,0],[3,0]], isCulprit: false }, { type: 'table', rows: [[0,1],[0,2],[0,3]], isCulprit: true, reason: "العنصر '٠' في المجال (س) ارتبط بثلاث قيم." }, { type: 'table', rows: [[-1,0],[0,1],[1,0]], isCulprit: false }, { type: 'table', rows: [[5,10],[6,11],[7,12]], isCulprit: false } ] },
+                // 2 Graphs
+                { suspects: [ { type: 'graph', points: [[10, 10], [30, 30], [50, 10], [70, 30], [90,10]], isCulprit: false }, { type: 'graph', pathData: 'M 10 10 C 50 90, 50 90, 90 10', isCulprit: false }, { type: 'graph', pathData: 'M 10 50 C 50 10, 50 90, 90 50', isCulprit: false }, { type: 'graph', pathData: 'M 50,50 m -30,0 a 30,30 0 1,0 60,0 a 30,30 0 1,0 -60,0', isCulprit: true, reason: 'هذا الرسم (الدائرة) لا يمثل دالة.' } ] },
+                { suspects: [ { type: 'graph', pathData: 'M 10 90 Q 50 10 90 90', isCulprit: false }, { type: 'graph', pathData: 'M 90 10 Q 10 50 90 90', isCulprit: true, reason: 'هذا الرسم لا يمثل دالة لأنه يفشل في اختبار الخط الرأسي.' }, { type: 'graph', points: [[20, 80], [40, 20], [60, 80]], isCulprit: false }, { type: 'graph', pathData: 'M 10 50 Q 50 90 90 50', isCulprit: false } ] },
+                // 4 Mixed
+                { suspects: [ { type: 'table', rows: [[0,0],[1,1],[1,-1]], isCulprit: true, reason: "العنصر '١' في المجال (س) ارتبط بقيمتين." }, { type: 'mapping', domain:[1,2], range:[3,4], mappings: [[0,0],[1,1]], isCulprit: false }, { type: 'graph', points: [[20,80], [50,20], [80,80]], isCulprit: false }, { type: 'table', rows: [[9,3],[16,4]], isCulprit: false } ] },
+                { suspects: [ { type: 'mapping', domain:['a','b'], range:[1,2], mappings: [[0,0],[0,1]], isCulprit: true, reason: "العنصر 'a' من المجال ارتبط بعنصرين." }, { type: 'table', rows: [[1,1]], isCulprit: false }, { type: 'graph', pathData: 'M 10 90 L 90 10', isCulprit: false }, { type: 'mapping', domain:[1,2,3], range:[0], mappings: [[0,0],[1,0],[2,0]], isCulprit: false } ] },
+                { suspects: [ { type: 'graph', pathData: 'M 20 80 Q 50 20 80 80', isCulprit: false }, { type: 'table', rows: [[10,1],[10,2]], isCulprit: true, reason: "العنصر '١٠' في المجال (س) ارتبط بقيمتين." }, { type: 'mapping', domain:['x'], range:[1,2,3], mappings: [[0,1]], isCulprit: false }, { type: 'graph', points: [[20, 20], [40, 40], [60, 20], [80, 40]], isCulprit: false } ] },
+                { suspects: [ { type: 'mapping', domain:[1,2], range:[0], mappings: [[0,0]], isCulprit: true, reason: "العنصر '2' من المجال لم يرتبط بأي عنصر." }, { type: 'graph', pathData: 'M 20 80 Q 50 20 80 80', isCulprit: false }, { type: 'table', rows: [[1,4],[2,5],[3,6]], isCulprit: false }, { type: 'mapping', domain:['a','b','c'], range:[1,2], mappings:[[0,0],[1,1],[2,0]], isCulprit: false } ] }
+            ],
+             bankC: [
+                // 2 Mappings
+                { suspects: [ { type: 'mapping', domain: [1,2], range:['x','y'], mappings: [[0,0],[1,1]], isCulprit: false }, { type: 'mapping', domain: [1,2,3], range:['x','y'], mappings: [[0,0],[1,1],[2,0]], isCulprit: false }, { type: 'mapping', domain: [1,2], range:['x','y'], mappings: [[0,0],[0,1]], isCulprit: true, reason: "العنصر '1' من المجال ارتبط بعنصرين." }, { type: 'mapping', domain: [1,2,3], range:['x','y','z'], mappings: [[0,2],[1,1],[2,0]], isCulprit: false } ] },
+                { suspects: [ { type: 'mapping', domain: ['a','b','c'], range:[10,20], mappings: [[0,0],[1,1],[2,1]], isCulprit: false }, { type: 'mapping', domain: ['a','b'], range:[10,20], mappings: [[0,0],[1,0]], isCulprit: false }, { type: 'mapping', domain: ['a','b','c'], range:[10,20], mappings: [[0,0],[1,1]], isCulprit: true, reason: "العنصر 'c' من المجال لم يرتبط بأي عنصر." }, { type: 'mapping', domain: ['a'], range:[10,20], mappings: [[0,1]], isCulprit: false } ] },
+                // 2 Tables
+                { suspects: [ { type: 'table', rows: [[3,5],[4,6],[5,7]], isCulprit: false }, { type: 'table', rows: [[-1,-1],[0,0],[1,1]], isCulprit: false }, { type: 'table', rows: [[9,3],[9,-3],[4,2]], isCulprit: true, reason: "العنصر '٩' في المجال (س) ارتبط بقيمتين." }, { type: 'table', rows: [[1,10],[2,10],[3,10]], isCulprit: false } ] },
+                { suspects: [ { type: 'table', rows: [[0,0]], isCulprit: false }, { type: 'table', rows: [[1,1],[2,2],[3,3]], isCulprit: false }, { type: 'table', rows: [[-5,1],[-5,2]], isCulprit: true, reason: "العنصر '-٥' في المجال (س) ارتبط بقيمتين." }, { type: 'table', rows: [[6,1],[7,1],[8,1]], isCulprit: false } ] },
+                // 2 Graphs
+                { suspects: [ { type: 'graph', pathData: 'M 10 90 C 50 10, 50 10, 90 10', isCulprit: false }, { type: 'graph', pathData: 'M 90 90 C 50 10, 50 10, 10 90', isCulprit: false }, { type: 'graph', pathData: 'M 50,50 m -30,0 a 30,30 0 1,0 60,0 a 30,30 0 1,0 -60,0', isCulprit: true, reason: 'هذا الرسم (الدائرة) لا يمثل دالة لأنه يفشل في اختبار الخط الرأسي.' }, { type: 'graph', pathData: 'M 10,50 A 40,40 0 0,1 90,50', isCulprit: false } ] },
+                { suspects: [ { type: 'graph', points: [[15, 85], [45, 55], [75, 25]], isCulprit: false }, { type: 'graph', pathData: 'M 10 10 H 90', isCulprit: false }, { type: 'graph', pathData: 'M 90 10 Q 10 50 90 90', isCulprit: true, reason: 'هذا الرسم لا يمثل دالة لأنه يفشل في اختبار الخط الرأسي.' }, { type: 'graph', points: [[20, 70], [40, 50], [60, 30], [80, 10]], isCulprit: false } ] },
+                // 4 Mixed
+                { suspects: [ { type: 'table', rows: [[2,4],[3,9],[4,16]], isCulprit: false }, { type: 'mapping', domain:[1,2,3], range:[1], mappings:[[0,0],[1,0],[2,0]], isCulprit: false }, { type: 'graph', pathData: 'M 20 80 L 80 20', isCulprit: false }, { type: 'table', rows: [[25,5],[25,-5]], isCulprit: true, reason: "العنصر '٢٥' في المجال (س) ارتبط بقيمتين." } ] },
+                { suspects: [ { type: 'mapping', domain:['k','l','m'], range:[1,2], mappings: [[0,0],[1,1]], isCulprit: true, reason: "العنصر 'm' من المجال لم يرتبط بأي عنصر." }, { type: 'table', rows: [[1,1],[2,1.41],[3,1.73]], isCulprit: false }, { type: 'graph', points: [[20, 50], [50, 20], [80, 50]], isCulprit: false }, { type: 'mapping', domain:['x','y'], range:[0], mappings: [[0,0],[1,0]], isCulprit: false } ] },
+                { suspects: [ { type: 'graph', pathData: 'M 10 50 C 30 10, 70 10, 90 50', isCulprit: false }, { type: 'mapping', domain:['a','b'], range:[1,2,3], mappings:[[0,0],[1,2]], isCulprit: false }, { type: 'table', rows: [[0,1],[0,-1]], isCulprit: true, reason: "العنصر '٠' في المجال (س) ارتبط بقيمتين." }, { type: 'graph', points: [[30,30], [50,50], [70,70]], isCulprit: false } ] },
+                { suspects: [ { type: 'mapping', domain:[1,2,3], range:['a','b'], mappings: [[0,0],[1,1],[2,0]], isCulprit: false }, { type: 'graph', pathData: 'M 10 90 C 50 50, 50 50, 90 10', isCulprit: false }, { type: 'mapping', domain:[4,5], range:[6,7], mappings: [[0,0],[0,1]], isCulprit: true, reason: "العنصر '4' من المجال ارتبط بعنصرين." }, { type: 'graph', points: [[20, 80], [50, 50], [80, 20]], isCulprit: false } ] }
+            ]
+        };
+
+        let currentQuestionSet = []; // Will hold the chosen and shuffled bank for the current game
+
+        // DOM Elements
+        const startScreen = document.getElementById('start-screen');
+        const gameScreen = document.getElementById('game-screen');
+        const endScreen = document.getElementById('end-screen');
+        const startGameBtn = document.getElementById('start-game-btn');
+        const playAgainBtn = document.getElementById('play-again-btn');
+        const suspectsContainer = document.getElementById('suspects-container');
+        const caseNumberEl = document.getElementById('case-number');
+        const scoreEl = document.getElementById('score');
+        const timerEl = document.getElementById('timer');
+
+        // Game State
+        let currentCaseIndex = 0;
+        let score = 0;
+        let totalTimeBonus = 0;
+        let gameActive = true;
+        let timeLeft = 20;
+        let mainTimerInterval;
+        let advanceInterval;
+        let advanceTimeout;
+        
+        function convertToEasternArabicNumerals(text) {
+            if (text === null || typeof text === 'undefined') { return ''; }
+            const strText = String(text);
+            const arabicNumerals = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+            return strText.replace(/[0-9-]/g, w => {
+                if (w === '-') return '-';
+                return arabicNumerals[+w];
+            });
+        }
+
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
+        function createSuspectCard(suspect, index) {
+            const card = document.createElement('div');
+            card.className = 'card rounded-lg p-2 shadow-lg flex items-center justify-center min-h-[150px]';
+            card.dataset.index = index;
+            const svgNS = "http://www.w3.org/2000/svg";
+
+             if (suspect.type === 'table') {
+                let tableHTML = `<table class="w-full text-center text-base"><thead><tr class="bg-gray-900"><th class="p-2">${suspect.domainHeader || 'س'}</th><th class="p-2">${suspect.rangeHeader || 'ص'}</th></tr></thead><tbody>`;
+                suspect.rows.forEach((row, rowIndex) => {
+                    const rowClass = rowIndex % 2 === 0 ? 'bg-gray-600' : 'bg-gray-700';
+                    tableHTML += `<tr class="${rowClass}"><td class="p-2 border-t border-gray-500 font-mono">${convertToEasternArabicNumerals(row[0])}</td><td class="p-2 border-t border-gray-500 font-mono">${convertToEasternArabicNumerals(row[1])}</td></tr>`;
+                });
+                tableHTML += '</tbody></table>';
+                card.innerHTML = tableHTML;
+            } else if (suspect.type === 'graph') {
+                const svg = document.createElementNS(svgNS, "svg");
+                svg.setAttribute('viewBox', '0 0 100 100');
+                svg.setAttribute('class', 'w-full h-auto p-2');
+                const xAxis = document.createElementNS(svgNS, 'line');
+                xAxis.setAttribute('x1', '0'); xAxis.setAttribute('y1', '50');
+                xAxis.setAttribute('x2', '100'); xAxis.setAttribute('y2', '50');
+                xAxis.setAttribute('stroke', '#4a5568'); xAxis.setAttribute('stroke-width', '1');
+                svg.appendChild(xAxis);
+                const yAxis = document.createElementNS(svgNS, 'line');
+                yAxis.setAttribute('x1', '50'); yAxis.setAttribute('y1', '0');
+                yAxis.setAttribute('x2', '50'); yAxis.setAttribute('y2', '100');
+                yAxis.setAttribute('stroke', '#4a5568'); yAxis.setAttribute('stroke-width', '1');
+                svg.appendChild(yAxis);
+                
+                if (suspect.pathData) {
+                    const path = document.createElementNS(svgNS, 'path');
+                    path.setAttribute('d', suspect.pathData);
+                    path.setAttribute('fill', 'none');
+                    path.setAttribute('stroke', '#4299e1');
+                    path.setAttribute('stroke-width', '3');
+                    path.setAttribute('stroke-linecap', 'round');
+                    svg.appendChild(path);
+                } else if (suspect.points) {
+                    suspect.points.forEach(point => {
+                        const circle = document.createElementNS(svgNS, 'circle');
+                        circle.setAttribute('cx', point[0]);
+                        circle.setAttribute('cy', point[1]);
+                        circle.setAttribute('r', '3');
+                        circle.setAttribute('fill', '#63b3ed');
+                        svg.appendChild(circle);
+                    });
+                }
+                card.appendChild(svg);
+            }
+            else { // Default is SVG mapping
+                const svg = document.createElementNS(svgNS, "svg");
+                svg.setAttribute('viewBox', '0 0 200 120');
+                svg.setAttribute('class', 'w-full h-auto');
+                const defs = document.createElementNS(svgNS, 'defs');
+                const marker = document.createElementNS(svgNS, 'marker');
+                marker.setAttribute('id', 'arrowhead');
+                marker.setAttribute('viewBox', '0 -5 10 10');
+                marker.setAttribute('refX', '8'); marker.setAttribute('refY', '0');
+                marker.setAttribute('markerWidth', '5'); marker.setAttribute('markerHeight', '5');
+                marker.setAttribute('orient', 'auto');
+                const path = document.createElementNS(svgNS, 'path');
+                path.setAttribute('d', 'M0,-5L10,0L0,5');
+                path.setAttribute('fill', '#cbd5e0');
+                marker.appendChild(path);
+                defs.appendChild(marker);
+                svg.appendChild(defs);
+                const rangeBox = document.createElementNS(svgNS, 'rect');
+                rangeBox.setAttribute('x', '10'); rangeBox.setAttribute('y', '10'); rangeBox.setAttribute('width', '60'); rangeBox.setAttribute('height', '100'); rangeBox.setAttribute('rx', '8'); rangeBox.setAttribute('class', 'range-box');
+                svg.appendChild(rangeBox);
+                const rangeLabel = document.createElementNS(svgNS, 'text');
+                rangeLabel.setAttribute('x', '40'); rangeLabel.setAttribute('y', '22'); rangeLabel.setAttribute('text-anchor', 'middle'); rangeLabel.textContent = 'المدى';
+                svg.appendChild(rangeLabel);
+                const domainBox = document.createElementNS(svgNS, 'rect');
+                domainBox.setAttribute('x', '130'); domainBox.setAttribute('y', '10'); domainBox.setAttribute('width', '60'); domainBox.setAttribute('height', '100'); domainBox.setAttribute('rx', '8'); domainBox.setAttribute('class', 'domain-box');
+                svg.appendChild(domainBox);
+                const domainLabel = document.createElementNS(svgNS, 'text');
+                domainLabel.setAttribute('x', '160'); domainLabel.setAttribute('y', '22'); domainLabel.setAttribute('text-anchor', 'middle'); domainLabel.textContent = 'المجال';
+                svg.appendChild(domainLabel);
+                const domainYStep = 80 / (suspect.domain.length + 1);
+                suspect.domain.forEach((item, i) => {
+                    const y = 25 + (i + 1) * domainYStep;
+                    const text = document.createElementNS(svgNS, 'text');
+                    text.setAttribute('x', '160'); text.setAttribute('y', y + 4); text.setAttribute('text-anchor', 'middle');
+                    text.textContent = convertToEasternArabicNumerals(item);
+                    svg.appendChild(text);
+                });
+                const rangeYStep = 80 / (suspect.range.length + 1);
+                suspect.range.forEach((item, i) => {
+                    const y = 25 + (i + 1) * rangeYStep;
+                    const text = document.createElementNS(svgNS, 'text');
+                    text.setAttribute('x', '40'); text.setAttribute('y', y + 4); text.setAttribute('text-anchor', 'middle');
+                    text.textContent = convertToEasternArabicNumerals(item);
+                    svg.appendChild(text);
+                });
+                suspect.mappings.forEach(([domainIndex, rangeIndex]) => {
+                    const startY = 25 + (domainIndex + 1) * domainYStep;
+                    const endY = 25 + (rangeIndex + 1) * rangeYStep;
+                    const line = document.createElementNS(svgNS, 'line');
+                    line.setAttribute('x1', '125'); line.setAttribute('y1', startY); line.setAttribute('x2', '75'); line.setAttribute('y2', endY);
+                    line.setAttribute('marker-end', 'url(#arrowhead)');
+                    svg.appendChild(line);
+                });
+                card.appendChild(svg);
+            }
+            
+            card.addEventListener('click', () => handleSuspectClick(suspect, card));
+            return card;
+        }
+
+        function handleSuspectClick(suspect, card) {
+            if (!gameActive) return;
+            gameActive = false;
+            clearInterval(mainTimerInterval);
+
+            if (suspect.isCulprit) {
+                score += 10;
+                totalTimeBonus += timeLeft;
+                scoreEl.textContent = convertToEasternArabicNumerals(score);
+                card.classList.add('correct');
+                showFeedbackModal(true, suspect.reason, card);
+            } else {
+                card.classList.add('incorrect');
+                const currentCaseData = currentQuestionSet[currentCaseIndex];
+                const culpritSuspect = currentCaseData.suspects.find(s => s.isCulprit);
+                const culpritIndex = currentCaseData.suspects.indexOf(culpritSuspect);
+                const culpritCardEl = suspectsContainer.querySelector(`[data-index="${culpritIndex}"]`);
+                if(culpritCardEl) culpritCardEl.classList.add('correct');
+                showFeedbackModal(false, culpritSuspect.reason, culpritCardEl);
+            }
+        }
+
+        function showFeedbackModal(isCorrect, reason, cardElement, isTimeout = false) {
+            const modalOverlay = document.getElementById('feedback-modal-overlay');
+            const modalContent = document.getElementById('feedback-modal-content');
+            const modalTitle = document.getElementById('feedback-modal-title');
+            const modalIcon = document.getElementById('feedback-modal-icon');
+            const modalButtons = document.getElementById('feedback-modal-buttons');
+            const timerContainer = document.getElementById('feedback-timer-container');
+            
+            // Clear any previous timers and reset content
+            clearTimeout(advanceTimeout);
+            clearInterval(advanceInterval);
+            modalButtons.innerHTML = '';
+            timerContainer.innerHTML = '';
+
+            const jailBarsSVG = `<svg class="w-24 h-24 mx-auto" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M10 10 H 90 V 90 H 10 Z" stroke="#A0AEC0" stroke-width="4"/><path d="M30 10 V 90" stroke="#A0AEC0" stroke-width="4"/><path d="M50 10 V 90" stroke="#A0AEC0" stroke-width="4"/><path d="M70 10 V 90" stroke="#A0AEC0" stroke-width="4"/></svg>`;
+            modalIcon.innerHTML = jailBarsSVG;
+
+            const evidenceBtn = document.createElement('button');
+            evidenceBtn.className = 'btn-primary text-white font-bold py-2 px-5 rounded-lg';
+            evidenceBtn.onclick = () => {
+                clearTimeout(advanceTimeout);
+                clearInterval(advanceInterval);
+                modalOverlay.classList.add('hidden');
+                showExplanationModal('هذا هو المجرم', reason, cardElement.innerHTML);
+            };
+            modalButtons.appendChild(evidenceBtn);
+
+            if (isCorrect) {
+                modalTitle.textContent = 'تم القبض!';
+                modalTitle.className = 'text-2xl font-bold text-green-400';
+                modalContent.style.borderColor = '#48bb78';
+                evidenceBtn.textContent = 'دليل الجريمة';
+            } else { // Incorrect or Timeout
+                modalTitle.textContent = isTimeout ? 'انتهى الوقت!' : 'فر المجرم!';
+                modalTitle.className = 'text-2xl font-bold text-red-400';
+                modalContent.style.borderColor = '#f56565';
+                evidenceBtn.textContent = 'شاهد الدليل';
+            }
+
+            const nextBtn = document.createElement('button');
+            nextBtn.className = 'bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-5 rounded-lg';
+            nextBtn.textContent = 'التالي';
+            nextBtn.onclick = () => {
+                clearTimeout(advanceTimeout);
+                clearInterval(advanceInterval);
+                modalOverlay.classList.add('hidden');
+                loadNextCaseOrEnd();
+            };
+            if (!isTimeout) { // Only add next button if it's not a timeout
+                modalButtons.appendChild(nextBtn);
+            }
+            
+            // --- Start Timer ---
+            timerContainer.style.display = 'block';
+            const timerSVG = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            timerSVG.setAttribute('class', 'absolute top-0 left-0 w-full h-full');
+            timerSVG.setAttribute('viewBox', '0 0 40 40');
+            timerSVG.style.transform = 'rotate(-90deg)';
+            const radius = 18;
+            const circumference = 2 * Math.PI * radius;
+            timerSVG.innerHTML = `
+                <circle class="stroke-current text-gray-600" stroke-width="4" fill="transparent" r="${radius}" cx="20" cy="20"/>
+                <circle id="timer-progress-circle" class="stroke-current text-blue-400" stroke-width="4" stroke-linecap="round" fill="transparent" r="${radius}" cx="20" cy="20"
+                        stroke-dasharray="${circumference}" stroke-dashoffset="${circumference}"/>
+            `;
+            
+            const timerText = document.createElement('span');
+            timerText.className = 'feedback-timer-text';
+            
+            timerContainer.appendChild(timerSVG);
+            timerContainer.appendChild(timerText);
+            
+            let modalTimeLeft = 7;
+            timerText.textContent = convertToEasternArabicNumerals(modalTimeLeft);
+
+            const progressCircle = timerSVG.querySelector('#timer-progress-circle');
+            progressCircle.getBoundingClientRect(); // Force reflow
+            
+            progressCircle.style.transition = `stroke-dashoffset ${modalTimeLeft}s linear`;
+            progressCircle.style.strokeDashoffset = 0;
+
+            advanceInterval = setInterval(() => {
+                modalTimeLeft--;
+                if (modalTimeLeft >= 0) {
+                     timerText.textContent = convertToEasternArabicNumerals(modalTimeLeft);
+                }
+            }, 1000);
+
+            advanceTimeout = setTimeout(() => {
+                clearInterval(advanceInterval);
+                modalOverlay.classList.add('hidden');
+                loadNextCaseOrEnd();
+            }, 7000);
+            
+            modalOverlay.classList.remove('hidden');
+            setTimeout(() => modalContent.classList.replace('scale-95', 'scale-100'), 10);
+        }
+
+        function showExplanationModal(title, reason, cardHTML) {
+            const modalOverlay = document.getElementById('explanation-modal-overlay');
+            const modalContent = modalOverlay.querySelector('.modal-content');
+            document.getElementById('explanation-modal-title').textContent = title;
+            document.getElementById('explanation-modal-reason').textContent = `السبب: ${reason}`;
+            const culpritCardContainer = document.getElementById('explanation-culprit-card');
+            culpritCardContainer.innerHTML = cardHTML;
+            if (culpritCardContainer.firstElementChild) {
+                culpritCardContainer.firstElementChild.style.cursor = 'default';
+                culpritCardContainer.firstElementChild.classList.add('correct');
+            }
+            modalOverlay.classList.remove('hidden');
+            setTimeout(() => modalContent.classList.replace('scale-95', 'scale-100'), 10);
+        }
+
+        function loadNextCaseOrEnd() {
+            clearInterval(mainTimerInterval);
+
+            if (currentCaseIndex < currentQuestionSet.length - 1) {
+                currentCaseIndex++;
+                loadCase(currentCaseIndex);
+            } else {
+                gameScreen.classList.add('hidden');
+                endScreen.classList.remove('hidden');
+                saveAndFinishGame(score, totalTimeBonus);
+            }
+        }
+
+        function handleTimeout() {
+            if (!gameActive) return;
+            gameActive = false;
+            
+            const currentCaseData = currentQuestionSet[currentCaseIndex];
+            const culpritSuspect = currentCaseData.suspects.find(s => s.isCulprit);
+            const culpritIndex = currentCaseData.suspects.indexOf(culpritSuspect);
+            const culpritCardEl = suspectsContainer.querySelector(`[data-index="${culpritIndex}"]`);
+            
+            suspectsContainer.querySelectorAll('.card').forEach(card => card.classList.add('incorrect'));
+            if (culpritCardEl) culpritCardEl.classList.add('correct');
+            
+            showFeedbackModal(false, culpritSuspect.reason, culpritCardEl, true);
+        }
+
+        function startTimer() {
+            timeLeft = 20;
+            timerEl.textContent = `الوقت: ${convertToEasternArabicNumerals(timeLeft)}`;
+            timerEl.classList.remove('text-red-500');
+
+            clearInterval(mainTimerInterval); 
+
+            mainTimerInterval = setInterval(() => {
+                timeLeft--;
+                timerEl.textContent = `الوقت: ${convertToEasternArabicNumerals(timeLeft)}`;
+                if (timeLeft <= 5) {
+                    timerEl.classList.add('text-red-500');
+                }
+                if (timeLeft <= 0) {
+                    clearInterval(mainTimerInterval);
+                    handleTimeout();
+                }
+            }, 1000);
+        }
+
+        document.getElementById('explanation-modal-close-btn').addEventListener('click', () => {
+             const modalOverlay = document.getElementById('explanation-modal-overlay');
+             const modalContent = modalOverlay.querySelector('.modal-content');
+             modalContent.classList.replace('scale-100', 'scale-95');
+             setTimeout(() => {
+                modalOverlay.classList.add('hidden');
+                loadNextCaseOrEnd();
+             }, 300);
+        });
+        
+        function loadCase(caseIndex) {
+            gameActive = true;
+            suspectsContainer.innerHTML = '';
+            caseNumberEl.textContent = convertToEasternArabicNumerals(caseIndex + 1);
+            const currentCaseData = currentQuestionSet[caseIndex];
+            const suspects = [...currentCaseData.suspects];
+            shuffleArray(suspects);
+            suspects.forEach((suspect, index) => {
+                const originalIndex = currentCaseData.suspects.indexOf(suspect);
+                const card = createSuspectCard(suspect, originalIndex);
+                suspectsContainer.appendChild(card);
+            });
+            startTimer();
+        }
+        
+        function startGame() {
+            const bankKeys = Object.keys(allQuestionBanks);
+            const randomBankKey = bankKeys[Math.floor(Math.random() * bankKeys.length)];
+            currentQuestionSet = [...allQuestionBanks[randomBankKey]];
+            shuffleArray(currentQuestionSet);
+
+            startScreen.classList.add('hidden');
+            endScreen.classList.add('hidden');
+            gameScreen.classList.remove('hidden');
+            currentCaseIndex = 0;
+            score = 0;
+            totalTimeBonus = 0;
+            scoreEl.textContent = convertToEasternArabicNumerals(score);
+            loadCase(currentCaseIndex);
+        }
+
+        startGameBtn.addEventListener('click', startGame);
+        playAgainBtn.addEventListener('click', startGame);
+
+        // --- START OF CONNECTION & LEADERBOARD ENGINE ---
+        (function() {
+            // --- CONFIGURATION (عدّل هذه الإعدادات لكل لعبة) ---
+            const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
+            const GAME_ID = 'g2_2_1';
+            const GAME_MAX_POINTS = 100;
+            const PLATFORM_MAX_GRADE = 5;
+            const METRIC_TYPE = 'score';
+            const METRIC_LABEL = 'نقاط السرعة';
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const studentId = urlParams.get('studentId');
+            const classId = urlParams.get('classId');
+            const studentName = urlParams.get('studentName');
+            let currentUser = (studentId && studentName) ? { id: studentId, name: studentName } : null;
+
+            window.saveAndFinishGame = function(points, metricValue) {
+                const finalPoints = parseFloat(points) || 0;
+                const finalMetric = parseFloat(metricValue) || 0;
+                const maxPoints = parseFloat(GAME_MAX_POINTS) || 1;
+                const finalGrade = (finalPoints / maxPoints) * PLATFORM_MAX_GRADE;
+                const resultDisplay = document.getElementById('final-result-display');
+                if (resultDisplay) {
+                    resultDisplay.innerHTML = `
+                        <p class="text-gray-300">النقاط: <span class="font-bold text-lg text-yellow-300">${convertToEasternArabicNumerals(finalPoints)} / ${convertToEasternArabicNumerals(maxPoints)}</span></p>
+                        <p class="text-blue-400">الدرجة: <span class="font-bold text-xl">${convertToEasternArabicNumerals(finalGrade.toFixed(1))} / ${convertToEasternArabicNumerals(PLATFORM_MAX_GRADE)}</span></p>
+                    `;
+                }
+                if (studentId && classId) {
+                    const params = new URLSearchParams({ action: 'saveGrade', studentId, classId, itemId: GAME_ID, grade: finalGrade.toFixed(2), metricValue: Math.round(finalMetric).toString() });
+                    fetch(`${SCRIPT_URL}?${params.toString()}`)
+                        .then(res => res.json()).then(result => console.log('Save result:', result.status))
+                        .catch(err => console.error("Save Error:", err)).finally(fetchAndShowLeaderboard);
+                } else {
+                    console.log(`Visitor finished. Score: ${finalPoints}, Metric: ${finalMetric}`);
+                    fetchAndShowLeaderboard();
+                }
+            }
+            function fetchAndShowLeaderboard() {
+                const loader = document.getElementById('leaderboard-loader');
+                const container = document.getElementById('leaderboard-container');
+                if (!loader || !container) return;
+                if (!classId) {
+                    container.innerHTML = `<p class="text-center text-gray-400 mt-4">سجل الأبطال متاح للطلاب المسجلين فقط.</p>`;
+                    showFinishButton();
+                    return;
+                }
+                loader.style.display = 'block';
+                container.innerHTML = '';
+                const params = new URLSearchParams({ action: 'getLeaderboard', gameId: GAME_ID, metricType: METRIC_TYPE, classId: classId });
+                fetch(`${SCRIPT_URL}?${params.toString()}`)
+                    .then(res => res.json())
+                    .then(response => {
+                        if (response.status === 'success' && response.data) displayLeaderboard(response.data);
+                        else throw new Error(response.message || 'Failed to load leaderboard data.');
+                    })
+                    .catch(err => {
+                        console.error("Leaderboard Error:", err);
+                        container.innerHTML = `<p class="text-center text-red-500">حدث خطأ في تحميل سجل الأبطال.</p>`;
+                    })
+                    .finally(() => {
+                        loader.style.display = 'none';
+                        showFinishButton();
+                    });
+            }
+            function displayLeaderboard(data) {
+                const container = document.getElementById('leaderboard-container');
+                if (!data || data.length === 0) {
+                    container.innerHTML = `<p class="text-center text-gray-400 mt-4">لا توجد نتائج بعد. كن أول الأبطال!</p>`;
+                    return;
+                }
+                let tableHTML = `<div class="mt-4 border-t border-gray-600 pt-3"><h3 class="text-xl font-bold text-center text-white mb-2">🏆 سجل الأبطال 🏆</h3><table class="w-full text-base bg-gray-700 bg-opacity-70 shadow-md rounded-lg overflow-hidden"><thead class="bg-black bg-opacity-30 text-white"><tr><th class="text-center p-3">الترتيب</th><th class="text-right p-3">اسم الطالب</th><th class="text-center p-3">الدرجة</th><th class="text-center p-3">${METRIC_LABEL}</th></tr></thead><tbody class="text-gray-200">`;
+                data.forEach((player, index) => {
+                    const rank = index + 1;
+                    let rankDisplay = convertToEasternArabicNumerals(rank);
+                    if (rank === 1) rankDisplay = '🥇'; if (rank === 2) rankDisplay = '🥈'; if (rank === 3) rankDisplay = '🥉';
+                    const isCurrentUser = (currentUser && player.name === currentUser.name);
+                    const rowClass = isCurrentUser ? 'bg-blue-800 bg-opacity-50 font-bold' : 'bg-gray-700 bg-opacity-50';
+                    tableHTML += `<tr class="${rowClass}"><td class="text-center p-3 text-lg">${rankDisplay}</td><td class="text-right p-3">${player.name}</td><td class="text-center p-3">${convertToEasternArabicNumerals(parseFloat(player.grade).toFixed(1))}</td><td class="text-center p-3">${convertToEasternArabicNumerals(player.metricValue)}</td></tr>`;
+                });
+                tableHTML += `</tbody></table></div>`;
+                container.innerHTML = tableHTML;
+            }
+            function showFinishButton() {
+                const finishWrapper = document.getElementById('finish-game-wrapper');
+                if (finishWrapper) finishWrapper.style.display = 'flex';
+            }
+            document.addEventListener('DOMContentLoaded', () => {
+                const welcomeMessage = document.getElementById('welcomeMessage');
+                if (studentName && welcomeMessage) {
+                    welcomeMessage.innerHTML = `أهلاً بك يا <span class="font-bold text-yellow-300">${studentName}</span>! مهمتك هي فحص الأدلة والعثور على العلاقة "المجرمة" التي خالفت قوانين الدوال.`;
+                }
+                const finishBtn = document.getElementById('finish-game-btn');
+                if (finishBtn) {
+                    finishBtn.addEventListener('click', () => {
+                        window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*');
+                    });
+                }
+            });
+        })();
+        // --- END OF CONNECTION & LEADERBOARD ENGINE ---
+
+    </script>
+</body>
+</html>
+

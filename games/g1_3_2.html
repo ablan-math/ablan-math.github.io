@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>المغامرة  الجبلية</title>
+    <title>المغامرة الجبلية</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
     <style>
@@ -193,9 +193,22 @@
 
         @media (max-width: 640px) {
             .modal { padding: 1rem; }
-            #runeQuestion { font-size: 1.2rem; } .rune-answer { font-size: 1rem; } #info { font-size: 1rem; }
+            #runeQuestion { font-size: 1.2rem; } 
+            .rune-answer { font-size: 1rem; } 
+            #info { font-size: 1rem; }
             .step { flex-direction: column; align-items: flex-start; }
             .step-math { margin-bottom: 0.5rem; }
+            
+            /* New styles for mobile */
+            .heart {
+                font-size: 1.5rem; /* تصغير حجم القلوب */
+            }
+            #questionTimer, #questionCounter {
+                font-size: 1.2rem; /* تصغير حجم معلومات الوقت والعداد */
+            }
+            #livesContainer, #questionHeader {
+                top: 15px; /* تعديل المسافة العلوية قليلاً */
+            }
         }
     </style>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -218,7 +231,8 @@
     </div>
     
     <div id="finalScoreModal" class="modal hidden">
-        <h2 class="text-4xl font-bold mb-4 text-yellow-300">انتهت المغامرة!</h2>
+        <h2 id="finalScoreTitle" class="text-4xl font-bold mb-4 text-yellow-300"></h2>
+        <p id="finalScoreMessage" class="text-xl mb-4 hidden text-red-400"></p>
         
         <!-- 1. لعرض نتيجة الطالب الحالية -->
         <div id="final-result-display" class="text-center text-xl mt-4 bg-gray-100 p-4 rounded-lg"></div>
@@ -238,12 +252,6 @@
                 إنهاء والعودة للمنصة
             </button>
         </div>
-    </div>
-    
-    <div id="gameOverModal" class="modal hidden">
-        <h2 class="text-4xl font-bold mb-4 text-red-500">انتهت اللعبة</h2>
-        <p class="text-xl mb-6">لقد نفدت أرواحك.</p>
-        <button onclick="window.location.reload()" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg text-xl transition-colors duration-300">حاول مرة أخرى</button>
     </div>
 
     <div id="runeQuizOverlay">
@@ -301,7 +309,7 @@
         let controls = { forward: false, backward: false, left: false, right: false };
         let playerSpeed = 0.075;
         let webObstacle1, webObstacle2, archwayObstacle;
-        let gamePaused = true, isGameStarted = false;
+        let gamePaused = true, isGameStarted = false, isGameOver = false;
         let staticColliders = [];
         let currentStage = 0; // 0: Web1, 1: Web2, 2: Archway
         const worldBounds = { x: 15, z: 150 };
@@ -362,7 +370,7 @@
             [
                 { question: "ما هي الخطوات اللازمة لحل المعادلة: ٨ = ٦ - ٢ص ؟", answers: ["أولاً: نطرح ٦ من الطرفين، ثانياً: نقسم الطرفين على -٢", "أولاً: نجمع ٦ للطرفين، ثانياً: نقسم الطرفين على -٢", "أولاً: نقسم الطرفين على -٢، ثانياً: نطرح ٦ من الطرفين", "أولاً: نطرح ٦ من الطرفين، ثانياً: نضرب الطرفين في -٢"], correctAnswer: "أولاً: نطرح ٦ من الطرفين، ثانياً: نقسم الطرفين على -٢", detailedExplanation: [{step: "٨ = ٦ - ٢ص", reason: "المعادلة الأصلية"}, {step: "٨ - ٦ = ٦ - ٢ص - ٦", reason: "نطرح ٦ من كلا الطرفين"}, {step: "٢ = -٢ص", reason: "نتيجة الطرح"}, {html: `<div class='frac'><span>٢</span><span>-٢</span></div> = <div class='frac'><span>-٢ص</span><span>-٢</span></div>`, reason: "نقسم كلا الطرفين على -٢"}, {step: "-١ = ص", reason: "الحل النهائي"}] },
                 { question: "ما هي الخطوات اللازمة لحل المعادلة: ١٠ = ٤ - ٢ص ؟", answers: ["أولاً: نطرح ٤ من الطرفين، ثانياً: نقسم الطرفين على -٢", "أولاً: نجمع ٤ للطرفين، ثانياً: نقسم الطرفين على -٢", "أولاً: نقسم الطرفين على -٢، ثانياً: نطرح ٤ من الطرفين", "أولاً: نطرح ٤ من الطرفين، ثانياً: نضرب الطرفين في -٢"], correctAnswer: "أولاً: نطرح ٤ من الطرفين، ثانياً: نقسم الطرفين على -٢", detailedExplanation: [{step: "١٠ = ٤ - ٢ص", reason: "المعادلة الأصلية"}, {step: "١٠ - ٤ = ٤ - ٢ص - ٤", reason: "نطرح ٤ من كلا الطرفين"}, {step: "٦ = -٢ص", reason: "نتيجة الطرح"}, {html: `<div class='frac'><span>٦</span><span>-٢</span></div> = <div class='frac'><span>-٢ص</span><span>-٢</span></div>`, reason: "نقسم كلا الطرفين على -٢"}, {step: "-٣ = ص", reason: "الحل النهائي"}] },
-                { question: "ما هي الخطوات اللازمة لحل المعادلة: ١٢ = ٩ - ٣ص ؟", answers: ["أولاً: نطرح ٩ من الطرفين، ثانياً: نقسم الطرفين على -٣", "أولاً: نجمع ٩ للطرفين، ثانياً: نقسم الطرفين على -٣", "أولاً: نقسم الطرفين على -٣، ثانياً: نطرح ٩ من الطرفين", "أولاً: نطرح ٩ من الطرفين، ثانياً: نضرب الطرفين في -٣"], correctAnswer: "أولاً: نطرح ٩ من الطرفين، ثانياً: نقسم الطرفين على -٣", detailedExplanation: [{step: "١٢ = ٩ - ٣ص", reason: "المعادلة الأصلية"}, {step: "١٢ - ٩ = ٩ - ٣ص - ٩", reason: "نطرح ٩ من كلا الطرفين"}, {step: "٣ = -٣ص", reason: "نتيجة الطرح"}, {html: `<div class='frac'><span>٣</span><span>-٣</span></div> = <div class='frac'><span>-٣ص</span><span>-٣</span></div>`, reason: "نقسم كلا الطرفين على -٣"}, {step: "-١ = ص", reason: "الحل النهائي"}] }
+                { question: "ما هي الخطوات اللازمة لحل المعادلة: ١٢ = ٩ - ٣ص ؟", answers: ["أولاً: نطرح ٩ من الطرفين، ثانياً: نقسم الطرفين على -٣", "أولاً: نجمع ٩ للطرفين، ثانياً: نقسم الطرفين على -٣", "أولاً: نقسم الطرفين على -٣، ثانياً: نطرح ٩ من الطرفين", "أولاً: نطرح ٩ من الطرفين، ثانياً: نضرب الطرفين في -٣"], correctAnswer: "أولاً: نطرح ٩ من الطرفين، ثانياً: نقسم الطرفين على -٣", detailedExplanation: [{step: "١٢ = ٩ - ٣ص", reason: "المعادلة الأصلية"}, {step: "١2 - ٩ = ٩ - ٣ص - ٩", reason: "نطرح ٩ من كلا الطرفين"}, {step: "٣ = -٣ص", reason: "نتيجة الطرح"}, {html: `<div class='frac'><span>٣</span><span>-٣</span></div> = <div class='frac'><span>-٣ص</span><span>-٣</span></div>`, reason: "نقسم كلا الطرفين على -٣"}, {step: "-١ = ص", reason: "الحل النهائي"}] }
             ],
             // Bank 8
             [
@@ -646,7 +654,7 @@
                 if(poisonSound) poisonSound.triggerAttackRelease("G#2", "8n");
 
                 if (playerLives <= 0) {
-                    showGameOver();
+                    endGame(false); // End game on loss
                     return;
                 }
             }
@@ -722,7 +730,7 @@
                     archwayObstacle.children.forEach(rock => {
                         staticColliders.splice(staticColliders.indexOf(rock), 1);
                     });
-                    showFinalScore();
+                    endGame(true); // End game on win
                     return;
                 }
                 currentStage++;
@@ -732,19 +740,31 @@
             }
         }
         
-        function showFinalScore() {
-            gamePaused = true;
-            document.getElementById('finalScoreModal').classList.remove('hidden');
-            if(winSound) winSound.triggerAttackRelease(["C4", "E4", "G4"], "1n");
-            
-            // Call the save function
-            saveAndFinishGame(correctAnswersCount, totalGameTime);
-        }
+        function endGame(isWin) {
+            if (isGameOver) return;
+            isGameOver = true;
 
-        function showGameOver() {
             gamePaused = true;
             document.getElementById('resultModal').classList.add('hidden');
-            document.getElementById('gameOverModal').classList.remove('hidden');
+            const modal = document.getElementById('finalScoreModal');
+            const title = document.getElementById('finalScoreTitle');
+            const message = document.getElementById('finalScoreMessage');
+
+            if (isWin) {
+                title.innerText = "انتهت المغامرة!";
+                title.className = "text-4xl font-bold mb-4 text-yellow-300";
+                if(winSound) winSound.triggerAttackRelease(["C4", "E4", "G4"], "1n");
+            } else {
+                title.innerText = "انتهت اللعبة";
+                title.className = "text-4xl font-bold mb-4 text-red-500";
+                if (message) {
+                    message.innerText = "لقد نفدت أرواحك.";
+                    message.classList.remove('hidden');
+                }
+            }
+
+            modal.classList.remove('hidden');
+            saveAndFinishGame(correctAnswersCount, totalGameTime);
         }
 
         // --- Movement & Physics ---
@@ -1140,3 +1160,4 @@
     <!-- END OF CONNECTION & LEADERBOARD ENGINE -->
 </body>
 </html>
+

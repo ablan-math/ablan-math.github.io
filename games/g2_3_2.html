@@ -1,0 +1,1777 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لعبة باخرة الحاويات - إصدار الميناء</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #1a202c;
+            --primary-color: #2d3748;
+            --secondary-color: #4a5568;
+            --accent-color: #4299e1;
+            --glow-color: #63b3ed;
+            --success-color: #48bb78;
+            --error-color: #e53e3e;
+            --text-color: #e2e8f0;
+            --selected-glow: #e6ff33;
+        }
+
+        body {
+            font-family: 'Cairo', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            overflow: hidden;
+        }
+        
+        /* --- Screen Overlays (Start/End) --- */
+        .screen-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(26, 32, 44, 0.85);
+            backdrop-filter: blur(5px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            z-index: 100;
+            padding: 2rem;
+            box-sizing: border-box;
+            transition: opacity 0.5s;
+        }
+        
+        .start-box {
+            background-color: rgba(26, 32, 44, 0.7);
+            border: 1px solid var(--secondary-color);
+            border-radius: 20px;
+            padding: 1.5rem 2rem;
+            max-width: 500px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+        }
+
+        .screen-overlay h1 {
+            font-size: 2.2rem;
+            color: var(--accent-color);
+            text-shadow: 0 0 15px var(--glow-color);
+            margin-bottom: 0.5rem;
+        }
+
+        .screen-overlay p {
+            font-size: 1rem;
+            max-width: 600px;
+            line-height: 1.5;
+            color: #a0aec0;
+            margin-bottom: 0.5rem;
+        }
+        
+        .screen-overlay .standard-form {
+            font-family: monospace;
+            font-size: 1.2rem;
+            background-color: rgba(0,0,0,0.3);
+            padding: 0.5rem 1rem;
+            border-radius: 10px;
+            border: 1px dashed var(--accent-color);
+            margin: 0.5rem 0;
+            direction: ltr; /* Ensure formula displays correctly */
+        }
+        
+        .screen-overlay .developer-credit {
+            margin-top: 1rem;
+            font-size: 0.8rem;
+            color: #718096;
+        }
+        
+        .screen-overlay button {
+            background-color: var(--success-color);
+            color: white;
+            border: none;
+            padding: 0.8rem 2rem;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-family: 'Cairo', sans-serif;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.2s;
+            margin-top: 1.5rem;
+        }
+        
+        .screen-overlay button:hover {
+            background-color: #68d391;
+            transform: scale(1.05);
+        }
+
+        #end-screen .results {
+            font-size: 1.2rem;
+            margin: 1rem 0;
+            background-color: rgba(0,0,0,0.2);
+            padding: 1rem;
+            border-radius: 10px;
+        }
+        
+        /* --- Game UI --- */
+        #info-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 1rem;
+            box-sizing: border-box;
+            background: linear-gradient(180deg, rgba(26, 32, 44, 0.2) 0%, rgba(26, 32, 44, 0) 100%);
+            text-align: center;
+            z-index: 10;
+            pointer-events: none;
+            visibility: hidden; /* Hidden by default */
+        }
+        
+        h1, .problem-display, .feedback, .instructions-text {
+            user-select: none;
+        }
+        
+        .problem-display {
+            background-color: rgba(0,0,0,0.5);
+            padding: 0.5rem 1rem;
+            border-radius: 10px;
+            margin: 0.5rem auto;
+            font-size: 1.5rem;
+            font-weight: bold;
+            letter-spacing: 2px;
+            border: 1px dashed var(--accent-color);
+            color: var(--text-color);
+            display: inline-block;
+        }
+        
+        #controls-container {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            padding: 1rem;
+            box-sizing: border-box;
+            background: linear-gradient(0deg, rgba(26, 32, 44, 0.7) 0%, rgba(26, 32, 44, 0) 100%);
+            text-align: center;
+            z-index: 10;
+            pointer-events: none;
+            visibility: hidden; /* Hidden by default */
+        }
+
+        .feedback {
+            font-size: 1rem;
+            font-weight: bold;
+            height: 20px;
+            margin-bottom: 0.5rem;
+            color: var(--success-color);
+            text-shadow: 0 0 8px var(--success-color);
+            transition: color 0.3s;
+        }
+
+        .controls {
+            position: relative;
+            z-index: 1;
+        }
+
+        .controls button {
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 0.6rem 1.2rem;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-family: 'Cairo', sans-serif;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.2s, opacity 0.3s;
+            margin: 0 5px;
+            pointer-events: auto;
+        }
+
+        .controls button:hover {
+            background-color: var(--glow-color);
+            transform: translateY(-2px);
+        }
+
+        #next-btn {
+            background-color: var(--success-color);
+            display: none;
+        }
+        
+        #scene-canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        .instructions-text {
+            margin-bottom: 1rem;
+            color: #e2e8f0;
+            font-size: 0.9rem;
+            text-shadow: 0 0 5px #000;
+            transition: opacity 0.5s;
+        }
+
+        #help-icon {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            width: 40px;
+            height: 40px;
+            background-color: rgba(74, 85, 104, 0.8);
+            color: var(--text-color);
+            border: 1px solid var(--secondary-color);
+            border-radius: 50%;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            font-weight: bold;
+            cursor: pointer;
+            pointer-events: auto;
+            user-select: none;
+            transition: background-color 0.3s;
+            z-index: 20;
+        }
+
+        /* --- Tutorial, Explanation, and Timer Styles --- */
+        .tutorial-overlay {
+            position: absolute;
+            top: 15%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            max-width: 500px;
+            z-index: 50;
+            pointer-events: none;
+            display: flex;
+            justify-content: center;
+        }
+        .tutorial-box {
+            background-color: rgba(26, 32, 44, 0.9);
+            border: 1px solid var(--accent-color);
+            border-radius: 15px;
+            padding: 1rem 1.5rem;
+            text-align: center;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            pointer-events: all;
+        }
+        .tutorial-box p {
+            margin: 0 0 1rem 0;
+            font-size: 1.1rem;
+            color: var(--text-color);
+        }
+        .tutorial-box button {
+            background-color: var(--secondary-color);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-family: 'Cairo', sans-serif;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .tutorial-box button:hover {
+            background-color: var(--primary-color);
+        }
+
+        .explanation-box {
+            background-color: rgba(26, 32, 44, 0.9);
+            border: 1px solid var(--accent-color);
+            border-radius: 15px;
+            padding: 1rem;
+            margin: 1rem auto 0;
+            max-width: 500px;
+            opacity: 0;
+            transition: opacity 0.5s ease-in-out;
+            pointer-events: all;
+        }
+
+        .explanation-box h4 {
+            margin-top: 0;
+            color: var(--glow-color);
+            font-size: 1.2rem;
+        }
+
+        .explanation-box p {
+            margin-bottom: 0.5rem;
+            line-height: 1.5;
+            font-size: 1rem;
+        }
+
+        .explanation-box .final-equation {
+            font-family: monospace;
+            font-size: 1.2rem;
+            background-color: rgba(0,0,0,0.3);
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            display: inline-block;
+            margin-top: 0.5rem;
+            border: 1px dashed var(--success-color);
+            direction: ltr;
+            unicode-bidi: embed;
+        }
+
+        #vignette-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(ellipse at center, rgba(0,0,0,0) 50%, rgba(0,0,0,0.7) 100%);
+            z-index: 40;
+            pointer-events: none;
+            display: none;
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+        
+        #exercise-timer {
+            position: absolute;
+            top: 1rem;
+            left: 1rem;
+            background-color: rgba(0,0,0,0.5);
+            color: var(--text-color);
+            padding: 0.5rem 1rem;
+            border-radius: 10px;
+            font-family: monospace;
+            font-size: 1.2rem;
+            pointer-events: all;
+            display: none;
+        }
+
+        #leaderboard-wrapper::-webkit-scrollbar {
+            width: 8px;
+        }
+        #leaderboard-wrapper::-webkit-scrollbar-track {
+            background: var(--primary-color);
+            border-radius: 10px;
+        }
+        #leaderboard-wrapper::-webkit-scrollbar-thumb {
+            background: var(--secondary-color);
+            border-radius: 10px;
+        }
+        #leaderboard-wrapper::-webkit-scrollbar-thumb:hover {
+            background: var(--accent-color);
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="start-screen" class="screen-overlay">
+        <div class="start-box">
+            <h1>لعبة باخرة الحاويات</h1>
+            <p id="welcomeMessage">مرحباً بك! الهدف هو إعادة ترتيب كل معادلة لتطابق الصورة القياسية، ثم تمثيلها على الميزان باستخدام المكعبات الصحيحة.</p>
+            <p>الصورة القياسية هي:</p>
+            <div class="standard-form">أس + ب ص = ج</div>
+            <p class="developer-credit">تطوير وبرمجة: الأستاذ عبد العزيز خالد العبلان</p>
+            <button id="start-btn">ابدأ اللعب</button>
+        </div>
+    </div>
+
+    <div id="end-screen" class="screen-overlay" style="display: none;">
+        <h1>أحسنت!</h1>
+        <p>لقد أكملت جميع المسائل بنجاح.</p>
+        <div id="final-result-display" class="results text-lg text-white">
+            <!-- Content will be injected by JS -->
+        </div>
+        
+        <div id="leaderboard-wrapper" class="w-full max-w-md" style="max-height: 40vh; overflow-y: auto;">
+             <div id="leaderboard-loader" style="display: none;">
+                <p class="text-white">جارٍ تحميل سجل الأبطال...</p>
+            </div>
+            <div id="leaderboard-container"></div>
+        </div>
+
+        <div id="finish-game-wrapper" style="display: none;" class="mt-4 flex gap-4">
+             <button id="play-again-btn">اللعب مرة أخرى</button>
+             <button id="finish-game-btn" class="bg-blue-600 hover:bg-blue-700">إنهاء والعودة للمنصة</button>
+        </div>
+    </div>
+    
+    <div id="info-container">
+         <div id="exercise-timer">00:00</div>
+         <div class="problem-display" id="problem-display"></div>
+         <div id="explanation-box" class="explanation-box" style="display: none;"></div>
+    </div>
+
+    <canvas id="scene-canvas"></canvas>
+
+    <div id="vignette-overlay"></div>
+
+    <!-- Tutorial UI -->
+    <div id="tutorial-overlay" class="tutorial-overlay" style="display: none;">
+        <div id="tutorial-box" class="tutorial-box">
+            <p id="tutorial-text"></p>
+            <button id="skip-tutorial-btn">تخطي التعليمات</button>
+        </div>
+    </div>
+
+    <div id="controls-container">
+        <div class="feedback" id="feedback"></div>
+        <p class="instructions-text">انقر على الحاوية لاختيارها، ثم انقر على المكان المخصص في السفينة لوضعها.</p>
+        <div class="controls">
+            <button id="check-btn">تحميل الشحنة</button>
+            <button id="reset-btn">إفراغ الشحنة</button>
+            <button id="next-btn">الوجهة التالية</button>
+        </div>
+        <div id="help-icon" title="إظهار التعليمات">؟</div>
+    </div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        const containerWidth = 2.4;
+        const containerHeight = 2.4;
+        const containerDepth = 7;
+        const containerColors = [0x4A6A8A, 0xAC4B4B, 0x4A705A]; 
+
+        const tutorialEquation = {
+            problem: "ص = س + ٢",
+            target: { left: ['-x', 'y'], right: ['2'] },
+            poolTerms: [ { value: 'y', text: 'ص' }, { value: 'x', text: 'س' }, { value: '2', text: '٢' } ],
+            solution: "−س + ص = ٢",
+            explanation: "1. المعادلة الأصلية: ص = س + ٢<br>2. الهدف: المتغيرات في طرف والثوابت في طرف.<br>3. ننقل 'س' للطرف الآخر وتتغير إشارته."
+        };
+
+        const questionBanks = [
+            // Bank 1: Simple y = mx + c
+            [
+                { problem: "ص = س + ٥", target: { left: ['-x', 'y'], right: ['5'] }, poolTerms: [ { value: 'y', text: 'ص' }, { value: 'x', text: 'س' }, { value: '5', text: '٥' } ], solution: "س + ص = ٥-", explanation: "1. ننقل 'س' للطرف الآخر فتصبح '-س'." },
+                { problem: "ص = -س - ٢", target: { left: ['x', 'y'], right: ['-2'] }, poolTerms: [ { value: 'y', text: 'ص' }, { value: 'x', text: 'س' }, { value: '2', text: '٢' } ], solution: "س + ص = −٢", explanation: "1. ننقل '-س' للطرف الآخر فتصبح '+س'." },
+                { problem: "ص = ٢س + ١", target: { left: ['-2x', 'y'], right: ['1'] }, poolTerms: [ { value: 'y', text: 'ص' }, { value: '2x', text: '٢س' }, { value: '1', text: '١' } ], solution: " ٢س + ص = ١-", explanation: "1. ننقل '٢س' للطرف الآخر فتصبح '-٢س'." },
+                { problem: "ص = -٤س + ٣", target: { left: ['4x', 'y'], right: ['3'] }, poolTerms: [ { value: 'y', text: 'ص' }, { value: '4x', text: '٤س' }, { value: '3', text: '٣' } ], solution: "٤س + ص = ٣", explanation: "1. ننقل '-٤س' للطرف الآخر فتصبح '+٤س'." }
+            ],
+            // Bank 2: Variables on both sides
+            [
+                { problem: "ص + س = ٥", target: { left: ['x', 'y'], right: ['5'] }, poolTerms: [ { value: 'y', text: 'ص' }, { value: 'x', text: 'س' }, { value: '5', text: '٥' } ], solution: "س + ص = ٥", explanation: "المعادلة مرتبة وجاهزة على الصورة القياسية." },
+                { problem: "٢س + ص = ٦", target: { left: ['2x', 'y'], right: ['6'] }, poolTerms: [ { value: 'y', text: 'ص' }, { value: '2x', text: '٢س' }, { value: '6', text: '٦' } ], solution: "٢س + ص = ٦", explanation: "المعادلة مرتبة وجاهزة على الصورة القياسية." },
+                { problem: "ص - ٣س = -١", target: { left: ['-3x', 'y'], right: ['-1'] }, poolTerms: [ { value: 'y', text: 'ص' }, { value: '3x', text: '٣س' }, { value: '1', text: '١' } ], solution: "٣س + ص = −١-", explanation: "المعادلة مرتبة وجاهزة على الصورة القياسية." },
+                { problem: "٤س = ٨ - ص", target: { left: ['4x', 'y'], right: ['8'] }, poolTerms: [ { value: 'y', text: 'ص' }, { value: '4x', text: '٤س' }, { value: '8', text: '٨' } ], solution: "٤س + ص = ٨", explanation: "1. ننقل '-ص' للطرف الآخر فتصبح '+ص'." }
+            ],
+            // Bank 3: Coefficient on y
+            [
+                { problem: "٢ص = ٦س - ٤", target: { left: ['-6x', '2y'], right: ['-4'] }, poolTerms: [ { value: '2y', text: '٢ص' }, { value: '6x', text: '٦س' }, { value: '4', text: '٤' } ], solution: "٦س + ٢ص = −٤-", explanation: "1. ننقل '٦س' للطرف الآخر فتصبح '-٦س'." },
+                { problem: "٣ص = -٩س + ١٢", target: { left: ['9x', '3y'], right: ['12'] }, poolTerms: [ { value: '3y', text: '٣ص' }, { value: '9x', text: '٩س' }, { value: '12', text: '١٢' } ], solution: "٩س + ٣ص = ١٢", explanation: "1. ننقل '-٩س' للطرف الآخر فتصبح '+٩س'." },
+                { problem: "٥ص + ١٠ = ١٥س", target: { left: ['-15x', '5y'], right: ['-10'] }, poolTerms: [ { value: '5y', text: '٥ص' }, { value: '15x', text: '١٥س' }, { value: '10', text: '١٠' } ], solution: " ١٥س + ٥ص = −١٠-", explanation: "1. ننقل '١٥س' للطرف الأيمن فتصبح '-١٥س'.<br>2. ننقل '+١٠' للطرف الأيسر فتصبح '-١٠'." },
+                { problem: "-٢ص = ٨س + ٢", target: { left: ['-8x', '-2y'], right: ['2'] }, poolTerms: [ { value: '2y', text: '٢ص' }, { value: '8x', text: '٨س' }, { value: '2', text: '٢' } ], solution: "٨س − ٢ص = ٢-", explanation: "1. ننقل '٨س' للطرف الآخر فتصبح '-٨س'." }
+            ],
+            // Bank 4: Rearranging constants and variables
+            [
+                { problem: "س + ٥ = ص", target: { left: ['x', '-y'], right: ['-5'] }, poolTerms: [ { value: 'x', text: 'س' }, { value: 'y', text: 'ص' }, { value: '5', text: '٥' } ], solution: "س − ص = −٥", explanation: "1. ننقل 'ص' للطرف الأيمن فتصبح '-ص'.<br>2. ننقل '+٥' للطرف الأيسر فتصبح '-٥'." },
+                { problem: "٤ + ص = ٢س", target: { left: ['-2x', 'y'], right: ['-4'] }, poolTerms: [ { value: 'y', text: 'ص' }, { value: '2x', text: '٢س' }, { value: '4', text: '٤' } ], solution: "٢س + ص = −٤-", explanation: "1. ننقل '٢س' للطرف الأيمن فتصبح '-٢س'.<br>2. ننقل '+٤' للطرف الأيسر فتصبح '-٤'." },
+                { problem: "٣س = ٥ + ص", target: { left: ['3x', '-y'], right: ['5'] }, poolTerms: [ { value: '3x', text: '٣س' }, { value: 'y', text: 'ص' }, { value: '5', text: '٥' } ], solution: "٣س − ص = ٥", explanation: "1. ننقل 'ص' للطرف الآخر فتصبح '-ص'." },
+                { problem: "٧ - س = ص", target: { left: ['-x', '-y'], right: ['-7'] }, poolTerms: [ { value: 'x', text: 'س' }, { value: 'y', text: 'ص' }, { value: '7', text: '٧' } ], solution: "س − ص = −٧-", explanation: "1. ننقل 'ص' للطرف الأيمن فتصبح '-ص'.<br>2. ننقل '+٧' للطرف الأيسر فتصبح '-٧'." }
+            ],
+            // Bank 5: Mixed equations
+            [
+                { problem: "ص = ٣س − ٤", target: { left: ['-3x', 'y'], right: ['-4'] }, poolTerms: [ { value: 'y', text: 'ص' }, { value: '3x', text: '٣س' }, { value: '4', text: '٤' } ], solution: "٣س + ص = −٤-", explanation: "1. ننقل '٣س' للطرف الآخر فتصبح '-٣س'." },
+                { problem: "٢ص = ٤س + ٦", target: { left: ['-4x', '2y'], right: ['6']}, poolTerms: [ { value: '2y', text: '٢ص' }, { value: '4x', text: '٤س' }, { value: '6', text: '٦' } ], solution: "٤س + ٢ص = ٦-", explanation: "1. ننقل '٤س' للطرف الآخر فتصبح '-٤س'." },
+                { problem: "س = ص − ٣", target: { left: ['x', '-y'], right: ['-3'] }, poolTerms: [ { value: 'x', text: 'س' }, { value: 'y', text: 'ص' }, { value: '3', text: '٣' } ], solution: "س − ص = −٣", explanation: "1. ننقل 'ص' للطرف الآخر فتصبح '-ص'." },
+                { problem: "٣س + ٩ = ٣ص", target: { left: ['3x', '-3y'], right: ['-9'] }, poolTerms: [ { value: '3x', text: '٣س' }, { value: '9', text: '٩' }, { value: '3y', text: '٣ص' } ], solution: "٣س − ٣ص = −٩", explanation: "1. ننقل '٣ص' للطرف الأيمن فتصبح '-٣ص'.<br>2. ننقل '+٩' للطرف الأيسر فتصبح '-٩'." }
+            ]
+        ];
+        let currentSessionEquations = [];
+        let currentLevel = 0;
+        
+        const startScreen = document.getElementById('start-screen');
+        const endScreen = document.getElementById('end-screen');
+        const startBtn = document.getElementById('start-btn');
+        const playAgainBtn = document.getElementById('play-again-btn');
+        const finalScoreEl = document.getElementById('final-score');
+        const finalTimeEl = document.getElementById('final-time');
+        const infoContainer = document.getElementById('info-container');
+        const controlsContainer = document.getElementById('controls-container');
+        const problemDisplay = document.getElementById('problem-display');
+        const feedback = document.getElementById('feedback');
+        const nextBtn = document.getElementById('next-btn');
+        const checkBtn = document.getElementById('check-btn');
+        const resetBtn = document.getElementById('reset-btn');
+        const canvas = document.getElementById('scene-canvas');
+        const instructionsText = document.querySelector('.instructions-text');
+        const helpIcon = document.getElementById('help-icon');
+        const tutorialOverlay = document.getElementById('tutorial-overlay');
+        const tutorialText = document.getElementById('tutorial-text');
+        const skipTutorialBtn = document.getElementById('skip-tutorial-btn');
+        const explanationBox = document.getElementById('explanation-box');
+        const vignetteOverlay = document.getElementById('vignette-overlay');
+        const exerciseTimerEl = document.getElementById('exercise-timer');
+        let instructionsTimeout;
+
+        let score = 0;
+        let startTime = 0;
+        let exerciseStartTime = 0;
+        let isTutorialActive = false;
+        let tutorialStep = 0;
+        let tutorialHighlights = [];
+        let gameState = 'startScreen'; 
+        const initialCameraPosition = new THREE.Vector3(0, 18, 35);
+
+        let scene, camera, renderer, controls, water, dock;
+        let shipGroup, equalsSignMesh = null, saudiFlag = null;
+        let containers = [];
+        let backgroundShips = [];
+        let seagulls = [];
+        let raycastableObjects = []; 
+        let snapTargets = []; 
+        let placementTargets = [];
+        let raycaster, mouse, isRTL;
+        let placeholderMaterial, placeholderHoverMaterial;
+
+        let selectedObject = null;
+        let hoveredObject = null;
+        let isAnimating = false;
+        let animationQueue = [];
+        
+        function init() {
+            isRTL = getComputedStyle(document.body).direction === 'rtl';
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x87CEEB);
+            scene.fog = new THREE.Fog(0x87CEEB, 50, 200);
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.copy(initialCameraPosition);
+            renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.shadowMap.enabled = true;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+            scene.add(ambientLight);
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 1.5);
+            directionalLight.position.set(50, 50, 50);
+            directionalLight.castShadow = true;
+            directionalLight.shadow.mapSize.width = 2048;
+            directionalLight.shadow.mapSize.height = 2048;
+            scene.add(directionalLight);
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.target.set(0, 6, 10);
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2();
+
+            placeholderMaterial = new THREE.MeshStandardMaterial({
+                color: 0x4299e1,
+                transparent: true,
+                opacity: 0.3,
+                emissive: 0x4299e1,
+                emissiveIntensity: 0.2
+            });
+
+            placeholderHoverMaterial = new THREE.MeshStandardMaterial({
+                color: 0x63b3ed,
+                transparent: true,
+                opacity: 0.6,
+                emissive: 0x63b3ed,
+                emissiveIntensity: 0.5
+            });
+
+            const waterGeo = new THREE.PlaneGeometry(500, 500);
+            const waterMat = new THREE.MeshStandardMaterial({ color: 0x006994, metalness: 0.5, roughness: 0.3, transparent: true, opacity: 0.9 });
+            water = new THREE.Mesh(waterGeo, waterMat);
+            water.rotation.x = -Math.PI / 2;
+            water.receiveShadow = true;
+            scene.add(water);
+            const dockGeo = new THREE.BoxGeometry(180, 2, 60);
+            const dockMat = new THREE.MeshStandardMaterial({color: 0x6B4F3A});
+            dock = new THREE.Mesh(dockGeo, dockMat);
+            dock.position.set(0, 1, 38);
+            dock.castShadow = true;
+            dock.receiveShadow = true;
+            scene.add(dock);
+            createShip();
+            createScenery();
+            createSeagullFlock(7);
+            addEventListeners();
+            animate();
+        }
+        
+        function startGame() {
+            startScreen.style.opacity = 0;
+            setTimeout(() => { startScreen.style.display = 'none'; }, 500);
+            infoContainer.style.visibility = 'visible';
+            controlsContainer.style.visibility = 'visible';
+            setupTutorial();
+        }
+
+        function setupTutorial() {
+            gameState = 'tutorial';
+            vignetteOverlay.style.display = 'block';
+            setTimeout(() => vignetteOverlay.style.opacity = 1, 50);
+            resetScene();
+            const levelData = tutorialEquation;
+            problemDisplay.textContent = levelData.problem;
+            populateCubePool(levelData);
+            startTutorial();
+        }
+
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        function startMainGame() {
+            gameState = 'playing';
+            vignetteOverlay.style.opacity = 0;
+            setTimeout(() => vignetteOverlay.style.display = 'none', 500);
+            
+            // --- NEW LOGIC: Select 1 random question from each bank ---
+            currentSessionEquations = [];
+            questionBanks.forEach(bank => {
+                const randomIndex = Math.floor(Math.random() * bank.length);
+                currentSessionEquations.push(bank[randomIndex]);
+            });
+            // Shuffle the final list of 5 questions
+            shuffleArray(currentSessionEquations);
+            // --- END NEW LOGIC ---
+
+            score = 0;
+            currentLevel = 0;
+            startTime = Date.now();
+            exerciseTimerEl.style.display = 'block';
+            setupLevel(0);
+        }
+
+        function showEndScreen() {
+            gameState = 'endScreen';
+            const endTime = Date.now();
+            const totalTime = Math.round((endTime - startTime) / 1000);
+            infoContainer.style.visibility = 'hidden';
+            controlsContainer.style.visibility = 'hidden';
+            endScreen.style.display = 'flex';
+            saveAndFinishGame(score, totalTime); 
+        }
+        
+        function createGCCFlag(index) {
+            const flagCanvas = document.createElement('canvas');
+            const flagContext = flagCanvas.getContext('2d');
+            flagCanvas.width = 300;
+            flagCanvas.height = 200; 
+
+            switch(index) {
+                case 0: // Bahrain
+                    flagContext.fillStyle = '#CE1126';
+                    flagContext.fillRect(0,0,300,200);
+                    flagContext.fillStyle = 'white';
+                    flagContext.fillRect(0,0,100,200);
+                    break;
+                case 1: // Qatar
+                    flagContext.fillStyle = '#8A1538';
+                    flagContext.fillRect(0,0,300,200);
+                    flagContext.fillStyle = 'white';
+                    flagContext.fillRect(0,0,100,200);
+                    break;
+                case 2: // Oman
+                    flagContext.fillStyle = '#FFFFFF';
+                    flagContext.fillRect(0,0,300,200);
+                    flagContext.fillStyle = '#D72828';
+                    flagContext.fillRect(0,67,300,66);
+                    flagContext.fillStyle = '#008000';
+                    flagContext.fillRect(0,133,300,67);
+                    break;
+                 case 3: // Kuwait
+                    flagContext.fillStyle = '#007A3D';
+                    flagContext.fillRect(0,0,300,67);
+                    flagContext.fillStyle = '#FFFFFF';
+                    flagContext.fillRect(0,67,300,66);
+                    flagContext.fillStyle = '#CE1126';
+                    flagContext.fillRect(0,133,300,67);
+                    flagContext.fillStyle = '#000000';
+                    flagContext.beginPath();
+                    flagContext.moveTo(0,0);
+                    flagContext.lineTo(60,67);
+                    flagContext.lineTo(60,133);
+                    flagContext.lineTo(0,200);
+                    flagContext.closePath();
+                    flagContext.fill();
+                    break;
+            }
+            return new THREE.CanvasTexture(flagCanvas);
+        }
+
+        function createScenery() {
+            const staticContainerGeo = new THREE.BoxGeometry(containerWidth, containerHeight, containerDepth);
+            const bgShipGeo = new THREE.BoxGeometry(15, 4, 6);
+            const bgShipMat = new THREE.MeshStandardMaterial({color: 0x333333});
+
+            for(let i=0; i<4; i++) {
+                const shipGroup = new THREE.Group();
+                const shipBody = new THREE.Mesh(bgShipGeo, bgShipMat);
+                shipGroup.add(shipBody);
+
+                for (let j = 0; j < 8; j++) {
+                    const mat = new THREE.MeshStandardMaterial({ color: containerColors[j % 3]});
+                    const cont = new THREE.Mesh(staticContainerGeo, mat);
+                    cont.position.set((j % 4 - 1.5) * 2.2, 3, (j < 4 ? -1.5 : 1.5));
+                    shipGroup.add(cont);
+                }
+
+                const flagpoleGeo = new THREE.CylinderGeometry(0.1, 0.1, 5, 8);
+                const flagpoleMat = new THREE.MeshStandardMaterial({color: 0xAAAAAA});
+                const flagpole = new THREE.Mesh(flagpoleGeo, flagpoleMat);
+                flagpole.position.set(-6, 4.5, 0);
+                shipGroup.add(flagpole);
+
+                const flagTexture = createGCCFlag(i);
+                const flagMat = new THREE.MeshBasicMaterial({ map: flagTexture, side: THREE.DoubleSide });
+                const flagGeo = new THREE.PlaneGeometry(3, 2);
+                const flag = new THREE.Mesh(flagGeo, flagMat);
+                flag.position.set(1.5, 2, 0);
+                flagpole.add(flag);
+
+                shipGroup.position.set(Math.random() * 200 - 100, 2, -80 - Math.random() * 80);
+                shipGroup.userData.speed = Math.random() * 0.05 + 0.02;
+                backgroundShips.push(shipGroup);
+                scene.add(shipGroup);
+            }
+
+            const stackX = 80;
+            const stackZ = 30;
+
+            [-stackX, stackX].forEach(xPos => {
+                for (let i = 0; i < 9; i++) {
+                    const mat = new THREE.MeshStandardMaterial({ color: containerColors[i % 3]});
+                    const cont = new THREE.Mesh(staticContainerGeo, mat);
+                    const col = i % 3;
+                    const row = Math.floor(i / 3);
+                    const xOffset = xPos > 0 ? (col - 1) * (containerWidth + 0.5) : (col - 2) * (containerWidth + 0.5);
+                    cont.position.set(xPos + xOffset, 2 + row * (containerHeight + 0.1), stackZ + (Math.random() - 0.5) * 5);
+                    cont.rotation.y = (Math.random() - 0.5) * 0.3;
+                    cont.castShadow = true;
+                    scene.add(cont);
+                }
+            });
+        }
+        
+        function createSeagull() {
+            const seagull = new THREE.Group();
+            const bodyMat = new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0.1, roughness: 0.8 });
+            const bodyShape = new THREE.Shape();
+            bodyShape.moveTo(0, 0);
+            bodyShape.bezierCurveTo(0.2, 0.2, 0.8, 0.2, 1, 0);
+            bodyShape.bezierCurveTo(0.8, -0.2, 0.2, -0.2, 0, 0);
+            const extrudeSettings = { depth: 0.2, bevelEnabled: false };
+            const bodyGeo = new THREE.ExtrudeGeometry(bodyShape, extrudeSettings);
+            const body = new THREE.Mesh(bodyGeo, bodyMat);
+            body.rotation.z = Math.PI / 2;
+            seagull.add(body);
+
+            const wingGeo = new THREE.PlaneGeometry(1.5, 0.3);
+            const leftWing = new THREE.Mesh(wingGeo, bodyMat);
+            leftWing.position.set(-0.8, 0, 0);
+            leftWing.rotation.x = -Math.PI / 4;
+            seagull.userData.leftWing = leftWing;
+            seagull.add(leftWing);
+
+            const rightWing = new THREE.Mesh(wingGeo, bodyMat);
+            rightWing.position.set(0.8, 0, 0);
+            rightWing.rotation.x = -Math.PI / 4;
+            seagull.userData.rightWing = rightWing;
+            seagull.add(rightWing);
+
+            return seagull;
+        }
+
+        function createSeagullFlock(count) {
+             for (let i = 0; i < count; i++) {
+                const gullMesh = createSeagull();
+                const landingTargets = [...shipGroup.children.filter(c => c.geometry instanceof THREE.BoxGeometry && !c.userData.snapTargetData)];
+
+                const gull = {
+                    mesh: gullMesh,
+                    state: 'flying',
+                    flyTimer: Math.random() * 10,
+                    landTimer: 0,
+                    flapSpeed: Math.random() * 0.1 + 0.05,
+                    velocity: new THREE.Vector3((Math.random() - 0.5) * 0.1, (Math.random() - 0.5) * 0.02, (Math.random() - 0.5) * 0.05),
+                    landingTarget: null,
+                    landingTargets: landingTargets
+                };
+                gull.mesh.position.set((Math.random() - 0.5) * 80, Math.random() * 10 + 20, (Math.random() - 0.5) * 40);
+                seagulls.push(gull);
+                scene.add(gullMesh);
+            }
+        }
+        
+        function updateSeagull(gull) {
+            const { leftWing, rightWing } = gull.mesh.userData;
+
+            if (gull.state === 'flying' || gull.state === 'landing' || gull.state === 'taking_off') {
+                const flapAngle = Math.sin(time * 20 * gull.flapSpeed) * 0.5;
+                leftWing.rotation.z = flapAngle;
+                rightWing.rotation.z = -flapAngle;
+            }
+
+            switch (gull.state) {
+                case 'flying':
+                    gull.mesh.position.add(gull.velocity);
+                    gull.mesh.lookAt(gull.mesh.position.clone().add(gull.velocity));
+                    
+                    if (gull.mesh.position.x > 100 || gull.mesh.position.x < -100) gull.velocity.x *= -1;
+                    if (gull.mesh.position.z > 50 || gull.mesh.position.z < -50) gull.velocity.z *= -1;
+                    if (gull.mesh.position.y > 30 || gull.mesh.position.y < 15) gull.velocity.y *= -1;
+
+                    gull.flyTimer -= 0.016;
+                    if (gull.flyTimer <= 0 && gull.landingTargets.length > 0) {
+                        gull.state = 'landing';
+                        const targetMesh = gull.landingTargets[Math.floor(Math.random() * gull.landingTargets.length)];
+                        gull.landingTarget = new THREE.Vector3();
+                        targetMesh.getWorldPosition(gull.landingTarget);
+                        gull.landingTarget.y += containerHeight / 2 + 0.1;
+                    }
+                    break;
+                case 'landing':
+                    const direction = gull.landingTarget.clone().sub(gull.mesh.position).normalize();
+                    gull.mesh.position.add(direction.multiplyScalar(0.2));
+                    gull.mesh.lookAt(gull.landingTarget);
+                    if (gull.mesh.position.distanceTo(gull.landingTarget) < 0.2) {
+                        gull.state = 'landed';
+                        gull.landTimer = Math.random() * 5 + 3;
+                    }
+                    break;
+                case 'landed':
+                     leftWing.rotation.z = 0;
+                     rightWing.rotation.z = 0;
+                     gull.landTimer -= 0.016;
+                     if (gull.landTimer <= 0) {
+                        gull.state = 'taking_off';
+                        gull.velocity.y = 0.1;
+                     }
+                    break;
+                case 'taking_off':
+                    gull.mesh.position.add(gull.velocity);
+                    if (gull.mesh.position.y > 15) {
+                        gull.state = 'flying';
+                        gull.flyTimer = Math.random() * 10 + 5;
+                    }
+                    break;
+            }
+        }
+
+        function createShip() {
+            shipGroup = new THREE.Group();
+            scene.add(shipGroup);
+
+            const hullMat = new THREE.MeshStandardMaterial({ color: 0x556270, metalness: 0.8, roughness: 0.4});
+            const hullShape = new THREE.Shape();
+            hullShape.moveTo(-24, 0);
+            hullShape.lineTo(24, 0);
+            hullShape.lineTo(28, -6);
+            hullShape.lineTo(-28, -6);
+            hullShape.closePath();
+            const extrudeSettings = { depth: 4, bevelEnabled: true, bevelThickness: 0.5, bevelSize: 0.5, bevelSegments: 2 };
+            const hullGeo = new THREE.ExtrudeGeometry(hullShape, extrudeSettings);
+            const hull = new THREE.Mesh(hullGeo, hullMat);
+            hull.rotation.x = Math.PI / 2;
+            hull.scale.set(1, 1.5, 1);
+            hull.position.set(0, 2, 4.5);
+            hull.castShadow = true;
+            hull.receiveShadow = true;
+            shipGroup.add(hull);
+
+            const deckGeo = new THREE.BoxGeometry(48, 0.5, 9);
+            const deckMat = new THREE.MeshStandardMaterial({color: 0xA9A9A9});
+            const deck = new THREE.Mesh(deckGeo, deckMat);
+            deck.position.y = 4.25;
+            deck.castShadow = true;
+            deck.receiveShadow = true;
+            shipGroup.add(deck);
+
+            const dividerGeo = new THREE.BoxGeometry(0.2, 0.7, 9.2);
+            const dividerMat = new THREE.MeshStandardMaterial({color: 0xffdd00, emissive: 0xaa8800});
+            const divider = new THREE.Mesh(dividerGeo, dividerMat);
+            divider.position.y = 4.5;
+            shipGroup.add(divider);
+
+            const bridgeMat = new THREE.MeshStandardMaterial({color: 0x9B4D00, roughness: 0.9, metalness: 0.5});
+            const bridgeBase = new THREE.Mesh(new THREE.BoxGeometry(4, 3, 5), bridgeMat);
+            bridgeBase.position.set(-22, 5.75, 0);
+            shipGroup.add(bridgeBase);
+            const bridgeTop = new THREE.Mesh(new THREE.BoxGeometry(5, 2, 4), bridgeMat);
+            bridgeTop.position.set(-22, 8.25, 0);
+            shipGroup.add(bridgeTop);
+
+            const flagpoleMat = new THREE.MeshStandardMaterial({color: 0xAAAAAA, metalness: 0.9, roughness: 0.3});
+            const flagpoleGeo = new THREE.CylinderGeometry(0.1, 0.1, 8, 8);
+            const flagpole = new THREE.Mesh(flagpoleGeo, flagpoleMat);
+            flagpole.position.set(-23.5, 12, 0);
+            shipGroup.add(flagpole);
+
+            const flagCanvas = document.createElement('canvas');
+            const flagContext = flagCanvas.getContext('2d');
+            flagCanvas.width = 512;
+            flagCanvas.height = 341; 
+            flagContext.fillStyle = '#006C35';
+            flagContext.fillRect(0, 0, flagCanvas.width, flagCanvas.height);
+            flagContext.fillStyle = 'white';
+            flagContext.font = 'bold 70px Cairo';
+            flagContext.textAlign = 'center';
+            flagContext.textBaseline = 'middle';
+            flagContext.fillText('لا إله إلا الله محمد رسول الله', flagCanvas.width / 2, flagCanvas.height / 2 - 30);
+            const swordPath = new Path2D("M 100 225 C 150 235, 350 215, 412 220 L 412 210 C 350 205, 150 225, 100 215 Z");
+            flagContext.fillStyle = 'white';
+            flagContext.fill(swordPath);
+            const flagTexture = new THREE.CanvasTexture(flagCanvas);
+            const flagMat = new THREE.MeshBasicMaterial({ map: flagTexture, side: THREE.DoubleSide });
+            const flagGeo = new THREE.PlaneGeometry(4, 2.66, 20, 10);
+            saudiFlag = new THREE.Mesh(flagGeo, flagMat);
+            saudiFlag.position.set(2.05, 3.5, 0);
+            flagpole.add(saudiFlag);
+
+            const staticContainerGeo = new THREE.BoxGeometry(containerWidth, containerHeight, containerDepth);
+            [-20, 20].forEach(xPos => {
+                const mat1 = new THREE.MeshStandardMaterial({ color: containerColors[0] });
+                const mat2 = new THREE.MeshStandardMaterial({ color: containerColors[1] });
+                const mat3 = new THREE.MeshStandardMaterial({ color: containerColors[2] });
+                const cont1 = new THREE.Mesh(staticContainerGeo, mat1);
+                cont1.position.set(xPos, 5.5, -2.5);
+                shipGroup.add(cont1);
+                const cont2 = new THREE.Mesh(staticContainerGeo, mat2);
+                cont2.position.set(xPos, 5.5, 2.5);
+                shipGroup.add(cont2);
+                const cont3 = new THREE.Mesh(staticContainerGeo, mat3);
+                cont3.position.set(xPos, 5.5 + containerHeight, 0);
+                shipGroup.add(cont3);
+                const cont4 = new THREE.Mesh(staticContainerGeo, mat1.clone());
+                cont4.position.set(xPos + containerWidth, 5.5, 0)
+                shipGroup.add(cont4)
+             });
+
+            const placeholderGeo = new THREE.BoxGeometry(containerWidth, containerHeight, containerDepth);
+            const leftSideX = [-10, -6];
+            const rightSideX = [6, 10];
+            const leftSpots = isRTL ? rightSideX : leftSideX;
+            const rightSpots = isRTL ? leftSideX : rightSideX;
+
+            leftSpots.forEach((posX) => {
+                const placeholder = new THREE.Mesh(placeholderGeo, placeholderMaterial.clone());
+                placeholder.position.x = posX;
+                placeholder.position.y = 5.5;
+                shipGroup.add(placeholder);
+                const snapTargetData = { target: placeholder, isOccupied: false, side: 'left' };
+                snapTargets.push(snapTargetData);
+                placeholder.userData.snapTargetData = snapTargetData;
+            });
+            
+            rightSpots.forEach((posX) => {
+                 const placeholder = new THREE.Mesh(placeholderGeo, placeholderMaterial.clone());
+                placeholder.position.x = posX;
+                placeholder.position.y = 5.5;
+                shipGroup.add(placeholder);
+                const snapTargetData = { target: placeholder, isOccupied: false, side: 'right' };
+                snapTargets.push(snapTargetData);
+                placeholder.userData.snapTargetData = snapTargetData;
+            });
+            
+            placementTargets = shipGroup.children.filter(c => c.userData.snapTargetData);
+        }
+
+        function createTextCanvas(text, textColor = 'white') {
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            canvas.width = 512;
+            canvas.height = 256;
+            context.font = 'bold 110px Cairo';
+            context.fillStyle = textColor;
+            context.textAlign = 'center';
+            context.textBaseline = 'middle';
+            context.fillText(text, canvas.width / 2, canvas.height / 2);
+            return canvas;
+        }
+
+        function createContainer(itemData, color) {
+            const geo = new THREE.BoxGeometry(containerWidth, containerHeight, containerDepth);
+            const mat = new THREE.MeshStandardMaterial({ color: color, metalness: 0.6, roughness: 0.5 });
+            const container = new THREE.Mesh(geo, mat);
+            const canvas = createTextCanvas(itemData.text);
+            const texture = new THREE.CanvasTexture(canvas);
+            const labelMat = new THREE.MeshBasicMaterial({ map: texture, transparent: true });
+
+            const labelSideGeo = new THREE.PlaneGeometry(containerDepth * 0.95, containerHeight * 0.8);
+            const label1 = new THREE.Mesh(labelSideGeo, labelMat);
+            label1.position.x = containerWidth / 2 + 0.01;
+            label1.rotation.y = Math.PI / 2;
+            container.add(label1);
+
+            const label2 = new THREE.Mesh(labelSideGeo, labelMat);
+            label2.position.x = -containerWidth / 2 - 0.01;
+            label2.rotation.y = -Math.PI / 2;
+            container.add(label2);
+
+            const labelTopGeo = new THREE.PlaneGeometry(containerHeight * 1.8, containerHeight * 0.9);
+            const labelTop = new THREE.Mesh(labelTopGeo, labelMat);
+            labelTop.position.y = containerHeight / 2 + 0.01;
+            labelTop.rotation.x = -Math.PI / 2;
+            labelTop.rotation.z = Math.PI / 2;
+            container.add(labelTop);
+
+            const labelFrontGeo = new THREE.PlaneGeometry(containerWidth * 0.9, containerHeight * 0.8);
+            const labelFront = new THREE.Mesh(labelFrontGeo, labelMat);
+            labelFront.position.z = containerDepth / 2 + 0.01;
+            container.add(labelFront);
+
+            const labelBack = new THREE.Mesh(labelFrontGeo, labelMat);
+            labelBack.position.z = -containerDepth / 2 - 0.01;
+            labelBack.rotation.y = Math.PI;
+            container.add(labelBack);
+
+            container.castShadow = true;
+            container.userData = { ...itemData, isDraggable: true, snapTargetData: null, originalMaterial: mat };
+            const hitGeo = new THREE.BoxGeometry(containerWidth + 0.5, containerHeight + 0.5, containerDepth + 0.5);
+            const hitMat = new THREE.MeshBasicMaterial({ visible: false });
+            const hitBox = new THREE.Mesh(hitGeo, hitMat);
+            hitBox.userData.parentCube = container;
+            container.add(hitBox);
+            return { visibleCube: container, hitBox: hitBox };
+        }
+
+        function populateCubePool(levelData) {
+            const startZ = 17;
+            const baseGeo = new THREE.BoxGeometry(containerWidth, containerHeight, containerDepth);
+            
+            for (let i = 0; i < 10; i++) {
+                const mat = new THREE.MeshStandardMaterial({ color: containerColors[i % containerColors.length], metalness: 0.4, roughness: 0.7 });
+                const baseCube = new THREE.Mesh(baseGeo, mat);
+                baseCube.userData.isBaseCube = true;
+                const x = (i - (10 - 1) / 2) * (containerWidth + 0.3) + (Math.random() - 0.5) * 0.5;
+                const y = 3; 
+                const z = startZ + (Math.random() - 0.5) * 2;
+                const rotY = (Math.random() - 0.5) * 0.1;
+                baseCube.position.set(x, y, z);
+                baseCube.rotation.y = rotY;
+                baseCube.castShadow = true;
+                scene.add(baseCube);
+            }
+
+            const spacing = containerWidth + 0.8;
+            const pairSpacing = containerWidth + 1.5;
+            const numPairs = levelData.poolTerms.length;
+            const totalWidth = (numPairs * (spacing + pairSpacing)) - pairSpacing;
+            let currentX = -totalWidth / 2;
+            
+            levelData.poolTerms.forEach((term, index) => {
+                const color = containerColors[index % containerColors.length];
+                let posData = { value: term.value, text: term.text };
+                const posContainer = createContainer(posData, color);
+                posContainer.visibleCube.position.set(currentX, 5.5, startZ); 
+                posContainer.visibleCube.userData.originalPosition = posContainer.visibleCube.position.clone();
+                scene.add(posContainer.visibleCube);
+                containers.push(posContainer.visibleCube);
+                raycastableObjects.push(posContainer.hitBox);
+                currentX += spacing;
+
+                const negValue = flipValue(posData.value);
+                let negText = negValue;
+                if(negText.includes('x')) negText = negText.replace(/x/g, 'س');
+                if(negText.includes('y')) negText = negText.replace(/y/g, 'ص');
+                const longerDash = '—';
+                if(negText.startsWith('-')) negText = `\u200F${longerDash}${negText.substring(1)}`;
+                negText = toArabicNumber(negText);
+                
+                const negData = { value: negValue, text: negText };
+                const negContainer = createContainer(negData, color);
+                negContainer.visibleCube.position.set(currentX, 5.5, startZ);
+                negContainer.visibleCube.userData.originalPosition = negContainer.visibleCube.position.clone();
+                scene.add(negContainer.visibleCube);
+                containers.push(negContainer.visibleCube);
+                raycastableObjects.push(negContainer.hitBox);
+
+                if (index < numPairs - 1) {
+                    currentX += pairSpacing;
+                }
+            });
+        }
+        
+        function resetScene() {
+            feedback.textContent = '';
+            nextBtn.style.display = 'none';
+            checkBtn.style.display = 'inline-block';
+            resetBtn.style.display = 'inline-block';
+
+            explanationBox.style.display = 'none';
+            explanationBox.style.opacity = 0;
+
+            if (shipGroup) shipGroup.rotation.z = 0;
+            if (equalsSignMesh) {
+                shipGroup.remove(equalsSignMesh);
+                equalsSignMesh = null;
+            }
+            containers.forEach(container => scene.remove(container));
+            for (let i = scene.children.length - 1; i >= 0; i--) {
+                const obj = scene.children[i];
+                if (obj.userData.isBaseCube) {
+                    scene.remove(obj);
+                }
+            }
+            containers = [];
+            raycastableObjects = [];
+            snapTargets.forEach(st => {
+                st.isOccupied = false;
+                st.target.material = placeholderMaterial.clone();
+                st.target.userData.placedCube = null; 
+            });
+            selectedObject = null;
+            hoveredObject = null;
+        }
+
+        function setupLevel(levelIndex) {
+            resetScene();
+            const levelData = currentSessionEquations[levelIndex];
+            problemDisplay.textContent = levelData.problem;
+            populateCubePool(levelData);
+            exerciseStartTime = Date.now();
+            instructionsText.style.display = 'block';
+            helpIcon.style.display = 'none';
+            clearTimeout(instructionsTimeout);
+            instructionsTimeout = setTimeout(() => {
+                instructionsText.style.display = 'none';
+                helpIcon.style.display = 'flex';
+            }, 7000);
+        }
+
+        function toArabicNumber(enNumStr) {
+            const arabicNumbers = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+            return String(enNumStr).replace(/[0-9]/g, w => arabicNumbers[+w]);
+        }
+        
+        function flipValue(value) {
+            if (value.startsWith('-')) return value.substring(1);
+            if (!isNaN(value)) return String(-value);
+            if (value.match(/[a-zA-Z]/) && !value.match(/\d/)) return `-${value}`;
+            return `-${value}`;
+        }
+        
+        function checkAnswer() {
+            if (gameState === 'tutorial') {
+                if (isTutorialActive && tutorialStep >= tutorialSteps.length - 1) { 
+                    const step = tutorialSteps[tutorialStep];
+                    if (step.type === 'button') {
+                        tutorialOverlay.style.display = 'none';
+                        handleCorrectAnswer();
+                    }
+                }
+                return;
+            }
+
+            const placedCubes = [];
+            snapTargets.forEach(st => {
+                if (st.isOccupied && st.target.userData.placedCube) {
+                    placedCubes.push(st.target.userData.placedCube);
+                }
+            });
+            
+            const sortFn = isRTL ? (a, b) => b.parent.position.x - a.parent.position.x : (a, b) => a.parent.position.x - b.parent.position.x;
+            const leftCubes = placedCubes.filter(c => c.userData.snapTargetData.side === 'left');
+            leftCubes.sort(sortFn);
+            const currentLeft = leftCubes.map(c => c.userData.value);
+            const rightCubes = placedCubes.filter(c => c.userData.snapTargetData.side === 'right');
+            rightCubes.sort(sortFn);
+            const currentRight = rightCubes.map(c => c.userData.value);
+            
+            const levelData = currentSessionEquations[currentLevel];
+            const target = levelData.target;
+
+            const arrayEquals = (a, b) => a.length === b.length && a.every((val, index) => val === b[index]);
+            if (arrayEquals(currentLeft.sort(), target.left.sort()) && arrayEquals(currentRight.sort(), target.right.sort())) {
+                handleCorrectAnswer();
+            } else {
+                handleIncorrectAnswer();
+            }
+        }
+
+        function handleCorrectAnswer() {
+            if (gameState === 'tutorial') {
+                feedback.textContent = 'أحسنت! التدريب اكتمل.';
+                endTutorial(true); 
+            } else {
+                score++;
+                feedback.style.color = 'var(--success-color)';
+                feedback.textContent = 'أحسنت! الشحنة متوازنة.';
+                const equalsGeo = new THREE.BoxGeometry(2, 0.4, 0.4);
+                const successMat = new THREE.MeshStandardMaterial({color: 0x48bb78, emissive: 0x48bb78, metalness: 0.8, roughness: 0.4});
+                equalsSignMesh = new THREE.Group();
+                const bar1 = new THREE.Mesh(equalsGeo, successMat);
+                bar1.position.y = 0.4;
+                const bar2 = new THREE.Mesh(equalsGeo, successMat);
+                bar2.position.y = -0.4;
+                equalsSignMesh.add(bar1, bar2);
+                equalsSignMesh.position.y = 6;
+                shipGroup.add(equalsSignMesh);
+
+                setTimeout(() => {
+                    const levelData = currentSessionEquations[currentLevel];
+                    explanationBox.innerHTML = `<h4>خطوات الحل</h4><p style="text-align: center; color: #a0aec0; font-size: 0.9rem;">الهدف: الوصول للصورة القياسية (أس + ب ص = ج)</p><p style="text-align: right; line-height: 1.6;">${levelData.explanation}</p><p><strong>الحل النهائي:</strong></p><div class="final-equation">${levelData.solution}</div>`;
+                    explanationBox.style.display = 'block';
+                    setTimeout(() => { explanationBox.style.opacity = 1; }, 50);
+                }, 1500);
+
+                animationQueue.push({type: 'zoomIn'});
+            }
+
+            containers.forEach(c => c.userData.isDraggable = false);
+            checkBtn.style.display = 'none';
+            resetBtn.style.display = 'none';
+        }
+
+        function handleIncorrectAnswer() {
+            feedback.style.color = 'var(--error-color)';
+            feedback.textContent = 'خطأ! الشحنة غير متوازنة.';
+            checkBtn.style.display = 'none';
+            resetBtn.style.display = 'none';
+            containers.forEach(c => c.userData.isDraggable = false);
+            const placedCubes = containers.filter(c => c.userData.snapTargetData);
+            animationQueue.push({ type: 'wrongAnswer', cubes: placedCubes });
+        }
+
+        const tutorialSteps = [
+            { type: 'pick', value: '-x', text: 'هذه واجهة تعليمية. انقر على الحاوية المضيئة لنقلها.' },
+            { type: 'place', side: 'left', text: 'أحسنت! الآن انقر على المكان الصحيح في السفينة.' },
+            { type: 'pick', value: 'y', text: 'ممتاز. الآن انقر على حاوية "ص".' },
+            { type: 'place', side: 'left', text: 'رائع! ضعها بجانب الحاوية الأخرى.' },
+            { type: 'pick', value: '2', text: 'بقي خطوة أخيرة. انقر على الحاوية المضيئة.' },
+            { type: 'place', side: 'right', text: 'ضعها في الجانب الأيمن من السفينة.' },
+            { type: 'button', element: checkBtn, text: 'اكتملت المعادلة! اضغط على "تحميل الشحنة" للتحقق.' }
+        ];
+
+        function startTutorial() {
+            isTutorialActive = true;
+            tutorialStep = 0;
+            tutorialOverlay.style.display = 'flex';
+            updateTutorialStep();
+        }
+
+        function advanceTutorial() {
+            if (!isTutorialActive) return;
+            tutorialStep++;
+            updateTutorialStep();
+        }
+
+        function endTutorial(completedSuccessfully = false) {
+            if (!isTutorialActive) return;
+            isTutorialActive = false;
+            tutorialOverlay.style.display = 'none';
+            clearHighlights();
+            checkBtn.style.boxShadow = '';
+            if (completedSuccessfully) {
+                 setTimeout(startMainGame, 2000);
+            } else {
+                 startMainGame();
+            }
+        }
+
+        function updateTutorialStep() {
+            clearHighlights();
+            if (tutorialStep >= tutorialSteps.length) {
+                 if (tutorialSteps[tutorialSteps.length -1].type === 'button') {
+                     checkAnswer();
+                }
+                return;
+            }
+            const step = tutorialSteps[tutorialStep];
+            tutorialText.textContent = step.text;
+
+            if (step.type === 'pick') {
+                const targetCube = containers.find(c => c.userData.value === step.value);
+                if (targetCube) tutorialHighlights.push(targetCube);
+            } else if (step.type === 'place') {
+                const targetPlaceholder = snapTargets.find(st => st.side === step.side && !st.isOccupied);
+                if (targetPlaceholder) tutorialHighlights.push(targetPlaceholder.target);
+            } else if (step.type === 'button') {
+                step.element.style.boxShadow = '0 0 20px 5px var(--glow-color)';
+            }
+        }
+
+        function clearHighlights() {
+            tutorialHighlights.forEach(obj => {
+                if (obj.userData.snapTargetData) obj.material.emissiveIntensity = 0;
+                else obj.material.emissive.setHex(0x000000);
+            });
+            tutorialHighlights = [];
+            checkBtn.style.boxShadow = '';
+        }
+
+        function addEventListeners() {
+            startBtn.addEventListener('click', startGame);
+            playAgainBtn.addEventListener('click', () => location.reload());
+            canvas.addEventListener('pointerdown', onPointerDown);
+            canvas.addEventListener('pointermove', onPointerMove);
+            window.addEventListener('resize', onWindowResize);
+            nextBtn.addEventListener('click', () => {
+                animationQueue.push({type: 'zoomOut', onComplete: () => {
+                    currentLevel++;
+                    if (currentLevel < currentSessionEquations.length) setupLevel(currentLevel);
+                    else showEndScreen();
+                }});
+            });
+            checkBtn.addEventListener('click', checkAnswer);
+            resetBtn.addEventListener('click', () => {
+                if(gameState === 'tutorial') return;
+                setupLevel(currentLevel);
+            });
+            helpIcon.addEventListener('click', () => {
+                instructionsText.style.display = 'block';
+                helpIcon.style.display = 'none';
+                clearTimeout(instructionsTimeout);
+                 instructionsTimeout = setTimeout(() => {
+                    instructionsText.style.display = 'none';
+                    helpIcon.style.display = 'flex';
+                }, 7000);
+            });
+            skipTutorialBtn.addEventListener('click', () => endTutorial(false));
+        }
+
+        function updateMouse(event) {
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        }
+
+        function onPointerDown(event) {
+            if (event.button !== 0 || isAnimating || animationQueue.length > 0) return;
+            updateMouse(event);
+            raycaster.setFromCamera(mouse, camera);
+
+            if (gameState === 'tutorial') {
+                const step = tutorialSteps[tutorialStep];
+                if (step.type === 'pick') {
+                    const targetCube = containers.find(c => c.userData.value === step.value);
+                    const targetHitbox = raycastableObjects.find(h => h.userData.parentCube === targetCube);
+                    if (targetHitbox) {
+                        const intersects = raycaster.intersectObject(targetHitbox);
+                        if (intersects.length > 0) {
+                            selectObject(targetCube);
+                            advanceTutorial();
+                        }
+                    }
+                } else if (step.type === 'place' && selectedObject) {
+                     const targetPlaceholderData = snapTargets.find(st => st.side === step.side && !st.isOccupied);
+                     if(targetPlaceholderData){
+                        const intersects = raycaster.intersectObject(targetPlaceholderData.target);
+                        if (intersects.length > 0) {
+                            placeObject(targetPlaceholderData);
+                            advanceTutorial();
+                        }
+                     }
+                }
+                return;
+            }
+
+            if (selectedObject) {
+                const targets = [...placementTargets, dock];
+                const intersects = raycaster.intersectObjects(targets, true);
+                if (intersects.length > 0) {
+                    const firstHit = intersects[0].object;
+                    const snapData = firstHit.userData.snapTargetData;
+                    if (snapData && !snapData.isOccupied) placeObject(snapData);
+                    else returnObject();
+                } else returnObject();
+            } else {
+                const intersects = raycaster.intersectObjects(raycastableObjects);
+                if (intersects.length > 0) {
+                    const targetCube = intersects[0].object.userData.parentCube;
+                    if (targetCube.userData.isDraggable) selectObject(targetCube);
+                }
+            }
+        }
+        
+        function selectObject(obj) {
+            if (selectedObject) returnObject();
+            selectedObject = obj;
+            const selectedMat = selectedObject.material.clone();
+            selectedMat.emissive.setHex(0x999900);
+            selectedObject.material = selectedMat;
+            selectedObject.position.y += 0.5;
+            if (selectedObject.userData.snapTargetData) {
+                const snapData = selectedObject.userData.snapTargetData;
+                snapData.isOccupied = false;
+                snapData.target.userData.placedCube = null;
+                snapData.target.material = placeholderMaterial.clone();
+                selectedObject.userData.snapTargetData = null;
+            }
+        }
+
+        function placeObject(snapData) {
+            isAnimating = true;
+            const targetWorldPos = new THREE.Vector3();
+            snapData.target.getWorldPosition(targetWorldPos);
+            selectedObject.userData.targetPosition = targetWorldPos;
+            selectedObject.userData.snapTargetData = snapData;
+            snapData.isOccupied = true;
+            snapData.target.userData.placedCube = selectedObject; 
+        }
+
+        function returnObject() {
+            if (!selectedObject) return;
+            isAnimating = true;
+            selectedObject.userData.targetPosition = selectedObject.userData.originalPosition.clone();
+        }
+
+        function onPointerMove(event) {
+            updateMouse(event);
+        }
+        
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        let time = 0;
+        function animate() {
+            requestAnimationFrame(animate);
+            time += 0.01;
+            controls.update();
+            
+            if(gameState === 'playing') {
+                const elapsed = Math.floor((Date.now() - exerciseStartTime) / 1000);
+                const minutes = String(Math.floor(elapsed / 60)).padStart(2, '0');
+                const seconds = String(elapsed % 60).padStart(2, '0');
+                exerciseTimerEl.textContent = `${minutes}:${seconds}`;
+            }
+
+            if (saudiFlag) {
+                const t = Date.now() * 0.005;
+                const positions = saudiFlag.geometry.attributes.position;
+                for (let i = 0; i < positions.count; i++) {
+                    const x = positions.getX(i);
+                    const xShifted = x + 2;
+                    const waveAmplitude = (xShifted / 4) * 0.3;
+                    positions.setZ(i, Math.sin((xShifted * 3) - t) * waveAmplitude);
+                }
+                positions.needsUpdate = true;
+            }
+            
+            seagulls.forEach(updateSeagull);
+
+            if (isTutorialActive) {
+                tutorialHighlights.forEach(obj => {
+                    const pulse = Math.sin(time * 5) * 0.5 + 0.5;
+                    if(obj.material.emissive) {
+                       obj.material.emissive.setHex(0xffff00);
+                       obj.material.emissiveIntensity = pulse;
+                    }
+                });
+            }
+
+            if (water) water.position.y = Math.sin(time) * 0.1 - 0.1;
+
+            if (animationQueue.length === 0 && shipGroup) {
+                shipGroup.position.y = Math.sin(time * 0.5) * 0.2;
+                shipGroup.rotation.y = Math.sin(time * 0.3) * 0.02;
+            }
+
+            backgroundShips.forEach(ship => {
+                ship.position.x += ship.userData.speed;
+                if(ship.position.x > 250) ship.position.x = -250;
+            });
+
+            containers.forEach(c => {
+                if (c.userData.isFalling) {
+                    c.position.add(c.userData.fallVelocity);
+                    c.rotation.x += c.userData.fallRotation.x;
+                    c.rotation.y += c.userData.fallRotation.y;
+                    c.rotation.z += c.userData.fallRotation.z;
+                    c.userData.fallVelocity.y -= 0.008;
+                }
+            });
+
+            if (isAnimating) {
+                if (selectedObject && selectedObject.userData.targetPosition) {
+                    selectedObject.position.lerp(selectedObject.userData.targetPosition, 0.1);
+                    if (selectedObject.position.distanceTo(selectedObject.userData.targetPosition) < 0.05) {
+                        selectedObject.position.copy(selectedObject.userData.targetPosition);
+                        const wasPlaced = !!selectedObject.userData.snapTargetData;
+                        if (!wasPlaced) selectedObject.material = selectedObject.userData.originalMaterial;
+                        else selectedObject.material.emissive.setHex(0x000000);
+                        selectedObject = null;
+                        isAnimating = false;
+                    }
+                }
+            }
+
+            if (animationQueue.length > 0) {
+                const task = animationQueue[0];
+                switch(task.type) {
+                    case 'zoomIn':
+                        camera.position.lerp(new THREE.Vector3(0, 10, 15), 0.02);
+                        controls.target.lerp(new THREE.Vector3(0, 5, 0), 0.02);
+                        if(camera.position.distanceTo(new THREE.Vector3(0, 10, 15)) < 0.1) {
+                            animationQueue.shift(); 
+                            if (currentLevel >= currentSessionEquations.length - 1) setTimeout(showEndScreen, 1500);
+                            else nextBtn.style.display = 'inline-block';
+                        }
+                        break;
+                   case 'zoomOut':
+                        camera.position.lerp(initialCameraPosition, 0.03);
+                        controls.target.lerp(new THREE.Vector3(0, 5, 0), 0.03);
+                         if(camera.position.distanceTo(initialCameraPosition) < 0.1) {
+                            camera.position.copy(initialCameraPosition);
+                            if(task.onComplete) task.onComplete();
+                            animationQueue.shift();
+                         }
+                        break;
+                    case 'wrongAnswer':
+                        if (!task.startTime) {
+                            task.startTime = time;
+                            task.tiltAngle = (Math.random() < 0.5 ? 1 : -1) * 0.25;
+                            task.step = 'tilting';
+                        }
+                        if (task.step === 'tilting') {
+                            shipGroup.rotation.z = THREE.MathUtils.lerp(shipGroup.rotation.z, task.tiltAngle, 0.05);
+                            if (Math.abs(shipGroup.rotation.z) > 0.15) {
+                                task.step = 'dropping';
+                                task.cubes.forEach(cube => {
+                                    cube.userData.isFalling = true;
+                                    const worldPos = new THREE.Vector3();
+                                    cube.getWorldPosition(worldPos);
+                                    scene.attach(cube);
+                                    cube.position.copy(worldPos);
+                                    cube.userData.fallVelocity = new THREE.Vector3((Math.random() - 0.5)*0.1, 0.1, (Math.random() - 0.5)*0.1);
+                                    cube.userData.fallRotation = new THREE.Vector3((Math.random() - 0.5)*0.1, (Math.random() - 0.5)*0.1, (Math.random() - 0.5)*0.1);
+                                });
+                            }
+                        }
+                        if (task.step === 'dropping') {
+                            if (task.cubes.every(cube => cube.position.y < -5)) {
+                                task.step = 'finished';
+                                const levelData = currentSessionEquations[currentLevel];
+                                explanationBox.innerHTML = `<h4>الحل الصحيح</h4><p style="text-align: center; color: #a0aec0; font-size: 0.9rem;">الهدف: الوصول للصورة القياسية (أس + ب ص = ج)</p><p style="text-align: right; line-height: 1.6;">${levelData.explanation}</p><p><strong>المعادلة الصحيحة:</strong></p><div class="final-equation">${levelData.solution}</div>`;
+                                explanationBox.style.display = 'block';
+                                setTimeout(() => { explanationBox.style.opacity = 1; }, 50);
+                                nextBtn.style.display = 'inline-block';
+                                task.cubes.forEach(cube => scene.remove(cube));
+                                animationQueue.shift();
+                            }
+                        }
+                        break;
+                }
+            }
+            
+            if (!isAnimating && animationQueue.length === 0) {
+                raycaster.setFromCamera(mouse, camera);
+                const objectsToTest = [...raycastableObjects, ...placementTargets];
+                const intersects = raycaster.intersectObjects(objectsToTest, true);
+                let newHovered = null;
+                if (intersects.length > 0) {
+                    const hit = intersects[0].object;
+                    if (selectedObject) {
+                        if (hit.userData.snapTargetData && !hit.userData.snapTargetData.isOccupied) newHovered = hit;
+                    } else {
+                        if (hit.userData.parentCube && hit.userData.parentCube.userData.isDraggable && !hit.userData.parentCube.userData.snapTargetData) newHovered = hit.userData.parentCube;
+                    }
+                }
+                if (hoveredObject !== newHovered) {
+                    if (hoveredObject) {
+                        if (hoveredObject.userData.snapTargetData) hoveredObject.material = placeholderMaterial;
+                        else hoveredObject.material.emissive.setHex(0x000000);
+                    }
+                    hoveredObject = newHovered;
+                    if (hoveredObject) {
+                        if (hoveredObject.userData.snapTargetData) hoveredObject.material = placeholderHoverMaterial;
+                        else hoveredObject.material.emissive.setHex(0x555555);
+                        canvas.style.cursor = 'pointer';
+                    } else canvas.style.cursor = 'default';
+                }
+            } else canvas.style.cursor = 'wait';
+            
+            snapTargets.forEach(({target, isOccupied}) => {
+                if(!isOccupied && target !== hoveredObject) {
+                    target.material.emissiveIntensity = Math.sin(time * 5) * 0.25 + 0.25;
+                } else if (isOccupied) {
+                    target.material.emissiveIntensity = 0;
+                }
+            });
+
+            renderer.render(scene, camera);
+        }
+        
+        init();
+    </script>
+    <script>
+    // --- START OF CONNECTION & LEADERBOARD ENGINE ---
+    (function() {
+        // --- CONFIGURATION (عدّل هذه الإعدادات لكل لعبة) ---
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
+        const GAME_ID = 'g2_3_2';         // مثال: 'g1_1_1'
+        const GAME_MAX_POINTS = 5;                  // أقصى نقاط في اللعبة
+        const PLATFORM_MAX_GRADE = 5;               // الدرجة النهائية في المنصة
+        const METRIC_TYPE = 'time';                 // نوع المعيار: 'time', 'stars', 'errors'
+        const METRIC_LABEL = 'الوقت (ثواني)';       // اسم المعيار للعرض في الجدول
+
+        // --- Read URL Parameters ---
+        const urlParams = new URLSearchParams(window.location.search);
+        const studentId = urlParams.get('studentId');
+        const classId = urlParams.get('classId');
+        const studentName = urlParams.get('studentName');
+
+        let currentUser = (studentId && studentName) ? { id: studentId, name: studentName } : null;
+
+        // --- CORE FUNCTIONS ---
+
+        // 1. الدالة الرئيسية التي تستدعيها عند انتهاء اللعبة
+        window.saveAndFinishGame = function(points, metricValue) {
+            const finalPoints = parseFloat(points) || 0;
+            const finalMetric = parseFloat(metricValue) || 0;
+            const maxPoints = parseFloat(GAME_MAX_POINTS) || 1;
+            const finalGrade = (finalPoints / maxPoints) * PLATFORM_MAX_GRADE;
+
+            const resultDisplay = document.getElementById('final-result-display');
+            if (resultDisplay) {
+                resultDisplay.innerHTML = `
+                    <p class="text-gray-400">النقاط: <span class="font-bold text-xl text-white">${finalPoints} / ${maxPoints}</span></p>
+                    <p class="text-blue-400">الدرجة في المنصة: <span class="font-bold text-2xl text-white">${finalGrade.toFixed(1)} / ${PLATFORM_MAX_GRADE}</span></p>
+                `;
+            }
+
+            if (studentId && classId) {
+                const params = new URLSearchParams({
+                    action: 'saveGrade',
+                    studentId: studentId,
+                    classId: classId,
+                    itemId: GAME_ID,
+                    grade: finalGrade.toFixed(2),
+                    metricValue: Math.round(finalMetric).toString()
+                });
+                fetch(`${SCRIPT_URL}?${params.toString()}`)
+                    .then(res => res.json())
+                    .then(result => console.log('Save result:', result.status))
+                    .catch(err => console.error("Save Error:", err))
+                    .finally(fetchAndShowLeaderboard);
+            } else {
+                console.log(`Visitor finished. Score: ${finalPoints}, Metric: ${finalMetric}`);
+                fetchAndShowLeaderboard();
+            }
+        }
+
+        // 2. دالة جلب وعرض سجل الأبطال
+        function fetchAndShowLeaderboard() {
+            const loader = document.getElementById('leaderboard-loader');
+            const container = document.getElementById('leaderboard-container');
+            if (!loader || !container) return;
+            
+            if (!classId) {
+                console.log("No classId found, skipping leaderboard for visitor.");
+                container.innerHTML = `<p class="text-center text-gray-500 mt-4">سجل الأبطال متاح للطلاب المسجلين فقط.</p>`;
+                showFinishButton();
+                return;
+            }
+
+            loader.style.display = 'block';
+            container.innerHTML = '';
+
+            const params = new URLSearchParams({
+                action: 'getLeaderboard',
+                gameId: GAME_ID,
+                metricType: METRIC_TYPE,
+                classId: classId
+            });
+
+            fetch(`${SCRIPT_URL}?${params.toString()}`)
+                .then(res => res.json())
+                .then(response => {
+                    if (response.status === 'success' && response.data) {
+                        displayLeaderboard(response.data);
+                    } else {
+                        throw new Error(response.message || 'Failed to load leaderboard data.');
+                    }
+                })
+                .catch(err => {
+                    console.error("Leaderboard Error:", err);
+                    container.innerHTML = `<p class="text-center text-red-500">حدث خطأ في تحميل سجل الأبطال.</p>`;
+                })
+                .finally(() => {
+                    loader.style.display = 'none';
+                    showFinishButton();
+                });
+        }
+        
+        // 3. دالة بناء جدول سجل الأبطال
+        function displayLeaderboard(data) {
+            const container = document.getElementById('leaderboard-container');
+            if (!data || data.length === 0) {
+                container.innerHTML = `<p class="text-center text-gray-400 mt-4">لا توجد نتائج بعد. كن أول الأبطال!</p>`;
+                return;
+            }
+
+            let tableHTML = `
+                <div class="mt-6 border-t border-gray-700 pt-4">
+                    <h3 class="text-2xl font-bold text-center text-white mb-4">🏆 سجل الأبطال 🏆</h3>
+                    <table class="min-w-full bg-gray-800 shadow-md rounded-lg text-white">
+                        <thead class="bg-gray-900">
+                            <tr>
+                                <th class="text-center py-2 px-3">الترتيب</th>
+                                <th class="text-right py-2 px-3">اسم الطالب</th>
+                                <th class="text-center py-2 px-3">الدرجة</th>
+                                <th class="text-center py-2 px-3">${METRIC_LABEL}</th>
+                            </tr>
+                        </thead>
+                        <tbody class="text-gray-300">`;
+
+            data.forEach((player, index) => {
+                const rank = index + 1;
+                let rankDisplay = rank;
+                if (rank === 1) rankDisplay = '🥇';
+                if (rank === 2) rankDisplay = '🥈';
+                if (rank === 3) rankDisplay = '🥉';
+
+                const isCurrentUser = (currentUser && player.name === currentUser.name);
+                const rowClass = isCurrentUser ? 'bg-blue-900 font-bold' : (index % 2 === 0 ? 'bg-gray-700' : '');
+
+                tableHTML += `
+                    <tr class="${rowClass}">
+                        <td class="text-center py-2 px-3 text-xl">${rankDisplay}</td>
+                        <td class="text-right py-2 px-3">${player.name}</td>
+                        <td class="text-center py-2 px-3">${player.grade.toFixed(1)}</td>
+                        <td class="text-center py-2 px-3">${player.metricValue}</td>
+                    </tr>`;
+            });
+
+            tableHTML += `</tbody></table></div>`;
+            container.innerHTML = tableHTML;
+        }
+
+        // 4. إظهار زر الإنهاء
+        function showFinishButton() {
+            const finishWrapper = document.getElementById('finish-game-wrapper');
+            if (finishWrapper) {
+                finishWrapper.style.display = 'flex';
+            }
+        }
+
+        // 5. التعامل مع زر الإنهاء وتخصيص رسالة الترحيب
+        document.addEventListener('DOMContentLoaded', () => {
+            // Personalize welcome message
+            const welcomeMessage = document.getElementById('welcomeMessage');
+            if (studentName && welcomeMessage) {
+                welcomeMessage.innerHTML = `أهلاً بك يا <span class="font-bold text-yellow-300">${studentName}</span>! الهدف هو إعادة ترتيب كل معادلة لتطابق الصورة القياسية، ثم تمثيلها على الميزان باستخدام المكعبات الصحيحة.`;
+            }
+
+            const finishBtn = document.getElementById('finish-game-btn');
+            if (finishBtn) {
+                finishBtn.addEventListener('click', () => {
+                    window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*');
+                });
+            }
+        });
+    })();
+    // --- END OF CONNECTION & LEADERBOARD ENGINE ---
+    </script>
+</body>
+</html>
+
+

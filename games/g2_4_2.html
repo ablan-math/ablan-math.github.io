@@ -689,6 +689,7 @@
             window.addEventListener('resize', onWindowResize);
             container.addEventListener('mousemove', onMouseMove);
             container.addEventListener('click', onClick);
+            container.addEventListener('touchend', onTouchEnd, false);
         }
 
         function createSignMaterial(dept) {
@@ -1031,16 +1032,47 @@
             mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
             mouse.y = - (event.clientY / window.innerHeight) * 2 + 1;
         }
+        
+        function onTouchEnd(event) {
+            const touch = event.changedTouches[0];
+            mouse.x = (touch.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(touch.clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(interactiveObjects, true);
+
+            if (intersects.length > 0) {
+                 let currentObject = intersects[0].object;
+                 while(currentObject.parent && !currentObject.userData.isClickable) {
+                     currentObject = currentObject.parent;
+                 }
+                if (currentObject.userData.isClickable) {
+                    if (challengeModalEl.style.display !== 'flex' && explanationModalEl.style.display !== 'flex') {
+                         showChallenge(currentObject.userData.id);
+                    }
+                }
+            }
+        }
+
 
         function onClick(event) {
             if (challengeModalEl.style.display === 'flex' || explanationModalEl.style.display === 'flex') return;
-            if (hoveredObject) {
-                 const objectId = hoveredObject.userData.id;
-                 showChallenge(objectId);
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(interactiveObjects, true);
+
+            if (intersects.length > 0) {
+                 let currentObject = intersects[0].object;
+                 while(currentObject.parent && !currentObject.userData.isClickable) {
+                     currentObject = currentObject.parent;
+                 }
+                 if (currentObject.userData.isClickable) {
+                    showChallenge(currentObject.userData.id);
+                }
             }
         }
 
         function checkHover() {
+            // This function is only for mouse hover effects, so we don't need touch logic here.
             raycaster.setFromCamera(mouse, camera);
             const intersects = raycaster.intersectObjects(interactiveObjects, true);
 
@@ -1280,4 +1312,3 @@
     </script>
 </body>
 </html>
-

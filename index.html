@@ -81,7 +81,6 @@
         /* --- Lesson & Path Styles --- */
         .lesson-checkpoint.locked .lesson-card, .lesson-checkpoint.locked .game-card { opacity: 0.6; background-color: #f3f4f6; pointer-events: none; cursor: not-allowed; }
         .lesson-checkpoint.locked .checkpoint-icon { background-color: #9ca3af; box-shadow: 0 0 0 3px #9ca3af; }
-        /* RESTORED: Rule for locked summary boxes */
         .lesson-summary-box.locked { opacity: 0.5; background-color: #f8f8f8; pointer-events: none; cursor: not-allowed; }
         .lesson-summary-box.locked .summary-icon { color: #b0b0b0 !important; }
 
@@ -124,7 +123,7 @@
         .lesson-title { font-size: 1.125rem; font-weight: 700; color: #1f2937; text-decoration: none; }
         .lesson-grade { font-weight: 700; padding: 0.25rem 0.75rem; border-radius: 9999px; }
         .games-grid { margin-top: 1rem; padding-top: 1rem; border-top: 1px dashed #d1d5db; display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 1rem; }
-        .game-card { position: relative; background-color: white; border-radius: 0.5rem; padding: 0.75rem; text-align: center; border: 1px solid #e5e7eb; transition: transform 0.2s; text-decoration: none; color: #374151; cursor: pointer; }
+        .game-card { position: relative; background-color: white; border-radius: 0.5rem; padding: 0.75rem; text-align: center; border: 1px solid #e5e7eb; transition: transform 0.2s, border-color 0.3s, box-shadow 0.3s; text-decoration: none; color: #374151; cursor: pointer; }
         .game-card:hover { transform: translateY(-3px); }
         .game-title { font-weight: 600; font-size: 0.875rem; padding-top: 0.5rem; }
         .game-grade { font-size: 0.875rem; font-weight: 700; color: #1d4ed8; margin-top: 0.25rem; }
@@ -143,9 +142,11 @@
         
         /* --- Spotlight and Guidance Styles --- */
         .spotlight .lesson-card { border: 2px solid #4f46e5; box-shadow: 0 0 15px rgba(79, 70, 229, 0.3); animation: pulse-border 2s infinite; }
-        .start-here-badge { position: absolute; top: -12px; right: -12px; background-color: #ef4444; color: white; padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+        .game-card.spotlight { border-color: #ef4444; box-shadow: 0 0 15px rgba(239, 68, 68, 0.4); animation: pulse-border-red 2s infinite; }
+        .start-here-badge { position: absolute; top: -12px; right: -12px; background-color: #ef4444; color: white; padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.2); z-index: 10; }
         .game-icon-badge { position: absolute; top: -15px; left: -15px; background-color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; box-shadow: 0 2px 5px rgba(0,0,0,0.15); }
         @keyframes pulse-border { 0% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(79, 70, 229, 0); } 100% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0); } }
+        @keyframes pulse-border-red { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
         
         /* --- NEW: Guidance Modal Styles --- */
         .guidance-modal-content { background: white; border-radius: 1.5rem; width: 100%; max-width: 500px; text-align: center; padding: 2rem; box-shadow: 0 10px 25px rgba(0,0,0,0.1); position: relative; animation: fadeIn 0.3s ease-out; }
@@ -492,13 +493,13 @@
             progressCircle.style.background = `conic-gradient(#22c55e 0deg ${gainedDegrees}deg, #ef4444 ${gainedDegrees}deg ${gainedDegrees + lostDegrees}deg, #e5e7eb ${gainedDegrees + lostDegrees}deg 360deg)`;
             masteryText.textContent = `${masteryPercentage}%`;
             
-            buildLearningPath(studentData);
+            const nextTask = findNextTask(studentData);
+            buildLearningPath(studentData, nextTask);
             
-            const nextLesson = findNextTask(studentData);
             const guidanceShown = sessionStorage.getItem('guidanceModalShown');
 
-            if (nextLesson && !guidanceShown) {
-                showGuidanceModal(nextLesson);
+            if (nextTask && !guidanceShown) {
+                showGuidanceModal(nextTask);
                 sessionStorage.setItem('guidanceModalShown', 'true');
             }
         }
@@ -564,7 +565,7 @@
         };
 
         // --- Learning Path & Other UI Functions ---
-        function buildLearningPath(studentData) {
+        function buildLearningPath(studentData, nextTask = null) {
             const learningPathContainer = document.getElementById('learning-path-section');
             const studentLessons = studentData.lessons || {};
             const studentGames = studentData.games || {};
@@ -581,8 +582,6 @@
                 </div>
             </div>`;
             
-            let firstUnlockedLessonId = null;
-
             Object.keys(curriculumIndex).forEach((chapterKey) => {
                 const chapter = curriculumIndex[chapterKey];
                 let lessonSummariesHtml = '';
@@ -605,7 +604,6 @@
                     } else { isLocked = false; }
                     
                     if (studentData && studentData.role === 'teacher') { isLocked = false; unlockDate = null; }
-                    if (!isLocked && lessonGrade === null && !firstUnlockedLessonId) { firstUnlockedLessonId = `lesson-${lesson.id}`; }
 
                     const game1 = lesson.games && lesson.games[0] ? lesson.games[0] : null;
                     const game1Data = game1 ? studentGames[game1.id] : null;
@@ -625,7 +623,13 @@
                     const gamesHtml = (lesson.games || []).map(game => {
                         const gameData = studentGames[game.id];
                         const gameGrade = (gameData !== undefined) ? robustParseFloat(gameData.grade) : null;
-                        return `<div onclick="openGameModal('${game.id}')" class="game-card">
+                        
+                        const isGameSpotlight = nextTask && nextTask.type === 'game' && nextTask.details.id === game.id;
+                        const gameSpotlightClass = isGameSpotlight ? 'spotlight' : '';
+                        const gameStartBadge = isGameSpotlight ? '<div class="start-here-badge" style="font-size: 0.7rem; top: -10px; right: -10px; left: auto;">ابدأ هنا</div>' : '';
+
+                        return `<div onclick="openGameModal('${game.id}')" class="game-card ${gameSpotlightClass}">
+                                    ${gameStartBadge}
                                     <div class="game-icon-badge">🎮</div>
                                     <div class="game-title">${game.title}</div>
                                     <div class="game-grade">${gameGrade !== null ? `${gameGrade} / ${game.maxScore}` : '- / -'} ${gameGrade === game.maxScore ? '<i class="fas fa-star text-yellow-400 ml-1"></i>' : ''}</div>
@@ -633,11 +637,11 @@
                     }).join('');
 
                     const unlockDateHtml = unlockDate ? `<div class="unlock-date">يفتح بتاريخ: ${unlockDate}</div>` : '';
-                    const isSpotlight = `lesson-${lesson.id}` === firstUnlockedLessonId;
-                    const spotlightClass = isSpotlight ? 'spotlight' : '';
-                    const startBadge = isSpotlight ? '<div class="start-here-badge">ابدأ هنا</div>' : '';
+                    const isLessonSpotlight = nextTask && nextTask.type === 'lesson' && nextTask.details.id === lesson.id;
+                    const lessonSpotlightClass = isLessonSpotlight ? 'spotlight' : '';
+                    const lessonStartBadge = isLessonSpotlight ? '<div class="start-here-badge">ابدأ هنا</div>' : '';
 
-                    return `<div id="lesson-${lesson.id}" class="lesson-checkpoint ${state} ${spotlightClass}"><div class="checkpoint-icon"><i class="fas ${icon}"></i></div><div class="checkpoint-content"><div class="lesson-card">${startBadge}<div class="lesson-card-header"><a href="${lessonLink}" target="_top" class="lesson-title">${lesson.title}</a>${gradeHtml}</div>${unlockDateHtml}${gamesHtml ? `<div class="games-grid">${gamesHtml}</div>` : ''}</div></div></div>`;
+                    return `<div id="lesson-${lesson.id}" class="lesson-checkpoint ${state} ${lessonSpotlightClass}"><div class="checkpoint-icon"><i class="fas ${icon}"></i></div><div class="checkpoint-content"><div class="lesson-card">${lessonStartBadge}<div class="lesson-card-header"><a href="${lessonLink}" target="_top" class="lesson-title">${lesson.title}</a>${gradeHtml}</div>${unlockDateHtml}${gamesHtml ? `<div class="games-grid">${gamesHtml}</div>` : ''}</div></div></div>`;
                 }).join('');
 
                 const chapterCard = document.createElement('div');
@@ -650,7 +654,7 @@
                     }
                 });
                 
-                if(firstUnlockedLessonId && chapter.lessons.some(l => `lesson-${l.id}` === firstUnlockedLessonId)){
+                if(nextTask && chapter.lessons.some(l => (nextTask.type === 'lesson' && l.id === nextTask.details.id) || (nextTask.type === 'game' && l.id === nextTask.parentLessonId))){
                     chapterCard.classList.add('expanded');
                 }
             });
@@ -659,32 +663,65 @@
         // --- NEW MODAL LOGIC ---
         function findNextTask(studentData) {
             const studentLessons = studentData.lessons || {};
+            const studentGames = studentData.games || {};
             const lessonRules = studentData.lessonRules || {};
+
             for (const chapterKey of Object.keys(curriculumIndex)) {
                 for (const lesson of curriculumIndex[chapterKey].lessons) {
-                    const lessonData = studentLessons[lesson.id];
-                    const lessonGrade = (lessonData !== undefined) ? robustParseFloat(lessonData.grade) : null;
-                    let isLocked = true;
                     const rule = lessonRules[lesson.id];
+                    let isLocked = true;
                     if (rule) {
-                        if (rule.method === 'يدوي' && rule.value === 'مفتوح') isLocked = false;
+                        if (rule.method === 'يدوي' && rule.value === 'مفتوح') { isLocked = false; }
                         else if (rule.method === 'تاريخ') {
                             const today = new Date(); const openDate = new Date(rule.value);
-                            today.setHours(0,0,0,0);
-                            if(today >= openDate) isLocked = false;
+                            today.setHours(0, 0, 0, 0);
+                            if (today >= openDate) { isLocked = false; }
                         }
                     } else { isLocked = false; }
-                     if (studentData && studentData.role === 'teacher') { isLocked = false; }
-                    if (!isLocked && lessonGrade === null) { return lesson; }
+                    if (studentData && studentData.role === 'teacher') { isLocked = false; }
+
+                    if (!isLocked) {
+                        const lessonData = studentLessons[lesson.id];
+                        const lessonGrade = (lessonData !== undefined) ? robustParseFloat(lessonData.grade) : null;
+
+                        if (lessonGrade === null) {
+                            return { type: 'lesson', details: lesson };
+                        }
+
+                        for (const game of (lesson.games || [])) {
+                            const gameData = studentGames[game.id];
+                            const gameGrade = (gameData !== undefined) ? robustParseFloat(gameData.grade) : null;
+                            // MODIFIED: Check for unplayed games only (grade is null).
+                            // This prevents "ابدأ هنا" on games that have been played, even with a low score.
+                            if (gameGrade === null) {
+                                return { type: 'game', details: game, parentLessonId: lesson.id };
+                            }
+                        }
+                    }
                 }
             }
             return null;
         }
 
-        function showGuidanceModal(nextLesson) {
-            if (!nextLesson) return;
-            guidanceModalBody.innerHTML = `<p>مرحباً بك مجدداً! يبدو أنك مستعد لإنجاز جديد.</p><p>مهمتك التالية هي:</p><p class="lesson-name">${nextLesson.title}</p>`;
-            guidanceModalFooter.innerHTML = `<button onclick="goToTaskAndCloseModal('${nextLesson.id}')" class="action-btn">🚀 لنبدأ الآن</button>`;
+        function showGuidanceModal(nextTask) {
+            if (!nextTask) return;
+            let taskTypeMessage = '';
+            let taskTitle = nextTask.details.title;
+            let lessonIdToGoTo = '';
+            let icon = '🎯';
+
+            if (nextTask.type === 'lesson') {
+                taskTypeMessage = 'مهمتك التالية هي إكمال اختبار الدرس:';
+                lessonIdToGoTo = nextTask.details.id;
+            } else if (nextTask.type === 'game') {
+                taskTypeMessage = 'لديك لعبة تحتاج لإكمالها أو تحسين نتيجتك فيها:';
+                lessonIdToGoTo = nextTask.parentLessonId;
+                icon = '🎮';
+            }
+
+            guidanceModal.querySelector('.emoji-icon').textContent = icon;
+            guidanceModalBody.innerHTML = `<p>مرحباً بك مجدداً! يبدو أنك مستعد لإنجاز جديد.</p><p>${taskTypeMessage}</p><p class="lesson-name">${taskTitle}</p>`;
+            guidanceModalFooter.innerHTML = `<button onclick="goToTaskAndCloseModal('${lessonIdToGoTo}')" class="action-btn">🚀 لنبدأ الآن</button>`;
             guidanceModal.classList.remove('hidden');
         }
 
@@ -692,7 +729,14 @@
             guidanceModal.classList.add('hidden');
             const lessonElement = document.getElementById(`lesson-${lessonId}`);
             if (lessonElement) {
-                lessonElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                const chapterCard = lessonElement.closest('.chapter-card');
+                if (chapterCard && !chapterCard.classList.contains('expanded')) {
+                    chapterCard.classList.add('expanded');
+                }
+                
+                setTimeout(() => {
+                    lessonElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }, 300);
             }
         }
         
@@ -809,4 +853,5 @@
     </script>
 </body>
 </html>
+
 

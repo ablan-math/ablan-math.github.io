@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>تحدي غرفة الطوارئ</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Tajawal', sans-serif;
+            touch-action: manipulation;
+            overscroll-behavior-y: contain; /* Prevents pull-to-refresh */
+            position: relative; /* For background pseudo-element */
+        }
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-image: url('https://ablan-math.github.io/img/GZAA.png');
+            background-size: cover;
+            background-position: center;
+            z-index: -1;
+            opacity: 0.4; /* Adjust the opacity to make it more or less visible */
+        }
+        .card-enter {
+            animation: card-enter 0.5s ease-out forwards;
+        }
+        @keyframes card-enter {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        .feedback-correct {
+            animation: feedback-pop 0.3s ease-in-out;
+            background-color: #10B981;
+            color: white;
+        }
+        .feedback-incorrect {
+            animation: feedback-shake 0.5s ease-in-out;
+            background-color: #EF4444;
+            color: white;
+        }
+        @keyframes feedback-pop {
+            0% { transform: scale(0.8); }
+            80% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        @keyframes feedback-shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-5px); }
+            40%, 80% { transform: translateX(5px); }
+        }
+        .fraction-display {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            vertical-align: middle;
+            margin: 0 0.2em;
+            line-height: 1;
+        }
+        .fraction-display .numerator {
+            padding: 0 0.4em;
+            border-bottom: 1.5px solid currentColor;
+        }
+        .fraction-display .denominator {
+            padding: 0 0.4em;
+        }
+        .modal-content {
+            animation: modal-pop 0.3s ease-out;
+        }
+        @keyframes modal-pop {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        #leaderboard-loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen p-2 sm:p-4">
+
+    <div id="game-container" class="w-full max-w-sm mx-auto bg-white/50 backdrop-blur-sm rounded-2xl shadow-xl p-4 space-y-3">
+        
+        <!-- Start Screen -->
+        <div id="start-screen" class="text-center card-enter flex flex-col justify-center items-center h-full py-6">
+            <h1 class="text-3xl font-bold text-indigo-600">تحدي غرفة الطوارئ</h1>
+            <div id="welcomeMessage" class="text-sm text-gray-800 mt-4 mb-6 text-center bg-gray-100/70 p-3 rounded-lg shadow-inner space-y-2">
+                <p>أنت الآن مساعد طبي في غرفة الطوارئ. مهمتك هي تحليل بيانات المصابين بسرعة ودقة. عليك قياس <span class="font-bold text-blue-600">معدل التغير</span> لمعرفة إن كان ثابتاً أم لا. هذه المعلومات قد تساعد في إنقاذ حياة المصاب.</p>
+            </div>
+            <button onclick="startGame()" class="w-full bg-indigo-600 text-white font-bold py-3 px-6 rounded-lg shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-opacity-75 transition-transform transform hover:scale-105">
+                ابدأ التحدي
+            </button>
+            <p class="text-xs text-gray-600 font-semibold mt-8">تصميم وبرمجة: الأستاذ عبدالعزيز خالد العبلان</p>
+        </div>
+        
+        <!-- Game Screen (Initially Hidden) -->
+        <div id="game-screen" class="hidden">
+            <!-- This container will be overwritten by the end-game summary -->
+        </div>
+    </div>
+
+    <!-- Explanation Modal -->
+    <div id="explanation-modal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-lg p-5 w-full max-w-sm modal-content">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="text-xl font-bold text-indigo-700">شرح الحل</h3>
+                <button onclick="hideExplanation()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+            </div>
+            <div id="explanation-content" class="space-y-3 text-gray-700 max-h-[60vh] overflow-y-auto pr-2"></div>
+            <button onclick="hideExplanation()" class="mt-4 w-full bg-gray-500 text-white font-bold py-2 rounded-lg hover:bg-gray-600">إغلاق</button>
+        </div>
+    </div>
+
+    <script>
+        // --- Game Code START ---
+        
+        // --- Question Bank ---
+        const questionBank = [
+            // Group 1: Constant Positive Rate
+            [
+                { scenarioTitle: "🩸 نقل دم عاجل", scenarioDescription: "فريق طبي يسعف أحد المواطنين المصابين بنزيف حاد جراء هجوم لقوات الاحتلال.", headerX: "الزمن (دقيقة)", headerY: "حجم الدم (مل)", data: [[5, 40], [15, 120], [25, 200]], options: [ { text: 'نعم، ثابت. م =', value: '8' }, { text: 'نعم، ثابت. م =', value: '1/8' }, { text: 'نعم، ثابت. م =', value: '-8' }, { text: 'لا، غير ثابت', value: 'غير ثابت' } ], correctAnswer: '8', explanation: { type: 'constant', rate1: { y2: 120, y1: 40, x2: 15, x1: 5 }, rate2: { y2: 200, y1: 120, x2: 25, x1: 15 }, conclusion: "بما أن المعدل متساوٍ، فإن معدل التغير ثابت." } },
+                { scenarioTitle: "💓 تسارع نبض القلب", scenarioDescription: "مراقبة نبضات قلب مصاب بعد إعطائه دواء منشط للدورة الدموية.", headerX: "الزمن (دقيقة)", headerY: "النبض (ن/د)", data: [[2, 70], [4, 80], [6, 90]], options: [ { text: 'نعم، ثابت. م =', value: '5' }, { text: 'نعم، ثابت. م =', value: '10' }, { text: 'نعم، ثابت. م =', value: '-5' }, { text: 'لا، غير ثابت', value: 'غير ثابت' } ], correctAnswer: '5', explanation: { type: 'constant', rate1: { y2: 80, y1: 70, x2: 4, x1: 2 }, rate2: { y2: 90, y1: 80, x2: 6, x1: 4 }, conclusion: "بما أن المعدل متساوٍ، فإن معدل التغير ثابت." } },
+                { scenarioTitle: "💉 مضاد حيوي", scenarioDescription: "أحد المصابين في هجوم للعدو يتلقى مضادًا حيويًا عبر الوريد لمنع تفاقم إصابته.", headerX: "الزمن (ساعة)", headerY: "الجرعة (ملغ)", data: [[1, 250], [2, 500], [3, 750]], options: [ { text: 'نعم، ثابت. م =', value: '-250' }, { text: 'نعم، ثابت. م =', value: '250' }, { text: 'نعم، ثابت. م =', value: '1/250' }, { text: 'لا، غير ثابت', value: 'غير ثابت' } ], correctAnswer: '250', explanation: { type: 'constant', rate1: { y2: 500, y1: 250, x2: 2, x1: 1 }, rate2: { y2: 750, y1: 500, x2: 3, x1: 2 }, conclusion: "بما أن المعدل متساوٍ، فإن معدل التغير ثابت." } }
+            ],
+            // Group 2: Variable Rate
+            [
+                { scenarioTitle: "📉 تخفيف الألم", scenarioDescription: "بعد إعطاء مسكن لمصاب جراء قصف معادٍ، يتم تسجيل مستوى الألم الذي يشعر به.", headerX: "الزمن (دقيقة)", headerY: "مستوى الألم (من ١٠)", data: [[5, 8], [20, 5], [35, 3]], options: [ { text: 'نعم، ثابت. م =', value: '-0.2' }, { text: 'نعم، ثابت. م =', value: '3' }, { text: 'نعم، ثابت. م =', value: '-3' }, { text: 'لا، غير ثابت', value: 'غير ثابت' } ], correctAnswer: 'غير ثابت', explanation: { type: 'variable', rate1: { y2: 5, y1: 8, x2: 20, x1: 5 }, rate2: { y2: 3, y1: 5, x2: 35, x1: 20 }, conclusion: "بما أن المعدلات غير متساوية، فإن معدل التغير غير ثابت." } },
+                { scenarioTitle: "🩹 متابعة التئام جرح", scenarioDescription: "طبيب يتابع التئام جرح أحد ضحايا هجوم قوات الاحتلال على مدى أيام.", headerX: "اليوم", headerY: "مساحة الجرح (سم²)", data: [[1, 20], [3, 15], [5, 11]], options: [ { text: 'نعم، ثابت. م =', value: '-2.5' }, { text: 'لا، غير ثابت', value: 'غير ثابت' }, { text: 'نعم، ثابت. م =', value: '2.5' }, { text: 'نعم، ثابت. م =', value: '-2' } ], correctAnswer: 'غير ثابت', explanation: { type: 'variable', rate1: { y2: 15, y1: 20, x2: 3, x1: 1 }, rate2: { y2: 11, y1: 15, x2: 5, x1: 3 }, conclusion: "بما أن المعدلات غير متساوية، فإن معدل التغير غير ثابت." } },
+                { scenarioTitle: "🌡️ انخفاض الحرارة", scenarioDescription: "قياس درجة حرارة مصاب بالحمى بعد إعطائه دواء خافض للحرارة.", headerX: "الزمن (ساعة)", headerY: "الحرارة (مئوية)", data: [[0.5, 39.0], [1.5, 38.0], [2.5, 37.5]], options: [ { text: 'نعم، ثابت. م =', value: '-1' }, { text: 'نعم، ثابت. م =', value: '-0.5' }, { text: 'لا، غير ثابت', value: 'غير ثابت' }, { text: 'نعم، ثابت. م =', value: '1' } ], correctAnswer: 'غير ثابت', explanation: { type: 'variable', rate1: { y2: 38.0, y1: 39.0, x2: 1.5, x1: 0.5 }, rate2: { y2: 37.5, y1: 38.0, x2: 2.5, x1: 1.5 }, conclusion: "بما أن المعدلات غير متساوية، فإن معدل التغير غير ثابت." } }
+            ],
+            // Group 3: Constant Negative Rate
+            [
+                { scenarioTitle: "💧 تفريغ محلول وريدي", scenarioDescription: "مراقبة حجم المحلول الملحي في كيس التسريب الوريدي لمصاب.", headerX: "الزمن (دقيقة)", headerY: "الحجم المتبقي (مل)", data: [[10, 190], [40, 160], [70, 130]], options: [ { text: 'نعم، ثابت. م =', value: '1' }, { text: 'لا، غير ثابت', value: 'غير ثابت' }, { text: 'نعم، ثابت. م =', value: '-30' }, { text: 'نعم، ثابت. م =', value: '-1' } ], correctAnswer: '-1', explanation: { type: 'constant', rate1: { y2: 160, y1: 190, x2: 40, x1: 10 }, rate2: { y2: 130, y1: 160, x2: 70, x1: 40 }, conclusion: "بما أن المعدل متساوٍ، فإن معدل التغير ثابت." } },
+                { scenarioTitle: "⛽️ مستوى الوقود بالإسعاف", scenarioDescription: "مراقبة استهلاك الوقود في سيارة إسعاف أثناء نقلها لمصاب.", headerX: "المسافة (كم)", headerY: "الوقود (لتر)", data: [[10, 38], [35, 33], [60, 28]], options: [ { text: 'نعم، ثابت. م =', value: '-0.2' }, { text: 'نعم، ثابت. م =', value: '0.2' }, { text: 'نعم، ثابت. م =', value: '-5' }, { text: 'لا، غير ثابت', value: 'غير ثابت' } ], correctAnswer: '-0.2', explanation: { type: 'constant', rate1: { y2: 33, y1: 38, x2: 35, x1: 10 }, rate2: { y2: 28, y1: 33, x2: 60, x1: 35 }, conclusion: "بما أن المعدل متساوٍ، فإن معدل التغير ثابت." } },
+                { scenarioTitle: "💊 تركيز دواء بالدم", scenarioDescription: "قياس انخفاض تركيز دواء في دم مصاب بمرور الوقت.", headerX: "الزمن (ساعة)", headerY: "التركيز (مكغ/مل)", data: [[1, 80], [2, 40], [3, 20]], options: [ { text: 'لا، غير ثابت', value: 'غير ثابت' }, { text: 'نعم، ثابت. م =', value: '-40' }, { text: 'نعم، ثابت. م =', value: '-20' }, { text: 'نعم، ثابت. م =', value: '40' } ], correctAnswer: 'غير ثابت', explanation: { type: 'variable', rate1: { y2: 40, y1: 80, x2: 2, x1: 1 }, rate2: { y2: 20, y1: 40, x2: 3, x1: 2 }, conclusion: "بما أن المعدلات غير متساوية، فإن معدل التغير غير ثابت." } }
+            ],
+             // Group 4: Variable Rate (Positive)
+            [
+                { scenarioTitle: "📈 استعادة ضغط الدم", scenarioDescription: "قياس ضغط الدم الانقباضي لمصاب يتعافى من صدمة.", headerX: "الزمن (دقيقة)", headerY: "الضغط (ملم زئبق)", data: [[2, 85], [7, 105], [12, 120]], options: [ { text: 'نعم، ثابت. م =', value: '4' }, { text: 'نعم، ثابت. م =', value: '3' }, { text: 'لا، غير ثابت', value: 'غير ثابت' }, { text: 'نعم، ثابت. م =', value: '3.5' } ], correctAnswer: 'غير ثابت', explanation: { type: 'variable', rate1: { y2: 105, y1: 85, x2: 7, x1: 2 }, rate2: { y2: 120, y1: 105, x2: 12, x1: 7 }, conclusion: "بما أن المعدلات غير متساوية، فإن معدل التغير غير ثابت." } },
+                { scenarioTitle: "🌬️ تحسن سعة الرئة", scenarioDescription: "قياس السعة الحيوية لرئة مصاب في صدره أثناء فترة العلاج الطبيعي.", headerX: "الأسبوع", headerY: "السعة (لتر)", data: [[1, 2.5], [3, 3.0], [5, 3.4]], options: [ { text: 'نعم، ثابت. م =', value: '0.25' }, { text: 'لا، غير ثابت', value: 'غير ثابت' }, { text: 'نعم، ثابت. م =', value: '0.2' }, { text: 'نعم، ثابت. م =', value: '0.5' } ], correctAnswer: 'غير ثابت', explanation: { type: 'variable', rate1: { y2: 3.0, y1: 2.5, x2: 3, x1: 1 }, rate2: { y2: 3.4, y1: 3.0, x2: 5, x1: 3 }, conclusion: "بما أن المعدلات غير متساوية، فإن معدل التغير غير ثابت." } },
+                { scenarioTitle: "💪 استعادة قوة العضلات", scenarioDescription: "قياس قوة قبضة اليد لمصاب يتعافى من إصابة في ذراعه.", headerX: "اليوم", headerY: "القوة (كغ)", data: [[5, 8], [12, 18], [19, 26]], options: [ { text: 'نعم، ثابت. م =', value: '1.4' }, { text: 'نعم، ثابت. م =', value: '1.2' }, { text: 'نعم، ثابت. م =', value: '1.3' }, { text: 'لا، غير ثابت', value: 'غير ثابت' } ], correctAnswer: 'غير ثابت', explanation: { type: 'variable', rate1: { y2: 18, y1: 8, x2: 12, x1: 5 }, rate2: { y2: 26, y1: 18, x2: 19, x1: 12 }, conclusion: "بما أن المعدلات غير متساوية، فإن معدل التغير غير ثابت." } }
+            ],
+            // Group 5: Specific Interval
+            [
+                { type: 'interval', questionText: "ما هو معدل التغير <b>بين الدقيقة الثانية والرابعة فقط</b>؟", scenarioTitle: "📉 تدهور تشبع الأكسجين", scenarioDescription: "مراقبة مستوى تشبع الأكسجين في الدم لمصاب يعاني من صعوبات حادة في التنفس.", headerX: "الزمن (دقيقة)", headerY: "التشبع O₂ (%)", data: [[0, 98], [2, 95], [4, 92]], options: [ { text: 'م =', value: '-1.5' }, { text: 'م =', value: '-3' }, { text: 'م =', value: '1.5' }, { text: 'م =', value: '3' } ], correctAnswer: '-1.5', explanation: { type: 'interval', rate: { y2: 92, y1: 95, x2: 4, x1: 2 }, conclusion: "المعدل يمثل الانخفاض في تشبع الأكسجين خلال هذه الفترة الحرجة." } },
+                { type: 'interval', questionText: "ما هو معدل التغير <b>بين الدقيقة الخامسة والعاشرة فقط</b>؟", scenarioTitle: "⚡️ استجابة سريعة للدواء", scenarioDescription: "قياس تركيز دواء منقذ للحياة في دم مصاب بعد حقنه مباشرة.", headerX: "الزمن (دقيقة)", headerY: "التركيز (وحدة/لتر)", data: [[2, 60], [5, 150], [10, 250]], options: [ { text: 'م =', value: '20' }, { text: 'م =', value: '30' }, { text: 'م =', value: '10' }, { text: 'م =', value: '-20' } ], correctAnswer: '20', explanation: { type: 'interval', rate: { y2: 250, y1: 150, x2: 10, x1: 5 }, conclusion: "المعدل يمثل سرعة امتصاص الدواء في الدم خلال هذه الفترة." } },
+                { type: 'interval', questionText: "ما هو معدل التغير <b>بين الساعة الأولى والثانية فقط</b>؟", scenarioTitle: "🔥 ارتفاع مفاجئ بالحرارة", scenarioDescription: "فريق طبي يلاحظ ارتفاعاً سريعاً في درجة حرارة مصاب بجرح عميق.", headerX: "الزمن (ساعة)", headerY: "الحرارة (مئوية)", data: [[0.5, 37.8], [1, 38.0], [2, 39.0]], options: [ { text: 'م =', value: '0.5' }, { text: 'م =', value: '1' }, { text: 'م =', value: '-1' }, { text: 'م =', value: '2' } ], correctAnswer: '1', explanation: { type: 'interval', rate: { y2: 39.0, y1: 38.0, x2: 2, x1: 1 }, conclusion: "المعدل يمثل مدى سرعة ارتفاع الحرارة، وهو مؤشر خطر." } }
+            ]
+        ];
+
+        // --- DOM Elements ---
+        const startScreenEl = document.getElementById('start-screen');
+        const gameScreenEl = document.getElementById('game-screen');
+        const explanationModalEl = document.getElementById('explanation-modal');
+        const explanationContentEl = document.getElementById('explanation-content');
+
+        // --- Game State ---
+        let gameQuestions = [];
+        let currentQuestionIndex = 0;
+        let score = 0;
+        let answered = false;
+        let timerInterval;
+        let startTime;
+        let totalPausedDuration = 0;
+        let pauseStartTime;
+        
+        // --- Helper Functions ---
+        function toArabicNumerals(numStr) {
+            const arabicNumerals = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+            return String(numStr).replace(/[0-9.-]/g, (char) => {
+                if (char === '.') return ',';
+                if (char === '-') return '-';
+                return arabicNumerals[parseInt(char)];
+            });
+        }
+
+        function formatValue(valueString) {
+            const num = parseFloat(valueString);
+            const formattedNum = Number.isInteger(num) ? num : num.toFixed(2).replace('.',',');
+
+            if (String(valueString).includes('/')) {
+                const parts = String(valueString).split('/');
+                return `<span class="fraction-display"><span class="numerator">${toArabicNumerals(parts[0])}</span><span class="denominator">${toArabicNumerals(parts[1])}</span></span>`;
+            }
+            return toArabicNumerals(formattedNum);
+        }
+        
+        // --- Game Logic ---
+        function startGame() {
+            gameQuestions = [];
+            for (let i = 0; i < questionBank.length; i++) {
+                const group = questionBank[i];
+                const randomIndex = Math.floor(Math.random() * group.length);
+                gameQuestions.push(group[randomIndex]);
+            }
+            for (let i = gameQuestions.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [gameQuestions[i], gameQuestions[j]] = [gameQuestions[j], gameQuestions[i]];
+            }
+
+            currentQuestionIndex = 0;
+            score = 0;
+            startScreenEl.classList.add('hidden');
+            gameScreenEl.classList.remove('hidden');
+            gameScreenEl.innerHTML = `
+                <div id="game-content">
+                    <div id="scenario-section" class="bg-gray-50/50 border border-gray-200 rounded-lg p-3 text-center card-enter">
+                        <p class="text-base font-semibold text-gray-800" id="scenario-title"></p>
+                        <p class="text-sm text-gray-600 mt-1" id="scenario-description"></p>
+                    </div>
+                    <div class="overflow-x-auto card-enter my-3">
+                        <table class="w-full text-center bg-white/50 rounded-lg shadow-sm border border-gray-200">
+                            <thead class="bg-indigo-50/50">
+                                <tr>
+                                    <th class="p-2 text-sm font-bold text-indigo-700" id="table-header-x"></th>
+                                    <th class="p-2 text-sm font-bold text-indigo-700" id="table-header-y"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-body" class="divide-y divide-gray-200 text-sm"></tbody>
+                        </table>
+                    </div>
+                    <div class="text-center space-y-3 pt-2 card-enter">
+                        <p class="text-lg font-medium text-gray-900" id="question-text"></p>
+                        <div id="options-container" class="grid grid-cols-2 gap-2"></div>
+                    </div>
+                    <div id="feedback" class="text-center font-bold p-2 rounded-lg text-base hidden my-2"></div>
+                    <div id="action-buttons" class="hidden flex justify-center items-center gap-2">
+                        <button onclick="nextQuestion()" class="w-1/2 bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-indigo-700 focus:outline-none">التالي</button>
+                        <button onclick="showExplanation()" class="w-1/2 bg-green-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-green-700 focus:outline-none">اعرف لماذا؟</button>
+                    </div>
+                    <div class="flex justify-between items-center text-sm text-gray-500 font-medium pt-2">
+                        <span>النتيجة: <span id="score" class="font-bold text-indigo-600 text-base">٠</span></span>
+                        <span>الوقت: <span id="timer" class="font-bold text-indigo-600 text-base">٠٠:٠٠</span></span>
+                    </div>
+                </div>`;
+            
+            startTime = Date.now();
+            totalPausedDuration = 0;
+            pauseStartTime = null;
+            timerInterval = setInterval(updateTimer, 1000);
+            updateTimer();
+            loadQuestion(currentQuestionIndex);
+        }
+
+        function updateTimer() {
+            const runningTime = Date.now() - startTime;
+            const elapsedTime = Math.floor((runningTime - totalPausedDuration) / 1000);
+            const minutes = Math.floor(elapsedTime / 60);
+            const seconds = elapsedTime % 60;
+            const timerEl = document.getElementById('timer');
+            if (timerEl && elapsedTime >= 0) {
+                 timerEl.textContent = `${toArabicNumerals(String(minutes).padStart(2, '0'))}:${toArabicNumerals(String(seconds).padStart(2, '0'))}`;
+            }
+        }
+
+        function loadQuestion(index) {
+            answered = false;
+            
+            const scenarioTitleEl = document.getElementById('scenario-title');
+            const scenarioDescriptionEl = document.getElementById('scenario-description');
+            const tableHeaderXEl = document.getElementById('table-header-x');
+            const tableHeaderYEl = document.getElementById('table-header-y');
+            const tableBodyEl = document.getElementById('table-body');
+            const questionTextEl = document.getElementById('question-text');
+            const optionsContainerEl = document.getElementById('options-container');
+            const feedbackEl = document.getElementById('feedback');
+            const actionButtonsEl = document.getElementById('action-buttons');
+            const scoreEl = document.getElementById('score');
+
+            scoreEl.textContent = toArabicNumerals(score);
+
+            const question = gameQuestions[index];
+            scenarioTitleEl.textContent = question.scenarioTitle;
+            scenarioDescriptionEl.textContent = question.scenarioDescription;
+            tableHeaderXEl.textContent = question.headerX;
+            tableHeaderYEl.textContent = question.headerY;
+            questionTextEl.innerHTML = question.questionText || "هل معدل التغير ثابت؟ وما هو؟";
+            tableBodyEl.innerHTML = '';
+
+            question.data.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-gray-50/50";
+                tr.innerHTML = `<td class="p-2 text-gray-700">${toArabicNumerals(row[0])}</td><td class="p-2 text-gray-900 font-semibold">${toArabicNumerals(row[1])}</td>`;
+                tableBodyEl.appendChild(tr);
+            });
+
+            optionsContainerEl.innerHTML = '';
+            question.options.forEach(option => {
+                const button = document.createElement('button');
+                button.className = "w-full bg-indigo-500 text-white font-bold p-2 rounded-lg shadow-md hover:bg-indigo-600 focus:outline-none flex items-center justify-center min-h-[50px] text-sm";
+                button.onclick = () => checkAnswer(option.value);
+
+                if (option.value === 'غير ثابت') {
+                    button.innerHTML = option.text;
+                } else {
+                    button.innerHTML = `<span>${option.text}</span>&nbsp;${formatValue(option.value)}`;
+                }
+                optionsContainerEl.appendChild(button);
+            });
+            
+            feedbackEl.classList.add('hidden');
+            feedbackEl.classList.remove('feedback-correct', 'feedback-incorrect');
+            optionsContainerEl.style.display = 'grid';
+            actionButtonsEl.classList.add('hidden');
+        }
+
+        function checkAnswer(selectedValue) {
+            if (answered) return;
+            answered = true;
+            const correct = gameQuestions[currentQuestionIndex].correctAnswer;
+            
+            const feedbackEl = document.getElementById('feedback');
+            const optionsContainerEl = document.getElementById('options-container');
+            const actionButtonsEl = document.getElementById('action-buttons');
+            const scoreEl = document.getElementById('score');
+
+            feedbackEl.classList.remove('hidden');
+            optionsContainerEl.style.display = 'none';
+            actionButtonsEl.classList.remove('hidden');
+
+            if (selectedValue === correct) {
+                score++;
+                scoreEl.textContent = toArabicNumerals(score);
+                feedbackEl.textContent = "إجابة صحيحة!";
+                feedbackEl.classList.add('feedback-correct');
+            } else {
+                let correctAnswerText = correct === 'غير ثابت' ? 'غير ثابت' : formatValue(correct);
+                feedbackEl.innerHTML = `إجابة خاطئة! الصحيحة هي: ${correctAnswerText}`;
+                feedbackEl.classList.add('feedback-incorrect');
+            }
+        }
+        
+        function nextQuestion() {
+            hideExplanation(false); 
+            currentQuestionIndex++;
+            if (currentQuestionIndex < gameQuestions.length) {
+                loadQuestion(currentQuestionIndex);
+            } else {
+                clearInterval(timerInterval);
+                const finalRunningTime = Date.now() - startTime;
+                const finalTimeInSeconds = Math.floor((finalRunningTime - totalPausedDuration) / 1000);
+                
+                gameScreenEl.innerHTML = `
+                 <div class="text-center space-y-2 card-enter p-4">
+                    <h1 class="text-2xl font-bold text-indigo-600">🩺 انتهت الوردية ❤️‍🩹</h1>
+                    <div id="final-result-display" class="space-y-2 my-4"></div>
+                    <div id="leaderboard-loader" style="display: none;"></div>
+                    <div id="leaderboard-container"></div>
+                    <div id="finish-game-wrapper" style="display: none;">
+                       <button id="finish-game-btn" class="mt-4 w-full bg-gray-700 text-white font-bold py-3 px-6 rounded-lg shadow-md hover:bg-gray-800">العودة للمنصة</button>
+                    </div>
+                </div>`;
+                
+                window.saveAndFinishGame(score, finalTimeInSeconds);
+            }
+        }
+        
+        function showExplanation() {
+            clearInterval(timerInterval);
+            pauseStartTime = Date.now();
+
+            const q = gameQuestions[currentQuestionIndex];
+            const ex = q.explanation;
+            let html = '';
+
+            const calcRate = (rate) => {
+                const dy = rate.y2 - rate.y1;
+                const dx = rate.x2 - rate.x1;
+                return { dy, dx, result: dx !== 0 ? dy / dx : 0 };
+            };
+
+            const createMiniTable = (row1, row2, highlight = false) => {
+                return `
+                    <table class="w-full text-center text-sm my-2 border bg-white">
+                        <thead>
+                            <tr>
+                                <th class="p-1 border font-semibold ${highlight ? 'bg-yellow-200 text-yellow-900' : 'bg-green-100 text-green-800'}">${q.headerX}</th>
+                                <th class="p-1 border font-semibold ${highlight ? 'bg-yellow-200 text-yellow-900' : 'bg-red-100 text-red-800'}">${q.headerY}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="p-1 border ${highlight ? 'bg-yellow-100' : 'bg-green-50'}">${toArabicNumerals(row1[0])}</td>
+                                <td class="p-1 border ${highlight ? 'bg-yellow-100' : 'bg-red-50'}">${toArabicNumerals(row1[1])}</td>
+                            </tr>
+                            <tr>
+                                <td class="p-1 border ${highlight ? 'bg-yellow-100' : 'bg-green-50'}">${toArabicNumerals(row2[0])}</td>
+                                <td class="p-1 border ${highlight ? 'bg-yellow-100' : 'bg-red-50'}">${toArabicNumerals(row2[1])}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                `;
+            };
+            
+            if (ex.type === 'interval') {
+                const rate = calcRate(ex.rate);
+                html += `<div class="border-r-4 border-indigo-500 pr-3 mb-4">`;
+                html += `<p class="font-bold">${q.questionText.replace(/<\/?b>/g, '')}</p>`;
+                html += createMiniTable(q.data[1], q.data[2], true);
+                html += `<p class="text-center text-base sm:text-lg my-2">
+                    <span class="text-gray-600">المعدل = </span>
+                    <span class="fraction-display"><span class="numerator font-bold text-red-600">${toArabicNumerals(ex.rate.y2)} - ${toArabicNumerals(ex.rate.y1)}</span><span class="denominator font-bold text-green-600">${toArabicNumerals(ex.rate.x2)} - ${toArabicNumerals(ex.rate.x1)}</span></span> = 
+                    <span class="fraction-display"><span class="numerator font-bold text-red-600">${toArabicNumerals(rate.dy)}</span><span class="denominator font-bold text-green-600">${toArabicNumerals(rate.dx)}</span></span> = 
+                    ${formatValue(rate.result)}
+                </p></div>`;
+                 html += `<div class="border-r-4 border-green-500 pr-3"><p class="font-bold pt-2">الاستنتاج:</p><p>${ex.conclusion}</p></div>`;
+            } else {
+                const rate1 = calcRate(ex.rate1);
+                const rate2 = calcRate(ex.rate2);
+
+                html += `<div class="border-r-4 border-indigo-500 pr-3 mb-4">`;
+                html += `<p class="font-bold">١. نحسب المعدل بين النقطتين الأولى والثانية:</p>`;
+                html += createMiniTable(q.data[0], q.data[1]);
+                html += `<p class="text-center text-base sm:text-lg my-2">
+                    <span class="text-gray-600">المعدل = </span>
+                    <span class="fraction-display"><span class="numerator font-bold text-red-600">${toArabicNumerals(ex.rate1.y2)} - ${toArabicNumerals(ex.rate1.y1)}</span><span class="denominator font-bold text-green-600">${toArabicNumerals(ex.rate1.x2)} - ${toArabicNumerals(ex.rate1.x1)}</span></span> = 
+                    <span class="fraction-display"><span class="numerator font-bold text-red-600">${toArabicNumerals(rate1.dy)}</span><span class="denominator font-bold text-green-600">${toArabicNumerals(rate1.dx)}</span></span> = 
+                    ${formatValue(rate1.result)}
+                </p></div>`;
+
+                html += `<div class="border-r-4 border-indigo-500 pr-3 mb-4">`;
+                html += `<p class="font-bold">٢. نحسب المعدل بين النقطتين الثانية والثالثة:</p>`;
+                html += createMiniTable(q.data[1], q.data[2]);
+                html += `<p class="text-center text-base sm:text-lg my-2">
+                    <span class="text-gray-600">المعدل = </span>
+                    <span class="fraction-display"><span class="numerator font-bold text-red-600">${toArabicNumerals(ex.rate2.y2)} - ${toArabicNumerals(ex.rate2.y1)}</span><span class="denominator font-bold text-green-600">${toArabicNumerals(ex.rate2.x2)} - ${toArabicNumerals(ex.rate2.x1)}</span></span> = 
+                    <span class="fraction-display"><span class="numerator font-bold text-red-600">${toArabicNumerals(rate2.dy)}</span><span class="denominator font-bold text-green-600">${toArabicNumerals(rate2.dx)}</span></span> = 
+                    ${formatValue(rate2.result)}
+                </p></div>`;
+                
+                html += `<div class="border-r-4 border-green-500 pr-3"><p class="font-bold pt-2">الاستنتاج:</p><p>${ex.conclusion}</p></div>`;
+            }
+
+            explanationContentEl.innerHTML = html;
+            explanationModalEl.classList.remove('hidden');
+        }
+
+        function hideExplanation(resumeTimer = true) {
+            if (pauseStartTime) {
+                totalPausedDuration += Date.now() - pauseStartTime;
+                pauseStartTime = null;
+            }
+
+            if (resumeTimer && currentQuestionIndex < gameQuestions.length) {
+                timerInterval = setInterval(updateTimer, 1000);
+            }
+            
+            explanationModalEl.classList.add('hidden');
+        }
+        // --- Game Code END ---
+    </script>
+    
+    <script>
+        // --- START OF CONNECTION & LEADERBOARD ENGINE ---
+        (function() {
+            // --- CONFIGURATION (عدّل هذه الإعدادات لكل لعبة) ---
+            const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
+            const GAME_ID = 'g2_5_1';      // مثال: 'g1_1_1'
+            const GAME_MAX_POINTS = 5;                  // أقصى نقاط في اللعبة
+            const PLATFORM_MAX_GRADE = 5;               // الدرجة النهائية في المنصة
+            const METRIC_TYPE = 'time';                 // نوع المعيار: 'time', 'stars', 'errors'
+            const METRIC_LABEL = 'الوقت (ثواني)';        // اسم المعيار للعرض في الجدول
+
+            // --- Read URL Parameters ---
+            const urlParams = new URLSearchParams(window.location.search);
+            const studentId = urlParams.get('studentId');
+            const classId = urlParams.get('classId');
+            const studentName = urlParams.get('studentName');
+
+            let currentUser = (studentId && studentName) ? { id: studentId, name: studentName } : null;
+
+            // --- CORE FUNCTIONS ---
+
+            // 1. الدالة الرئيسية التي تستدعيها عند انتهاء اللعبة
+            window.saveAndFinishGame = function(points, metricValue) {
+                const finalPoints = parseFloat(points) || 0;
+                const finalMetric = parseFloat(metricValue) || 0;
+                const maxPoints = parseFloat(GAME_MAX_POINTS) || 1;
+                const finalGrade = (finalPoints / maxPoints) * PLATFORM_MAX_GRADE;
+
+                const resultDisplay = document.getElementById('final-result-display');
+                if (resultDisplay) {
+                    resultDisplay.innerHTML = `
+                        <p class="text-gray-700">النقاط: <span class="font-bold text-xl">${finalPoints} / ${maxPoints}</span></p>
+                        <p class="text-gray-700">الوقت: <span class="font-bold text-xl">${finalMetric} ثانية</span></p>
+                        <p class="text-blue-600 mt-2">الدرجة في المنصة: <span class="font-bold text-2xl">${finalGrade.toFixed(1)} / ${PLATFORM_MAX_GRADE}</span></p>
+                    `;
+                }
+
+                if (studentId && classId) {
+                    const params = new URLSearchParams({
+                        action: 'saveGrade',
+                        studentId: studentId,
+                        classId: classId,
+                        itemId: GAME_ID,
+                        grade: finalGrade.toFixed(2),
+                        metricValue: Math.round(finalMetric).toString()
+                    });
+                    fetch(`${SCRIPT_URL}?${params.toString()}`)
+                        .then(res => res.json())
+                        .then(result => console.log('Save result:', result.status))
+                        .catch(err => console.error("Save Error:", err))
+                        .finally(fetchAndShowLeaderboard);
+                } else {
+                    console.log(`Visitor finished. Score: ${finalPoints}, Metric: ${finalMetric}`);
+                    fetchAndShowLeaderboard();
+                }
+            }
+
+            // 2. دالة جلب وعرض سجل الأبطال
+            function fetchAndShowLeaderboard() {
+                const loader = document.getElementById('leaderboard-loader');
+                const container = document.getElementById('leaderboard-container');
+                if (!loader || !container) return;
+                
+                if (!classId) {
+                    console.log("No classId found, skipping leaderboard for visitor.");
+                    container.innerHTML = `<p class="text-center text-gray-500 mt-4">سجل الأبطال متاح للطلاب المسجلين فقط.</p>`;
+                    showFinishButton();
+                    return;
+                }
+
+                loader.style.display = 'block';
+                container.innerHTML = '';
+
+                const params = new URLSearchParams({
+                    action: 'getLeaderboard',
+                    gameId: GAME_ID,
+                    metricType: METRIC_TYPE,
+                    classId: classId
+                });
+
+                fetch(`${SCRIPT_URL}?${params.toString()}`)
+                    .then(res => res.json())
+                    .then(response => {
+                        if (response.status === 'success' && response.data) {
+                            displayLeaderboard(response.data);
+                        } else {
+                            throw new Error(response.message || 'Failed to load leaderboard data.');
+                        }
+                    })
+                    .catch(err => {
+                        console.error("Leaderboard Error:", err);
+                        container.innerHTML = `<p class="text-center text-red-500">حدث خطأ في تحميل سجل الأبطال.</p>`;
+                    })
+                    .finally(() => {
+                        loader.style.display = 'none';
+                        showFinishButton();
+                    });
+            }
+            
+            // 3. دالة بناء جدول سجل الأبطال
+            function displayLeaderboard(data) {
+                const container = document.getElementById('leaderboard-container');
+                if (!data || data.length === 0) {
+                    container.innerHTML = `<p class="text-center text-gray-500 mt-4">لا توجد نتائج بعد. كن أول الأبطال!</p>`;
+                    return;
+                }
+
+                let tableHTML = `
+                    <div class="mt-6 border-t pt-4 max-h-60 overflow-y-auto">
+                        <h3 class="text-2xl font-bold text-center text-gray-800 mb-4">🏆 سجل الأبطال 🏆</h3>
+                        <table class="min-w-full bg-white shadow-md rounded-lg">
+                            <thead class="bg-gray-800 text-white sticky top-0">
+                                <tr>
+                                    <th class="text-center py-2 px-3">الترتيب</th>
+                                    <th class="text-right py-2 px-3">اسم الطالب</th>
+                                    <th class="text-center py-2 px-3">الدرجة</th>
+                                    <th class="text-center py-2 px-3">${METRIC_LABEL}</th>
+                                </tr>
+                            </thead>
+                            <tbody class="text-gray-700">`;
+
+                data.forEach((player, index) => {
+                    const rank = index + 1;
+                    let rankDisplay = rank;
+                    if (rank === 1) rankDisplay = '🥇';
+                    if (rank === 2) rankDisplay = '🥈';
+                    if (rank === 3) rankDisplay = '🥉';
+
+                    const isCurrentUser = (currentUser && player.name === currentUser.name);
+                    const rowClass = isCurrentUser ? 'bg-blue-100 font-bold' : (index % 2 === 0 ? 'bg-gray-100' : '');
+
+                    tableHTML += `
+                        <tr class="${rowClass}">
+                            <td class="text-center py-2 px-3 text-xl">${rankDisplay}</td>
+                            <td class="text-right py-2 px-3">${player.name}</td>
+                            <td class="text-center py-2 px-3">${player.grade.toFixed(1)}</td>
+                            <td class="text-center py-2 px-3">${player.metricValue}</td>
+                        </tr>`;
+                });
+
+                tableHTML += `</tbody></table></div>`;
+                container.innerHTML = tableHTML;
+            }
+
+            // 4. إظهار زر الإنهاء
+            function showFinishButton() {
+                const finishWrapper = document.getElementById('finish-game-wrapper');
+                if (finishWrapper) {
+                    finishWrapper.style.display = 'block';
+                }
+            }
+
+            // 5. التعامل مع زر الإنهاء وتخصيص رسالة الترحيب
+            document.addEventListener('DOMContentLoaded', () => {
+                const welcomeMessageEl = document.getElementById('welcomeMessage');
+                if (studentName && welcomeMessageEl) {
+                    // This will be handled by the game's own welcome screen now.
+                    // We just ensure it exists.
+                } else if (welcomeMessageEl) {
+                     // Keep default message if no student name
+                }
+
+                // The button listener is now added dynamically when the end screen is created
+                // to avoid issues with the element not existing on page load.
+                document.body.addEventListener('click', function(event) {
+                    if (event.target && event.target.id === 'finish-game-btn') {
+                        window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*');
+                    }
+                });
+            });
+        })();
+        // --- END OF CONNECTION & LEADERBOARD ENGINE ---
+    </script>
+</body>
+</html>
+

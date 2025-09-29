@@ -169,6 +169,11 @@
 </head>
 <body class="bg-gray-100">
 
+    <!-- NEW: Preloader to prevent flash of unstyled content -->
+    <div id="preloader" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: #f0f4f8; z-index: 9999; display: flex; align-items: center; justify-content: center;">
+        <div class="loader" style="width: 50px; height: 50px; border-top-color: #3b82f6;"></div>
+    </div>
+
     <!-- Login View -->
     <div id="login-view" style="display: none;">
         <main class="container mx-auto px-6 py-8">
@@ -330,6 +335,7 @@
         };
 
         // --- DOM Elements ---
+        const preloader = document.getElementById('preloader');
         const loginView = document.getElementById('login-view');
         const appContainer = document.getElementById('app-container');
         const gameModal = document.getElementById('game-modal');
@@ -395,8 +401,9 @@
                                 return;
                         }
                         localStorage.setItem('currentStudent', JSON.stringify(result.data));
-                        switchView('app');
+                        // FIX: Render content BEFORE switching the view
                         renderAppContent(result.data);
+                        switchView('app');
                     } else {
                         errorDiv.textContent = result.message || 'رقم الهوية غير مسجل في أي فصل.';
                         errorDiv.classList.remove('hidden');
@@ -414,7 +421,13 @@
         }
         
         function refreshStudentData(studentId, classIdentifier) {
-            if (!studentId || !classIdentifier) return;
+            if (!studentId || !classIdentifier) {
+                if(preloader) preloader.style.display = 'none';
+                switchView('login');
+                buildFooter();
+                return;
+            }
+
             fetch(`${SCRIPT_URL}?action=getStudentData&studentId=${studentId}&classId=${classIdentifier}`, { redirect: 'follow' })
                 .then(res => res.json())
                 .then(result => {
@@ -425,10 +438,24 @@
                             result.data.role = currentData.role;
                         }
                         localStorage.setItem('currentStudent', JSON.stringify(result.data));
+                        
+                        // Render all content while page is hidden by preloader
                         renderAppContent(result.data); 
+                        
+                        // Hide preloader and show the fully rendered app
+                        if(preloader) preloader.style.display = 'none';
+                        switchView('app');
+                    } else {
+                        throw new Error(result.message || "Failed to refresh student data.");
                     }
                 })
-                .catch(err => console.error("Data refresh error:", err));
+                .catch(err => {
+                    console.error("Data refresh error:", err);
+                    localStorage.removeItem('currentStudent'); // Log out the user if data is invalid
+                    if(preloader) preloader.style.display = 'none';
+                    switchView('login');
+                    buildFooter();
+                });
         }
 
         function buildHeader(studentData) {
@@ -719,8 +746,8 @@
             const lessonRules = studentData.lessonRules || {};
 
              for (const chapterKey of Object.keys(curriculumIndex)) {
-                for (const lesson of curriculumIndex[chapterKey].lessons) {
-                     const rule = lessonRules[lesson.id];
+                 for (const lesson of curriculumIndex[chapterKey].lessons) {
+                      const rule = lessonRules[lesson.id];
                     let isLocked = true;
                     if (rule) {
                         if (rule.method === 'يدوي' && rule.value === 'مفتوح') { isLocked = false; }
@@ -738,7 +765,7 @@
                         }
                         for (const game of (lesson.games || [])) {
                              if (robustParseFloat(studentGames[game.id]?.grade) === null) {
-                                remainingGames++;
+                                 remainingGames++;
                             }
                         }
                     }
@@ -779,7 +806,7 @@
                 </div>`;
             
             musaidFooter.innerHTML = `<button id="musaid-action-btn" class="action-btn">🚀 لنبدأ الآن</button>
-                                      <button id="musaid-dismiss-btn" class="dismiss-btn">👍 حسنًا، لا تظهر اليوم</button>`;
+                                          <button id="musaid-dismiss-btn" class="dismiss-btn">👍 حسنًا، لا تظهر اليوم</button>`;
             
             document.getElementById('musaid-action-btn').onclick = () => goToTaskAndCloseModal(nextTask);
             document.getElementById('musaid-dismiss-btn').onclick = dismissMusaidForToday;
@@ -881,15 +908,18 @@
         // --- INITIALIZATION ---
         document.addEventListener('DOMContentLoaded', () => {
             const student = getStudentFromStorage();
-            if (student) {
-                switchView('app');
-                // The main functions will now be called on refresh, which happens right after this
+
+            if (student && student.id && student.classIdentifier) {
+                // A student session exists, the refresh function will handle hiding the loader and showing the app
                 refreshStudentData(student.id, student.classIdentifier);
             } else {
+                // No valid student session, hide preloader and show the login page
+                if (preloader) preloader.style.display = 'none';
                 switchView('login');
                 buildFooter();
             }
             
+            // Attach other event listeners
             document.getElementById('login-form').addEventListener('submit', (e) => {
                 e.preventDefault();
                 const studentId = document.getElementById('login-id').value.trim();
@@ -898,8 +928,9 @@
 
             document.getElementById('visitor-btn').addEventListener('click', () => {
                 localStorage.removeItem('currentStudent');
-                switchView('app');
+                // Render visitor content first, then switch view
                 renderAppContent(null);
+                switchView('app');
             });
 
             studentDataTab.addEventListener('click', () => switchDashboardTab('student'));
@@ -916,6 +947,7 @@
                         attempts[event.data.gameId] = (attempts[event.data.gameId] || 0) + 1;
                         localStorage.setItem('visitorGameAttempts', JSON.stringify(attempts));
                     }
+                    // We call refreshStudentData which handles the full UI update gracefully now
                     closeGameModal();
                 }
             });
@@ -924,4 +956,3 @@
     </script>
 </body>
 </html>
-

@@ -162,9 +162,22 @@
         .action-btn:hover { transform: scale(1.05); }
         .dismiss-btn { background: transparent; border: none; color: #6b7280; font-size: 0.9rem; font-weight: 600; cursor: pointer; margin-top: 1rem; transition: color 0.2s; }
         .dismiss-btn:hover { color: #1f2937; text-decoration: underline; }
-        .recall-musaid-btn { background-color: #eef2ff; color: #4f46e5; border-radius: 50%; width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center; border: none; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.1); transition: all 0.2s; }
+        
+        .recall-musaid-btn {
+            background-color: #eef2ff; color: #4f46e5; border-radius: 50%;
+            width: 48px; height: 48px; font-size: 1.5rem;
+            display: inline-flex; align-items: center; justify-content: center;
+            border: none; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            transition: all 0.2s;
+            animation: pulse-glow 2s infinite;
+        }
         .recall-musaid-btn:hover { transform: scale(1.1); background-color: #e0e7ff; }
         @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        @keyframes pulse-glow {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.7); }
+            70% { transform: scale(1.1); box-shadow: 0 0 10px 10px rgba(79, 70, 229, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(79, 70, 229, 0); }
+        }
     </style>
 </head>
 <body class="bg-gray-100">
@@ -260,7 +273,7 @@
 
     <!-- Modals -->
     <div id="game-modal" class="modal-overlay hidden"><div class="modal-content"><div class="modal-header"><button id="modal-close-btn" class="modal-close-btn">&times;</button></div><div class="modal-body"><iframe id="game-iframe"></iframe></div></div></div>
-    <div id="diagnostic-modal" class="modal-overlay hidden"><div class="diagnostic-modal-content"><button id="close-diagnostic-modal" title="إغلاق">&times;</button><i class="fas fa-rocket text-5xl text-blue-600 mb-4"></i><h2 class="text-2xl font-bold mb-2">ابدأ رحلتك في الرياضيات!</h2><p class="mb-6">سيساعدنا هذا الاختبار في فهم نقاط قوتك وتحديد المهارات التي تحتاج إلى تركيز أكبر.</p><a id="start-diagnostic-btn" href="#" target="_top" class="inline-block bg-green-500 text-white font-bold py-3 px-6 rounded-full hover:bg-green-600 transition-transform hover:scale-105"><i class="fas fa-play-circle mr-2"></i>ابدأ الاختبار التشخيصي</a></div></div>
+    <div id="diagnostic-modal" class="modal-overlay hidden"><div class="diagnostic-modal-content"><button id="close-diagnostic-modal" title="إغلاق">&times;</button><i class="fas fa-rocket text-5xl text-blue-600 mb-4"></i><h2 class="text-2xl font-bold mb-2">ابدأ رحلتك في الرياضيات!</h2><p class="mb-6">سيساعدنا هذا الاختبار في فهم نقاط قوتك وتحديد المهارات التي تحتاج إلى تركيز أكبر.</p><a id="start-diagnostic-btn" href="#" class="inline-block bg-green-500 text-white font-bold py-3 px-6 rounded-full hover:bg-green-600 transition-transform hover:scale-105"><i class="fas fa-play-circle mr-2"></i>ابدأ الاختبار التشخيصي</a></div></div>
     
     <!-- NEW: Musaid (Assistant) Modal -->
     <div id="musaid-modal" class="modal-overlay hidden">
@@ -401,7 +414,6 @@
                                 return;
                         }
                         localStorage.setItem('currentStudent', JSON.stringify(result.data));
-                        // FIX: Render content BEFORE switching the view
                         renderAppContent(result.data);
                         switchView('app');
                     } else {
@@ -439,10 +451,8 @@
                         }
                         localStorage.setItem('currentStudent', JSON.stringify(result.data));
                         
-                        // Render all content while page is hidden by preloader
                         renderAppContent(result.data); 
                         
-                        // Hide preloader and show the fully rendered app
                         if(preloader) preloader.style.display = 'none';
                         switchView('app');
                     } else {
@@ -451,7 +461,7 @@
                 })
                 .catch(err => {
                     console.error("Data refresh error:", err);
-                    localStorage.removeItem('currentStudent'); // Log out the user if data is invalid
+                    localStorage.removeItem('currentStudent');
                     if(preloader) preloader.style.display = 'none';
                     switchView('login');
                     buildFooter();
@@ -484,11 +494,6 @@
             studentInfoCard.innerHTML = `<h4 class="text-xl font-bold text-blue-800 mb-4">بيانات الطالب</h4><div class="space-y-2 text-gray-800"><p><strong>الاسم:</strong> <span id="display-name">${studentData.name || '-'}</span></p><p><strong>الصف:</strong> <span id="display-class">${studentData.class || '-'}</span></p></div>`;
 
             renderTestCard(studentData);
-
-            const diagnostics = studentData.diagnostics || {};
-            if (!diagnostics.d_best_weighted && !diagnostics.d_test_overall) {
-                showDiagnosticModal(studentData.id, studentData.classIdentifier);
-            }
 
             let totalMaxPossibleScore = 0, totalStudentScoreGained = 0, totalPossibleScoreFromAttempted = 0;
             Object.values(curriculumIndex).forEach(chapter => {
@@ -684,7 +689,7 @@
                     const lessonSpotlightClass = isLessonSpotlight ? 'spotlight' : '';
                     const lessonStartBadge = isLessonSpotlight ? '<div class="start-here-badge">ابدأ هنا</div>' : '';
 
-                    return `<div id="lesson-${lesson.id}" class="lesson-checkpoint ${state} ${lessonSpotlightClass}"><div class="checkpoint-icon"><i class="fas ${icon}"></i></div><div class="checkpoint-content"><div class="lesson-card">${lessonStartBadge}<div class="lesson-card-header"><a href="${lessonLink}" target="_top" class="lesson-title">${lesson.title}</a>${gradeHtml}</div>${unlockDateHtml}${gamesHtml ? `<div class="games-grid">${gamesHtml}</div>` : ''}</div></div></div>`;
+                    return `<div id="lesson-${lesson.id}" class="lesson-checkpoint ${state} ${lessonSpotlightClass}"><div class="checkpoint-icon"><i class="fas ${icon}"></i></div><div class="checkpoint-content"><div class="lesson-card">${lessonStartBadge}<div class="lesson-card-header"><a href="${lessonLink}" class="lesson-title">${lesson.title}</a>${gradeHtml}</div>${unlockDateHtml}${gamesHtml ? `<div class="games-grid">${gamesHtml}</div>` : ''}</div></div></div>`;
                 }).join('');
 
                 const chapterCard = document.createElement('div');
@@ -705,6 +710,11 @@
 
         // --- Musaid (Assistant) Logic ---
         function findNextTask(studentData) {
+            const diagnostics = studentData.diagnostics || {};
+            if (!diagnostics.d_best_weighted && !diagnostics.d_test_overall) {
+                return { type: 'diagnostic', details: { title: 'الاختبار التشخيصي', id: 'diagnostic' } };
+            }
+
             const studentLessons = studentData.lessons || {};
             const studentGames = studentData.games || {};
             const lessonRules = studentData.lessonRules || {};
@@ -780,7 +790,10 @@
             let taskTitle = nextTask.details.title;
             let icon = '🎯';
             
-            if (nextTask.type === 'lesson') {
+            if (nextTask.type === 'diagnostic') {
+                taskTypeMessage = 'مرحباً بك! مهمتك الأولى هي إكمال الاختبار التشخيصي:';
+                icon = '🚀';
+            } else if (nextTask.type === 'lesson') {
                 taskTypeMessage = 'مهمتك التالية هي إكمال اختبار الدرس:';
             } else if (nextTask.type === 'game') {
                 taskTypeMessage = 'لديك لعبة جديدة بانتظارك:';
@@ -790,6 +803,8 @@
             const musaidBody = musaidModal.querySelector('#musaid-modal-body');
             const musaidFooter = musaidModal.querySelector('#musaid-modal-footer');
             const musaidHeader = musaidModal.querySelector('#musaid-modal-header');
+            const actionButtonText = nextTask.type === 'diagnostic' ? '🚀 ابدأ الاختبار الآن' : '🚀 لنبدأ الآن';
+
 
             musaidHeader.querySelector('.emoji-icon').textContent = icon;
             musaidBody.innerHTML = `<p>مرحباً بك! ${taskTypeMessage}</p>
@@ -805,7 +820,7 @@
                     </div>
                 </div>`;
             
-            musaidFooter.innerHTML = `<button id="musaid-action-btn" class="action-btn">🚀 لنبدأ الآن</button>
+            musaidFooter.innerHTML = `<button id="musaid-action-btn" class="action-btn">${actionButtonText}</button>
                                           <button id="musaid-dismiss-btn" class="dismiss-btn">👍 حسنًا، لا تظهر اليوم</button>`;
             
             document.getElementById('musaid-action-btn').onclick = () => goToTaskAndCloseModal(nextTask);
@@ -816,6 +831,15 @@
 
         function goToTaskAndCloseModal(task) {
             musaidModal.classList.add('hidden');
+            if (task.type === 'diagnostic') {
+                const student = getStudentFromStorage();
+                if (student) {
+                    const diagnosticLink = `diagnostic.html?studentId=${student.id}&classId=${student.classIdentifier}`;
+                    window.location.href = diagnosticLink;
+                }
+                return;
+            }
+
             let elementId = task.type === 'lesson' ? `lesson-${task.details.id}` : `game-${task.details.id}`;
             const element = document.getElementById(elementId);
             if (element) {
@@ -832,7 +856,6 @@
 
         function dismissMusaidForToday() {
             const now = new Date();
-            // Set expiry to 24 hours from now.
             const expiry = now.getTime() + 24 * 60 * 60 * 1000;
             localStorage.setItem('dismissMusaidUntil', expiry);
             musaidModal.classList.add('hidden');
@@ -846,7 +869,7 @@
             const game1Icon = isLocked ? 'fa-lock' : (game1 ? getPerformanceIcon(game1Grade, game1.maxScore) : 'fa-times');
             const game2Icon = isLocked ? 'fa-lock' : (game2 ? getPerformanceIcon(game2Grade, game2.maxScore) : 'fa-times');
             const lessonLink = studentData.id ? `lessons/${lesson.id}.html?studentId=${studentData.id}&classId=${studentData.classIdentifier}` : `lessons/${lesson.id}.html`;
-            let content = `<a href="${lessonLink}" target="_top" class="top-part" title="اختبار الدرس"><span class="lesson-number">${index + 1}</span><i class="fas ${lessonIcon} summary-icon"></i></a><div class="bottom-part"><a href="#" onclick="openGameModal('${game1 ? game1.id : ''}'); return false;" title="${game1 ? game1.title : ''}"><i class="fas ${game1Icon} summary-icon"></i></a><a href="#" onclick="openGameModal('${game2 ? game2.id : ''}'); return false;" title="${game2 ? game2.title : ''}"><i class="fas ${game2Icon} summary-icon"></i></a></div>`;
+            let content = `<a href="${lessonLink}" class="top-part" title="اختبار الدرس"><span class="lesson-number">${index + 1}</span><i class="fas ${lessonIcon} summary-icon"></i></a><div class="bottom-part"><a href="#" onclick="openGameModal('${game1 ? game1.id : ''}'); return false;" title="${game1 ? game1.title : ''}"><i class="fas ${game1Icon} summary-icon"></i></a><a href="#" onclick="openGameModal('${game2 ? game2.id : ''}'); return false;" title="${game2 ? game2.title : ''}"><i class="fas ${game2Icon} summary-icon"></i></a></div>`;
             return `<div class="lesson-summary-box ${isLocked ? 'locked' : ''}" title="${isLocked ? 'الدرس مغلق' : lesson.title}">${content}</div>`;
         }
 
@@ -869,13 +892,11 @@
                 const score = robustParseFloat(scoreData?.grade) ?? 0;
                 const scoreColor = score >= 80 ? 'text-green-600' : (score >= 50 ? 'text-yellow-600' : 'text-red-600');
                 const totalPoints = scoreData?.metricValue ?? 'N/A';
-                card.innerHTML = `<h4 class="text-xl font-bold text-purple-700 mb-3">الاختبار التشخيصي</h4><div class="flex justify-around items-center text-center p-3 bg-purple-50 rounded-lg"><div><p class="text-sm font-bold text-gray-500 mb-1">المعدل</p><span class="text-3xl font-extrabold ${scoreColor}">${score}%</span></div><div class="border-r border-purple-200 h-10 mx-2"></div><div><p class="text-sm font-bold text-gray-500 mb-1">النقاط</p><span class="text-3xl font-extrabold text-purple-800">${totalPoints}</span></div></div><a href="${diagnosticLink}" target="_top" class="mt-4 w-full text-center block bg-purple-100 text-purple-800 font-bold py-2 rounded-lg hover:bg-purple-200 transition-colors">إعادة الاختبار</a>`;
+                card.innerHTML = `<h4 class="text-xl font-bold text-purple-700 mb-3">الاختبار التشخيصي</h4><div class="flex justify-around items-center text-center p-3 bg-purple-50 rounded-lg"><div><p class="text-sm font-bold text-gray-500 mb-1">المعدل</p><span class="text-3xl font-extrabold ${scoreColor}">${score}%</span></div><div class="border-r border-purple-200 h-10 mx-2"></div><div><p class="text-sm font-bold text-gray-500 mb-1">النقاط</p><span class="text-3xl font-extrabold text-purple-800">${totalPoints}</span></div></div><a href="${diagnosticLink}" class="mt-4 w-full text-center block bg-purple-100 text-purple-800 font-bold py-2 rounded-lg hover:bg-purple-200 transition-colors">إعادة الاختبار</a>`;
             } else {
-                card.innerHTML = `<h4 class="text-xl font-bold text-purple-700 mb-2">الاختبار التشخيصي</h4><p class="text-gray-600 my-4 text-center font-semibold">لم يتم أداء الاختبار بعد.</p><a href="${diagnosticLink}" target="_top" class="w-full text-center block bg-green-500 text-white font-bold py-2 rounded-lg hover:bg-green-600 transition-colors shadow-md hover:shadow-lg">ابدأ الاختبار الآن</a>`;
+                card.innerHTML = `<h4 class="text-xl font-bold text-purple-700 mb-2">الاختبار التشخيصي</h4><p class="text-gray-600 my-4 text-center font-semibold">لم يتم أداء الاختبار بعد.</p><a href="${diagnosticLink}" class="w-full text-center block bg-green-500 text-white font-bold py-2 rounded-lg hover:bg-green-600 transition-colors shadow-md hover:shadow-lg">ابدأ الاختبار الآن</a>`;
             }
         }
-        
-        function showDiagnosticModal(studentId, classIdentifier) { startDiagnosticBtn.href = `diagnostic.html?studentId=${studentId}&classId=${classIdentifier}`; diagnosticModal.classList.remove('hidden'); }
         
         window.openGameModal = (gameId) => {
             if (!gameId || gameId === 'null') return;
@@ -910,16 +931,13 @@
             const student = getStudentFromStorage();
 
             if (student && student.id && student.classIdentifier) {
-                // A student session exists, the refresh function will handle hiding the loader and showing the app
                 refreshStudentData(student.id, student.classIdentifier);
             } else {
-                // No valid student session, hide preloader and show the login page
                 if (preloader) preloader.style.display = 'none';
                 switchView('login');
                 buildFooter();
             }
             
-            // Attach other event listeners
             document.getElementById('login-form').addEventListener('submit', (e) => {
                 e.preventDefault();
                 const studentId = document.getElementById('login-id').value.trim();
@@ -928,7 +946,6 @@
 
             document.getElementById('visitor-btn').addEventListener('click', () => {
                 localStorage.removeItem('currentStudent');
-                // Render visitor content first, then switch view
                 renderAppContent(null);
                 switchView('app');
             });
@@ -947,7 +964,6 @@
                         attempts[event.data.gameId] = (attempts[event.data.gameId] || 0) + 1;
                         localStorage.setItem('visitorGameAttempts', JSON.stringify(attempts));
                     }
-                    // We call refreshStudentData which handles the full UI update gracefully now
                     closeGameModal();
                 }
             });
@@ -956,3 +972,4 @@
     </script>
 </body>
 </html>
+

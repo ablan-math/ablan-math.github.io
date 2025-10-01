@@ -1,0 +1,1039 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>تحدي سوق الأسهم</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Tajawal', sans-serif;
+            touch-action: manipulation;
+            overscroll-behavior-y: contain; /* Prevents pull-to-refresh */
+            position: relative; /* For background pseudo-element */
+        }
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-image: url('https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?q=80&w=2070&auto=format&fit=crop');
+            background-size: cover;
+            background-position: center;
+            z-index: -1;
+            opacity: 0.2; /* Adjust the opacity */
+        }
+        .card-enter {
+            animation: card-enter 0.5s ease-out forwards;
+        }
+        @keyframes card-enter {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        .feedback-correct {
+            animation: feedback-pop 0.3s ease-in-out;
+            background-color: #10B981;
+            color: white;
+        }
+        .feedback-incorrect {
+            animation: feedback-shake 0.5s ease-in-out;
+            background-color: #EF4444;
+            color: white;
+        }
+        @keyframes feedback-pop {
+            0% { transform: scale(0.8); }
+            80% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        @keyframes feedback-shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-5px); }
+            40%, 80% { transform: translateX(5px); }
+        }
+        .fraction-display {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            vertical-align: middle;
+            margin: 0 0.2em;
+            line-height: 1;
+        }
+        .fraction-display .numerator {
+            padding: 0 0.4em;
+            border-bottom: 1.5px solid currentColor;
+        }
+        .fraction-display .denominator {
+            padding: 0 0.4em;
+        }
+        .modal-content {
+            animation: modal-pop 0.3s ease-out;
+        }
+        @keyframes modal-pop {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        #leaderboard-loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .no-wrap {
+            white-space: nowrap;
+        }
+        
+        /* Animation Styles */
+        #animation-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            overflow: hidden;
+            z-index: 100;
+        }
+        .money-emoji {
+            position: absolute;
+            font-size: 2rem;
+            animation: fly-up 1.5s ease-out forwards;
+        }
+        @keyframes fly-up {
+            from {
+                transform: translateY(0) scale(1);
+                opacity: 1;
+            }
+            to {
+                transform: translateY(-200px) scale(0.5) rotate(360deg);
+                opacity: 0;
+            }
+        }
+        .falling-arrow {
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            animation: fall-down 1.5s ease-in forwards;
+        }
+        @keyframes fall-down {
+            from {
+                transform: translateY(-50px) scale(1) rotate(0deg);
+                opacity: 1;
+            }
+            to {
+                transform: translateY(200px) scale(0.8) rotate(180deg);
+                opacity: 0;
+            }
+        }
+        #investment-toast {
+            transition: opacity 0.5s, transform 0.5s;
+            width: 80%;
+            text-align: center;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white flex items-center justify-center min-h-screen p-2 sm:p-4">
+
+    <div id="game-container" class="w-full max-w-sm mx-auto bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-xl p-4 space-y-2 relative">
+        <div id="animation-overlay"></div>
+        
+        <!-- Start Screen -->
+        <div id="start-screen" class="text-center card-enter flex flex-col justify-center items-center h-full py-6">
+            <h1 class="text-3xl font-bold text-emerald-400">تحدي سوق الأسهم</h1>
+            <div id="welcomeMessage" class="text-sm text-gray-200 mt-4 mb-6 text-center bg-gray-700/70 p-3 rounded-lg shadow-inner space-y-2">
+                <p class="font-bold text-lg">استثمر بذكاء في سوق الأسهم</p>
+                <p>عليك حساب <span class="font-bold text-cyan-400">معدل التغير (الميل)</span> لأسعار الأسهم لتحصل على مكاسب أعلى.</p>
+                <p class="mt-4 pt-2 border-t border-gray-600 font-semibold text-amber-400">📝 نصيحة: استخدم القلم والورقة لحل المسائل.</p>
+            </div>
+            <button onclick="showRulesModal()" class="w-full bg-emerald-600 text-white font-bold py-3 px-6 rounded-lg shadow-md hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-opacity-75 transition-transform transform hover:scale-105">
+                ابدأ الاستثمار
+            </button>
+            <p class="text-xs text-gray-400 font-semibold mt-8">تصميم وبرمجة: الأستاذ عبدالعزيز خالد العبلان</p>
+        </div>
+        
+        <!-- Game Screen (Initially Hidden) -->
+        <div id="game-screen" class="hidden">
+            <!-- This container will be overwritten by the game content and end-game summary -->
+        </div>
+
+        <!-- Investment Toast Notification -->
+        <div id="investment-toast" class="hidden opacity-0 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-black/80 text-white px-4 py-2 rounded-lg shadow-lg z-50">
+            تم استثمار ٢٥٠ ريال
+        </div>
+    </div>
+    
+    <!-- Rules Modal -->
+    <div id="rules-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
+        <div class="bg-gray-800 text-white rounded-lg p-5 w-full max-w-sm modal-content">
+            <div class="text-center mb-4">
+                <h3 class="text-2xl font-bold text-emerald-400">قواعد اللعبة</h3>
+            </div>
+            <div class="space-y-3 text-gray-300 text-center text-base">
+                <p>رصيدك المبدئي في المحفظة هو <span class="font-bold text-cyan-400 no-wrap">١٠٠٠ ريال</span>.</p>
+                <p>دخول كل صفقة يتطلب استثمار <span class="font-bold text-red-400 no-wrap">٢٥٠ ريال</span> (أو حسب تكلفة الصفقة).</p>
+                <p>عند الفوز بالصفقة، يتضاعف مبلغ استثمارك ويرجع لمحفظتك.</p>
+                <p>عند الخسارة، تخسر مبلغ الاستثمار بالكامل.</p>
+                <p class="text-sm text-amber-400">انتبه! كل <span class="no-wrap">٢٥ ثانية</span> من التفكير تكلفك <span class="no-wrap">١٠ ريالات</span> من محفظتك.</p>
+            </div>
+            <div class="mt-6 flex gap-2">
+                <button onclick="startGame()" class="w-full bg-emerald-600 text-white font-bold py-2 rounded-lg hover:bg-emerald-700">لنبدأ!</button>
+                <button onclick="hideRulesModal()" class="w-1/2 bg-gray-600 text-white font-bold py-2 rounded-lg hover:bg-gray-700">تراجع</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Explanation Modal -->
+    <div id="explanation-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
+        <div class="bg-gray-800 text-white rounded-lg p-5 w-full max-w-sm modal-content">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="text-xl font-bold text-emerald-400">شرح طريقة الحل</h3>
+                <button onclick="hideExplanation()" class="text-gray-400 hover:text-gray-200 text-2xl leading-none">&times;</button>
+            </div>
+            <div id="explanation-content" class="space-y-3 text-gray-300 max-h-[60vh] overflow-y-auto pr-2"></div>
+            <button onclick="hideExplanation()" class="mt-4 w-full bg-gray-600 text-white font-bold py-2 rounded-lg hover:bg-gray-700">إغلاق</button>
+        </div>
+    </div>
+
+    <script>
+        // --- Game Code START ---
+        
+        // --- Question Bank ---
+        const questionBank = [
+            // Group 0: Find Slope
+            [
+                { type: 'findSlope', questionText: 'أوجد ميل المستقيم المار بالنقطتين (٢ ، ٣) و (٥ ، ٩).', data: [[2, 3], [5, 9]], options: [ { text: 'م =', value: '2' }, { text: 'م =', value: '3' }, { text: 'م =', value: '1/2' }, { text: 'م =', value: '-2' } ], correctAnswer: '2', explanation: { type: 'interval', rate: { y2: 9, y1: 3, x2: 5, x1: 2 } } },
+                { type: 'findSlope', questionText: 'أوجد ميل المستقيم المار بالنقطتين (١ ، ٥) و (٣ ، ١).', data: [[1, 5], [3, 1]], options: [ { text: 'م =', value: '2' }, { text: 'م =', value: '-2' }, { text: 'م =', value: '1/2' }, { text: 'م =', value: '-1/2' } ], correctAnswer: '-2', explanation: { type: 'interval', rate: { y2: 1, y1: 5, x2: 3, x1: 1 } } },
+                { type: 'findSlope', questionText: 'أوجد ميل المستقيم المار بالنقطتين (١ ، ٢) و (٢ ، ٧).', data: [[1, 2], [2, 7]], options: [ { text: 'م =', value: '5' }, { text: 'م =', value: '1/5' }, { text: 'م =', value: '-5' }, { text: 'م =', value: '4' } ], correctAnswer: '5', explanation: { type: 'interval', rate: { y2: 7, y1: 2, x2: 2, x1: 1 } } },
+                { type: 'findSlope', questionText: 'أوجد ميل المستقيم المار بالنقطتين (-٢ ، -١) و (٤ ، ٢).', data: [[-2, -1], [4, 2]], options: [ { text: 'م =', value: '2' }, { text: 'م =', value: '1/2' }, { text: 'م =', value: '-1/2' }, { text: 'م =', value: '1' } ], correctAnswer: '1/2', explanation: { type: 'interval', rate: { y2: 2, y1: -1, x2: 4, x1: -2 } } }
+            ],
+            // Group 1: Special Slopes
+            [
+                { type: 'findSlope', questionText: 'أوجد ميل المستقيم المار بالنقطتين (٤ ، ٢) و (٤ ، -٣).', data: [[4, 2], [4, -3]], options: [ { text: 'م =', value: '0' }, { text: 'م =', value: '1' }, { text: 'غير معرف', value: 'غير معرف' }, { text: 'م =', value: '-1' } ], correctAnswer: 'غير معرف', explanation: { type: 'interval', rate: { y2: -3, y1: 2, x2: 4, x1: 4 } } },
+                { type: 'findSlope', questionText: 'أوجد ميل المستقيم المار بالنقطتين (١ ، ٥) و (٦ ، ٥).', data: [[1, 5], [6, 5]], options: [ { text: 'م =', value: '0' }, { text: 'غير معرف', value: 'غير معرف' }, { text: 'م =', value: '5' }, { text: 'م =', value: '1' } ], correctAnswer: '0', explanation: { type: 'interval', rate: { y2: 5, y1: 5, x2: 6, x1: 1 } } }
+            ],
+            // Group 2: Find Missing Coordinate
+            [
+                { type: 'findCoordinate', questionText: 'أوجد قيمة (ص) التي تجعل ميل المستقيم المار بالنقطتين (٢، ص) و (٥، ٨) يساوي ٢.', data: [], options: [ { text: 'ص =', value: '2' }, { text: 'ص =', value: '4' }, { text: 'ص =', value: '1' }, { text: 'ص =', value: '14' } ], correctAnswer: '2', explanation: { type: 'findCoordinate', slope: 2, points: { y2: 8, y1: 'ص', x2: 5, x1: 2 } } },
+                { type: 'findCoordinate', questionText: 'إذا كان ميل المستقيم المار بالنقطتين (س، ٤) و (٦، ١٠) يساوي ٣، فما قيمة س؟', data: [], options: [ { text: 'س =', value: '2' }, { text: 'س =', value: '8' }, { text: 'س =', value: '4' }, { text: 'س =', value: '-2' } ], correctAnswer: '4', explanation: { type: 'findCoordinate', slope: 3, points: { y2: 10, y1: 4, x2: 6, x1: 'س' } } },
+                { type: 'findCoordinate', questionText: 'إذا كان ميل المستقيم المار بالنقطتين (١، -١) و (٣، ص) يساوي -٤، فما قيمة ص؟', data: [], options: [ { text: 'ص =', value: '9' }, { text: 'ص =', value: '7' }, { text: 'ص =', value: '-7' }, { text: 'ص =', value: '-9' } ], correctAnswer: '-9', explanation: { type: 'findCoordinate', slope: -4, points: { y2: 'ص', y1: -1, x2: 3, x1: 1 } } },
+                { type: 'findCoordinate', questionText: 'إذا كان ميل المستقيم المار بالنقطتين (س، ٣) و (٥، -١) يساوي ٤، فما قيمة س؟', data: [], options: [ { text: 'س =', value: '6' }, { text: 'س =', value: '4' }, { text: 'س =', value: '-1' }, { text: 'س =', value: '5' } ], correctAnswer: '6', explanation: { type: 'findCoordinate', slope: 4, points: { y2: -1, y1: 3, x2: 5, x1: 'س' } } }
+            ],
+            // Group 3: Multi-stage Question (will always be last)
+            [
+                { 
+                    type: 'multiStage',
+                    xAxisLabel: 'الشهر',
+                    yAxisLabel: 'سعر السهم (ريال)',
+                    data: [[1, 20], [3, 80], [4, 50]],
+                    stage1: {
+                        questionText: 'من الرسم، هل معدل التغير في سعر السهم ثابت؟',
+                        options: [ { text: 'ثابت', value: 'ثابت' }, { text: 'غير ثابت', value: 'غير ثابت' } ],
+                        correctAnswer: 'غير ثابت',
+                        explanation: { type: 'variable', rate1: { y2: 80, y1: 20, x2: 3, x1: 1 }, rate2: { y2: 50, y1: 80, x2: 4, x1: 3 } }
+                    },
+                    stage2: {
+                        questionText: 'ممتاز! الآن، أوجد معدل التغير في السعر بين الشهر الأول والشهر الثالث.',
+                        options: [ { text: 'م =', value: '30' }, { text: 'م =', value: '20' }, { text: 'م =', value: '60' }, { text: 'م =', value: '-30' } ],
+                        correctAnswer: '30',
+                        explanation: { type: 'interval', rate: { y2: 80, y1: 20, x2: 3, x1: 1 } }
+                    }
+                },
+                { 
+                    type: 'multiStage', 
+                    xAxisLabel: 'اليوم',
+                    yAxisLabel: 'الأرباح (ألف ريال)',
+                    data: [[2, 10], [4, 20], [8, 40]],
+                    stage1: {
+                        questionText: 'من الرسم، هل معدل نمو الأرباح ثابت؟',
+                        options: [ { text: 'ثابت', value: 'ثابت' }, { text: 'غير ثابت', value: 'غير ثابت' } ],
+                        correctAnswer: 'ثابت',
+                        explanation: { type: 'variable', rate1: { y2: 20, y1: 10, x2: 4, x1: 2 }, rate2: { y2: 40, y1: 20, x2: 8, x1: 4 } }
+                    },
+                    stage2: {
+                        questionText: 'أحسنت! الآن، أوجد معدل نمو الأرباح بين اليوم الرابع واليوم الثامن.',
+                        options: [ { text: 'م =', value: '10' }, { text: 'م =', value: '5/2' }, { text: 'م =', value: '5' }, { text: 'م =', value: '20' } ],
+                        correctAnswer: '5',
+                        explanation: { type: 'interval', rate: { y2: 40, y1: 20, x2: 8, x1: 4 } }
+                    }
+                },
+                { 
+                    type: 'multiStage',
+                    xAxisLabel: 'الأسبوع',
+                    yAxisLabel: 'الأرباح (مليون ريال)',
+                    data: [[1, 5], [2, 10], [4, 15]],
+                    stage1: {
+                        questionText: 'من الرسم، هل معدل نمو الأرباح ثابت؟',
+                        options: [ { text: 'ثابت', value: 'ثابت' }, { text: 'غير ثابت', value: 'غير ثابت' } ],
+                        correctAnswer: 'غير ثابت',
+                        explanation: { type: 'variable', rate1: { y2: 10, y1: 5, x2: 2, x1: 1 }, rate2: { y2: 15, y1: 10, x2: 4, x1: 2 } }
+                    },
+                    stage2: {
+                        questionText: 'ممتاز! الآن، أوجد معدل نمو الأرباح بين الأسبوع الأول والثاني.',
+                        options: [ { text: 'م =', value: '5/2' }, { text: 'م =', value: '5' }, { text: 'م =', value: '10' }, { text: 'م =', value: '15/2' } ],
+                        correctAnswer: '5',
+                        explanation: { type: 'interval', rate: { y2: 10, y1: 5, x2: 2, x1: 1 } }
+                    }
+                },
+                { 
+                    type: 'multiStage', 
+                    xAxisLabel: 'السنة',
+                    yAxisLabel: 'سعر السهم (ريال)',
+                    data: [[0, 100], [2, 80], [5, 50]],
+                    stage1: {
+                        questionText: 'من الرسم، هل معدل التغير في سعر السهم ثابت؟',
+                        options: [ { text: 'ثابت', value: 'ثابت' }, { text: 'غير ثابت', value: 'غير ثابت' } ],
+                        correctAnswer: 'ثابت',
+                        explanation: { type: 'variable', rate1: { y2: 80, y1: 100, x2: 2, x1: 0 }, rate2: { y2: 50, y1: 80, x2: 5, x1: 2 } }
+                    },
+                    stage2: {
+                        questionText: 'أحسنت! الآن، أوجد معدل التغير في السعر بين السنة الثانية والخامسة.',
+                        options: [ { text: 'م =', value: '-20' }, { text: 'م =', value: '-30' }, { text: 'م =', value: '10' }, { text: 'م =', value: '-10' } ],
+                        correctAnswer: '-10',
+                        explanation: { type: 'interval', rate: { y2: 50, y1: 80, x2: 5, x1: 2 } }
+                    }
+                }
+            ]
+        ];
+
+
+        // --- DOM Elements ---
+        const startScreenEl = document.getElementById('start-screen');
+        const gameScreenEl = document.getElementById('game-screen');
+        const explanationModalEl = document.getElementById('explanation-modal');
+        const explanationContentEl = document.getElementById('explanation-content');
+        const rulesModalEl = document.getElementById('rules-modal');
+
+        // --- Game State ---
+        let gameQuestions = [];
+        let currentQuestionIndex = 0;
+        let correctAnswers = 0;
+        let wallet = 1000;
+        let answered = false;
+        let penaltyInterval;
+        let pauseStartTime;
+        let currentStage = 1;
+        
+        // --- Helper Functions ---
+        function toArabicNumerals(numStr) {
+            const arabicNumerals = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+            return String(numStr).replace(/[0-9.-]/g, (char) => {
+                if (char === '.') return ',';
+                if (char === '-') return '-';
+                return arabicNumerals[parseInt(char)];
+            });
+        }
+        
+        function gcd(a, b) {
+            a = Math.abs(a);
+            b = Math.abs(b);
+            while(b) {
+                [a, b] = [b, a % b];
+            }
+            return a;
+        }
+
+        function formatValue(valueString) {
+            if (String(valueString).includes('/')) {
+                const parts = String(valueString).split('/');
+                return `<span class="fraction-display"><span class="numerator">${toArabicNumerals(parts[0])}</span><span class="denominator">${toArabicNumerals(parts[1])}</span></span>`;
+            }
+            const num = parseFloat(valueString);
+            return toArabicNumerals(num);
+        }
+
+        function updateWalletUI() {
+            const walletEl = document.getElementById('wallet-balance');
+            if (walletEl) {
+                walletEl.textContent = `${toArabicNumerals(wallet)} ريال`;
+            }
+        }
+        
+        function showRulesModal() {
+            rulesModalEl.classList.remove('hidden');
+        }
+
+        function hideRulesModal() {
+            rulesModalEl.classList.add('hidden');
+        }
+
+        function showInvestmentToast(amount) {
+            const toast = document.getElementById('investment-toast');
+            if (!toast) return;
+            toast.textContent = `تم استثمار ${toArabicNumerals(amount)} ريال من محفظتك`;
+            toast.classList.remove('hidden', 'opacity-0');
+            toast.classList.add('opacity-100');
+            setTimeout(() => {
+                toast.classList.remove('opacity-100');
+                toast.classList.add('opacity-0');
+                setTimeout(() => toast.classList.add('hidden'), 500); // Hide after fade out
+            }, 2000);
+        }
+
+        // --- Game Logic ---
+        function startGame() {
+            hideRulesModal();
+            gameQuestions = [];
+            const randomGroupIndices = [0, 1, 2];
+            for (let i = randomGroupIndices.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [randomGroupIndices[i], randomGroupIndices[j]] = [randomGroupIndices[j], randomGroupIndices[i]];
+            }
+
+            randomGroupIndices.forEach(groupIndex => {
+                const group = questionBank[groupIndex];
+                const randomIndex = Math.floor(Math.random() * group.length);
+                gameQuestions.push(group[randomIndex]);
+            });
+
+            const lastGroup = questionBank[3];
+            const lastQuestionIndex = Math.floor(Math.random() * lastGroup.length);
+            gameQuestions.push(lastGroup[lastQuestionIndex]);
+
+
+            currentQuestionIndex = 0;
+            correctAnswers = 0;
+            wallet = 1000;
+            startScreenEl.classList.add('hidden');
+            gameScreenEl.classList.remove('hidden');
+            gameScreenEl.innerHTML = `
+                <div id="game-content">
+                    <div id="visual-container" class="card-enter my-2 p-1 bg-gray-900/50 rounded-lg flex justify-center items-center h-[180px]">
+                        <canvas id="question-graph" width="280" height="160"></canvas>
+                        <svg id="question-svg" width="280" height="160" class="hidden"></svg>
+                    </div>
+                    <div class="text-center space-y-3 pt-1 card-enter">
+                        <p class="text-lg font-medium text-gray-100 p-2 bg-gray-700/50 rounded-lg min-h-[60px] flex items-center justify-center" id="question-text"></p>
+                    </div>
+                    <div id="options-container-wrapper" class="card-enter mt-2">
+                        <div id="options-container" class="grid grid-cols-2 gap-2"></div>
+                    </div>
+                    <div id="feedback" class="text-center font-bold p-2 rounded-lg text-base hidden my-2"></div>
+                    <div id="action-buttons" class="hidden flex justify-center items-center gap-2 mt-2">
+                        <button onclick="nextQuestion()" class="w-1/2 bg-emerald-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-emerald-700 focus:outline-none">التالي</button>
+                        <button onclick="showExplanation()" class="w-1/2 bg-cyan-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-cyan-700 focus:outline-none">اعرف لماذا؟</button>
+                    </div>
+                    <div class="flex justify-between items-center text-sm text-gray-400 font-medium pt-2">
+                        <span>الصفقة: <span id="deal-counter" class="font-bold text-emerald-400 text-base"></span></span>
+                        <span>المحفظة: <span id="wallet-balance" class="font-bold text-emerald-400 text-base"></span></span>
+                    </div>
+                </div>`;
+            
+            loadQuestion(currentQuestionIndex);
+        }
+
+        
+        function drawGraph(data, xAxisLabel = 'س', yAxisLabel = 'ص', showCoords = true) {
+            const canvas = document.getElementById('question-graph');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const padding = 30;
+            const axisColor = '#9ca3af';
+            const gridColor = '#4b5563';
+            const textColor = '#d1d5db';
+            const pointColor = '#34d399';
+            const lineColor = '#67e8f9';
+            ctx.font = '10px Tajawal';
+
+            let allX = data.map(p => p[0]);
+            let allY = data.map(p => p[1]);
+            let minX = Math.min(0, ...allX);
+            let maxX = Math.max(0, ...allX);
+            let minY = Math.min(0, ...allY);
+            let maxY = Math.max(0, ...allY);
+            
+            const rangeX = maxX - minX || 1;
+            const rangeY = maxY - minY || 1;
+            
+            const axisMinX = minX - rangeX * 0.1;
+            const axisMaxX = maxX + rangeX * 0.1;
+            const axisMinY = minY - rangeY * 0.1;
+            const axisMaxY = maxY + rangeY * 0.1;
+
+            const scaleX = (canvas.width - padding * 1.5) / (axisMaxX - axisMinX || 1);
+            const scaleY = (canvas.height - padding * 1.5) / (axisMaxY - axisMinY || 1);
+
+            const mapX = x => padding + (x - axisMinX) * scaleX;
+            const mapY = y => canvas.height - padding - (y - axisMinY) * scaleY;
+            
+            const clamp = (val, min, max) => Math.max(min, Math.min(val, max));
+            const yZero = clamp(mapY(0), padding, canvas.height - padding);
+            const xZero = clamp(mapX(0), padding, canvas.width - padding);
+
+            ctx.fillStyle = textColor;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+            ctx.fillText(xAxisLabel, canvas.width / 2, canvas.height - 2);
+
+            ctx.save();
+            ctx.translate(12, canvas.height / 2);
+            ctx.rotate(-Math.PI / 2);
+            ctx.fillText(yAxisLabel, 0, 0);
+            ctx.restore();
+
+            ctx.strokeStyle = axisColor;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(padding, yZero);
+            ctx.lineTo(canvas.width - (padding / 2), yZero); // X-axis at y=0
+            ctx.moveTo(xZero, padding);
+            ctx.lineTo(xZero, canvas.height - padding); // Y-axis at x=0
+            ctx.stroke();
+
+            const getStep = (range) => {
+                if (range <= 10) return 1;
+                if (range <= 20) return 2;
+                if (range <= 50) return 5;
+                if (range <= 100) return 10;
+                return Math.pow(10, Math.floor(Math.log10(range / 5) || 1)) * 2;
+            };
+
+            const xStep = getStep(axisMaxX - axisMinX);
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            for (let i = Math.ceil(axisMinX / xStep) * xStep; i <= axisMaxX; i += xStep) {
+                if (i === 0 || i < axisMinX) continue;
+                const x = mapX(i);
+                ctx.beginPath(); ctx.moveTo(x, yZero); ctx.lineTo(x, yZero + 4); ctx.stroke();
+                ctx.fillText(toArabicNumerals(i), x, yZero + 6);
+            }
+            
+            const yStep = getStep(axisMaxY - axisMinY);
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'middle';
+             for (let i = Math.ceil(axisMinY / yStep) * yStep; i <= axisMaxY; i += yStep) {
+                if (i === 0 || i < axisMinY || i > axisMaxY) continue;
+                const y = mapY(i);
+                ctx.beginPath(); ctx.moveTo(xZero, y); ctx.lineTo(xZero - 4, y); ctx.stroke();
+                ctx.fillText(toArabicNumerals(i), xZero - 6, y);
+            }
+            if (xZero > padding - 5 && yZero < canvas.height - padding + 5) {
+                ctx.fillText(toArabicNumerals(0), xZero - 6, yZero + 10);
+            }
+
+            ctx.strokeStyle = lineColor;
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            ctx.moveTo(mapX(data[0][0]), mapY(data[0][1]));
+            for (let i = 1; i < data.length; i++) {
+                ctx.lineTo(mapX(data[i][0]), mapY(data[i][1]));
+            }
+            ctx.stroke();
+
+            data.forEach(p => {
+                const x = mapX(p[0]);
+                const y = mapY(p[1]);
+                
+                if (!showCoords) {
+                    ctx.strokeStyle = gridColor;
+                    ctx.lineWidth = 1;
+                    ctx.setLineDash([2, 3]);
+                    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(xZero, y); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, yZero); ctx.stroke();
+                    ctx.setLineDash([]);
+                }
+                
+                ctx.fillStyle = pointColor;
+                ctx.beginPath(); ctx.arc(x, y, 4, 0, 2 * Math.PI); ctx.fill();
+                
+                if (showCoords) {
+                    ctx.fillStyle = textColor;
+                    ctx.textAlign = 'center';
+                    ctx.fillText(`(${toArabicNumerals(p[0])}, ${toArabicNumerals(p[1])})`, x, y - 10);
+                }
+            });
+        }
+        
+        function drawSVGPlaceholder(variable) {
+            const svgEl = document.getElementById('question-svg');
+            const textToShow = variable === 'ص' ? 'ص = ؟' : 'س = ؟';
+            const bgPattern = `data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4MCIgaGVpZ2h0PSI4MCI+PGcgZmlsbD0ibm9uZSIgZmlsbC1ydWxlPSJldmVub2RkIj48ZyBmaWxsPSIjMWEyOTQxIj48cGF0aCBkPSJtMTcgMTBoNnY0MGgtNnoiLz48cGF0aCBkPSJtMTkgMHY2MGgtMnYtNjB6Ii8+PC9nPjxnIGZpbGw9IiM3ODRhNWMiPjxwYXRoIGQ9Im01NyAzaDZ2NDBoLTZ6Ii8+PHBhdGggZD0ibTU5IDIwdi0yMGgtMnY2MHoiLz48L2c+PC9nPjwvc3ZnPg==`;
+
+            const svgContent = `
+                <defs>
+                    <pattern id="bg" patternUnits="userSpaceOnUse" width="80" height="80">
+                        <image href="${bgPattern}" x="0" y="0" width="80" height="80" />
+                    </pattern>
+                </defs>
+                <rect width="280" height="160" fill="url(#bg)" opacity="0.4"/>
+                <text x="140" y="95" font-family="Tajawal, sans-serif" font-size="48" font-weight="bold" fill="#34d399" text-anchor="middle" style="filter: drop-shadow(0 0 5px #34d399);">${textToShow}</text>
+                <text x="20" y="45" font-size="32" style="filter: drop-shadow(0 0 5px black);">💰</text>
+                <text x="230" y="140" font-size="40" style="filter: drop-shadow(0 0 5px black);">💵</text>
+                <text x="25" y="145" font-size="28" style="filter: drop-shadow(0 0 5px black);">🪙</text>
+                <text x="235" y="45" font-size="30" style="filter: drop-shadow(0 0 5px black);">💸</text>
+            `;
+            svgEl.innerHTML = svgContent;
+        }
+
+        function updateOptions(options) {
+            const optionsContainerEl = document.getElementById('options-container');
+            optionsContainerEl.innerHTML = '';
+            options.forEach(option => {
+                const button = document.createElement('button');
+                button.className = "w-full bg-cyan-700 text-white font-bold p-2 rounded-lg shadow-md hover:bg-cyan-600 focus:outline-none flex items-center justify-center min-h-[50px] text-sm";
+                button.onclick = () => checkAnswer(option.value);
+
+                if (option.value === 'غير ثابت' || option.value === 'غير معرف' || option.value === 'ثابت') {
+                    button.innerHTML = option.text;
+                } else {
+                    button.innerHTML = `<span>${option.text}</span>&nbsp;${formatValue(option.value)}`;
+                }
+                optionsContainerEl.appendChild(button);
+            });
+        }
+
+
+        function loadQuestion(index) {
+            answered = false;
+            currentStage = 1;
+            
+            const question = gameQuestions[index];
+            const visualContainer = document.getElementById('visual-container');
+            const canvasEl = document.getElementById('question-graph');
+            const svgEl = document.getElementById('question-svg');
+
+            clearInterval(penaltyInterval);
+            
+            let questionData;
+            let investmentAmount = 0;
+
+            if (question.type === 'multiStage') {
+                investmentAmount = 150;
+                wallet -= investmentAmount;
+                questionData = question.stage1;
+                document.getElementById('question-text').innerHTML = questionData.questionText;
+                updateOptions(questionData.options);
+                
+                visualContainer.style.display = 'flex';
+                canvasEl.style.display = 'block';
+                svgEl.style.display = 'none';
+                drawGraph(question.data, question.xAxisLabel, question.yAxisLabel, false); // showCoords = false
+
+            } else {
+                investmentAmount = 250;
+                wallet -= investmentAmount;
+                questionData = question;
+                 document.getElementById('question-text').innerHTML = questionData.questionText;
+                updateOptions(questionData.options);
+
+                if (question.type === 'findSlope') {
+                    visualContainer.style.display = 'flex';
+                    canvasEl.style.display = 'block';
+                    svgEl.style.display = 'none';
+                    drawGraph(question.data, 'س', 'ص', true); // showCoords = true
+                } else if (question.type === 'findCoordinate') {
+                    visualContainer.style.display = 'flex';
+                    canvasEl.style.display = 'none';
+                    svgEl.style.display = 'block';
+                    const variable = (question.explanation.points.y1 === 'ص' || question.explanation.points.y2 === 'ص') ? 'ص' : 'س';
+                    drawSVGPlaceholder(variable);
+                }
+            }
+            
+            showInvestmentToast(investmentAmount);
+            penaltyInterval = setInterval(() => {
+                wallet -= 10;
+                updateWalletUI();
+            }, 25000);
+
+            document.getElementById('deal-counter').textContent = `${toArabicNumerals(index + 1)} / ${toArabicNumerals(gameQuestions.length)}`;
+            updateWalletUI();
+
+            document.getElementById('feedback').classList.add('hidden');
+            document.getElementById('feedback').classList.remove('feedback-correct', 'feedback-incorrect');
+            document.getElementById('options-container').style.display = 'grid';
+            document.getElementById('action-buttons').classList.add('hidden');
+        }
+
+        function checkAnswer(selectedValue) {
+            if (answered) return;
+            const question = gameQuestions[currentQuestionIndex];
+            const feedbackEl = document.getElementById('feedback');
+            const optionsContainerEl = document.getElementById('options-container');
+            const actionButtonsEl = document.getElementById('action-buttons');
+            
+            clearInterval(penaltyInterval);
+            
+            let investmentAmount = 0;
+
+            if (question.type === 'multiStage' && currentStage === 1) {
+                answered = true;
+                investmentAmount = 150;
+                if (selectedValue === question.stage1.correctAnswer) {
+                    correctAnswers++;
+                    let reward = investmentAmount * 2;
+                    wallet += reward;
+                    updateWalletUI();
+                    feedbackEl.innerHTML = `نجحت الصفقة! <span class="no-wrap">+${toArabicNumerals(reward)} ريال</span>`;
+                    feedbackEl.classList.add('feedback-correct');
+                    triggerWinAnimation();
+                } else {
+                    feedbackEl.innerHTML = `فشلت الصفقة! <span class="no-wrap">-${toArabicNumerals(investmentAmount)} ريال</span>`;
+                    feedbackEl.classList.add('feedback-incorrect');
+                    triggerLoseAnimation();
+                }
+
+                feedbackEl.classList.remove('hidden');
+                
+                setTimeout(() => {
+                    feedbackEl.classList.add('hidden');
+                    feedbackEl.classList.remove('feedback-correct', 'feedback-incorrect');
+                    currentStage = 2;
+                    document.getElementById('question-text').innerHTML = question.stage2.questionText;
+                    updateOptions(question.stage2.options);
+                    
+                    let stage2Investment = 350;
+                    wallet -= stage2Investment;
+                    showInvestmentToast(stage2Investment);
+                    updateWalletUI();
+                    penaltyInterval = setInterval(() => { wallet -= 10; updateWalletUI(); }, 25000);
+
+                    answered = false;
+                }, 2000);
+
+            } else {
+                answered = true;
+                let correct;
+
+                if(question.type === 'multiStage' && currentStage === 2) {
+                    correct = question.stage2.correctAnswer;
+                    investmentAmount = 350;
+                } else {
+                    correct = question.correctAnswer;
+                    investmentAmount = 250;
+                }
+                
+                if (selectedValue === correct) {
+                    correctAnswers++;
+                    let reward = investmentAmount * 2;
+                    wallet += reward;
+                    feedbackEl.innerHTML = `نجحت الصفقة! <span class="no-wrap">+${toArabicNumerals(reward)} ريال</span>`;
+                    feedbackEl.classList.add('feedback-correct');
+                    triggerWinAnimation();
+                } else {
+                    feedbackEl.innerHTML = `فشلت الصفقة! <span class="no-wrap">-${toArabicNumerals(investmentAmount)} ريال</span>`;
+                    feedbackEl.classList.add('feedback-incorrect');
+                    triggerLoseAnimation();
+                }
+                updateWalletUI();
+                feedbackEl.classList.remove('hidden');
+                optionsContainerEl.style.display = 'none';
+                actionButtonsEl.classList.remove('hidden');
+            }
+        }
+        
+        function triggerWinAnimation() {
+            const overlay = document.getElementById('animation-overlay');
+            for (let i = 0; i < 15; i++) {
+                const emoji = document.createElement('div');
+                emoji.classList.add('money-emoji');
+                emoji.textContent = '💸';
+                emoji.style.left = `${Math.random() * 80 + 10}%`;
+                emoji.style.bottom = `-10%`;
+                emoji.style.animationDelay = `${Math.random() * 0.5}s`;
+                emoji.style.transform = `scale(${Math.random() * 0.5 + 0.7})`;
+                emoji.addEventListener('animationend', () => emoji.remove());
+                overlay.appendChild(emoji);
+            }
+        }
+
+        function triggerLoseAnimation() {
+            const overlay = document.getElementById('animation-overlay');
+            for (let i = 0; i < 5; i++) {
+                const arrow = document.createElement('div');
+                arrow.classList.add('falling-arrow');
+                arrow.innerHTML = `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 5V19M12 19L18 13M12 19L6 13" stroke="#EF4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+                arrow.style.left = `${Math.random() * 90 + 5}%`;
+                arrow.style.top = `-10%`;
+                arrow.style.animationDelay = `${Math.random() * 0.5}s`;
+                arrow.addEventListener('animationend', () => arrow.remove());
+                overlay.appendChild(arrow);
+            }
+        }
+
+        function nextQuestion() {
+            hideExplanation(false); 
+            currentQuestionIndex++;
+            if (currentQuestionIndex < gameQuestions.length) {
+                loadQuestion(currentQuestionIndex);
+            } else {
+                clearInterval(penaltyInterval);
+                
+                gameScreenEl.innerHTML = `
+                   <div class="text-center space-y-2 card-enter p-4">
+                       <h1 class="text-2xl font-bold text-emerald-400">📈 انتهت جلسة التداول 📉</h1>
+                       <div class="text-6xl my-4">💰</div>
+                       <div id="final-result-display" class="space-y-2 my-4"></div>
+                       <div id="leaderboard-loader" style="display: none;"></div>
+                       <div id="leaderboard-container"></div>
+                       <div id="finish-game-wrapper" style="display: none;">
+                          <button id="finish-game-btn" class="mt-4 w-full bg-gray-700 text-white font-bold py-3 px-6 rounded-lg shadow-md hover:bg-gray-600">العودة للمنصة</button>
+                       </div>
+                   </div>`;
+                
+                window.saveAndFinishGame(correctAnswers, wallet);
+            }
+        }
+        
+        function showExplanation() {
+            clearInterval(penaltyInterval);
+            pauseStartTime = Date.now();
+
+            const q = gameQuestions[currentQuestionIndex];
+            const ex = (q.type === 'multiStage') ? (currentStage === 1 ? q.stage1.explanation : q.stage2.explanation) : q.explanation;
+            
+            let html = '';
+
+            const calcRate = (rate) => {
+                const dy = rate.y2 - rate.y1;
+                const dx = rate.x2 - rate.x1;
+                const result = dx !== 0 ? dy / dx : (dy === 0 ? 0 : 'غير معرف');
+                return { dy, dx, result };
+            };
+            
+            const formatFractionResult = (rate) => {
+                if (rate.result !== 'غير معرف' && !Number.isInteger(rate.result)) {
+                    const common = gcd(rate.dy, rate.dx);
+                    let num = rate.dy / common;
+                    let den = rate.dx / common;
+                    if (den < 0) {
+                        den = -den;
+                        num = -num;
+                    }
+                    return `<span class="fraction-display"><span class="numerator">${toArabicNumerals(num)}</span><span class="denominator">${toArabicNumerals(den)}</span></span>`;
+                } else {
+                    return rate.result === 'غير معرف' ? 'غير معرف' : formatValue(String(rate.result));
+                }
+            };
+
+            if (ex.type === 'interval') {
+                const rate = calcRate(ex.rate);
+                const { y2, y1, x2, x1 } = ex.rate;
+                html += `<div class="border-r-4 border-cyan-500 pr-3 mb-4">`;
+                html += `<p class="font-bold">١. نحدد النقطتين من السؤال: <span class="no-wrap">(<span class="text-green-400">${toArabicNumerals(x1)}</span>، <span class="text-red-400">${toArabicNumerals(y1)}</span>)</span> و <span class="no-wrap">(<span class="text-green-400">${toArabicNumerals(x2)}</span>، <span class="text-red-400">${toArabicNumerals(y2)}</span>)</span>.</p>`;
+                html += `<p class="font-bold mt-2">٢. نعوض في صيغة الميل:</p>`;
+                html += `<p class="text-center text-base sm:text-lg my-2">
+                    <span class="text-gray-400">الميل = </span>
+                    <span class="fraction-display"><span class="numerator font-bold text-red-400">ص₂ - ص₁</span><span class="denominator font-bold text-green-400">س₂ - س₁</span></span>
+                     = <span class="fraction-display"><span class="numerator font-bold"><span class="text-red-400">${toArabicNumerals(y2)}</span> - (<span class="text-red-400">${toArabicNumerals(y1)}</span>)</span><span class="denominator font-bold"><span class="text-green-400">${toArabicNumerals(x2)}</span> - (<span class="text-green-400">${toArabicNumerals(x1)}</span>)</span></span> = 
+                    <span class="fraction-display"><span class="numerator font-bold text-red-400">${toArabicNumerals(rate.dy)}</span><span class="denominator font-bold text-green-400">${toArabicNumerals(rate.dx)}</span></span> = 
+                    ${formatFractionResult(rate)}
+                </p></div>`;
+
+            } else if (ex.type === 'findCoordinate') {
+                 const p = ex.points;
+                 const slope = ex.slope;
+                 html += `<div class="border-r-4 border-cyan-500 pr-3 mb-4 text-sm sm:text-base">`;
+                 html += `<p class="font-bold">١. نعوض بالقيم المعلومة في صيغة الميل:</p>`;
+
+                 if(p.y1 === 'ص' || p.y2 === 'ص') { // ص مجهولة
+                    const isY1 = p.y1 === 'ص';
+                    const yVal = isY1 ? p.y2 : p.y1;
+                    const xVal1 = isY1 ? p.x1 : p.x2;
+                    const xVal2 = isY1 ? p.x2 : p.x1;
+                    const dx = xVal2 - xVal1;
+                    const step2 = slope * dx;
+                    const finalResult = isY1 ? yVal - step2 : yVal + step2;
+
+                    html += `<p class="text-center my-2"><span class="font-bold">${formatValue(String(slope))}</span> = <span class="fraction-display"><span class="numerator font-bold">${isY1 ? `<span class="text-red-400">${toArabicNumerals(p.y2)}</span> - ص` : `ص - <span class="text-red-400">(${toArabicNumerals(p.y1)})</span>`}</span><span class="denominator font-bold"><span class="text-green-400">${toArabicNumerals(p.x2)}</span> - <span class="text-green-400">(${toArabicNumerals(p.x1)})</span></span></span></p>`;
+                    html += `<p class="font-bold">٢. نضرب الطرفين في المقام (${toArabicNumerals(dx)}):</p>`;
+                    html += `<p class="text-center my-2">${isY1 ? `${toArabicNumerals(yVal)} - ص` : `ص - (${toArabicNumerals(yVal)})`} = ${toArabicNumerals(slope)} × ${toArabicNumerals(dx)}</p>`;
+                    html += `<p class="text-center my-2">${isY1 ? `${toArabicNumerals(yVal)} - ص` : `ص + ${toArabicNumerals(Math.abs(yVal))}`} = ${toArabicNumerals(step2)}</p>`;
+                    html += `<p class="font-bold">٣. نحل المعادلة لإيجاد 'ص':</p>`;
+                    html += `<p class="text-center my-2 font-bold text-lg text-emerald-400">ص = ${toArabicNumerals(finalResult)}</p></div>`;
+                 } else { // س مجهولة
+                    const dy = p.y2-p.y1;
+                    const step2 = dy / slope;
+                    const finalResult = p.x2 - step2;
+                     html += `<p class="text-center my-2"><span class="font-bold">${formatValue(String(slope))}</span> = <span class="fraction-display"><span class="numerator font-bold"><span class="text-red-400">${toArabicNumerals(p.y2)}</span> - <span class="text-red-400">(${toArabicNumerals(p.y1)})</span></span><span class="denominator font-bold"><span class="text-green-400">${toArabicNumerals(p.x2)}</span> - س</span></span></p>`;
+                     html += `<p class="font-bold">٢. بضرب الطرفين في الوسطين، نجد أن:</p>`;
+                     html += `<p class="text-center my-2">${toArabicNumerals(p.x2)} - س = <span class="fraction-display"><span class="numerator">${toArabicNumerals(dy)}</span><span class="denominator">${toArabicNumerals(slope)}</span></span> = ${toArabicNumerals(step2)}</p>`;
+                     html += `<p class="font-bold">٣. نحل المعادلة لإيجاد 'س':</p>`;
+                     html += `<p class="text-center my-2 font-bold text-lg text-emerald-400">س = ${toArabicNumerals(finalResult)}</p></div>`;
+                 }
+
+            } else { // Variable Rate explanation
+                const rate1 = calcRate(ex.rate1);
+                const rate2 = calcRate(ex.rate2);
+                html += `<div class="border-r-4 border-cyan-500 pr-3 mb-4"><p class="font-bold">١. نحسب الميل بين النقطتين الأولى والثانية:</p>`;
+                html += `<p class="text-center text-base sm:text-lg my-2">الميل = ${formatFractionResult(rate1)}</p></div>`;
+                html += `<div class="border-r-4 border-cyan-500 pr-3 mb-4"><p class="font-bold">٢. نحسب الميل بين النقطتين الثانية والثالثة:</p>`;
+                html += `<p class="text-center text-base sm:text-lg my-2">الميل = ${formatFractionResult(rate2)}</p></div>`;
+                const conclusionText = rate1.result === rate2.result ? `بما أن الميلين متساويان، فالمعدل ثابت.` : `بما أن الميلين غير متساويين، فالمعدل غير ثابت.`;
+                html += `<p class="font-bold">${conclusionText}</p>`;
+            }
+
+            explanationContentEl.innerHTML = html;
+            explanationModalEl.classList.remove('hidden');
+        }
+
+        function hideExplanation(resumeTimer = true) {
+            if (pauseStartTime) { // Timer is paused
+                clearInterval(penaltyInterval); // Clear just in case
+                const elapsedPause = Date.now() - pauseStartTime;
+                // Don't restart timer, nextQuestion or answering will handle it.
+                pauseStartTime = null;
+            }
+            explanationModalEl.classList.add('hidden');
+        }
+        // --- Game Code END ---
+    </script>
+    
+    <script>
+        // --- START OF CONNECTION & LEADERBOARD ENGINE ---
+        (function() {
+            // --- CONFIGURATION ---
+            const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
+            const GAME_ID = 'g2_5_2'; // Updated GAME_ID
+            const GAME_MAX_POINTS = 5; 
+            const PLATFORM_MAX_GRADE = 5;
+            const METRIC_TYPE = 'wallet'; // Sort by wallet balance
+            const METRIC_LABEL = 'المحفظة (ريال)';
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const studentId = urlParams.get('studentId');
+            const classId = urlParams.get('classId');
+            const studentName = urlParams.get('studentName');
+            let currentUser = (studentId && studentName) ? { id: studentId, name: studentName } : null;
+
+            window.saveAndFinishGame = function(correctAnswers, finalWallet) {
+                const finalPoints = parseFloat(correctAnswers) || 0;
+                const finalMetric = parseFloat(finalWallet) || 0;
+                const maxPoints = parseFloat(GAME_MAX_POINTS) || 1;
+                
+                const calculatedGrade = (finalPoints / maxPoints) * PLATFORM_MAX_GRADE;
+
+
+                const resultDisplay = document.getElementById('final-result-display');
+                if (resultDisplay) {
+                    resultDisplay.innerHTML = `
+                        <p class="text-gray-300">الصفقات الناجحة: <span class="font-bold text-xl">${toArabicNumerals(finalPoints)} / ${toArabicNumerals(maxPoints)}</span></p>
+                        <p class="text-gray-300">رصيد المحفظة النهائي: <span class="font-bold text-xl">${toArabicNumerals(finalMetric)} ريال</span></p>
+                        <p class="text-cyan-400 mt-2">الدرجة في المنصة: <span class="font-bold text-2xl">${toArabicNumerals(calculatedGrade.toFixed(1))} / ${toArabicNumerals(PLATFORM_MAX_GRADE)}</span></p>
+                    `;
+                }
+
+                if (studentId && classId) {
+                    const params = new URLSearchParams({ action: 'saveGrade', studentId, classId, itemId: GAME_ID, grade: calculatedGrade.toFixed(2), metricValue: Math.round(finalMetric).toString() });
+                    fetch(`${SCRIPT_URL}?${params.toString()}`)
+                        .then(res => res.json())
+                        .then(result => console.log('Save result:', result.status))
+                        .catch(err => console.error("Save Error:", err))
+                        .finally(fetchAndShowLeaderboard);
+                } else {
+                    console.log(`Visitor finished. Correct Answers: ${finalPoints}, Wallet: ${finalMetric}`);
+                    fetchAndShowLeaderboard();
+                }
+            }
+
+            function fetchAndShowLeaderboard() {
+                const loader = document.getElementById('leaderboard-loader');
+                const container = document.getElementById('leaderboard-container');
+                if (!loader || !container) return;
+                
+                if (!classId) {
+                    container.innerHTML = `<p class="text-center text-gray-500 mt-4">سجل الأبطال متاح للطلاب المسجلين فقط.</p>`;
+                    showFinishButton();
+                    return;
+                }
+
+                loader.style.display = 'block';
+                container.innerHTML = '';
+
+                const params = new URLSearchParams({ action: 'getLeaderboard', gameId: GAME_ID, metricType: METRIC_TYPE, classId: classId });
+                fetch(`${SCRIPT_URL}?${params.toString()}`)
+                    .then(res => res.json())
+                    .then(response => {
+                        if (response.status === 'success' && response.data) {
+                            displayLeaderboard(response.data);
+                        } else {
+                            throw new Error(response.message || 'Failed to load leaderboard data.');
+                        }
+                    })
+                    .catch(err => {
+                        console.error("Leaderboard Error:", err);
+                        container.innerHTML = `<p class="text-center text-red-500">حدث خطأ في تحميل سجل الأبطال.</p>`;
+                    })
+                    .finally(() => {
+                        loader.style.display = 'none';
+                        showFinishButton();
+                    });
+            }
+            
+            function displayLeaderboard(data) {
+                const container = document.getElementById('leaderboard-container');
+                if (!data || data.length === 0) {
+                    container.innerHTML = `<p class="text-center text-gray-500 mt-4">لا توجد نتائج بعد. كن أول الأبطال!</p>`;
+                    return;
+                }
+
+                let tableHTML = `
+                    <div class="mt-6 border-t border-gray-700 pt-4 max-h-60 overflow-y-auto">
+                        <h3 class="text-2xl font-bold text-center text-gray-200 mb-4">🏆 سجل المستثمرين 🏆</h3>
+                        <table class="min-w-full bg-gray-800 shadow-md rounded-lg">
+                            <thead class="bg-gray-900 text-white sticky top-0">
+                                <tr>
+                                    <th class="text-center py-2 px-3">الترتيب</th>
+                                    <th class="text-right py-2 px-3">اسم المستثمر</th>
+                                    <th class="text-center py-2 px-3">${METRIC_LABEL}</th>
+                                    <th class="text-center py-2 px-3">الدرجة</th>
+                                </tr>
+                            </thead>
+                            <tbody class="text-gray-300">`;
+
+                data.forEach((player, index) => {
+                    const rank = index + 1;
+                    let rankDisplay = toArabicNumerals(rank);
+                    if (rank === 1) rankDisplay = '🥇';
+                    if (rank === 2) rankDisplay = '🥈';
+                    if (rank === 3) rankDisplay = '🥉';
+
+                    const isCurrentUser = (currentUser && player.name === currentUser.name);
+                    const rowClass = isCurrentUser ? 'bg-cyan-900/50 font-bold' : (index % 2 === 0 ? 'bg-gray-700/50' : '');
+
+                    tableHTML += `
+                        <tr class="${rowClass}">
+                            <td class="text-center py-2 px-3 text-xl">${rankDisplay}</td>
+                            <td class="text-right py-2 px-3">${player.name}</td>
+                            <td class="text-center py-2 px-3">${toArabicNumerals(player.metricValue)}</td>
+                            <td class="text-center py-2 px-3">${toArabicNumerals(parseFloat(player.grade).toFixed(1))}</td>
+                        </tr>`;
+                });
+
+                tableHTML += `</tbody></table></div>`;
+                container.innerHTML = tableHTML;
+            }
+
+            function showFinishButton() {
+                const finishWrapper = document.getElementById('finish-game-wrapper');
+                if (finishWrapper) {
+                    finishWrapper.style.display = 'block';
+                }
+            }
+
+            document.addEventListener('DOMContentLoaded', () => {
+                document.body.addEventListener('click', function(event) {
+                    if (event.target && event.target.id === 'finish-game-btn') {
+                        window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*');
+                    }
+                });
+            });
+        })();
+        // --- END OF CONNECTION & LEADERBOARD ENGINE ---
+    </script>
+</body>
+</html>
+

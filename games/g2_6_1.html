@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لعبة مخطوطة الكنز</title>
+    <!-- Preload the map image for faster loading -->
+    <link rel="preload" href="https://ablan-math.github.io/img/Atlantis%20Map.jpeg" as="image">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Cairo', sans-serif;
+            background-color: #c2b280; /* Light Brown Parchment */
+            background-image: url('https://ablan-math.github.io/img/graond.png'); /* Using the permanent link */
+            background-size: 300px; 
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        .hidden { display: none !important; }
+
+        /* Welcome Screen Styling */
+        #welcomeView { max-width: 42rem; padding: 1rem; }
+        #welcomeView .text-backdrop { background-color: rgba(0, 0, 0, 0.7); color: #f7fafc; padding: 0.1em 0.6em; border-radius: 0.5rem; line-height: 1.8; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+        #welcomeView h1 { font-size: 3rem; line-height: 1.1; }
+        #welcomeView p { font-size: 1.125rem; margin-top: 1rem; }
+
+        /* Game Container for the map */
+        .game-container {
+            width: 95vw;
+            height: 95vh;
+            max-width: 800px;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+       
+        /* --- MODIFICATION START --- */
+        /* This container will now maintain the map's aspect ratio */
+        #map-container {
+            position: relative;
+            width: 100%;
+            /* Using the image's natural aspect ratio (2048x1448) to make the container responsive */
+            aspect-ratio: 2048 / 1448;
+            max-height: 100%; /* Ensures it doesn't overflow its parent */
+        }
+
+        #map-image {
+            /* The image now fills its aspect-ratio-correct parent */
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            border-radius: 1rem;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        /* --- MODIFICATION END --- */
+
+        #map-points-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Central Sailors UI */
+        #central-sailor-container {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 5;
+            pointer-events: none;
+        }
+        #central-sailor-img {
+            width: 150px;
+            height: auto;
+            opacity: 1;
+            filter: drop-shadow(0 0 12px rgba(255, 223, 0, 0.7)) drop-shadow(0 0 5px rgba(255, 255, 255, 0.5));
+            transition: transform 0.3s ease, opacity 0.3s ease;
+            animation: sailor-pulse 2.5s infinite ease-in-out;
+        }
+        #central-sailor-img.lost {
+             transform: scale(0.8) rotate(-10deg);
+             opacity: 0.5;
+        }
+
+        @keyframes sailor-pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        /* Map Points Styling */
+        .map-point { position: absolute; width: 40px; height: 40px; border-radius: 50%; transform: translate(-50%, -50%); transition: all 0.3s ease; display: flex; justify-content: center; align-items: center; font-size: 1.2rem; font-weight: bold; color: white; cursor: pointer; text-shadow: 1px 1px 2px black; z-index: 10;}
+        .map-point.locked { background-color: rgba(100, 100, 100, 0.8); border: 2px solid #4a4a4a; cursor: not-allowed; }
+        .map-point.active { background-color: rgba(221, 107, 32, 0.9); border: 3px solid #f6e05e; animation: pulse 1.5s infinite; }
+        .map-point.completed { background-color: rgba(72, 187, 120, 0.9); border: 2px solid #2f855a; }
+        .map-point.completed::after { content: '✔'; color: white; font-size: 1.5rem; }
+        @keyframes pulse { 0% { transform: translate(-50%, -50%) scale(1); box-shadow: 0 0 0 0 rgba(246, 224, 94, 0.7); } 70% { transform: translate(-50%, -50%) scale(1); box-shadow: 0 0 0 10px rgba(246, 224, 94, 0); } 100% { transform: translate(-50%, -50%) scale(1); box-shadow: 0 0 0 0 rgba(246, 224, 94, 0); } }
+
+        /* Path (SVG) Styling */
+        #map-path { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+        #map-path path { fill: none; stroke: rgba(216, 175, 87, 0.9); stroke-width: 4; stroke-dasharray: 10 5; stroke-linecap: round; }
+
+        /* Puzzle & Prompt Modal Styling */
+        .puzzle-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.7); z-index: 100; display: flex; justify-content: center; align-items: center; }
+        .puzzle-content {
+            background-color: #fff8e1;
+            padding: 1.5rem;
+            border-radius: 1.5rem;
+            width: 95%;
+            max-width: 550px;
+            border: 4px solid #8d6e63;
+            position: relative;
+            z-index: 1;
+        }
+
+        .modal-with-scroll {
+            max-height: 80vh;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+       
+        .modal-with-scroll::-webkit-scrollbar { width: 8px; }
+        .modal-with-scroll::-webkit-scrollbar-track { background: rgba(141, 110, 99, 0.2); border-radius: 10px; }
+        .modal-with-scroll::-webkit-scrollbar-thumb { background-color: #8d6e63; border-radius: 10px; border: 2px solid #fff8e1; }
+        .modal-with-scroll::-webkit-scrollbar-thumb:hover { background-color: #5d4037; }
+
+        .puzzle-content::before {
+            content: var(--icon-content, '');
+            position: absolute;
+            bottom: -1rem; left: -1rem;
+            font-size: 10rem; color: #8d6e63;
+            opacity: 0.2; z-index: -1;
+            transform: rotate(15deg);
+        }
+
+        #promptText { font-size: 1.25rem; }
+        .highlight-word { color: #e65100; font-weight: bold; display: inline-block; animation: wobble 1.5s ease-in-out; }
+        @keyframes wobble { 0%, 100% { transform: rotate(0deg); } 25% { transform: rotate(-3deg); } 75% { transform: rotate(3deg); } }
+
+        /* General Puzzle Styles */
+        .sequence-container { display: flex; justify-content: center; align-items: center; gap: 0.75rem; margin: 1rem 0; flex-wrap: wrap; }
+        .sequence-item, .sequence-input { width: 50px; height: 50px; display: flex; justify-content: center; align-items: center; border-radius: 0.75rem; font-size: 1.5rem; font-weight: 700; text-align: center; }
+        .sequence-item { border: 2px solid #a1887f; background-color: #efebe9; }
+        .sequence-input { border: 2px dashed #a1887f; background-color: #d7ccc8; color: #3e2723; transition: all 0.3s; }
+        .sequence-input:focus { outline: none; border-color: #ffab40; background-color: #fff; }
+        .correct { border-color: #2e7d32 !important; background-color: #e8f5e9 !important; color: #1b5e20 !important; }
+        .incorrect { border-color: #c62828 !important; background-color: #ffebee !important; color: #b71c1c !important; }
+        input[type="radio"] { display: none; }
+        .choice-label { display: flex; justify-content: center; align-items: center; height: 100%; padding: 1rem; border: 2px solid #a1887f; border-radius: 0.75rem; cursor: pointer; transition: all 0.2s; background-color: #fafafa; font-size: 1.25rem; text-align: center; }
+        .choice-label:hover { border-color: #ffab40; }
+        input[type="radio"]:checked + .choice-label { background-color: #ffecb3; border-color: #ff8f00; font-weight: bold; color: #e65100; }
+        .btn { display: inline-block; padding: 0.75rem 1.5rem; font-size: 1.1rem; font-weight: 600; color: white; background-color: #795548; border: none; border-radius: 0.5rem; cursor: pointer; transition: all 0.3s; box-shadow: 0 4px 6px rgba(50, 50, 93, 0.11), 0 1px 3px rgba(0, 0, 0, 0.08); margin: 0 0.25rem; }
+        .btn:hover:not(:disabled) { background-color: #5d4037; transform: translateY(-2px); }
+        .btn:disabled { background-color: #bcaaa4; color: #e0e0e0; cursor: not-allowed; }
+        .btn-green { background-color: #43a047; } .btn-green:hover:not(:disabled) { background-color: #2e7d32; }
+        .btn-blue { background-color: #0277bd; } .btn-blue:hover:not(:disabled) { background-color: #01579b; }
+        .feedback { margin-top: 1rem; font-weight: 600; padding: 0.75rem; border-radius: 0.5rem; text-align: center; }
+        .feedback-correct { color: #1b5e20; background-color: #c8e6c9; }
+        .feedback-incorrect { color: #b71c1c; background-color: #ffcdd2; }
+        #resultsView { max-width: 600px; }
+
+        @keyframes flash-correct { 0%, 100% { background-color: #c8e6c9; border-color: #2e7d32; } 50% { background-color: #fafafa; border-color: #a1887f; } }
+        .flash-correct { animation: flash-correct 1.5s 3; }
+       
+        #leaderboard-loader { border: 4px solid #f3f3f3; border-top: 4px solid #795548; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 20px auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* NEW: Timer Display */
+        #timer-display {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background-color: rgba(255, 248, 225, 0.9);
+            border: 3px solid #8d6e63;
+            border-radius: 50%;
+            width: 80px;
+            height: 80px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #3e2723;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            z-index: 20;
+        }
+
+        @media (max-width: 640px) {
+             #welcomeView h1 { font-size: 2rem; } #welcomeView p { font-size: 1rem; }
+             .map-point { width: 30px; height: 30px; font-size: 1rem;}
+             .map-point.completed::after { font-size: 1rem; }
+             .puzzle-content { padding: 1rem; }
+             .puzzle-content::before { font-size: 8rem !important; }
+             #promptText { font-size: 1.1rem; }
+             .sequence-item, .sequence-input { width: 45px; height: 45px; font-size: 1.2rem; }
+             .choice-label { padding: 0.75rem; font-size: 1rem;}
+             #central-sailor-img { width: 90px; }
+             #timer-display { width: 60px; height: 60px; font-size: 1.1rem; top: 10px; left: 10px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="welcomeView" class="text-center mx-auto">
+        <h1 class="font-bold text-yellow-300"><span class="text-backdrop" style="background-color: rgba(0,0,0,0.8); color: #f6e05e;">مخطوطة الكنز</span></h1>
+        <p id="welcomeMessage" class="leading-relaxed"><span class="text-backdrop">أهلاً بك أيها المستكشف الشجاع! معك <span class='highlight-word'>ستة بحارة شجعان</span> في رحلة البحث عن كنز مفقود. كل نقطة على الخريطة تخفي لغزاً، وكل خطأ سيكلفك أحد بحارتك. هل ستصل للكنز قبل أن تفقد طاقمك؟</span></p>
+        <div class="mt-8"><button id="startButton" class="btn text-xl px-8 py-3">ابدأ المغامرة!</button></div>
+        <p class="text-md mt-10"><span class="text-backdrop" style="font-size: 0.9rem; padding: 0.2em 0.5em;">تصميم وبرمجة: الأستاذ عبدالعزيز خالد العبلان</span></p>
+    </div>
+
+    <div id="mapView" class="game-container hidden">
+        <div id="timer-display">٠٠:٠٠</div> <!-- NEW: Timer element -->
+        <div id="map-container">
+            <img id="map-image" src="https://ablan-math.github.io/img/Atlantis%20Map.jpeg" alt="خريطة الكنز">
+            <div id="central-sailor-container">
+                <img id="central-sailor-img" src="" alt="طاقم البحارة">
+            </div>
+            <div id="map-points-container"><svg id="map-path"></svg></div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div id="promptModal" class="puzzle-modal hidden">
+        <div class="puzzle-content text-center">
+            <div class="flex justify-center items-center gap-3 mb-4">
+                <span id="promptTitleIcon" class="text-4xl"></span>
+                <h2 id="promptTitle" class="text-2xl font-bold text-yellow-800"></h2>
+            </div>
+            <p id="promptText" class="leading-relaxed"></p>
+            <button id="promptContinueBtn" class="btn mt-6">واصل</button>
+        </div>
+    </div>
+   
+    <div id="partOneModal" class="puzzle-modal hidden">
+        <div class="puzzle-content modal-with-scroll">
+             <h1 id="partOneTitle" class="text-2xl font-bold text-center text-gray-800 mb-2"></h1>
+             <p id="partOneQuestion" class="text-lg text-center text-gray-600 mb-4"></p>
+            <form id="partOneForm">
+                <div id="partOneContent"></div>
+                <div id="partOneButtons" class="text-center mt-6"></div>
+            </form>
+            <div id="partOneFeedback" class="feedback hidden"></div>
+            <div id="partOneExplanation" class="hidden mt-4 p-4 bg-gray-100 rounded-lg border"></div>
+        </div>
+    </div>
+
+    <div id="nthTermModal" class="puzzle-modal hidden">
+         <div class="puzzle-content modal-with-scroll">
+               <div class="text-center mb-4">
+                    <h1 class="text-2xl font-bold text-green-700">مفتاح اللغز</h1>
+                    <p class="text-lg text-gray-600 mt-2">للمتتابعة: <span id="final-sequence-display" class="font-bold text-gray-700 tracking-widest"></span></p>
+                    <p class="text-lg text-gray-600">اختر المعادلة الصحيحة.</p>
+               </div>
+               <form id="nthTermForm">
+                    <div id="choices-container" class="mt-4 grid grid-cols-2 gap-2 md:gap-4"></div>
+                    <div id="nthTerm-buttons" class="text-center mt-6"></div>
+               </form>
+               <div id="nthTerm-feedback" class="feedback hidden"></div>
+             <div id="nthTermExplanation" class="hidden mt-4 p-4 bg-gray-100 rounded-lg border"></div>
+        </div>
+    </div>
+
+    <div id="resultsModal" class="puzzle-modal hidden">
+         <div class="puzzle-content modal-with-scroll text-center">
+               <h1 id="resultsTitle" class="text-4xl font-bold"></h1>
+               <p id="resultsMessage" class="text-xl mt-4"></p>
+             <div id="final-result-display" class="my-6 text-2xl space-y-2"></div>
+           
+             <div id="leaderboard-loader" style="display: none;"></div>
+             <div id="leaderboard-container"></div>
+           
+             <div id="finish-game-wrapper" class="mt-8" style="display: none;">
+                 <button id="finish-game-btn" class="btn btn-blue text-lg px-6 py-2">إنهاء والعودة للمنصة</button>
+             </div>
+        </div>
+    </div>
+
+    <script>
+        // --- GAME LOGIC ---
+        const stages = [
+            { id: 0, type: 'find_difference', name: 'سفينة الكنز', icon: '⚓', prompt: "النزول من السفينة يبدو سهلاً، لكن الشاطئ يخفي <span class='highlight-word'>أفخاخاً</span> قديمة. انتبهوا لخطواتكم الأولى، فكل <span class='highlight-word'>خطأ</span> قد يعيدكم للبحر.", pos: { top: '58%', left: '62%' }, questionSets: [{ questionSequence: [4, 9, 14], diff: 5, diffOptions: [3, 4, 5, 6], formula: 'أ(ن) = ٥ن - ١', options: ['أ(ن) = ٥ن + ٤', 'أ(ن) = ٤ن + ٥', 'أ(ن) = ٥ن - ١', 'أ(ن) = ٩ن - ٥'] }, { questionSequence: [2, 6, 10], diff: 4, diffOptions: [2, 4, 6, 8], formula: 'أ(ن) = ٤ن - ٢', options: ['أ(ن) = ٤ن + ٢', 'أ(ن) = ٤ن - ٢', 'أ(ن) = ٢ن + ٤', 'أ(ن) = ٢ن - ٤'] }, { questionSequence: [7, 14, 21], diff: 7, diffOptions: [5, 6, 7, 8], formula: 'أ(ن) = ٧ن', options: ['أ(ن) = ٧ن', 'أ(ن) = ٧ن + ٧', 'أ(ن) = ١٤ن - ٧', 'أ(ن) = ٧ن - ٧'] }, { questionSequence: [3, 11, 19], diff: 8, diffOptions: [6, 7, 8, 9], formula: 'أ(ن) = ٨ن - ٥', options: ['أ(ن) = ٨ن + ٣', 'أ(ن) = ٨ن - ٥', 'أ(ن) = ٥ن + ٨', 'أ(ن) = ٥ن - ٨'] }] },
+            { id: 1, type: 'identify_arithmetic', name: 'غابة الأسرار', icon: '🌳🌲', prompt: "ليست كل <span class='highlight-word'>الدروب</span> واضحة في هذه الغابة، وكذلك الأنماط العددية. <span class='highlight-word'>عين ثاقبة</span> وعقل حاد هما فقط ما سينقذكم من الضياع.", pos: { top: '85%', left: '50%' }, waypoints: [{ top: '70%', left: '59%' }, {top: '78%', left: '49%'}], questionSets: [{ identifyOptions: [{ seq: [5, 8, 11], isArithmetic: true }, { seq: [2, 4, 8], isArithmetic: false }, { seq: [10, 7, 5], isArithmetic: false }, { seq: [1, 1, 2], isArithmetic: false }], sequence: [5, 8, 11], diff: 3, formula: 'أ(ن) = ٣ن + ٢', options: ['أ(ن) = ٥ن + ٣', 'أ(ن) = ٣ن + ٢', 'أ(ن) = ٢ن + ٣', 'أ(ن) = ٣ن - ٢'] }, { identifyOptions: [{ seq: [3, 6, 12], isArithmetic: false }, { seq: [10, 16, 22], isArithmetic: true }, { seq: [1, 4, 9], isArithmetic: false }, { seq: [2, 3, 5], isArithmetic: false }], sequence: [10, 16, 22], diff: 6, formula: 'أ(ن) = ٦ن + ٤', options: ['أ(ن) = ٦ن - ٤', 'أ(ن) = ٤ن + ٦', 'أ(ن) = ٦ن + ٤', 'أ(ن) = ١٠ن + ٦'] }, { identifyOptions: [{ seq: [20, 18, 16], isArithmetic: true }, { seq: [10, 5, 0], isArithmetic: false }, { seq: [16, 8, 4], isArithmetic: false }, { seq: [1, -1, 1], isArithmetic: false }], sequence: [20, 18, 16], diff: -2, formula: 'أ(ن) = -٢ن + ٢٢', options: ['أ(ن) = -٢ن + ٢٢', 'أ(ن) = ٢٢ن - ٢', 'أ(ن) = -٢ن - ٢٢', 'أ(ن) = ٢ن + ١٨'] }, { identifyOptions: [{ seq: [0, 1, 3], isArithmetic: false }, { seq: [1, 2, 4], isArithmetic: false }, { seq: [5, 2, -1], isArithmetic: true }, { seq: [1, 8, 27], isArithmetic: false }], sequence: [5, 2, -1], diff: -3, formula: 'أ(ن) = -٣ن + ٨', options: ['أ(ن) = ٣ن + ٥', 'أ(ن) = -٣ن - ٨', 'أ(ن) = -٣ن + ٨', 'أ(ن) = ٥ن - ٣'] }] },
+            { id: 2, type: 'complete_sequence', name: 'واحة النخيل', icon: '🌙', prompt: "حتى في هدوء الليل، الطبيعة تتبع <span class='highlight-word'>أنماطاً</span> دقيقة. اكتشفوا النمط في الأرقام كما تكتشفون <span class='highlight-word'>النجوم</span> في السماء، وستجدون طريقكم.", pos: { top: '60%', left: '42%' }, waypoints: [{ top: '65%', left: '50%' }], questionSets: [{ sequence: [3, 7, 11, 15, 19], display: [3, 7, 11, '?', '?'], diff: 4, formula: 'أ(ن) = ٤ن - ١', options: ['أ(ن) = ٤ن + ٣', 'أ(ن) = ٤ن - ١', 'أ(ن) = ٣ن + ٤', 'أ(ن) = ٤ن'] }, { sequence: [5, 11, 17, 23, 29], display: [5, 11, 17, '?', '?'], diff: 6, formula: 'أ(ن) = ٦ن - ١', options: ['أ(ن) = ٦ن + ٥', 'أ(ن) = ٥ن + ٦', 'أ(ن) = ٦ن - ١', 'أ(ن) = ٦ن'] }, { sequence: [10, 20, 30, 40, 50], display: [10, 20, 30, '?', '?'], diff: 10, formula: 'أ(ن) = ١٠ن', options: ['أ(ن) = ١٠ن', 'أ(ن) = ١٠ن + ١٠', 'أ(ن) = ٢٠ن - ١٠', 'أ(ن) = ١٠ن - ١٠'] }, { sequence: [2, 9, 16, 23, 30], display: [2, 9, 16, '?', '?'], diff: 7, formula: 'أ(ن) = ٧ن - ٥', options: ['أ(ن) = ٧ن + ٢', 'أ(ن) = ٧ن - ٥', 'أ(ن) = ٥ن + ٧', 'أ(ن) = ٧ن'] }] },
+            { id: 3, type: 'complete_sequence', name: 'شجرة الجن', icon: '🐍', prompt: "<span class='highlight-word'>همسات</span> غريبة تنبعث من جذع الشجرة، تحاول إفساد <span class='highlight-word'>تركيزكم</span> وزرع الشك في عقولكم. أغلقوا آذانكم عن كل شيء عدا منطق الأرقام.", pos: { top: '25%', left: '43%' }, questionSets: [{ sequence: [20, 16, 12, 8, 4], display: [20, 16, 12, '?', '?'], diff: -4, formula: 'أ(ن) = -٤ن + ٢٤', options: ['أ(ن) = ٤ن + ٢٠', 'أ(ن) = ٢٤ن - ٤', 'أ(ن) = -٤ن + ٢٤', 'أ(ن) = -٤ن - ٢٤'] }, { sequence: [30, 25, 20, 15, 10], display: [30, 25, 20, '?', '?'], diff: -5, formula: 'أ(ن) = -٥ن + ٣٥', options: ['أ(ن) = -٥ن + ٣٥', 'أ(ن) = ٥ن + ٣٠', 'أ(ن) = -٥ن - ٣٥', 'أ(ن) = ٣٥ن - ٥'] }, { sequence: [15, 12, 9, 6, 3], display: [15, 12, 9, '?', '?'], diff: -3, formula: 'أ(ن) = -٣ن + ١٨', options: ['أ(ن) = -٣ن + ١٥', 'أ(ن) = -٣ن + ١٨', 'أ(ن) = ٣ن + ١٥', 'أ(ن) = ١٨ن - ٣'] }, { sequence: [50, 40, 30, 20, 10], display: [50, 40, 30, '?', '?'], diff: -10, formula: 'أ(ن) = -١٠ن + ٦٠', options: ['أ(ن) = -١٠ن + ٦٠', 'أ(ن) = ٦٠ن - ١٠', 'أ(ن) = ١٠ن + ٤٠', 'أ(ن) = ٥٠ن - ١٠'] }] },
+            { id: 4, type: 'complete_sequence', name: 'قرية القتلة', icon: '💀', prompt: "لقد وصلتم للنهاية، لكن <span class='highlight-word'>الخطر</span> في أوجه. تحركوا <span class='highlight-word'>كالأشباح</span> بين هذه الأهرامات، فإن سكانها القدامى لا يرحمون من يخطئ.", pos: { top: '25%', left: '60%' }, waypoints: [{ top: '30%', left: '50%' }], questionSets: [{ sequence: [-4, 1, 6, 11, 16], display: [-4, 1, 6, '?', '?'], diff: 5, formula: 'أ(ن) = ٥ن - ٩', options: ['أ(ن) = ٥ن - ٩', 'أ(ن) = ٥ن + ٤', 'أ(ن) = ٩ن - ٥', 'أ(ن) = -٤ن + ٥'] }, { sequence: [-8, -5, -2, 1, 4], display: [-8, -5, -2, '?', '?'], diff: 3, formula: 'أ(ن) = ٣ن - ١١', options: ['أ(ن) = ٣ن + ١١', 'أ(ن) = ٣ن - ١١', 'أ(ن) = -٨ن + ٣', 'أ(ن) = ٣ن - ٨'] }, { sequence: [-10, -3, 4, 11, 18], display: [-10, -3, 4, '?', '?'], diff: 7, formula: 'أ(ن) = ٧ن - ١٧', options: ['أ(ن) = ٧ن + ١٧', 'أ(ن) = -١٠ن + ٧', 'أ(ن) = ٧ن - ١٧', 'أ(ن) = ٧ن - ١٠'] }, { sequence: [-2, 2, 6, 10, 14], display: [-2, 2, 6, '?', '?'], diff: 4, formula: 'أ(ن) = ٤ن - ٦', options: ['أ(ن) = ٤ن - ٦', 'أ(ن) = ٤ن + ٦', 'أ(ن) = ٤ن + ٢', 'أ(ن) = -٢ن + ٤'] }] }
+        ];
+       
+        const sailorImageUrls = [ "https://ablan-math.github.io/img/g2_6/BHAR1.png", "https://ablan-math.github.io/img/g2_6/BHAR2.png", "https://ablan-math.github.io/img/g2_6/BHAR3.png", "https://ablan-math.github.io/img/g2_6/BHAR4.png", "https://ablan-math.github.io/img/g2_6/BHAR5.png", "https://ablan-math.github.io/img/g2_6/BHAR6.png" ];
+
+        let currentStageIndex = 0, currentStageData = null, sailorsRemaining = 6;
+        let currentQuestionData = null; 
+       
+        let totalTimeElapsed = 0, questionStartTime = null, isTimerPaused = true, timerInterval = null;
+
+        const welcomeView = document.getElementById('welcomeView'), startButton = document.getElementById('startButton'), mapView = document.getElementById('mapView'), centralSailorImg = document.getElementById('central-sailor-img'), promptModal = document.getElementById('promptModal'), partOneModal = document.getElementById('partOneModal'), nthTermModal = document.getElementById('nthTermModal'), resultsModal = document.getElementById('resultsModal');
+       
+        function toArabicNumerals(num) { const arabic = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩']; return String(num).replace(/[0-9-]/g, d => d === '-' ? '−' : arabic[d]); }
+
+        function initGame() {
+            totalTimeElapsed = 0;
+            isTimerPaused = true;
+            if(timerInterval) clearInterval(timerInterval);
+            updateTimerDisplay(); // Reset display
+            welcomeView.classList.add('hidden');
+            mapView.classList.remove('hidden');
+            updateCentralSailorIcon();
+            renderMap();
+        }
+       
+        function updateTimerDisplay() {
+            let elapsed = totalTimeElapsed;
+            if (!isTimerPaused) {
+                elapsed += Date.now() - questionStartTime;
+            }
+            const seconds = Math.floor(elapsed / 1000);
+            const minutes = Math.floor(seconds / 60);
+            const displaySeconds = seconds % 60;
+            const timerElement = document.getElementById('timer-display');
+            if (timerElement) {
+                timerElement.textContent = `${String(minutes).padStart(2, '٠')}:${String(displaySeconds).padStart(2, '٠')}`.replace(/[0-9]/g, d => ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'][d]);
+            }
+        }
+
+        function startTimer() {
+            if (isTimerPaused) {
+                questionStartTime = Date.now();
+                isTimerPaused = false;
+                if (timerInterval) clearInterval(timerInterval);
+                timerInterval = setInterval(updateTimerDisplay, 1000);
+            }
+        }
+
+        function pauseTimer() {
+            if (!isTimerPaused) {
+                totalTimeElapsed += Date.now() - questionStartTime;
+                isTimerPaused = true;
+                if (timerInterval) clearInterval(timerInterval);
+                updateTimerDisplay(); 
+            }
+        }
+       
+        function updateCentralSailorIcon() { if (sailorsRemaining > 0) { centralSailorImg.src = sailorImageUrls[sailorsRemaining - 1]; } else { centralSailorImg.classList.add('hidden'); } }
+       
+        function loseSailor() {
+            if (sailorsRemaining > 0) {
+                sailorsRemaining--;
+                centralSailorImg.classList.add('lost');
+                setTimeout(() => { updateCentralSailorIcon(); centralSailorImg.classList.remove('lost'); }, 300);
+                if (sailorsRemaining <= 0) { setTimeout(gameOver, 1000); return true; }
+            }
+            return false;
+        }
+
+        // --- MODIFICATION START: Simplified renderMap function ---
+        function renderMap() {
+            const mapImage = document.getElementById('map-image');
+            const placeElements = () => {
+                const pointsContainer = document.getElementById('map-points-container');
+                const pathSvg = document.getElementById('map-path');
+                pointsContainer.innerHTML = ''; // Clear previous points
+                pathSvg.innerHTML = '';       // Clear previous paths
+                pointsContainer.appendChild(pathSvg);
+
+                stages.forEach(stage => {
+                    const point = document.createElement('div');
+                    point.id = `point-${stage.id}`;
+                    point.className = 'map-point';
+                    
+                    // Directly apply percentage values. CSS will handle the rest.
+                    point.style.top = stage.pos.top;
+                    point.style.left = stage.pos.left;
+                    
+                    point.dataset.id = stage.id;
+                    point.title = stage.name;
+                    point.addEventListener('click', () => handlePointClick(stage.id));
+                    pointsContainer.appendChild(point);
+                });
+
+                updateMapState();
+                
+                // Redraw paths based on the container's new dimensions
+                const mapContainer = document.getElementById('map-container');
+                const rect = mapContainer.getBoundingClientRect();
+                for (let i = 0; i < currentStageIndex; i++) {
+                    if (i + 1 < stages.length) {
+                        drawPath(i, i + 1, rect.width, rect.height);
+                    }
+                }
+            };
+            
+            if (mapImage.complete) {
+                placeElements();
+            } else {
+                mapImage.onload = placeElements;
+            }
+            window.onresize = placeElements;
+        }
+        // --- MODIFICATION END ---
+       
+        function updateMapState() {
+             stages.forEach(stage => {
+                const point = document.getElementById(`point-${stage.id}`); if (!point) return;
+                point.classList.remove('active', 'completed', 'locked'); point.innerHTML = `<span>${toArabicNumerals(stage.id + 1)}</span>`;
+                if (stage.id < currentStageIndex) { point.classList.add('completed'); point.innerHTML = ''; } 
+                else if (stage.id === currentStageIndex) { point.classList.add('active'); } 
+                else { point.classList.add('locked'); }
+            });
+        }
+       
+        function handlePointClick(stageId) {
+            if (stageId !== currentStageIndex) return;
+            currentStageData = stages[stageId];
+            const questionBank = currentStageData.questionSets;
+            currentQuestionData = questionBank[Math.floor(Math.random() * questionBank.length)];
+            const allModals = document.querySelectorAll('.puzzle-content');
+            allModals.forEach(modal => modal.style.setProperty('--icon-content', `'${currentStageData.icon}'`));
+            showStagePrompt();
+        }
+
+        function showStagePrompt() {
+            document.getElementById('promptTitleIcon').textContent = currentStageData.icon;
+            document.getElementById('promptTitle').textContent = currentStageData.name;
+            document.getElementById('promptText').innerHTML = currentStageData.prompt;
+            promptModal.classList.remove('hidden');
+        }
+
+        document.getElementById('promptContinueBtn').addEventListener('click', () => {
+            promptModal.classList.add('hidden');
+            loadPartOnePuzzle();
+        });
+
+        // --- MODIFICATION START: Updated drawPath function ---
+        function drawPath(fromIndex, toIndex, containerWidth, containerHeight) {
+            const pathSvg = document.getElementById('map-path'); if (!pathSvg) return;
+            const from = stages[fromIndex], to = stages[toIndex], points = [];
+            
+            // Calculate coordinates based on the container's dimensions and percentage values
+            points.push({x: (parseFloat(from.pos.left)/100*containerWidth), y: (parseFloat(from.pos.top)/100*containerHeight)});
+            if (to.waypoints) { to.waypoints.forEach(wp => points.push({x: (parseFloat(wp.left)/100*containerWidth), y: (parseFloat(wp.top)/100*containerHeight)}));}
+            points.push({x: (parseFloat(to.pos.left)/100*containerWidth), y: (parseFloat(to.pos.top)/100*containerHeight)});
+            
+            for (let i = 0; i < points.length - 1; i++) {
+                const p1 = points[i], p2 = points[i+1], midX = (p1.x+p2.x)/2, midY = (p1.y+p2.y)/2, dx = p2.x-p1.x, dy = p2.y-p1.y, off = 20;
+                const cX = midX - off * (dy/Math.hypot(dx,dy)), cY = midY + off * (dx/Math.hypot(dx,dy));
+                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                path.setAttribute('d', `M ${p1.x} ${p1.y} Q ${cX} ${cY} ${p2.x} ${p2.y}`);
+                pathSvg.appendChild(path);
+            }
+        }
+        // --- MODIFICATION END ---
+       
+        function loadPartOnePuzzle() {
+            const title = document.getElementById('partOneTitle'), question = document.getElementById('partOneQuestion'), content = document.getElementById('partOneContent'), buttons = document.getElementById('partOneButtons'), feedback = document.getElementById('partOneFeedback'), explanationDiv = document.getElementById('partOneExplanation');
+            title.textContent = currentStageData.name;
+            content.innerHTML = '';
+            buttons.innerHTML = `<button type="submit" class="btn">تحقق</button>`;
+            feedback.classList.add('hidden');
+            explanationDiv.classList.add('hidden');
+
+            if (currentStageData.type === 'find_difference') {
+                content.className = 'space-y-3';
+                question.textContent = 'ما هو أساس المتتابعة التالية؟';
+                content.innerHTML = `<div class="sequence-container">${currentQuestionData.questionSequence.map(n => `<div class="sequence-item">${toArabicNumerals(n)}</div>`).join('<div class="text-2xl">،</div>')}</div>`;
+                const choices = document.createElement('div'); choices.className = 'grid grid-cols-2 gap-2 md:gap-4';
+                currentQuestionData.diffOptions.forEach((opt, i) => { choices.innerHTML += `<div><input type="radio" id="d${i}" name="diff" value="${opt}" required><label for="d${i}" class="choice-label">${toArabicNumerals(opt)}</label></div>`; });
+                content.appendChild(choices);
+            } else if (currentStageData.type === 'identify_arithmetic') {
+                question.textContent = 'أي من المتتابعات التالية هي متتابعة حسابية؟';
+                content.className = 'grid grid-cols-2 gap-2 md:gap-4';
+                currentQuestionData.identifyOptions.forEach((opt, i) => {
+                    const seqText = opt.seq.map(n => toArabicNumerals(n)).join(' ، ');
+                    content.innerHTML += `<div><input type="radio" id="s${i}" name="seq" value="${i}" required><label for="s${i}" class="choice-label">${seqText}</label></div>`;
+                });
+            } else { // complete_sequence
+                content.className = '';
+                question.textContent = 'استكشف النمط وأكمل الأرقام الناقصة:';
+                content.innerHTML = `<div id="sequence-container-inner" class="sequence-container"></div>`;
+                const container = document.getElementById('sequence-container-inner');
+                currentQuestionData.display.forEach((item, i) => {
+                    if (item === '?') { const input = document.createElement('input'); input.type = 'text'; input.inputMode = 'numeric'; input.className = 'sequence-input'; input.dataset.index = i; input.placeholder = '?'; container.appendChild(input); } 
+                    else { const div = document.createElement('div'); div.className = 'sequence-item'; div.textContent = toArabicNumerals(item); container.appendChild(div); }
+                });
+            }
+            partOneModal.classList.remove('hidden');
+            startTimer(); 
+        }
+
+        document.getElementById('partOneForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            pauseTimer();
+            const feedback = document.getElementById('partOneFeedback'), buttons = document.getElementById('partOneButtons'), explanationDiv = document.getElementById('partOneExplanation');
+            let isCorrect = false;
+
+            document.querySelectorAll('#partOneForm input').forEach(el => el.disabled = true);
+
+            if (currentStageData.type === 'find_difference') {
+                const selected = document.querySelector('input[name="diff"]:checked');
+                isCorrect = selected && parseInt(selected.value) === currentQuestionData.diff;
+                explanationDiv.innerHTML = `<h3 class="font-bold text-center">الشرح</h3><p class="text-center">الأساس هو الفرق الثابت بين كل حدين. هنا، ${toArabicNumerals(currentQuestionData.questionSequence[1])} - ${toArabicNumerals(currentQuestionData.questionSequence[0])} = ${toArabicNumerals(currentQuestionData.diff)}. إذن الأساس هو ${toArabicNumerals(currentQuestionData.diff)}.</p>`;
+                if (!isCorrect) {
+                    const correctInput = document.querySelector(`input[name="diff"][value="${currentQuestionData.diff}"]`);
+                    if (correctInput) correctInput.nextElementSibling.classList.add('flash-correct');
+                }
+            } else if (currentStageData.type === 'identify_arithmetic') {
+                const selected = document.querySelector('input[name="seq"]:checked');
+                isCorrect = selected && currentQuestionData.identifyOptions[selected.value].isArithmetic;
+                explanationDiv.innerHTML = `<h3 class="font-bold text-center">الشرح</h3><p class="text-center">المتتابعة الحسابية يكون الفرق فيها ثابتاً. المتتابعة <span class="font-bold">${currentQuestionData.sequence.slice(0,3).map(n=>toArabicNumerals(n)).join(' ، ')}</span> هي الحسابية لأن الفرق بين حدودها دائماً ${toArabicNumerals(currentQuestionData.diff)}.</p>`;
+                if (!isCorrect) {
+                    const correctIndex = currentQuestionData.identifyOptions.findIndex(opt => opt.isArithmetic);
+                    const correctInput = document.getElementById(`s${correctIndex}`);
+                    if (correctInput) correctInput.nextElementSibling.classList.add('flash-correct');
+                }
+            } else { // complete_sequence
+                const inputs = document.querySelectorAll('.sequence-input'); let mistakes = 0;
+                inputs.forEach(input => {
+                    if (parseFloat(input.value) === currentQuestionData.sequence[input.dataset.index]) {
+                        input.classList.add('correct'); input.value = toArabicNumerals(input.value);
+                    } else {
+                        input.classList.add('incorrect'); if(input.value) input.value = toArabicNumerals(input.value); mistakes++;
+                    }
+                });
+                isCorrect = mistakes === 0;
+                explanationDiv.innerHTML = `<h3 class="font-bold text-center">الشرح</h3><p class="text-center">لمعرفة الأرقام الناقصة، نكتشف أن أساس المتتابعة هو <span class="font-bold">${toArabicNumerals(currentQuestionData.diff)}</span>، ثم نضيفه لكل حد للحصول على الحد التالي.</p>`;
+            }
+
+            feedback.classList.remove('hidden');
+            if(isCorrect) {
+                feedback.textContent = 'صحيح! لقد حللت الجزء الأول من اللغز.'; feedback.className = 'feedback feedback-correct';
+            } else {
+                feedback.textContent = `خطأ! لقد فقدت بحاراً.`; feedback.className = 'feedback feedback-incorrect';
+                if (loseSailor()) { partOneModal.classList.add('hidden'); return; }
+            }
+            explanationDiv.classList.remove('hidden');
+            buttons.innerHTML = `<button type="button" class="btn btn-green">التالي</button>`;
+            buttons.querySelector('button').addEventListener('click', loadNthTermPuzzle);
+        });
+
+        function loadNthTermPuzzle() {
+            partOneModal.classList.add('hidden');
+            const seq = currentStageData.type === 'find_difference' ? currentQuestionData.questionSequence : currentQuestionData.sequence.slice(0, 3);
+            document.getElementById('final-sequence-display').textContent = seq.map(num => toArabicNumerals(num)).join(' ، ') + ' ، ...';
+            const choices = document.getElementById('choices-container'); choices.innerHTML = '';
+            currentQuestionData.options.forEach((opt, i) => { choices.innerHTML += `<div><input type="radio" id="f${i}" name="f" value="${opt}" required><label for="f${i}" class="choice-label">${opt}</label></div>`; });
+            document.getElementById('nthTerm-buttons').innerHTML = `<button type="submit" class="btn btn-green">تأكيد المفتاح</button>`;
+            document.getElementById('nthTerm-feedback').classList.add('hidden');
+            document.getElementById('nthTermExplanation').classList.add('hidden');
+            nthTermModal.classList.remove('hidden');
+            startTimer();
+        }
+
+        document.getElementById('nthTermForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            pauseTimer();
+            const feedback = document.getElementById('nthTerm-feedback'), selected = document.querySelector('input[name="f"]:checked');
+           
+            if (selected && selected.value === currentQuestionData.formula) {
+                feedback.textContent = 'أحسنت! هذا هو المفتاح الصحيح.'; feedback.className = 'feedback feedback-correct';
+                selected.nextElementSibling.classList.add('correct');
+            } else {
+                feedback.textContent = `خطأ! لقد فقدت بحاراً آخر.`; feedback.className = 'feedback feedback-incorrect';
+                if (selected) selected.nextElementSibling.classList.add('incorrect');
+                const correctInput = document.querySelector(`input[name="f"][value="${currentQuestionData.formula}"]`);
+                if (correctInput) correctInput.nextElementSibling.classList.add('flash-correct');
+                if (loseSailor()) { nthTermModal.classList.add('hidden'); return; }
+            }
+           
+            const explanationDiv = document.getElementById('nthTermExplanation');
+            const diff = currentQuestionData.diff;
+            const a1 = (currentStageData.type === 'find_difference' ? currentQuestionData.questionSequence[0] : currentQuestionData.sequence[0]);
+           
+            let finalTerm = `${toArabicNumerals(diff)}ن`;
+            const c = a1 - diff;
+            if (c > 0) finalTerm += ` + ${toArabicNumerals(c)}`;
+            else if (c < 0) finalTerm += ` - ${toArabicNumerals(Math.abs(c))}`;
+
+            explanationDiv.innerHTML = `
+                <h3 class="font-bold text-center">شرح إيجاد الحد النوني (أ<sub>ن</sub>)</h3>
+                <ol class="list-decimal list-inside text-right space-y-2 mt-2">
+                    <li>نحدد <strong>أساس المتتابعة (د)</strong>، وهو: <strong>${toArabicNumerals(diff)}</strong>.</li>
+                    <li>نحدد <strong>الحد الأول (أ₁)</strong>، وهو: <strong>${toArabicNumerals(a1)}</strong>.</li>
+                    <li>نستخدم الصيغة: <strong>أ(ن) = د × ن + (أ₁ - د)</strong></li>
+                    <li>نعوض بالقيم: <br> أ(ن) = ${toArabicNumerals(diff)}ن + (${toArabicNumerals(a1)} - ${toArabicNumerals(diff)})</li>
+                    <li>نبسّط المعادلة: <br> <strong>أ(ن) = ${finalTerm}</strong></li>
+                </ol>
+                <p class="mt-3 text-center font-bold">لذلك، الإجابة الصحيحة هي: ${currentQuestionData.formula}</p>
+            `;
+
+            feedback.classList.remove('hidden');
+            explanationDiv.classList.remove('hidden');
+            document.getElementById('nthTerm-buttons').innerHTML = `<button type="button" id="continueJourneyBtn" class="btn">واصل الرحلة</button>`;
+            document.getElementById('continueJourneyBtn').addEventListener('click', completeStage);
+        });
+
+        function completeStage() {
+            nthTermModal.classList.add('hidden');
+            currentStageIndex++;
+            if (currentStageIndex >= stages.length) { 
+                setTimeout(gameWon, 1000); 
+            } else { 
+                renderMap(); 
+            }
+        }
+       
+        function gameWon() {
+            resultsModal.classList.remove('hidden');
+            document.getElementById('resultsTitle').textContent = '🎉 لقد وجدت الكنز! 🎉';
+            document.getElementById('resultsMessage').textContent = `لقد نجوت أنت و ${toArabicNumerals(sailorsRemaining)} من بحارتك!`;
+            const finalPoints = Math.round((sailorsRemaining / 6) * 10);
+            const timeTaken = Math.round(totalTimeElapsed / 1000);
+            window.saveAndFinishGame(finalPoints, timeTaken);
+        }
+
+        function gameOver() {
+            pauseTimer();
+            partOneModal.classList.add('hidden'); 
+            nthTermModal.classList.add('hidden');
+            resultsModal.classList.remove('hidden');
+            document.getElementById('resultsTitle').textContent = 'GAME OVER';
+            document.getElementById('resultsMessage').textContent = 'لقد فقدت كل طاقمك في هذه الرحلة المحفوفة بالمخاطر.';
+            const timeTaken = Math.round(totalTimeElapsed / 1000);
+            window.saveAndFinishGame(0, timeTaken);
+        }
+
+        startButton.addEventListener('click', initGame);
+
+        // --- START OF CONNECTION & LEADERBOARD ENGINE ---
+        (function() {
+            // --- CONFIGURATION ---
+            const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
+            const GAME_ID = 'g2_6_1';
+            const GAME_MAX_POINTS = 10;
+            const PLATFORM_MAX_GRADE = 5;
+            const METRIC_TYPE = 'time';
+            const METRIC_LABEL = 'الوقت (ثواني)';
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const studentId = urlParams.get('studentId');
+            const classId = urlParams.get('classId');
+            const studentName = urlParams.get('studentName');
+
+            let currentUser = (studentId && studentName) ? { id: studentId, name: studentName } : null;
+
+            window.saveAndFinishGame = function(points, metricValue) {
+                const finalPoints = parseFloat(points) || 0;
+                const finalMetric = parseFloat(metricValue) || 0;
+                const maxPoints = parseFloat(GAME_MAX_POINTS) || 1;
+                const finalGrade = (finalPoints / maxPoints) * PLATFORM_MAX_GRADE;
+
+                const resultDisplay = document.getElementById('final-result-display');
+                if (resultDisplay) {
+                    resultDisplay.innerHTML = `
+                        <p class="text-gray-700">النقاط: <span class="font-bold text-xl">${finalPoints} / ${maxPoints}</span></p>
+                        <p class="text-blue-600">الدرجة في المنصة: <span class="font-bold text-2xl">${finalGrade.toFixed(1)} / ${PLATFORM_MAX_GRADE}</span></p>
+                    `;
+                }
+
+                if (studentId && classId) {
+                    const params = new URLSearchParams({ action: 'saveGrade', studentId: studentId, classId: classId, itemId: GAME_ID, grade: finalGrade.toFixed(2), metricValue: Math.round(finalMetric).toString() });
+                    fetch(`${SCRIPT_URL}?${params.toString()}`).then(res => res.json()).then(result => console.log('Save result:', result.status)).catch(err => console.error("Save Error:", err)).finally(fetchAndShowLeaderboard);
+                } else {
+                    console.log(`Visitor finished. Score: ${finalPoints}, Metric: ${finalMetric}`);
+                    fetchAndShowLeaderboard();
+                }
+            }
+
+            function fetchAndShowLeaderboard() {
+                const loader = document.getElementById('leaderboard-loader'), container = document.getElementById('leaderboard-container');
+                if (!loader || !container) return;
+               
+                if (!classId) {
+                    container.innerHTML = `<p class="text-center text-gray-500 mt-4">سجل الأبطال متاح للطلاب المسجلين فقط.</p>`;
+                    showFinishButton();
+                    return;
+                }
+
+                loader.style.display = 'block';
+                container.innerHTML = '';
+
+                const params = new URLSearchParams({ action: 'getLeaderboard', gameId: GAME_ID, metricType: METRIC_TYPE, classId: classId });
+                fetch(`${SCRIPT_URL}?${params.toString()}`).then(res => res.json()).then(response => {
+                    if (response.status === 'success' && response.data) displayLeaderboard(response.data);
+                    else throw new Error(response.message || 'Failed to load leaderboard data.');
+                }).catch(err => {
+                    console.error("Leaderboard Error:", err);
+                    container.innerHTML = `<p class="text-center text-red-500">حدث خطأ في تحميل سجل الأبطال.</p>`;
+                }).finally(() => {
+                    loader.style.display = 'none';
+                    showFinishButton();
+                });
+            }
+           
+            function displayLeaderboard(data) {
+                const container = document.getElementById('leaderboard-container');
+                if (!data || data.length === 0) {
+                    container.innerHTML = `<p class="text-center text-gray-500 mt-4">لا توجد نتائج بعد. كن أول الأبطال!</p>`;
+                    return;
+                }
+                let tableHTML = `<div class="mt-6 border-t pt-4"><h3 class="text-2xl font-bold text-center text-gray-800 mb-4">🏆 سجل الأبطال 🏆</h3><table class="min-w-full bg-white shadow-md rounded-lg"><thead class="bg-gray-800 text-white"><tr><th class="text-center py-2 px-3">الترتيب</th><th class="text-right py-2 px-3">اسم الطالب</th><th class="text-center py-2 px-3">الدرجة</th><th class="text-center py-2 px-3">${METRIC_LABEL}</th></tr></thead><tbody class="text-gray-700">`;
+                data.forEach((player, index) => {
+                    const rank = index + 1;
+                    let rankDisplay = rank;
+                    if (rank === 1) rankDisplay = '🥇'; if (rank === 2) rankDisplay = '🥈'; if (rank === 3) rankDisplay = '🥉';
+                    const isCurrentUser = (currentUser && player.name === currentUser.name);
+                    const rowClass = isCurrentUser ? 'bg-blue-100 font-bold' : (index % 2 === 0 ? 'bg-gray-100' : '');
+                    tableHTML += `<tr class="${rowClass}"><td class="text-center py-2 px-3 text-xl">${rankDisplay}</td><td class="text-right py-2 px-3">${player.name}</td><td class="text-center py-2 px-3">${player.grade.toFixed(1)}</td><td class="text-center py-2 px-3">${player.metricValue}</td></tr>`;
+                });
+                tableHTML += `</tbody></table></div>`;
+                container.innerHTML = tableHTML;
+            }
+
+            function showFinishButton() {
+                const finishWrapper = document.getElementById('finish-game-wrapper');
+                if (finishWrapper) finishWrapper.style.display = 'block';
+            }
+
+            document.addEventListener('DOMContentLoaded', () => {
+                const welcomeMessage = document.getElementById('welcomeMessage');
+                if (studentName && welcomeMessage) {
+                    welcomeMessage.innerHTML = `<span class="text-backdrop">أهلاً بك يا <span class="font-bold text-yellow-300">${studentName}</span>! معك <span class='highlight-word'>ستة بحارة شجعان</span> في رحلة البحث عن كنز مفقود. كل نقطة على الخريطة تخفي لغزاً، وكل خطأ سيكلفك أحد بحارتك. هل ستصل للكنز قبل أن تفقد طاقمك؟</span>`;
+                }
+                const finishBtn = document.getElementById('finish-game-btn');
+                if (finishBtn) {
+                    finishBtn.addEventListener('click', () => {
+                        window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*');
+                    });
+                }
+            });
+        })();
+        // --- END OF CONNECTION & LEADERBOARD ENGINE ---
+    </script>
+</body>
+</html>

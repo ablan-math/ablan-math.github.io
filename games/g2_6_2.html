@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>المستشار المالي</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Tajawal', sans-serif;
+            touch-action: manipulation;
+            overscroll-behavior-y: contain;
+            position: relative;
+        }
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: #f0f9ff;
+            background-image: url("https://ablan-math.github.io/img/g2_6/MAL.png");
+            background-size: cover;
+            background-position: center;
+            z-index: -1;
+            opacity: 1; /* Full opacity by default */
+            transition: opacity 0.5s ease-in-out;
+        }
+        body.game-started::before {
+            opacity: 0.3; /* Reduced opacity when game starts */
+        }
+        .card-enter { animation: card-enter 0.5s ease-out forwards; }
+        @keyframes card-enter {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        .feedback-correct {
+            animation: feedback-pop 0.3s ease-in-out;
+            background-color: #10B981;
+            color: white;
+        }
+        .feedback-incorrect {
+            animation: feedback-shake 0.5s ease-in-out;
+            background-color: #EF4444;
+            color: white;
+        }
+        @keyframes feedback-pop {
+            0% { transform: scale(0.8); }
+            80% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        @keyframes feedback-shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-5px); }
+            40%, 80% { transform: translateX(5px); }
+        }
+        .modal-content { animation: modal-pop 0.3s ease-out; }
+        @keyframes modal-pop {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        .transition-screen {
+            animation: fadeIn 0.5s ease-out;
+            position: relative;
+            overflow: hidden;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .transition-screen::before,
+        .transition-screen::after {
+            content: attr(data-emoji);
+            position: absolute;
+            z-index: 1;
+            color: white;
+            opacity: 0.15;
+            line-height: 1;
+        }
+        .transition-screen::before {
+            font-size: 12rem;
+            top: -3rem;
+            left: -2rem;
+            transform: rotate(20deg);
+        }
+        .transition-screen::after {
+            font-size: 16rem;
+            bottom: -5rem;
+            right: -3rem;
+            transform: rotate(-25deg);
+        }
+        .transition-screen > * {
+            position: relative;
+            z-index: 2;
+        }
+        #game-content {
+            position: relative;
+            overflow: hidden;
+        }
+        #game-content::before,
+        #game-content::after {
+            content: attr(data-emoji);
+            position: absolute;
+            z-index: 0;
+            color: #06b6d4; /* Cyan color */
+            opacity: 0.05;
+            line-height: 1;
+        }
+        #game-content::before {
+            font-size: 10rem;
+            top: 1rem;
+            left: -1.5rem;
+            transform: rotate(20deg);
+        }
+        #game-content::after {
+            font-size: 14rem;
+            bottom: 4rem;
+            right: -2rem;
+            transform: rotate(-25deg);
+        }
+        .fraction-display {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            vertical-align: middle;
+            margin: 0 0.2em;
+            line-height: 1;
+        }
+        .fraction-display .numerator {
+            padding: 0 0.4em;
+            border-bottom: 1.5px solid currentColor;
+        }
+        .fraction-display .denominator {
+            padding: 0 0.4em;
+        }
+        /* Custom Scrollbar for Leaderboard */
+        .leaderboard-scroll {
+            max-height: 180px;
+            overflow-y: auto;
+            padding-right: 5px;
+        }
+        .leaderboard-scroll::-webkit-scrollbar {
+            width: 8px;
+        }
+        .leaderboard-scroll::-webkit-scrollbar-track {
+            background: #e0f2fe; /* Lighter sky blue */
+            border-radius: 10px;
+        }
+        .leaderboard-scroll::-webkit-scrollbar-thumb {
+            background-color: #0ea5e9;
+            border-radius: 10px;
+            border: 2px solid #e0f2fe;
+        }
+        .sar-icon {
+            height: 1.8em; /* Doubled in size */
+            display: inline-block;
+            vertical-align: -0.45em; /* Adjusted alignment */
+            margin-right: 2px;
+        }
+        /* Start screen text readability */
+        #start-screen h1, #start-screen p {
+            text-shadow: 2px 2px 6px rgba(0, 0, 0, 0.5);
+        }
+    </style>
+</head>
+<body class="bg-sky-50 flex items-center justify-center min-h-screen p-2 sm:p-4">
+
+    <!-- Start Screen - Now outside the main container for full background effect -->
+    <div id="start-screen" class="w-full max-w-sm mx-auto p-4 text-center card-enter flex flex-col justify-center items-center h-full py-6">
+        <h1 class="text-4xl font-bold text-white">المستشار المالي</h1>
+        <div id="welcomeMessage" class="text-base text-white mt-6 mb-8 bg-black/30 p-4 rounded-xl shadow-lg backdrop-blur-sm">
+            <p>مرحباً أيها المستشار المالي! تُعرض عليك الآن قضايا استشارية، الرجاء تقديم النصح والحلول المناسبة.</p>
+        </div>
+        
+        <button onclick="startGame()" class="w-full bg-white/20 text-indigo-900 font-bold py-3 px-6 rounded-lg shadow-md hover:bg-white/30 focus:outline-none transition-all ring-2 ring-white/50 backdrop-blur-sm">
+            الدخول
+        </button>
+        <p class="text-xs text-white/90 font-semibold mt-8 bg-black/30 p-2 rounded-lg">إعداد وتقديم: الأستاذ عبدالعزيز خالد العبلان</p>
+    </div>
+
+    <!-- Game Container - Hidden by default -->
+    <div id="game-container" class="w-full max-w-sm mx-auto bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl p-4 space-y-3 hidden">
+        <div id="game-screen"></div>
+    </div>
+
+    <!-- Explanation Modal -->
+    <div id="explanation-modal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-lg p-5 w-full max-w-sm modal-content">
+            <div class="flex justify-between items-center mb-2">
+                <h3 class="text-lg font-bold text-cyan-700">شرح الخطة المالية</h3>
+                <button onclick="hideExplanation()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+            </div>
+            <div id="explanation-content" class="space-y-2 text-sm text-gray-700 max-h-[75vh] overflow-y-auto pr-2"></div>
+            <button onclick="hideExplanation()" class="mt-3 w-full bg-gray-500 text-white font-bold py-2 rounded-lg hover:bg-gray-600">إغلاق</button>
+        </div>
+    </div>
+
+    <script>
+        // --- GAME LOGIC ---
+        const sarIcon = `<img src="https://ablan-math.github.io/img/g2_6/SAR.png" class="sar-icon" alt="SAR">`;
+        
+        const consultationGroups = [
+            [
+                { caseTitle: "خطة ادخار لزميلك", emoji: "🚲", scenario: `زميلك يريد شراء دراجة سعرها ٣٥٠ ${sarIcon}. لديه الآن ٥٠ ${sarIcon} وسيوفر ٣٠ ${sarIcon} كل أسبوع.`, part1: { question: "اكتب أول ثلاثة حدود للمتتابعة التي تمثل المبلغ الذي سيملكه.", answer: [50, 80, 110] }, part2: { type: 'find_n', a1: 50, d: 30, an: 350, question: `بناءً على خطتك، كم أسبوعاً سيحتاج للوصول إلى ٣٥٠ ${sarIcon}؟`, answer: 11 } },
+                { caseTitle: "خطة ادخار لزميلك", emoji: "🚲", scenario: `زميلك يريد شراء دراجة سعرها ٤٠٠ ${sarIcon}. لديه الآن ٤٠ ${sarIcon} وسيوفر ٢٠ ${sarIcon} كل أسبوع.`, part1: { question: "اكتب أول ثلاثة حدود للمتتابعة التي تمثل المبلغ الذي سيملكه.", answer: [40, 60, 80] }, part2: { type: 'find_n', a1: 40, d: 20, an: 400, question: `بناءً على خطتك، كم أسبوعاً سيحتاج للوصول إلى ٤٠٠ ${sarIcon}؟`, answer: 19 } },
+                { caseTitle: "خطة ادخار لزميلك", emoji: "🚲", scenario: `زميلك بدأ بمبلغ ٦٠ ${sarIcon} ويوفر ٤٠ ${sarIcon} كل أسبوع لشراء دراجة.`, part1: { question: "اكتب المبالغ التي سيملكها في أول ٣ أسابيع.", answer: [60, 100, 140] }, part2: { type: 'find_an', a1: 60, d: 40, n: 8, question: `كم المبلغ الذي سيملكه بعد ٨ أسابيع؟`, answer: 340 } },
+                { caseTitle: "خطة ادخار لزميلك", emoji: "🚲", scenario: `زميلك يريد شراء دراجة سعرها ٥٠٠ ${sarIcon}. لديه الآن ١٠٠ ${sarIcon} وسيوفر ٥٠ ${sarIcon} كل أسبوع.`, part1: { question: "اكتب أول ثلاثة حدود للمتتابعة التي تمثل المبلغ الذي سيملكه.", answer: [100, 150, 200] }, part2: { type: 'find_n', a1: 100, d: 50, an: 500, question: `بناءً على خطتك، كم أسبوعاً سيحتاج للوصول إلى ٥٠٠ ${sarIcon}؟`, answer: 9 } }
+            ],
+            [
+                { caseTitle: "مساعدة أختك في الادخار", emoji: "🎮", scenario: `أختك تريد شراء جهاز ألعاب سعره ٤٥٠ ${sarIcon}. لديها الآن ٩٠ ${sarIcon} وستوفر ٤٠ ${sarIcon} كل شهر.`, part1: { question: "ما هي أول ثلاثة مبالغ ستكون في حصالتها شهرياً؟", answer: [90, 130, 170] }, part2: { type: 'find_n', a1: 90, d: 40, an: 450, question: "كم شهراً تحتاج أختك لتحقيق هدفها؟", answer: 10 } },
+                { caseTitle: "مساعدة أختك في الادخار", emoji: "🎮", scenario: `أختك تريد شراء جهاز ألعاب سعره ٦٠٠ ${sarIcon}. لديها الآن ١٢٠ ${sarIcon} وستوفر ٦٠ ${sarIcon} كل شهر.`, part1: { question: "ما هي أول ثلاثة مبالغ ستكون في حصالتها شهرياً؟", answer: [120, 180, 240] }, part2: { type: 'find_n', a1: 120, d: 60, an: 600, question: "كم شهراً تحتاج أختك لتحقيق هدفها؟", answer: 9 } },
+                { caseTitle: "مساعدة أختك في الادخار", emoji: "🎮", scenario: `أختك بدأت بمبلغ ٥٠ ${sarIcon} وتوفر ٧٠ ${sarIcon} كل شهر لشراء جهاز ألعاب.`, part1: { question: "اكتب المبالغ التي ستملكها في أول ٣ أشهر.", answer: [50, 120, 190] }, part2: { type: 'find_an', a1: 50, d: 70, n: 5, question: `كم المبلغ الذي ستملكه بعد ٥ أشهر؟`, answer: 330 } },
+                { caseTitle: "مساعدة أختك في الادخار", emoji: "🎮", scenario: `أختك تريد شراء جهاز ألعاب سعره ٥٥٠ ${sarIcon}. لديها الآن ١٠٠ ${sarIcon} وستوفر ٥٠ ${sarIcon} كل شهر.`, part1: { question: "ما هي أول ثلاثة مبالغ ستكون في حصالتها شهرياً؟", answer: [100, 150, 200] }, part2: { type: 'find_n', a1: 100, d: 50, an: 550, question: "كم شهراً تحتاج أختك لتحقيق هدفها؟", answer: 10 } }
+            ],
+            [
+                { caseTitle: "التخطيط لرحلة عائلية", emoji: "✈️", scenario: `والدك يخطط لرحلة. بدأ الادخار بمبلغ ٣٠٠ ${sarIcon} ويوفر ٢٥٠ ${sarIcon} كل شهر.`, part1: { question: "اكتب المبالغ التي سيجمعها في أول ثلاثة أشهر.", answer: [300, 550, 800] }, part2: { type: 'find_an', a1: 300, d: 250, n: 6, question: `كم المبلغ الذي سيجمعه والدك بعد ٦ أشهر من الادخار؟`, answer: 1550 } },
+                { caseTitle: "التخطيط لرحلة عائلية", emoji: "✈️", scenario: `والدك يخطط لرحلة تكلفتها ٣٠٠٠ ${sarIcon}. بدأ الادخار بمبلغ ٥٠٠ ${sarIcon} ويوفر ٥٠٠ ${sarIcon} كل شهر.`, part1: { question: "اكتب المبالغ التي سيجمعها في أول ثلاثة أشهر.", answer: [500, 1000, 1500] }, part2: { type: 'find_n', a1: 500, d: 500, an: 3000, question: `كم شهراً يحتاج والدك لتجميع تكلفة الرحلة؟`, answer: 6 } },
+                { caseTitle: "التخطيط لرحلة عائلية", emoji: "✈️", scenario: `والدك بدأ بمبلغ ٢٠٠ ${sarIcon} ويوفر ٣٠٠ ${sarIcon} شهرياً لرحلة.`, part1: { question: "اكتب المبالغ التي سيملكها في أول ٣ أشهر.", answer: [200, 500, 800] }, part2: { type: 'find_an', a1: 200, d: 300, n: 7, question: `كم المبلغ الذي سيملكه بعد ٧ أشهر؟`, answer: 2000 } },
+                { caseTitle: "التخطيط لرحلة عائلية", emoji: "✈️", scenario: `والدك يخطط لرحلة تكلفتها ٤٠٠٠ ${sarIcon}. لديه الآن ١٠٠٠ ${sarIcon} ويوفر ٤٠٠ ${sarIcon} كل شهر.`, part1: { question: "اكتب المبالغ التي سيجمعها في أول ثلاثة أشهر.", answer: [1000, 1400, 1800] }, part2: { type: 'find_n', a1: 1000, d: 400, an: 4000, question: `كم شهراً يحتاج والدك لتجميع تكلفة الرحلة؟`, answer: 8.5 } }
+            ],
+            [
+                { caseTitle: "شراء هاتف جديد لأخيك", emoji: "📱", scenario: `أخوك يريد شراء هاتف. بدأ الادخار بمبلغ ١٥٠ ${sarIcon} ويوفر ٧٠ ${sarIcon} كل أسبوع.`, part1: { question: "ما هي المبالغ التي سيملكها في أول ٣ أسابيع؟", answer: [150, 220, 290] }, part2: { type: 'find_an', a1: 150, d: 70, n: 8, question: `كم المبلغ الذي سيملكه أخوك بعد ٨ أسابيع؟`, answer: 640 } },
+                { caseTitle: "شراء هاتف جديد لأخيك", emoji: "📱", scenario: `أخوك يريد شراء هاتف قيمته ٨٠٠ ${sarIcon}. لديه الآن ٢٠٠ ${sarIcon} ويوفر ٦٠ ${sarIcon} كل أسبوع.`, part1: { question: "ما هي المبالغ التي سيملكها في أول ٣ أسابيع؟", answer: [200, 260, 320] }, part2: { type: 'find_n', a1: 200, d: 60, an: 800, question: `كم أسبوعاً يحتاج أخوك لشراء الهاتف؟`, answer: 11 } },
+                { caseTitle: "شراء هاتف جديد لأخيك", emoji: "📱", scenario: `أخوك بدأ بمبلغ ١٠٠ ${sarIcon} ويوفر ٨٠ ${sarIcon} أسبوعياً لهاتف جديد.`, part1: { question: "اكتب المبالغ التي سيملكها في أول ٣ أسابيع.", answer: [100, 180, 260] }, part2: { type: 'find_an', a1: 100, d: 80, n: 10, question: `كم المبلغ الذي سيملكه بعد ١٠ أسابيع؟`, answer: 820 } },
+                { caseTitle: "شراء هاتف جديد لأخيك", emoji: "📱", scenario: `أخوك يريد شراء هاتف قيمته ١٢٠٠ ${sarIcon}. لديه الآن ٣٠٠ ${sarIcon} ويوفر ٧٥ ${sarIcon} كل أسبوع.`, part1: { question: "ما هي المبالغ التي سيملكها في أول ٣ أسابيع؟", answer: [300, 375, 450] }, part2: { type: 'find_n', a1: 300, d: 75, an: 1200, question: `كم أسبوعاً يحتاج أخوك لشراء الهاتف؟`, answer: 13 } }
+            ],
+            [
+                { caseTitle: "تجهيز صديقك لمعرض الكتاب", emoji: "📚", scenario: `صديقك يريد تجميع ١٣٠ ${sarIcon} لمعرض الكتاب. لديه الآن ٢٥ ${sarIcon} ويوفر ١٥ ${sarIcon} كل أسبوع.`, part1: { question: "اكتب أول ثلاثة حدود تمثل خطة ادخاره الأسبوعية.", answer: [25, 40, 55] }, part2: { type: 'find_n', a1: 25, d: 15, an: 130, question: `كم أسبوعاً يحتاج صديقك لتجميع مبلغ ١٣٠ ${sarIcon}؟`, answer: 8 } },
+                { caseTitle: "تجهيز صديقك لمعرض الكتاب", emoji: "📚", scenario: `صديقك يريد تجميع ٢٠٠ ${sarIcon} لمعرض الكتاب. لديه الآن ٤٠ ${sarIcon} ويوفر ٢٠ ${sarIcon} كل أسبوع.`, part1: { question: "اكتب أول ثلاثة حدود تمثل خطة ادخاره الأسبوعية.", answer: [40, 60, 80] }, part2: { type: 'find_n', a1: 40, d: 20, an: 200, question: `كم أسبوعاً يحتاج صديقك لتجميع مبلغ ٢٠٠ ${sarIcon}؟`, answer: 9 } },
+                { caseTitle: "تجهيز صديقك لمعرض الكتاب", emoji: "📚", scenario: `صديقك بدأ الادخار بمبلغ ١٠ ${sarIcon} ويوفر ١٠ ${sarIcon} أسبوعياً للمعرض.`, part1: { question: "اكتب المبالغ التي سيملكها في أول ٣ أسابيع.", answer: [10, 20, 30] }, part2: { type: 'find_an', a1: 10, d: 10, n: 12, question: `كم المبلغ الذي سيملكه في الأسبوع رقم ١٢؟`, answer: 120 } },
+                { caseTitle: "تجهيز صديقك لمعرض الكتاب", emoji: "📚", scenario: `صديقك يريد تجميع ١٥٠ ${sarIcon} لمعرض الكتاب. لديه الآن ٣٠ ${sarIcon} ويوفر ١٥ ${sarIcon} كل أسبوع.`, part1: { question: "اكتب أول ثلاثة حدود تمثل خطة ادخاره الأسبوعية.", answer: [30, 45, 60] }, part2: { type: 'find_n', a1: 30, d: 15, an: 150, question: `كم أسبوعاً يحتاج صديقك لتجميع مبلغ ١٥٠ ${sarIcon}؟`, answer: 9 } }
+            ]
+        ];
+
+        const startScreenEl = document.getElementById('start-screen');
+        const gameContainerEl = document.getElementById('game-container');
+        const gameScreenEl = document.getElementById('game-screen');
+        const explanationModalEl = document.getElementById('explanation-modal');
+        const explanationContentEl = document.getElementById('explanation-content');
+        
+        let gameQuestions = [];
+        let currentConsultationIndex = 0;
+        let currentStage = 1;
+        let score = 0;
+        let answered = false;
+        
+        let timerInterval = null;
+        let questionStartTime = 0;
+        let totalElapsedTime = 0;
+
+        function toArabicNumerals(numStr) {
+            const arabicNumerals = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+            return String(numStr).replace(/[0-9.-]/g, (char) => {
+                if (char === '.') return '٫';
+                if (char === '-') return '-';
+                return arabicNumerals[parseInt(char)];
+            });
+        }
+        
+        function generateOptions(correctAnswer) {
+            let options = new Set([correctAnswer]);
+            while (options.size < 4) {
+                const delta = Math.ceil(Math.random() * 4) * (Math.random() < 0.5 ? 10 : 1);
+                let randomOption = correctAnswer + (Math.random() < 0.5 ? -delta : delta);
+                randomOption = Math.max(0, Math.round(randomOption * 10) / 10);
+                if (randomOption !== correctAnswer) {
+                    options.add(randomOption);
+                }
+            }
+            return Array.from(options).sort(() => Math.random() - 0.5);
+        }
+
+        function startTimer() {
+            clearInterval(timerInterval);
+            questionStartTime = Date.now();
+            const timerDisplayEl = document.getElementById('timer-display');
+            
+            const updateTimerDisplay = () => {
+                const timerEl = document.getElementById('timer-display');
+                if (timerEl) {
+                    const currentSessionTime = Date.now() - questionStartTime;
+                    const displayTimeInSeconds = Math.floor((totalElapsedTime + currentSessionTime) / 1000);
+                    timerEl.textContent = toArabicNumerals(displayTimeInSeconds);
+                }
+            };
+            
+            updateTimerDisplay();
+            timerInterval = setInterval(updateTimerDisplay, 1000);
+        }
+
+        function stopTimer() {
+            clearInterval(timerInterval);
+            if (questionStartTime > 0) {
+                totalElapsedTime += Date.now() - questionStartTime;
+                questionStartTime = 0;
+            }
+            const timerEl = document.getElementById('timer-display');
+            if (timerEl) {
+                const displayTimeInSeconds = Math.floor(totalElapsedTime / 1000);
+                 timerEl.textContent = toArabicNumerals(displayTimeInSeconds);
+            }
+        }
+        
+        function startGame() {
+            document.body.classList.add('game-started');
+            
+            gameQuestions = consultationGroups.map(group => {
+                const randomIndex = Math.floor(Math.random() * group.length);
+                return group[randomIndex];
+            });
+
+            for (let i = gameQuestions.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [gameQuestions[i], gameQuestions[j]] = [gameQuestions[j], gameQuestions[i]];
+            }
+
+            currentConsultationIndex = 0;
+            currentStage = 1;
+            score = 0;
+            totalElapsedTime = 0;
+            startScreenEl.classList.add('hidden');
+            gameContainerEl.classList.remove('hidden');
+            showTransitionScreen();
+        }
+
+        function loadConsultation() {
+            answered = false;
+            const consultation = gameQuestions[currentConsultationIndex];
+            
+            gameScreenEl.innerHTML = `<div id="game-content" class="space-y-2 card-enter" data-emoji="${consultation.emoji}"></div>`;
+            const gameContentEl = document.getElementById('game-content');
+
+            gameContentEl.innerHTML = `
+                <div id="game-header" class="flex justify-between items-center text-base font-bold p-2 bg-sky-100 rounded-lg shadow-inner z-10 relative">
+                    <div class="text-cyan-700">التقارير الناجحة: <span id="score-display">٠</span></div>
+                    <div class="text-red-600">الوقت: <span id="timer-display">٠</span> ث</div>
+                </div>
+                 <div class="text-center bg-gray-100 p-2 rounded-lg shadow-inner z-10 relative">
+                    <p class="text-sm text-gray-700">${consultation.scenario}</p>
+                </div>
+                <div id="question-area" class="bg-sky-50/70 border border-sky-200 rounded-lg p-3 text-center z-10 relative">
+                     <p class="font-bold text-cyan-800">الخطوة ${toArabicNumerals(currentStage)} من ٢</p>
+                     <p class="text-base font-semibold text-gray-900 mt-1" id="question-text"></p>
+                </div>
+                
+                <div id="options-container" class="gap-2 z-10 relative"></div>
+                <div id="feedback" class="text-center font-bold p-2 rounded-lg text-sm hidden my-1 z-10 relative"></div>
+                <div id="action-buttons" class="hidden flex justify-center items-center gap-2 z-10 relative"></div>`;
+            
+            document.getElementById('score-display').textContent = toArabicNumerals(score);
+            const timerEl = document.getElementById('timer-display');
+            if (timerEl) {
+                 timerEl.textContent = toArabicNumerals(Math.floor(totalElapsedTime / 1000));
+            }
+
+            const questionTextEl = document.getElementById('question-text');
+            const optionsContainerEl = document.getElementById('options-container');
+
+            if (currentStage === 1) {
+                optionsContainerEl.className = "block z-10 relative"; 
+                const part1 = consultation.part1;
+                questionTextEl.innerHTML = part1.question;
+                
+                optionsContainerEl.innerHTML = `
+                    <div class="space-y-2">
+                        <div class="flex flex-row-reverse justify-center items-center gap-2">
+                            <input type="number" id="term3" class="w-1/4 text-center p-2 h-14 rounded-lg border-2 border-gray-300 focus:border-cyan-500 focus:ring-cyan-500 text-xl font-bold" placeholder="٠" style="direction: rtl;" tabindex="3">
+                            <span class="font-bold text-gray-400 text-xl">,</span>
+                            <input type="number" id="term2" class="w-1/4 text-center p-2 h-14 rounded-lg border-2 border-gray-300 focus:border-cyan-500 focus:ring-cyan-500 text-xl font-bold" placeholder="٠" style="direction: rtl;" tabindex="2">
+                            <span class="font-bold text-gray-400 text-xl">,</span>
+                            <input type="number" id="term1" class="w-1/4 text-center p-2 h-14 rounded-lg border-2 border-gray-300 focus:border-cyan-500 focus:ring-cyan-500 text-xl font-bold" placeholder="٠" style="direction: rtl;" tabindex="1">
+                        </div>
+                        <button onclick="checkAnswerFromInputs()" class="w-full bg-indigo-500 text-white font-bold py-2 rounded-lg shadow-md hover:bg-indigo-600" tabindex="4">تحقق من إجابتك</button>
+                    </div>
+                `;
+
+            } else {
+                optionsContainerEl.className = "grid grid-cols-2 gap-2 z-10 relative"; 
+                const sequenceDiv = document.createElement('div');
+                sequenceDiv.className = "text-center bg-green-100 p-2 rounded-lg shadow-inner border border-green-200 card-enter z-10 relative";
+                sequenceDiv.innerHTML = `<p class="text-xs text-green-800">بناءً على المتتابعة: <span class="font-bold text-base">${consultation.part1.answer.map(n => toArabicNumerals(n)).join('، ')}</span></p>`;
+                gameContentEl.insertBefore(sequenceDiv, document.getElementById('question-area'));
+
+                const part2 = consultation.part2;
+                questionTextEl.innerHTML = part2.question;
+                const options = generateOptions(part2.answer);
+                
+                options.forEach(option => {
+                    const button = document.createElement('button');
+                    button.className = "w-full bg-indigo-500 text-white font-bold p-2 rounded-lg shadow-md hover:bg-indigo-600 focus:outline-none flex items-center justify-center min-h-[40px] text-base";
+                    button.textContent = toArabicNumerals(option);
+                    button.onclick = () => checkAnswer(option);
+                    optionsContainerEl.appendChild(button);
+                });
+            }
+            startTimer();
+        }
+
+        function checkAnswerFromInputs() {
+            if (answered) return;
+            stopTimer();
+            const term1 = parseInt(document.getElementById('term1').value) || null;
+            const term2 = parseInt(document.getElementById('term2').value) || null;
+            const term3 = parseInt(document.getElementById('term3').value) || null;
+            const userAnswer = [term1, term2, term3];
+            checkAnswer(JSON.stringify(userAnswer));
+        }
+
+        function checkAnswer(selectedValue) {
+            if (answered) return;
+            stopTimer();
+            answered = true;
+            
+            const consultation = gameQuestions[currentConsultationIndex];
+            const feedbackEl = document.getElementById('feedback');
+            const actionButtonsEl = document.getElementById('action-buttons');
+            let isCorrect = false;
+
+            document.getElementById('options-container').style.display = 'none';
+            feedbackEl.classList.remove('hidden');
+            actionButtonsEl.classList.remove('hidden');
+
+            if (currentStage === 1) {
+                const correctAnswer = JSON.stringify(consultation.part1.answer);
+                isCorrect = (selectedValue === correctAnswer);
+                if (isCorrect) {
+                    feedbackEl.textContent = "أحسنت! لقد حددت المتتابعة بشكل صحيح.";
+                } else {
+                    feedbackEl.innerHTML = `إجابة خاطئة! المتتابعة الصحيحة هي: ${consultation.part1.answer.map(n=>toArabicNumerals(n)).join('، ')}`;
+                }
+                actionButtonsEl.innerHTML = `<button onclick="goToNextStage()" class="w-1/2 bg-cyan-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-cyan-700 text-sm">التالي</button>
+                                             <button onclick="showExplanation()" class="w-1/2 bg-green-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-green-700 text-sm">اعرف لماذا؟</button>`;
+
+            } else {
+                const correctAnswer = consultation.part2.answer;
+                isCorrect = (selectedValue == correctAnswer);
+                if (isCorrect) {
+                    feedbackEl.textContent = "إجابة ممتازة! خطتك المالية دقيقة.";
+                } else {
+                    feedbackEl.innerHTML = `إجابة خاطئة! الإجابة الصحيحة هي: ${toArabicNumerals(correctAnswer)}`;
+                }
+                const buttonText = (currentConsultationIndex < gameQuestions.length - 1) ? "الاستشارة التالية" : "النتيجة النهائية";
+                actionButtonsEl.innerHTML = `<button onclick="nextConsultation()" class="w-1/2 bg-cyan-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-cyan-700 text-sm">${buttonText}</button>
+                                             <button onclick="showExplanation()" class="w-1/2 bg-green-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-green-700 text-sm">اعرف لماذا؟</button>`;
+            }
+
+            if(isCorrect) {
+                score++;
+                document.getElementById('score-display').textContent = toArabicNumerals(score);
+                feedbackEl.classList.add('feedback-correct');
+            } else {
+                feedbackEl.classList.add('feedback-incorrect');
+            }
+        }
+        
+        function goToNextStage() {
+            currentStage = 2;
+            loadConsultation();
+        }
+
+        function nextConsultation() {
+            hideExplanation();
+            currentConsultationIndex++;
+            if (currentConsultationIndex < gameQuestions.length) {
+                currentStage = 1;
+                showTransitionScreen();
+            } else {
+                endGame();
+            }
+        }
+
+        function showTransitionScreen() {
+            const consultation = gameQuestions[currentConsultationIndex];
+            gameScreenEl.innerHTML = `
+                <div class="transition-screen text-center flex flex-col justify-center items-center min-h-[350px] bg-gradient-to-br from-indigo-600 to-purple-700 rounded-2xl p-6 shadow-lg space-y-4" data-emoji="${consultation.emoji}">
+                    <h2 class="text-white text-2xl font-bold drop-shadow-md">الاستشارة ${toArabicNumerals(currentConsultationIndex + 1)} من ${toArabicNumerals(gameQuestions.length)}</h2>
+                    <p class="text-white/90 text-xl mt-2 font-medium drop-shadow-md">${consultation.caseTitle} ${consultation.emoji}</p>
+                    <button onclick="loadConsultation()" class="mt-6 bg-white/30 text-white font-bold py-2 px-10 rounded-lg shadow-md hover:bg-white/40 backdrop-blur-sm transition-all">
+                        ابدأ
+                    </button>
+                </div>
+            `;
+        }
+
+        function endGame() {
+            const finalTimeInSeconds = Math.round(totalElapsedTime / 1000);
+             gameScreenEl.innerHTML = `
+               <div class="text-center space-y-3 card-enter p-4">
+                 <h1 class="text-2xl font-bold text-cyan-600">اكتمل التقرير!</h1>
+                 <p class="text-base">لقد أنهيت جميع الاستشارات.</p>
+                 
+                 <div id="final-result-display" class="bg-gray-100/80 p-3 my-2 rounded-lg shadow-inner">
+                 </div>
+
+                 <div id="leaderboard-loader" style="display: none;"></div>
+                 <div id="leaderboard-container"></div>
+                 
+                 <div id="finish-game-wrapper" style="display: none;" class="space-y-2">
+                     <button id="finish-game-btn" class="w-full bg-cyan-700 text-white font-bold py-3 px-6 rounded-lg shadow-md hover:bg-cyan-800">
+                       العودة للمنصة
+                     </button>
+                 </div>
+                 <button onclick="window.location.reload()" class="w-full bg-gray-500 text-white font-bold py-2 px-6 rounded-lg shadow-md hover:bg-gray-600 mt-2">
+                   إعادة اللعبة
+                 </button>
+               </div>`;
+            if(window.saveAndFinishGame) {
+                window.saveAndFinishGame(score, finalTimeInSeconds);
+            }
+        }
+        
+        function showExplanation() {
+            const c = gameQuestions[currentConsultationIndex];
+            
+            if (currentStage === 1) {
+                const p1 = c.part1;
+                const a1 = c.part2.a1;
+                const d = c.part2.d;
+                const [term1, term2, term3] = p1.answer;
+                let html = `<div class="border-r-4 border-cyan-500 pr-3 mb-2 space-y-1">
+                    <p><span class="font-bold">حساب حدود المتتابعة:</span></p>
+                    <ul class="list-disc list-inside text-base">
+                        <li>الحد الأول (أ١) = ${toArabicNumerals(term1)} ${sarIcon}</li>
+                        <li>الحد الثاني = ${toArabicNumerals(term1)} ${sarIcon} + ${toArabicNumerals(d)} ${sarIcon} = ${toArabicNumerals(term2)} ${sarIcon}</li>
+                        <li>الحد الثالث = ${toArabicNumerals(term2)} ${sarIcon} + ${toArabicNumerals(d)} ${sarIcon} = ${toArabicNumerals(term3)} ${sarIcon}</li>
+                    </ul>
+                    </div>
+                    <div class="border-r-4 border-green-500 pr-3">
+                    <p class="font-bold">الاستنتاج:</p><p>المتتابعة الصحيحة هي: ${p1.answer.map(n => toArabicNumerals(n)).join('، ')}</p>
+                    </div>`;
+                explanationContentEl.innerHTML = html;
+            } else {
+                const q = c.part2;
+                let data = { a1: q.a1, d: q.d, n: q.n, an: q.an };
+                if (q.type === 'find_an') data.an = q.answer; else data.n = q.answer;
+
+                let html = `<div class="border-r-4 border-cyan-500 pr-3 mb-2 space-y-1">
+                    <p><span class="font-bold">معطيات الحالة:</span></p>
+                    <ul class="list-disc list-inside">
+                        <li>المبلغ المبدئي (أ١) = ${toArabicNumerals(data.a1)} ${sarIcon}</li>
+                        <li>مبلغ الادخار الدوري (د) = ${toArabicNumerals(data.d)} ${sarIcon}</li>
+                        ${q.type === 'find_an' ? `<li>الفترة (ن) = ${toArabicNumerals(data.n)}</li>` : `<li>المبلغ المستهدف (أ ن) = ${toArabicNumerals(data.an)} ${sarIcon}</li>`}
+                    </ul>
+                </div>`;
+
+                if (q.type === 'find_an') {
+                    html += `<div class="border-r-4 border-green-500 pr-3 space-y-1">
+                        <p class="font-bold">١. الصيغة:</p> <p class="text-center text-base bg-gray-100 p-1 rounded">أ<sub>ن</sub> = أ<sub>١</sub> + (ن - ١) × د</p>
+                        <p class="font-bold">٢. التعويض:</p> <p class="text-center text-base">أ<sub>${toArabicNumerals(data.n)}</sub> = ${toArabicNumerals(data.a1)} + (${toArabicNumerals(data.n)} - ١) × ${toArabicNumerals(data.d)}</p>
+                        <p class="font-bold">٣. الحل النهائي للخطة:</p> <p class="text-center text-lg font-bold bg-green-100 p-1 rounded">أ<sub>${toArabicNumerals(data.n)}</sub> = ${toArabicNumerals(q.answer)} ${sarIcon}</p>
+                    </div>`;
+                } else {
+                    html += `<div class="border-r-4 border-green-500 pr-3 space-y-1">
+                        <p class="font-bold">١. الصيغة:</p> <p class="text-center text-base bg-gray-100 p-1 rounded">أ<sub>ن</sub> = أ<sub>١</sub> + (ن - ١) × د</p>
+                        <p class="font-bold">٢. التعويض:</p> <p class="text-center text-base">${toArabicNumerals(data.an)} = ${toArabicNumerals(data.a1)} + (ن - ١) × ${toArabicNumerals(data.d)}</p>
+                        <p class="font-bold">٣. خطوات الحل:</p>
+                        <div class="text-center text-base space-y-2 bg-gray-50 p-2 rounded-lg border">
+                           <p> نطرح ${toArabicNumerals(data.a1)}:<br><span dir="ltr">${toArabicNumerals(data.an - data.a1)} = (ن - ١) × ${toArabicNumerals(data.d)}</span></p>
+                           <p> نقسم على ${toArabicNumerals(data.d)}:<br><span class="fraction-display"><span class="numerator">${toArabicNumerals(data.an - data.a1)}</span><span class="denominator">${toArabicNumerals(data.d)}</span></span> = ن - ١</p>
+                           <p> <span dir="ltr">${toArabicNumerals(((data.an - data.a1) / data.d).toFixed(2).replace('.00',''))} = ن - ١</span></p>
+                           <p> نضيف ١:<br><span dir="ltr">${toArabicNumerals((((data.an - data.a1) / data.d) + 1).toFixed(2).replace('.00',''))} = ن</span></p>
+                        </div>
+                         <p class="font-bold mt-1">٤. الحل النهائي للخطة:</p> <p class="text-center text-lg font-bold bg-green-100 p-1 rounded">ن = ${toArabicNumerals(q.answer)}</p>
+                    </div>`;
+                }
+                explanationContentEl.innerHTML = html;
+            }
+            
+            explanationModalEl.classList.remove('hidden');
+        }
+
+        function hideExplanation() {
+            explanationModalEl.classList.add('hidden');
+        }
+    </script>
+
+    <script>
+    // --- START OF CONNECTION & LEADERBOARD ENGINE ---
+    (function() {
+        // --- CONFIGURATION (عدّل هذه الإعدادات لكل لعبة) ---
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
+        const GAME_ID = 'g2_6_2';
+        const GAME_MAX_POINTS = 10;
+        const PLATFORM_MAX_GRADE = 5;
+        const METRIC_TYPE = 'time';
+        const METRIC_LABEL = 'الوقت (ثواني)';
+
+        // --- Read URL Parameters ---
+        const urlParams = new URLSearchParams(window.location.search);
+        const studentId = urlParams.get('studentId');
+        const classId = urlParams.get('classId');
+        const studentName = urlParams.get('studentName');
+
+        let currentUser = (studentId && studentName) ? { id: studentId, name: studentName } : null;
+
+        // --- CORE FUNCTIONS ---
+
+        // 1. الدالة الرئيسية التي تستدعيها عند انتهاء اللعبة
+        window.saveAndFinishGame = function(points, metricValue) {
+            const finalPoints = parseFloat(points) || 0;
+            const finalMetric = parseFloat(metricValue) || 0;
+            const maxPoints = parseFloat(GAME_MAX_POINTS) || 1;
+            const finalGrade = (finalPoints / maxPoints) * PLATFORM_MAX_GRADE;
+
+            const resultDisplay = document.getElementById('final-result-display');
+            if (resultDisplay) {
+                resultDisplay.innerHTML = `
+                    <div class="flex justify-around text-center">
+                       <div>
+                           <p class="text-sm">التقارير الناجحة:</p>
+                           <p class="text-2xl font-bold text-indigo-600 my-1">${toArabicNumerals(finalPoints)}<span class="text-lg text-gray-600">/${toArabicNumerals(maxPoints)}</span></p>
+                       </div>
+                       <div>
+                           <p class="text-sm">إجمالي الوقت:</p>
+                           <p class="text-2xl font-bold text-red-600 my-1">${toArabicNumerals(finalMetric)} <span class="text-sm">ث</span></p>
+                       </div>
+                   </div>
+                   <p class="text-blue-600 mt-3 text-center border-t pt-2">الدرجة في المنصة: <span class="font-bold text-xl">${finalGrade.toFixed(1)} / ${PLATFORM_MAX_GRADE}</span></p>
+                `;
+            }
+
+            if (studentId && classId) {
+                const params = new URLSearchParams({
+                    action: 'saveGrade',
+                    studentId: studentId,
+                    classId: classId,
+                    itemId: GAME_ID,
+                    grade: finalGrade.toFixed(2),
+                    metricValue: Math.round(finalMetric).toString()
+                });
+                fetch(`${SCRIPT_URL}?${params.toString()}`)
+                    .then(res => res.json())
+                    .then(result => console.log('Save result:', result.status))
+                    .catch(err => console.error("Save Error:", err))
+                    .finally(fetchAndShowLeaderboard);
+            } else {
+                console.log(`Visitor finished. Score: ${finalPoints}, Metric: ${finalMetric}`);
+                fetchAndShowLeaderboard();
+            }
+        }
+
+        // 2. دالة جلب وعرض سجل الأبطال
+        function fetchAndShowLeaderboard() {
+            const loader = document.getElementById('leaderboard-loader');
+            const container = document.getElementById('leaderboard-container');
+            if (!loader || !container) return;
+            
+            if (!classId) {
+                console.log("No classId found, skipping leaderboard for visitor.");
+                container.innerHTML = `<p class="text-center text-gray-500 mt-4 text-sm">سجل الأبطال متاح للطلاب المسجلين فقط.</p>`;
+                showFinishButton();
+                return;
+            }
+
+            loader.style.display = 'block';
+            container.innerHTML = '';
+
+            const params = new URLSearchParams({
+                action: 'getLeaderboard',
+                gameId: GAME_ID,
+                metricType: METRIC_TYPE,
+                classId: classId
+            });
+
+            fetch(`${SCRIPT_URL}?${params.toString()}`)
+                .then(res => res.json())
+                .then(response => {
+                    if (response.status === 'success' && response.data) {
+                        displayLeaderboard(response.data);
+                    } else {
+                        throw new Error(response.message || 'Failed to load leaderboard data.');
+                    }
+                })
+                .catch(err => {
+                    console.error("Leaderboard Error:", err);
+                    container.innerHTML = `<p class="text-center text-red-500 text-sm">حدث خطأ في تحميل سجل الأبطال.</p>`;
+                })
+                .finally(() => {
+                    loader.style.display = 'none';
+                    showFinishButton();
+                });
+        }
+        
+        // 3. دالة بناء جدول سجل الأبطال
+        function displayLeaderboard(data) {
+            const container = document.getElementById('leaderboard-container');
+            if (!data || data.length === 0) {
+                container.innerHTML = `<p class="text-center text-gray-500 mt-4 text-sm">لا توجد نتائج بعد. كن أول الأبطال!</p>`;
+                return;
+            }
+
+            let tableHTML = `
+                <div class="mt-4 border-t pt-2">
+                    <h3 class="text-xl font-bold text-center text-gray-800 mb-2">🏆 سجل الأبطال 🏆</h3>
+                    <div class="leaderboard-scroll">
+                        <table class="min-w-full bg-white shadow-md rounded-lg text-sm">
+                            <thead class="bg-gray-800 text-white sticky top-0">
+                                <tr>
+                                    <th class="text-center py-1 px-2">الترتيب</th>
+                                    <th class="text-right py-1 px-2">اسم الطالب</th>
+                                    <th class="text-center py-1 px-2">الدرجة</th>
+                                    <th class="text-center py-1 px-2">${METRIC_LABEL}</th>
+                                </tr>
+                            </thead>
+                            <tbody class="text-gray-700">`;
+
+            data.forEach((player, index) => {
+                const rank = index + 1;
+                let rankDisplay = rank;
+                if (rank === 1) rankDisplay = '🥇';
+                if (rank === 2) rankDisplay = '🥈';
+                if (rank === 3) rankDisplay = '🥉';
+
+                const isCurrentUser = (currentUser && player.name === currentUser.name);
+                const rowClass = isCurrentUser ? 'bg-blue-100 font-bold' : (index % 2 === 0 ? 'bg-gray-100' : '');
+
+                tableHTML += `
+                    <tr class="${rowClass}">
+                        <td class="text-center py-1 px-2 text-lg">${rankDisplay}</td>
+                        <td class="text-right py-1 px-2">${player.name}</td>
+                        <td class="text-center py-1 px-2">${player.grade.toFixed(1)}</td>
+                        <td class="text-center py-1 px-2">${player.metricValue}</td>
+                    </tr>`;
+            });
+
+            tableHTML += `</tbody></table></div></div>`;
+            container.innerHTML = tableHTML;
+        }
+
+        // 4. إظهار زر الإنهاء
+        function showFinishButton() {
+            const finishWrapper = document.getElementById('finish-game-wrapper');
+            if (finishWrapper) {
+                finishWrapper.style.display = 'block';
+            }
+        }
+
+        // 5. التعامل مع زر الإنهاء وتخصيص رسالة الترحيب
+        document.addEventListener('DOMContentLoaded', () => {
+            const welcomeMessage = document.getElementById('welcomeMessage');
+            if (studentName && welcomeMessage) {
+                welcomeMessage.innerHTML = `<p>أهلاً بك يا المستشار المالي <span class="font-bold text-cyan-600">${studentName}</span>! تُعرض عليك الآن قضايا استشارية، الرجاء تقديم النصح والحلول المناسبة.</p>`;
+            }
+            document.body.addEventListener('click', function(event) {
+                if (event.target && event.target.id === 'finish-game-btn') {
+                    window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*');
+                }
+            });
+        });
+    })();
+    </script>
+</body>
+</html>
+

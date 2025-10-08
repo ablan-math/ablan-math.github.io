@@ -521,9 +521,10 @@
 
             renderTestCard(studentData);
 
-            // --- NEW PROGRESS CALCULATION LOGIC ---
+            // --- CORRECTED PROGRESS CALCULATION LOGIC ---
             let totalUnlockedPossibleScore = 0;
             let totalUnlockedGainedScore = 0;
+            let totalUnlockedLostScore = 0;
             let totalUnlockedAttemptedPossibleScore = 0;
 
             const studentLessons = studentData.lessons || {};
@@ -567,16 +568,15 @@
                     }
                 });
             });
-
-            const totalUnlockedLostScore = totalUnlockedAttemptedPossibleScore - totalUnlockedGainedScore;
             
-            // Percentages for the legend (breakdown of available content)
-            const completedPercent = totalUnlockedPossibleScore > 0 ? Math.round(totalUnlockedAttemptedPossibleScore / totalUnlockedPossibleScore * 100) : 0;
-            const needsImprovementPercent = totalUnlockedPossibleScore > 0 ? Math.round(totalUnlockedLostScore / totalUnlockedPossibleScore * 100) : 0;
-            const pendingPercent = Math.max(0, 100 - completedPercent); 
+            totalUnlockedLostScore = totalUnlockedAttemptedPossibleScore - totalUnlockedGainedScore;
 
-            // Percentage for the circle center (mastery of attempted content)
-            const masteryPercentage = totalUnlockedAttemptedPossibleScore > 0 ? Math.round(totalUnlockedGainedScore / totalUnlockedAttemptedPossibleScore * 100) : 0;
+            // Percentage for the circle center (Mastery of AVAILABLE content, including unattempted as 0)
+            const masteryPercentage = totalUnlockedPossibleScore > 0 ? Math.round(totalUnlockedGainedScore / totalUnlockedPossibleScore * 100) : 0;
+
+            // Percentages for the legend (breakdown of available content)
+            const needsImprovementPercent = totalUnlockedPossibleScore > 0 ? Math.round(totalUnlockedLostScore / totalUnlockedPossibleScore * 100) : 0;
+            const pendingPercent = 100 - masteryPercentage - needsImprovementPercent;
 
             // Get elements
             const progressCircle = document.getElementById('overall-progress-circle');
@@ -587,15 +587,15 @@
             // Update elements
             masteryText.textContent = `${masteryPercentage}%`;
             needsImprovementLegendText.textContent = `تحتاج تحسين ${needsImprovementPercent}%`;
-            pendingLegendText.textContent = `بانتظارك ${pendingPercent}%`;
+            pendingLegendText.textContent = `بانتظارك ${Math.max(0, pendingPercent)}%`;
 
-            // Update circle graphic based on the breakdown percentages
-            const completedDegrees = (totalUnlockedAttemptedPossibleScore - totalUnlockedLostScore) / totalUnlockedPossibleScore * 360;
-            const needsImprovementDegrees = totalUnlockedLostScore / totalUnlockedPossibleScore * 360;
+            // Update circle graphic using raw values to be precise
+            const gainedDegrees = totalUnlockedPossibleScore > 0 ? (totalUnlockedGainedScore / totalUnlockedPossibleScore) * 360 : 0;
+            const needsImprovementDegrees = totalUnlockedPossibleScore > 0 ? (totalUnlockedLostScore / totalUnlockedPossibleScore) * 360 : 0;
             
-            progressCircle.style.background = `conic-gradient(#22c55e 0deg ${completedDegrees}deg, #ef4444 ${completedDegrees}deg ${completedDegrees + needsImprovementDegrees}deg, #a5b4fc ${completedDegrees + needsImprovementDegrees}deg 360deg)`;
+            progressCircle.style.background = `conic-gradient(#22c55e 0deg ${gainedDegrees}deg, #ef4444 ${gainedDegrees}deg ${gainedDegrees + needsImprovementDegrees}deg, #a5b4fc ${gainedDegrees + needsImprovementDegrees}deg 360deg)`;
             
-            // --- END OF NEW LOGIC ---
+            // --- END OF CORRECTED LOGIC ---
 
             const nextTask = findNextTask(studentData);
             const stats = calculateRemainingTasks(studentData);
@@ -1044,4 +1044,5 @@
     </script>
 </body>
 </html>
+
 

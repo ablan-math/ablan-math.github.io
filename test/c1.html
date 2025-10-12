@@ -280,6 +280,10 @@
             background-color: #fdeeee;
             color: #dc3545;
         }
+        .feedback.loading {
+            background-color: #f0f0f0;
+            color: #555;
+        }
 
         /* Print-specific styles - THE RADICAL FIX IS HERE */
         @media print {
@@ -468,14 +472,14 @@
             
             <div class="essay-questions-container">
                 <div class="essay-question-block">
-                    <p>١٣. أوجد حل المعادلة متعددة الخطوات التالية:</p>
+                    <p id="q13-text">١٣. أوجد حل المعادلة متعددة الخطوات التالية:</p>
                     <p style="text-align: center; font-size: 18px; font-weight: normal;">٣(ك – ٥) + ٩ = ٦</p>
                     <textarea class="answer-space" id="q13-answer" placeholder="اكتب خطوات الحل هنا..."></textarea>
                     <div class="feedback" id="q13-feedback"></div>
                 </div>
                 
                 <div class="essay-question-block">
-                    <p>١٤. أوجد حل معادلة القيمة المطلقة التالية:</p>
+                    <p id="q14-text">١٤. أوجد حل معادلة القيمة المطلقة التالية:</p>
                     <p style="text-align: center; font-size: 18px; font-weight: normal;">|٢س + ٣| - ٤ = ٥</p>
                     <textarea class="answer-space" id="q14-answer" placeholder="اكتب خطوات الحل هنا..."></textarea>
                     <div class="feedback" id="q14-feedback"></div>
@@ -524,94 +528,93 @@
             return score;
         }
 
-        // This function grades the essay questions, provides detailed feedback, and returns the score.
-        function gradeEssays() {
-            let totalEssayScore = 0;
-            const clean = (text) => text.replace(/\s/g, ''); // Helper to remove spaces
+        /**
+         * Grades a single essay question using the Gemini API.
+         * @param {string} questionId - The ID of the question (e.g., 'q13').
+         * @param {number} maxScore - The maximum score for this question.
+         * @returns {Promise<number>} - The calculated score for the question.
+         */
+        async function gradeSingleEssayWithAI(questionId, maxScore) {
+            const questionElement = document.getElementById(`${questionId}-text`).parentElement;
+            const questionText = Array.from(questionElement.querySelectorAll('p')).map(p => p.textContent).join(' ');
+            const userAnswer = document.getElementById(`${questionId}-answer`).value;
+            const feedbackElement = document.getElementById(`${questionId}-feedback`);
 
-            // Question 13 (Total 2 points) - NEW ROBUST LOGIC
-            let score13 = 0;
-            const answer13 = document.getElementById('q13-answer').value;
-            const feedback13 = document.getElementById('q13-feedback');
-            const cleanAnswer13 = clean(answer13);
+            feedbackElement.className = 'feedback loading';
+            feedbackElement.textContent = 'يتم التصحيح الآن باستخدام الذكاء الاصطناعي...';
+            feedbackElement.style.display = 'block';
 
-            const finalAnswer13Keywords = ['ك=4', 'ك=٤'];
-            const step13Keywords = ['3ك=12', '٣ك=١٢', '3ك-6=6', '٣ك-٦=٦', '٣ك-٦=٦'];
-
-            // Check for one step point
-            if (step13Keywords.some(key => cleanAnswer13.includes(key))) {
-                score13 += 1;
+            if (!userAnswer.trim()) {
+                feedbackElement.textContent = `الدرجة: 0 / ${maxScore}. لم يتم تقديم إجابة.`;
+                feedbackElement.className = 'feedback incorrect';
+                return 0;
             }
-            // Check for one final answer point
-            if (finalAnswer13Keywords.some(key => cleanAnswer13.includes(key))) {
-                score13 += 1;
-            }
-            // Ensure score doesn't exceed 2
-            score13 = Math.min(score13, 2);
-
-            let feedbackText13 = `<strong>الدرجة: ${score13} / 2</strong><br>`;
-            if (score13 === 2) {
-                feedbackText13 += 'إجابة كاملة وصحيحة!';
-                feedback13.className = 'feedback correct';
-            } else {
-                feedbackText13 += 'إجابتك غير مكتملة. تفصيل الحل النموذجي:<br>';
-                feedbackText13 += `٣ك - ٦ = ٦ &larr; <em>(درجة)</em><br><strong>ك = ٤</strong> &larr; <em>(درجة)</em>`;
-                feedback13.className = 'feedback incorrect';
-            }
-            feedback13.innerHTML = feedbackText13;
-            feedback13.style.display = 'block';
-            totalEssayScore += score13;
-
-            // Question 14 (Total 4 points) - NEW ROBUST LOGIC
-            let score14 = 0;
-            const answer14 = document.getElementById('q14-answer').value;
-            const feedback14 = document.getElementById('q14-feedback');
-            const cleanAnswer14 = clean(answer14);
-
-            // Branch 1 (s=3)
-            const final14aKeywords = ['س=3', 'س=٣'];
-            const step14aKeywords = ['2س=6', '٢س=٦', '2س+3=9', '٢س+٣=٩', '|2س+3|=9', '|٢س+٣|=٩'];
-            if (step14aKeywords.some(key => cleanAnswer14.includes(key))) { score14 += 1; }
-            if (final14aKeywords.some(key => cleanAnswer14.includes(key))) { score14 += 1; }
-
-            // Branch 2 (s=-6)
-            const final14bKeywords = ['س=-6', 'س=-٦'];
-            const step14bKeywords = ['2س=-12', '٢س=-١٢', '2س+3=-9', '٢س+٣=-٩'];
-            if (step14bKeywords.some(key => cleanAnswer14.includes(key))) { score14 += 1; }
-            if (final14bKeywords.some(key => cleanAnswer14.includes(key))) { score14 += 1; }
             
-            // Ensure score doesn't exceed 4
-            score14 = Math.min(score14, 4);
+            const apiKey = ""; // The platform will provide the key
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
 
-            let feedbackText14 = `<strong>الدرجة: ${score14} / 4</strong><br>`;
-            if (score14 === 4) {
-                feedbackText14 += 'إجابة كاملة وصحيحة!';
-                feedback14.className = 'feedback correct';
-            } else {
-                feedbackText14 += 'إجابتك غير مكتملة. تفصيل الحل النموذجي:<br>';
-                feedbackText14 += `|٢س + ٣| = ٩<br><strong>الحل الأول:</strong> ٢س + ٣ = ٩ <em>(درجة)</em> &larr; <strong>س = ٣</strong> <em>(درجة)</em><br><strong>الحل الثاني:</strong> ٢س + ٣ = -٩ <em>(درجة)</em> &larr; <strong>س = -٦</strong> <em>(درجة)</em>`;
-                feedback14.className = 'feedback incorrect';
+            const systemPrompt = `You are an expert math teacher's assistant. Your task is to grade a student's answer to an algebra problem based on a detailed scoring rubric.
+                - The total score for the question is ${maxScore} points.
+                - Award points based on these rules:
+                    - **For single-answer questions (like multi-step equations):** Award 1 point for any valid intermediate step shown, and 1 point for the correct final answer.
+                    - **For multi-answer questions (like absolute value equations):** The problem has two solution branches. Each branch is worth ${maxScore / 2} points (1 for a valid step, 1 for the final answer).
+                - Analyze the student's work carefully.
+                - Respond ONLY with a JSON object in the format: {"score": <calculated_score>, "feedback": "<detailed_feedback_in_arabic>"}`;
+
+            const userQuery = `Grade the following student's work:\n\n**Question:** "${questionText}"\n\n**Student's Answer:**\n\`\`\`\n${userAnswer}\n\`\`\``;
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: userQuery }] }],
+                        systemInstruction: { parts: [{ text: systemPrompt }] },
+                        generationConfig: { responseMimeType: "application/json" }
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`API Error: ${response.status}`);
+                }
+
+                const result = await response.json();
+                const jsonText = result.candidates[0].content.parts[0].text;
+                const parsedResult = JSON.parse(jsonText);
+
+                const score = parsedResult.score || 0;
+                const feedbackText = parsedResult.feedback || "لم يتمكن الذكاء الاصطناعي من تحليل الإجابة.";
+
+                feedbackElement.innerHTML = `<strong>الدرجة: ${score} / ${maxScore}</strong><br>${feedbackText}`;
+                feedbackElement.className = score === maxScore ? 'feedback correct' : 'feedback incorrect';
+                return score;
+
+            } catch (error) {
+                console.error("Error grading with AI:", error);
+                feedbackElement.textContent = 'حدث خطأ أثناء التصحيح. يرجى المحاولة مرة أخرى.';
+                feedbackElement.className = 'feedback incorrect';
+                return 0; // Return 0 on error
             }
-            feedback14.innerHTML = feedbackText14;
-            feedback14.style.display = 'block';
-            totalEssayScore += score14;
-            
-            return totalEssayScore;
         }
 
-
         // Main function to grade the entire test.
-        function gradeAll() {
+        async function gradeAll() {
+            document.getElementById('grade-all-btn').disabled = true;
+            
             const mcqScore = gradeMultipleChoice();
-            const essayScore = gradeEssays();
-            const totalScore = mcqScore + essayScore;
+            
+            // Grade essays in parallel for speed
+            const essayScores = await Promise.all([
+                gradeSingleEssayWithAI('q13', 2),
+                gradeSingleEssayWithAI('q14', 4)
+            ]);
+
+            const totalEssayScore = essayScores.reduce((sum, score) => sum + score, 0);
+            const totalScore = mcqScore + totalEssayScore;
 
             const scoreDisplay = document.getElementById('score-display');
             scoreDisplay.textContent = `الدرجة النهائية: ${totalScore} / 18`;
             scoreDisplay.style.display = 'block';
-
-            // Disable the button after correction
-            document.getElementById('grade-all-btn').disabled = true;
         }
     </script>
 </body>

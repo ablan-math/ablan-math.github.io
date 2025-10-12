@@ -3,33 +3,50 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>اختبار شهري - رياضيات</title>
+    <title>اختبار شهري - رياضيات (تفاعلي)</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
     <style>
-        /* General body styling */
+        /* General body styling for print preview */
         body {
             font-family: 'Cairo', sans-serif;
-            background-color: #f4f4f9;
+            background-color: #e0e0e0; /* Grey background to highlight the pages */
             margin: 0;
-            padding: 20px;
+            padding: 20px 0;
             display: flex;
-            justify-content: center;
-            align-items: center;
             flex-direction: column;
+            align-items: center;
         }
 
-        /* Styling for the A4 paper container */
-        .paper-container {
+        /* A4 Page Simulation: Using min-height to prevent content cutoff */
+        .page {
             background: white;
             width: 210mm;
-            min-height: 297mm;
+            min-height: 297mm; /* Use min-height to allow content to grow if needed */
             padding: 15mm;
-            margin: 20px auto;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
             box-sizing: border-box;
+            page-break-after: always; /* Ensure each .page div is a new page on print */
+            position: relative;
+            display: flex;
+            flex-direction: column;
         }
+        
+        /* Main content area that grows */
+        .page-content {
+            flex-grow: 1;
+        }
+        
+        /* Page footer for page numbers */
+        .page-footer {
+            text-align: center;
+            font-size: 12px;
+            color: #888;
+            padding-top: 10px; /* Space between content and footer */
+        }
+
 
         /* Test header styles */
         .test-header {
@@ -55,11 +72,11 @@
             font-size: 14px;
         }
 
-        /* Questions container using CSS Grid for a single column */
+        /* Questions container */
         .questions-grid {
             display: grid;
-            grid-template-columns: 1fr; /* Single column layout */
-            gap: 8px; /* Further reduced vertical gap between questions */
+            grid-template-columns: 1fr;
+            gap: 8px;
         }
 
         /* Individual question block */
@@ -68,7 +85,6 @@
             padding: 12px 15px;
             border-radius: 8px;
             background-color: #fafafa;
-            page-break-inside: avoid; /* Avoid breaking a question across pages */
             display: flex;
             flex-direction: column;
         }
@@ -79,15 +95,15 @@
             line-height: 1.6;
         }
 
-        /* Options container using Flexbox for horizontal layout */
+        /* Options container */
         .options-container {
             display: flex;
-            flex-wrap: nowrap; /* Prevent options from wrapping to the next line */
+            flex-wrap: nowrap;
             justify-content: space-between;
             gap: 8px;
         }
 
-        /* Styling for each option block */
+        /* Styling for each option block - NOW A LABEL */
         .option {
             background-color: #ffffff;
             border: 1px solid #ccc;
@@ -98,9 +114,26 @@
             white-space: nowrap;
             display: flex;
             align-items: center;
+            cursor: pointer; /* To show it's clickable */
+            transition: background-color 0.2s, border-color 0.2s;
+        }
+        .option:hover {
+            background-color: #f0f8ff; /* Light blue on hover */
+            border-color: #007bff;
         }
         
-        /* NEW: Styling for the circled option label (أ, ب, ج, د) */
+        /* Hide the actual radio button */
+        .option input[type="radio"] {
+            display: none;
+        }
+        
+        /* Style the label when its radio button is checked */
+        .option input[type="radio"]:checked + .option-label {
+             background-color: #007bff;
+             color: white;
+             border-color: #0056b3;
+        }
+
         .option-label {
             display: inline-flex;
             align-items: center;
@@ -111,14 +144,14 @@
             border-radius: 50%;
             font-weight: bold;
             color: #333;
-            margin-left: 8px; /* Space between circle and text */
-            flex-shrink: 0; /* Prevents the circle from shrinking */
+            margin-left: 8px;
+            flex-shrink: 0;
+            transition: background-color 0.2s, color 0.2s;
         }
 
-        /* NEW: Styling for the option text itself */
         .option-text {
             flex-grow: 1;
-            text-align: center; /* Centers the text in the remaining space */
+            text-align: center;
         }
         
         /* Styling for fractions */
@@ -131,19 +164,22 @@
             position: relative;
             top: -0.3em;
         }
-        .numerator {
-            padding: 0 0.2em;
-        }
-        .denominator {
-            border-top: 1.5px solid currentColor;
-            padding: 0 0.2em;
-        }
-
-        /* Print button styling */
-        .print-button {
+        .numerator { padding: 0 0.2em; }
+        .denominator { border-top: 1.5px solid currentColor; padding: 0 0.2em; }
+        
+        /* Controls container */
+        .controls {
             position: fixed;
             top: 20px;
             left: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 1000;
+        }
+
+        /* Button base styling */
+        .btn {
             background-color: #007bff;
             color: white;
             border: none;
@@ -153,41 +189,98 @@
             font-size: 16px;
             font-family: 'Cairo', sans-serif;
             box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-            z-index: 1000;
+            text-align: center;
         }
-        .print-button:hover {
-            background-color: #0056b3;
+        .print-button:hover { background-color: #0056b3; }
+        .correct-button { background-color: #28a745; }
+        .correct-button:hover { background-color: #218838; }
+
+
+        /* Score display */
+        #score-display {
+            background-color: #ffffff;
+            color: #333;
+            padding: 12px 24px;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: bold;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            display: none; /* Hidden by default */
         }
         
+        /* Styles for correct/incorrect answers */
+        .option.correct {
+            border-color: #28a745;
+            background-color: #e9f7ec;
+        }
+        .option.incorrect {
+            border-color: #dc3545;
+            background-color: #fdeeee;
+        }
+
+
         /* Essay questions styling */
         .section-title {
             font-size: 18px;
             font-weight: bold;
-            margin-top: 20px; /* Reduced space */
-            margin-bottom: 10px; /* Reduced space */
+            margin-top: 20px;
+            margin-bottom: 10px;
             border-bottom: 1px solid #eee;
             padding-bottom: 5px;
         }
+
+        .essay-questions-container {
+            display: flex;
+            justify-content: space-between;
+            gap: 15px;
+            align-items: stretch;
+        }
+        
         .essay-question-block {
             border: 1px solid #e0e0e0;
             padding: 15px;
             border-radius: 8px;
             background-color: #fdfdfd;
-            margin-top: 8px; /* Reduced space */
+            margin-top: 8px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
         }
+
         .essay-question-block p {
             margin: 0 0 10px 0;
             font-size: 16px;
             font-weight: bold;
         }
         .answer-space {
-            min-height: 80px; /* Provides space for writing */
-            border: 1px dashed #ccc;
+            min-height: 150px;
+            border: 1px solid #ccc;
             border-radius: 5px;
             margin-top: 10px;
-            padding: 5px;
+            padding: 8px;
+            flex-grow: 1;
+            font-size: 16px;
+            font-family: 'Cairo', sans-serif;
+            resize: vertical;
         }
-
+        
+        .feedback {
+            margin-top: 8px;
+            padding: 8px;
+            border-radius: 4px;
+            font-weight: bold;
+            display: none; /* Hidden by default */
+            text-align: right;
+            line-height: 1.8;
+        }
+        .feedback.correct {
+            background-color: #e9f7ec;
+            color: #28a745;
+        }
+        .feedback.incorrect {
+            background-color: #fdeeee;
+            color: #dc3545;
+        }
 
         /* Print-specific styles */
         @media print {
@@ -196,188 +289,328 @@
                 padding: 0;
                 margin: 0;
             }
-            .paper-container {
+            .page {
                 box-shadow: none;
                 margin: 0;
+                width: auto;
+                height: 297mm; /* Fixed height for printing */
                 padding: 0;
-                width: 100%;
-                min-height: auto;
+                display: block; /* Revert flex for printing */
             }
-            .print-button {
-                display: none;
-            }
-            @page {
+            .controls { display: none; }
+            .page-footer { display: none; }
+            .feedback { display: none; }
+             @page {
                 size: A4;
-                margin: 20mm;
+                margin: 15mm;
             }
         }
     </style>
 </head>
 <body>
 
-    <button class="print-button" onclick="window.print()">طباعة الأسئلة</button>
-
-    <div class="paper-container">
-        <div class="test-header">
-            <h1>اختبار شهري لمادة الرياضيات - الفصل الدراسي الأول</h1>
-            <h2>الفصل ١: المعادلات الخطية</h2>
-            <div class="info">
-                <span><strong>اسم الطالب:</strong> ............................................</span>
-                <span><strong>الصف:</strong> ............................</span>
-                <span><strong>التاريخ:</strong> ___ / ___ / ١٤٤٧هـ</span>
-            </div>
-        </div>
-
-        <div class="questions-grid">
-            <!-- Question 1 -->
-            <div class="question-block">
-                <p>١. ماذا تسمى المعادلة التي تكون صحيحة لجميع قيم المتغير؟</p>
-                <div class="options-container">
-                    <div class="option"><span class="option-label">أ</span><span class="option-text">متطابقة</span></div>
-                    <div class="option"><span class="option-label">ب</span><span class="option-text">جملة مفتوحة</span></div>
-                    <div class="option"><span class="option-label">ج</span><span class="option-text">معادلة مستحيلة</span></div>
-                    <div class="option"><span class="option-label">د</span><span class="option-text">مجموعة حل</span></div>
-                </div>
-            </div>
-
-            <!-- Question 2 -->
-            <div class="question-block">
-                <p>٢. حل المعادلة: ١٣ – ك = ٥</p>
-                <div class="options-container">
-                    <div class="option"><span class="option-label">أ</span><span class="option-text">٨</span></div>
-                    <div class="option"><span class="option-label">ب</span><span class="option-text">-٨</span></div>
-                    <div class="option"><span class="option-label">ج</span><span class="option-text">١٨</span></div>
-                    <div class="option"><span class="option-label">د</span><span class="option-text">-١٨</span></div>
-                </div>
-            </div>
-
-            <!-- Question 3 -->
-            <div class="question-block">
-                <p>٣. حل المعادلة: -٨س = ٩٦</p>
-                <div class="options-container">
-                    <div class="option"><span class="option-label">أ</span><span class="option-text">-١٢</span></div>
-                    <div class="option"><span class="option-label">ب</span><span class="option-text">١٢</span></div>
-                    <div class="option"><span class="option-label">ج</span><span class="option-text">٨٨</span></div>
-                    <div class="option"><span class="option-label">د</span><span class="option-text">١٠٤</span></div>
-                </div>
-            </div>
-
-            <!-- Question 4 -->
-            <div class="question-block">
-                <p>٤. عدد نقص بمقدار ٨ فأصبح ١٥. ما هي المعادلة التي تمثل هذه الجملة؟</p>
-                <div class="options-container">
-                    <div class="option"><span class="option-label">أ</span><span class="option-text">س – ٨ = ١٥</span></div>
-                    <div class="option"><span class="option-label">ب</span><span class="option-text">س + ٨ = ١٥</span></div>
-                    <div class="option"><span class="option-label">ج</span><span class="option-text">س – ١٥ = ٨</span></div>
-                    <div class="option"><span class="option-label">د</span><span class="option-text">٨س = ١٥</span></div>
-                </div>
-            </div>
-
-            <!-- Question 5 -->
-            <div class="question-block">
-                <p>٥. حل المعادلة: ١٠ = <span class="fraction"><span class="numerator">س</span><span class="denominator">٤</span></span> + ٣</p>
-                <div class="options-container">
-                    <div class="option"><span class="option-label">أ</span><span class="option-text">٢٨</span></div>
-                    <div class="option"><span class="option-label">ب</span><span class="option-text">٧</span></div>
-                    <div class="option"><span class="option-label">ج</span><span class="option-text">٥٢</span></div>
-                    <div class="option"><span class="option-label">د</span><span class="option-text">١٢</span></div>
-                </div>
-            </div>
-            
-            <!-- Question 6 -->
-            <div class="question-block">
-                <p>٦. ثلاثة أعداد فردية متتالية مجموعها ٧٥. ما معادلتها؟ (أصغرها ن)</p>
-                <div class="options-container">
-                    <div class="option"><span class="option-label">أ</span><span class="option-text">ن+(ن+٢)+(ن+٤)=٧٥</span></div>
-                    <div class="option"><span class="option-label">ب</span><span class="option-text">ن+(ن+١)+(ن+٢)=٧٥</span></div>
-                    <div class="option"><span class="option-label">ج</span><span class="option-text">٣ن = ٧٥</span></div>
-                    <div class="option"><span class="option-label">د</span><span class="option-text">ن(ن+٢)(ن+٤)=٧٥</span></div>
-                </div>
-            </div>
-
-            <!-- Question 7 -->
-            <div class="question-block">
-                <p>٧. ما هو حل المعادلة: ٨ + ٤م = ٤م - ١؟</p>
-                <div class="options-container">
-                    <div class="option"><span class="option-label">أ</span><span class="option-text">مستحيلة الحل (∅)</span></div>
-                    <div class="option"><span class="option-label">ب</span><span class="option-text">جميع الأعداد الحقيقية</span></div>
-                    <div class="option"><span class="option-label">ج</span><span class="option-text">م = ٢</span></div>
-                    <div class="option"><span class="option-label">د</span><span class="option-text">م = -٢</span></div>
-                </div>
-            </div>
-            
-            <!-- Question 8 -->
-            <div class="question-block">
-                <p>٨. اكتب معادلة القيمة المطلقة التي نقطة منتصفها ٢٧ والمسافة ٢.</p>
-                <div class="options-container">
-                    <div class="option"><span class="option-label">أ</span><span class="option-text">|س – ٢٧| = ٢</span></div>
-                    <div class="option"><span class="option-label">ب</span><span class="option-text">|س + ٢٧| = ٢</span></div>
-                    <div class="option"><span class="option-label">ج</span><span class="option-text">|س – ٢| = ٢٧</span></div>
-                    <div class="option"><span class="option-label">د</span><span class="option-text">|س + ٢| = ٢٧</span></div>
-                </div>
-            </div>
-
-            <!-- Question 9 -->
-            <div class="question-block">
-                <p>٩. حل المعادلة: -|س| = ٥</p>
-                <div class="options-container">
-                    <div class="option"><span class="option-label">أ</span><span class="option-text">مجموعة خالية (∅)</span></div>
-                    <div class="option"><span class="option-label">ب</span><span class="option-text">{٥}</span></div>
-                    <div class="option"><span class="option-label">ج</span><span class="option-text">{-٥}</span></div>
-                    <div class="option"><span class="option-label">د</span><span class="option-text">{-٥, ٥}</span></div>
-                </div>
-            </div>
-
-            <!-- Question 10 -->
-            <div class="question-block">
-                <p>١٠. حل المعادلة: |٢س – ٣| = -١١</p>
-                <div class="options-container">
-                    <div class="option"><span class="option-label">أ</span><span class="option-text">مجموعة خالية (∅)</span></div>
-                    <div class="option"><span class="option-label">ب</span><span class="option-text">{-٤, ٧}</span></div>
-                    <div class="option"><span class="option-label">ج</span><span class="option-text">{٤, -٧}</span></div>
-                    <div class="option"><span class="option-label">د</span><span class="option-text">{٧}</span></div>
-                </div>
-            </div>
-            
-            <!-- Question 11 -->
-            <div class="question-block">
-                <p>١١. حل المعادلة: ٧(أ – ٢) = ٤(أ + ١)</p>
-                <div class="options-container">
-                    <div class="option"><span class="option-label">أ</span><span class="option-text">أ = ٦</span></div>
-                    <div class="option"><span class="option-label">ب</span><span class="option-text">أ = -٦</span></div>
-                    <div class="option"><span class="option-label">ج</span><span class="option-text">أ = ١٨</span></div>
-                    <div class="option"><span class="option-label">د</span><span class="option-text">أ = ٣</span></div>
-                </div>
-            </div>
-
-            <!-- Question 12 -->
-            <div class="question-block">
-                <p>١٢. أي من المعادلات التالية تعتبر متطابقة؟</p>
-                <div class="options-container">
-                    <div class="option"><span class="option-label">أ</span><span class="option-text">٣(٢+س)=٦+٣س</span></div>
-                    <div class="option"><span class="option-label">ب</span><span class="option-text">س + ٥ = ١٠</span></div>
-                    <div class="option"><span class="option-label">ج</span><span class="option-text">س + ١ = س</span></div>
-                    <div class="option"><span class="option-label">د</span><span class="option-text">٢س = ٨</span></div>
-                </div>
-            </div>
-        </div>
-
-        <h2 class="section-title">الأسئلة المقالية</h2>
-        
-        <div class="essay-question-block">
-            <p>١٣. أوجد حل المعادلة متعددة الخطوات التالية:</p>
-            <p style="text-align: center; font-size: 18px; font-weight: normal;">٣(ك – ٥) + ٩ = ٦</p>
-            <div class="answer-space"></div>
-        </div>
-        
-        <div class="essay-question-block">
-            <p>١٤. أوجد حل معادلة القيمة المطلقة التالية:</p>
-            <p style="text-align: center; font-size: 18px; font-weight: normal;">|٢س + ٣| - ٤ = ٥</p>
-            <div class="answer-space"></div>
-        </div>
-
+    <div class="controls">
+        <button class="btn print-button" onclick="window.print()">طباعة</button>
+        <button id="grade-all-btn" class="btn correct-button" onclick="gradeAll()">تصحيح الاختبار بالكامل</button>
+        <div id="score-display"></div>
     </div>
 
+    <!-- PAGE 1 START -->
+    <div class="page">
+        <div class="page-content">
+            <div class="test-header">
+                <h1>اختبار شهري لمادة الرياضيات - الفصل الدراسي الأول</h1>
+                <h2>الفصل ١: المعادلات الخطية</h2>
+                <div class="info">
+                    <span><strong>اسم الطالب:</strong> ............................................</span>
+                    <span><strong>الصف:</strong> ............................</span>
+                    <span><strong>التاريخ:</strong> ___ / ___ / ١٤٤٧هـ</span>
+                </div>
+            </div>
+
+            <div class="questions-grid">
+                <!-- Question 1 -->
+                <div class="question-block">
+                    <p>١. ماذا تسمى المعادلة التي تكون صحيحة لجميع قيم المتغير؟</p>
+                    <div class="options-container">
+                        <label class="option"><input type="radio" name="q1" value="a"><span class="option-label">أ</span><span class="option-text">متطابقة</span></label>
+                        <label class="option"><input type="radio" name="q1" value="b"><span class="option-label">ب</span><span class="option-text">جملة مفتوحة</span></label>
+                        <label class="option"><input type="radio" name="q1" value="c"><span class="option-label">ج</span><span class="option-text">معادلة مستحيلة</span></label>
+                        <label class="option"><input type="radio" name="q1" value="d"><span class="option-label">د</span><span class="option-text">مجموعة حل</span></label>
+                    </div>
+                </div>
+                <!-- Question 2 -->
+                <div class="question-block">
+                    <p>٢. حل المعادلة: ١٣ – ك = ٥</p>
+                    <div class="options-container">
+                        <label class="option"><input type="radio" name="q2" value="a"><span class="option-label">أ</span><span class="option-text">-٨</span></label>
+                        <label class="option"><input type="radio" name="q2" value="b"><span class="option-label">ب</span><span class="option-text">١٨</span></label>
+                        <label class="option"><input type="radio" name="q2" value="c"><span class="option-label">ج</span><span class="option-text">٨</span></label>
+                        <label class="option"><input type="radio" name="q2" value="d"><span class="option-label">د</span><span class="option-text">-١٨</span></label>
+                    </div>
+                </div>
+                <!-- Question 3 -->
+                 <div class="question-block">
+                    <p>٣. حل المعادلة: -٨س = ٩٦</p>
+                    <div class="options-container">
+                        <label class="option"><input type="radio" name="q3" value="a"><span class="option-label">أ</span><span class="option-text">١٢</span></label>
+                        <label class="option"><input type="radio" name="q3" value="b"><span class="option-label">ب</span><span class="option-text">-١٢</span></label>
+                        <label class="option"><input type="radio" name="q3" value="c"><span class="option-label">ج</span><span class="option-text">٨٨</span></label>
+                        <label class="option"><input type="radio" name="q3" value="d"><span class="option-label">د</span><span class="option-text">١٠٤</span></label>
+                    </div>
+                </div>
+                <!-- Question 4 -->
+                <div class="question-block">
+                    <p>٤. عدد نقص بمقدار ٨ فأصبح ١٥. ما هي المعادلة التي تمثل هذه الجملة؟</p>
+                    <div class="options-container">
+                        <label class="option"><input type="radio" name="q4" value="a"><span class="option-label">أ</span><span class="option-text">س – ٨ = ١٥</span></label>
+                        <label class="option"><input type="radio" name="q4" value="b"><span class="option-label">ب</span><span class="option-text">س + ٨ = ١٥</span></label>
+                        <label class="option"><input type="radio" name="q4" value="c"><span class="option-label">ج</span><span class="option-text">س – ١٥ = ٨</span></label>
+                        <label class="option"><input type="radio" name="q4" value="d"><span class="option-label">د</span><span class="option-text">٨س = ١٥</span></label>
+                    </div>
+                </div>
+                <!-- Question 5 -->
+                <div class="question-block">
+                    <p>٥. حل المعادلة: ١٠ = <span class="fraction"><span class="numerator">س</span><span class="denominator">٤</span></span> + ٣</p>
+                    <div class="options-container">
+                        <label class="option"><input type="radio" name="q5" value="a"><span class="option-label">أ</span><span class="option-text">٧</span></label>
+                        <label class="option"><input type="radio" name="q5" value="b"><span class="option-label">ب</span><span class="option-text">٥٢</span></label>
+                        <label class="option"><input type="radio" name="q5" value="c"><span class="option-label">ج</span><span class="option-text">٢٨</span></label>
+                        <label class="option"><input type="radio" name="q5" value="d"><span class="option-label">د</span><span class="option-text">١٢</span></label>
+                    </div>
+                </div>
+                <!-- Question 6 -->
+                <div class="question-block">
+                    <p>٦. ثلاثة أعداد فردية متتالية مجموعها ٧٥. ما معادلتها؟ (أصغرها ن)</p>
+                    <div class="options-container">
+                        <label class="option"><input type="radio" name="q6" value="a"><span class="option-label">أ</span><span class="option-text">ن+(ن+١)+(ن+٢)=٧٥</span></label>
+                        <label class="option"><input type="radio" name="q6" value="b"><span class="option-label">ب</span><span class="option-text">٣ن = ٧٥</span></label>
+                        <label class="option"><input type="radio" name="q6" value="c"><span class="option-label">ج</span><span class="option-text">ن+(ن+٢)+(ن+٤)=٧٥</span></label>
+                        <label class="option"><input type="radio" name="q6" value="d"><span class="option-label">د</span><span class="option-text">ن(ن+٢)(ن+٤)=٧٥</span></label>
+                    </div>
+                </div>
+                <!-- Question 7 -->
+                 <div class="question-block">
+                    <p>٧. ما هو حل المعادلة: ٨ + ٤م = ٤م - ١؟</p>
+                    <div class="options-container">
+                        <label class="option"><input type="radio" name="q7" value="a"><span class="option-label">أ</span><span class="option-text">جميع الأعداد الحقيقية</span></label>
+                        <label class="option"><input type="radio" name="q7" value="b"><span class="option-label">ب</span><span class="option-text">مستحيلة الحل (∅)</span></label>
+                        <label class="option"><input type="radio" name="q7" value="c"><span class="option-label">ج</span><span class="option-text">م = ٢</span></label>
+                        <label class="option"><input type="radio" name="q7" value="d"><span class="option-label">د</span><span class="option-text">م = -٢</span></label>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="page-footer">صفحة ١ من ٢</div>
+    </div>
+    <!-- PAGE 1 END -->
+    
+    <!-- PAGE 2 START -->
+    <div class="page">
+        <div class="page-content">
+             <div class="questions-grid">
+                <!-- Question 8 -->
+                 <div class="question-block">
+                    <p>٨. اكتب معادلة القيمة المطلقة التي نقطة منتصفها ٢٧ والمسافة ٢.</p>
+                    <div class="options-container">
+                        <label class="option"><input type="radio" name="q8" value="a"><span class="option-label">أ</span><span class="option-text">|س + ٢٧| = ٢</span></label>
+                        <label class="option"><input type="radio" name="q8" value="b"><span class="option-label">ب</span><span class="option-text">|س – ٢| = ٢٧</span></label>
+                        <label class="option"><input type="radio" name="q8" value="c"><span class="option-label">ج</span><span class="option-text">|س – ٢٧| = ٢</span></label>
+                        <label class="option"><input type="radio" name="q8" value="d"><span class="option-label">د</span><span class="option-text">|س + ٢| = ٢٧</span></label>
+                    </div>
+                </div>
+                <!-- Question 9 -->
+                 <div class="question-block">
+                    <p>٩. حل المعادلة: -|س| = ٥</p>
+                    <div class="options-container">
+                        <label class="option"><input type="radio" name="q9" value="a"><span class="option-label">أ</span><span class="option-text">{٥}</span></label>
+                        <label class="option"><input type="radio" name="q9" value="b"><span class="option-label">ب</span><span class="option-text">{-٥}</span></label>
+                        <label class="option"><input type="radio" name="q9" value="c"><span class="option-label">ج</span><span class="option-text">{-٥, ٥}</span></label>
+                        <label class="option"><input type="radio" name="q9" value="d"><span class="option-label">د</span><span class="option-text">مجموعة خالية (∅)</span></label>
+                    </div>
+                </div>
+                <!-- Question 10 -->
+                 <div class="question-block">
+                    <p>١٠. حل المعادلة: |٢س – ٣| = -١١</p>
+                    <div class="options-container">
+                        <label class="option"><input type="radio" name="q10" value="a"><span class="option-label">أ</span><span class="option-text">مجموعة خالية (∅)</span></label>
+                        <label class="option"><input type="radio" name="q10" value="b"><span class="option-label">ب</span><span class="option-text">{-٤, ٧}</span></label>
+                        <label class="option"><input type="radio" name="q10" value="c"><span class="option-label">ج</span><span class="option-text">{٤, -٧}</span></label>
+                        <label class="option"><input type="radio" name="q10" value="d"><span class="option-label">د</span><span class="option-text">{٧}</span></label>
+                    </div>
+                </div>
+                <!-- Question 11 -->
+                 <div class="question-block">
+                    <p>١١. حل المعادلة: ٧(أ – ٢) = ٤(أ + ١)</p>
+                    <div class="options-container">
+                        <label class="option"><input type="radio" name="q11" value="a"><span class="option-label">أ</span><span class="option-text">أ = -٦</span></label>
+                        <label class="option"><input type="radio" name="q11" value="b"><span class="option-label">ب</span><span class="option-text">أ = ١٨</span></label>
+                        <label class="option"><input type="radio" name="q11" value="c"><span class="option-label">ج</span><span class="option-text">أ = ٣</span></label>
+                        <label class="option"><input type="radio" name="q11" value="d"><span class="option-label">د</span><span class="option-text">أ = ٦</span></label>
+                    </div>
+                </div>
+                <!-- Question 12 -->
+                 <div class="question-block">
+                    <p>١٢. أي من المعادلات التالية تعتبر متطابقة؟</p>
+                    <div class="options-container">
+                        <label class="option"><input type="radio" name="q12" value="a"><span class="option-label">أ</span><span class="option-text">س + ٥ = ١٠</span></label>
+                        <label class="option"><input type="radio" name="q12" value="b"><span class="option-label">ب</span><span class="option-text">٣(٢+س)=٦+٣س</span></label>
+                        <label class="option"><input type="radio" name="q12" value="c"><span class="option-label">ج</span><span class="option-text">س + ١ = س</span></label>
+                        <label class="option"><input type="radio" name="q12" value="d"><span class="option-label">د</span><span class="option-text">٢س = ٨</span></label>
+                    </div>
+                </div>
+            </div>
+
+            <h2 class="section-title">الأسئلة المقالية</h2>
+            
+            <div class="essay-questions-container">
+                <div class="essay-question-block">
+                    <p>١٣. أوجد حل المعادلة متعددة الخطوات التالية:</p>
+                    <p style="text-align: center; font-size: 18px; font-weight: normal;">٣(ك – ٥) + ٩ = ٦</p>
+                    <textarea class="answer-space" id="q13-answer" placeholder="اكتب خطوات الحل هنا..."></textarea>
+                    <div class="feedback" id="q13-feedback"></div>
+                </div>
+                
+                <div class="essay-question-block">
+                    <p>١٤. أوجد حل معادلة القيمة المطلقة التالية:</p>
+                    <p style="text-align: center; font-size: 18px; font-weight: normal;">|٢س + ٣| - ٤ = ٥</p>
+                    <textarea class="answer-space" id="q14-answer" placeholder="اكتب خطوات الحل هنا..."></textarea>
+                    <div class="feedback" id="q14-feedback"></div>
+                </div>
+            </div>
+
+        </div>
+        <div class="page-footer">صفحة ٢ من ٢</div>
+    </div>
+    <!-- PAGE 2 END -->
+    <script>
+        // This function grades the multiple-choice questions and returns the score.
+        function gradeMultipleChoice() {
+            const correctAnswers = {
+                q1: 'a', q2: 'c', q3: 'b', q4: 'a',
+                q5: 'c', q6: 'c', q7: 'b', q8: 'c',
+                q9: 'd', q10: 'a', q11: 'd', q12: 'b'
+            };
+
+            let score = 0;
+            const totalQuestions = Object.keys(correctAnswers).length;
+
+            document.querySelectorAll('.option').forEach(label => {
+                label.classList.remove('correct', 'incorrect');
+            });
+
+            for (let i = 1; i <= totalQuestions; i++) {
+                const questionName = `q${i}`;
+                const userAnswerNode = document.querySelector(`input[name="${questionName}"]:checked`);
+                const correctAnswerValue = correctAnswers[questionName];
+
+                document.querySelectorAll(`input[name="${questionName}"]`).forEach(option => {
+                    if (option.value === correctAnswerValue) {
+                        option.parentElement.classList.add('correct');
+                    }
+                });
+
+                if (userAnswerNode) {
+                    if (userAnswerNode.value === correctAnswerValue) {
+                        score++;
+                    } else {
+                        userAnswerNode.parentElement.classList.add('incorrect');
+                    }
+                }
+            }
+            return score;
+        }
+
+        // This function grades the essay questions, provides detailed feedback, and returns the score.
+        function gradeEssays() {
+            let totalEssayScore = 0;
+            const clean = (text) => text.replace(/\s/g, ''); // Helper to remove spaces
+
+            // Question 13 (Total 2 points) - NEW ROBUST LOGIC
+            let score13 = 0;
+            const answer13 = document.getElementById('q13-answer').value;
+            const feedback13 = document.getElementById('q13-feedback');
+            const cleanAnswer13 = clean(answer13);
+
+            const finalAnswer13Keywords = ['ك=4', 'ك=٤'];
+            const step13Keywords = ['3ك=12', '٣ك=١٢', '3ك-6=6', '٣ك-٦=٦', '٣ك-٦=٦'];
+
+            // Check for one step point
+            if (step13Keywords.some(key => cleanAnswer13.includes(key))) {
+                score13 += 1;
+            }
+            // Check for one final answer point
+            if (finalAnswer13Keywords.some(key => cleanAnswer13.includes(key))) {
+                score13 += 1;
+            }
+            // Ensure score doesn't exceed 2
+            score13 = Math.min(score13, 2);
+
+            let feedbackText13 = `<strong>الدرجة: ${score13} / 2</strong><br>`;
+            if (score13 === 2) {
+                feedbackText13 += 'إجابة كاملة وصحيحة!';
+                feedback13.className = 'feedback correct';
+            } else {
+                feedbackText13 += 'إجابتك غير مكتملة. تفصيل الحل النموذجي:<br>';
+                feedbackText13 += `٣ك - ٦ = ٦ &larr; <em>(درجة)</em><br><strong>ك = ٤</strong> &larr; <em>(درجة)</em>`;
+                feedback13.className = 'feedback incorrect';
+            }
+            feedback13.innerHTML = feedbackText13;
+            feedback13.style.display = 'block';
+            totalEssayScore += score13;
+
+            // Question 14 (Total 4 points) - NEW ROBUST LOGIC
+            let score14 = 0;
+            const answer14 = document.getElementById('q14-answer').value;
+            const feedback14 = document.getElementById('q14-feedback');
+            const cleanAnswer14 = clean(answer14);
+
+            // Branch 1 (s=3)
+            const final14aKeywords = ['س=3', 'س=٣'];
+            const step14aKeywords = ['2س=6', '٢س=٦', '2س+3=9', '٢س+٣=٩', '|2س+3|=9', '|٢س+٣|=٩'];
+            if (step14aKeywords.some(key => cleanAnswer14.includes(key))) { score14 += 1; }
+            if (final14aKeywords.some(key => cleanAnswer14.includes(key))) { score14 += 1; }
+
+            // Branch 2 (s=-6)
+            const final14bKeywords = ['س=-6', 'س=-٦'];
+            const step14bKeywords = ['2س=-12', '٢س=-١٢', '2س+3=-9', '٢س+٣=-٩'];
+            if (step14bKeywords.some(key => cleanAnswer14.includes(key))) { score14 += 1; }
+            if (final14bKeywords.some(key => cleanAnswer14.includes(key))) { score14 += 1; }
+            
+            // Ensure score doesn't exceed 4
+            score14 = Math.min(score14, 4);
+
+            let feedbackText14 = `<strong>الدرجة: ${score14} / 4</strong><br>`;
+            if (score14 === 4) {
+                feedbackText14 += 'إجابة كاملة وصحيحة!';
+                feedback14.className = 'feedback correct';
+            } else {
+                feedbackText14 += 'إجابتك غير مكتملة. تفصيل الحل النموذجي:<br>';
+                feedbackText14 += `|٢س + ٣| = ٩<br><strong>الحل الأول:</strong> ٢س + ٣ = ٩ <em>(درجة)</em> &larr; <strong>س = ٣</strong> <em>(درجة)</em><br><strong>الحل الثاني:</strong> ٢س + ٣ = -٩ <em>(درجة)</em> &larr; <strong>س = -٦</strong> <em>(درجة)</em>`;
+                feedback14.className = 'feedback incorrect';
+            }
+            feedback14.innerHTML = feedbackText14;
+            feedback14.style.display = 'block';
+            totalEssayScore += score14;
+            
+            return totalEssayScore;
+        }
+
+
+        // Main function to grade the entire test.
+        function gradeAll() {
+            const mcqScore = gradeMultipleChoice();
+            const essayScore = gradeEssays();
+            const totalScore = mcqScore + essayScore;
+
+            const scoreDisplay = document.getElementById('score-display');
+            scoreDisplay.textContent = `الدرجة النهائية: ${totalScore} / 18`;
+            scoreDisplay.style.display = 'block';
+
+            // Disable the button after correction
+            document.getElementById('grade-all-btn').disabled = true;
+        }
+    </script>
 </body>
 </html>
 

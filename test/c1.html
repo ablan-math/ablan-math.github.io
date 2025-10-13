@@ -19,6 +19,89 @@
             align-items: center;
         }
 
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+        .modal-content {
+            background-color: white;
+            padding: 30px 40px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            text-align: center;
+            width: 450px;
+        }
+        .modal-content h2 {
+            margin-top: 0;
+            margin-bottom: 20px;
+            font-size: 22px;
+        }
+        .modal-content .form-group {
+            margin-bottom: 15px;
+            text-align: right;
+        }
+        .modal-content label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .modal-content input, .modal-content select {
+            width: 100%;
+            padding: 10px;
+            font-family: 'Cairo', sans-serif;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+        .modal-validation-message {
+            color: #dc3545;
+            font-size: 14px;
+            margin-top: 10px;
+            min-height: 20px;
+        }
+        
+        /* NEW: Improved Result Modal Grid */
+        #result-modal .result-grid {
+            display: grid;
+            grid-template-columns: auto 1fr; /* Two columns: Label and Value */
+            gap: 8px 15px; /* 8px vertical gap, 15px horizontal */
+            text-align: right;
+            margin: 20px 0;
+            align-items: center;
+        }
+        #result-modal .result-grid strong {
+            font-weight: bold;
+        }
+        #result-modal .result-score {
+            grid-column: 1 / -1;
+            text-align: center;
+            font-size: 28px;
+            font-weight: bold;
+            color: #28a745;
+            margin-top: 10px;
+            border-top: 1px solid #eee;
+            padding-top: 15px;
+        }
+        #result-modal .submission-note {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #e9f7ec;
+            border: 1px solid #28a745;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+
         /* A4 Page Simulation: Using min-height to prevent content cutoff */
         .page {
             background: white;
@@ -67,6 +150,7 @@
         .test-header .info {
             display: flex;
             justify-content: space-around;
+            align-items: center;
             margin-top: 15px;
             font-size: 14px;
         }
@@ -189,23 +273,13 @@
             font-family: 'Cairo', sans-serif;
             box-shadow: 0 2px 5px rgba(0,0,0,0.2);
             text-align: center;
+            transition: background-color 0.2s;
         }
-        .print-button:hover { background-color: #0056b3; }
+        .btn:hover { background-color: #0056b3; }
         .correct-button { background-color: #28a745; }
         .correct-button:hover { background-color: #218838; }
-
-
-        /* Score display */
-        #score-display {
-            background-color: #ffffff;
-            color: #333;
-            padding: 12px 24px;
-            border-radius: 5px;
-            font-size: 16px;
-            font-weight: bold;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-            display: none; /* Hidden by default */
-        }
+        .retry-button { background-color: #6c757d; }
+        .retry-button:hover { background-color: #5a6268; }
         
         /* Styles for correct/incorrect answers */
         .option.correct {
@@ -280,10 +354,6 @@
             background-color: #fdeeee;
             color: #dc3545;
         }
-        .feedback.loading {
-            background-color: #f0f0f0;
-            color: #555;
-        }
 
         /* Print-specific styles - THE RADICAL FIX IS HERE */
         @media print {
@@ -304,8 +374,8 @@
             .page:not(:last-of-type) {
                  page-break-after: always; /* Add break ONLY between pages */
             }
-            .controls, .page-footer, .feedback { 
-                display: none; 
+            .controls, .page-footer, .feedback, .modal-overlay { 
+                display: none !important; 
             }
              @page {
                 size: A4;
@@ -316,305 +386,436 @@
 </head>
 <body>
 
-    <div class="controls">
+    <div id="login-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h2>تسجيل الدخول للاختبار</h2>
+            <div class="form-group">
+                <label for="student-id-input">رقم الهوية (الأحوال/الإقامة):</label>
+                <input type="number" id="student-id-input" placeholder="أدخل رقم هويتك" required>
+            </div>
+            <!-- FIX: Added Class Selector to the login modal -->
+            <div class="form-group">
+                <label for="student-class-input">الصف:</label>
+                <select id="student-class-input" required>
+                    <option value="" disabled selected>اختر صفك...</option>
+                    <option value="3-1">٣/أول</option>
+                    <option value="3-2">٣/ثاني</option>
+                    <option value="3-3">٣/ثالث</option>
+                </select>
+            </div>
+            <p id="login-status" class="modal-validation-message"></p>
+            <button class="btn correct-button" onclick="loginWithId()">دخول</button>
+        </div>
+    </div>
+    
+    <div id="result-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <h2>نتيجة الاختبار</h2>
+            <div class="result-grid">
+                <strong>اسم الطالب:</strong> <span id="result-student-name"></span>
+                <strong>الصف:</strong> <span id="result-student-class"></span>
+                <strong>مدة الحل:</strong> <span id="result-duration"></span>
+                <strong>رقم المحاولة:</strong> <span id="result-attempt"></span>
+                <strong>تاريخ الإجابة:</strong> <span id="result-date-time"></span>
+                <div class="result-score">الدرجة: <span id="result-score"></span></div>
+            </div>
+            <p class="submission-note"><strong>هام:</strong> يرجى أخذ لقطة شاشة لهذه النتيجة وإرسالها إلى الأستاذ عبر الواتساب لاعتمادها.</p>
+            <button class="btn retry-button" onclick="retryTest()">إعادة الاختبار</button>
+        </div>
+    </div>
+
+
+    <div class="controls" style="display: none;">
         <button class="btn print-button" onclick="window.print()">طباعة</button>
         <button id="grade-all-btn" class="btn correct-button" onclick="gradeAll()">تصحيح الاختبار بالكامل</button>
-        <div id="score-display"></div>
     </div>
 
-    <!-- PAGE 1 START -->
-    <div class="page">
-        <div class="page-content">
-            <div class="test-header">
-                <h1>اختبار شهري لمادة الرياضيات - الفصل الدراسي الأول</h1>
-                <h2>الفصل ١: المعادلات الخطية</h2>
-                <div class="info">
-                    <span><strong>اسم الطالب:</strong> ............................................</span>
-                    <span><strong>الصف:</strong> ............................</span>
-                    <span><strong>التاريخ:</strong> ___ / ___ / ١٤٤٧هـ</span>
+    <!-- The main test content is hidden initially -->
+    <div id="test-container" style="display: none;">
+        <!-- PAGE 1 START -->
+        <div class="page">
+            <div class="page-content">
+                <div class="test-header">
+                    <h1>اختبار شهري لمادة الرياضيات - الفصل الدراسي الأول</h1>
+                    <h2>الفصل ١: المعادلات الخطية</h2>
+                    <div class="info">
+                        <span><strong>اسم الطالب:</strong> <span id="display-student-name"></span></span>
+                        <span><strong>الصف:</strong> <span id="display-student-class"></span></span>
+                        <span><strong>التاريخ:</strong> <span id="display-test-date"></span></span>
+                    </div>
                 </div>
-            </div>
 
-            <div class="questions-grid">
-                <!-- Question 1 -->
-                <div class="question-block">
-                    <p>١. ماذا تسمى المعادلة التي تكون صحيحة لجميع قيم المتغير؟</p>
-                    <div class="options-container">
-                        <label class="option"><input type="radio" name="q1" value="a"><span class="option-label">أ</span><span class="option-text">متطابقة</span></label>
-                        <label class="option"><input type="radio" name="q1" value="b"><span class="option-label">ب</span><span class="option-text">جملة مفتوحة</span></label>
-                        <label class="option"><input type="radio" name="q1" value="c"><span class="option-label">ج</span><span class="option-text">معادلة مستحيلة</span></label>
-                        <label class="option"><input type="radio" name="q1" value="d"><span class="option-label">د</span><span class="option-text">مجموعة حل</span></label>
+                <div class="questions-grid">
+                    <!-- Question 1 -->
+                    <div class="question-block" data-question-id="q1">
+                        <p>١. ماذا تسمى المعادلة التي تكون صحيحة لجميع قيم المتغير؟</p>
+                        <div class="options-container">
+                            <label class="option" data-correct="true"><input type="radio" name="q1"><span class="option-label"></span><span class="option-text">متطابقة</span></label>
+                            <label class="option"><input type="radio" name="q1"><span class="option-label"></span><span class="option-text">جملة مفتوحة</span></label>
+                            <label class="option"><input type="radio" name="q1"><span class="option-label"></span><span class="option-text">معادلة مستحيلة</span></label>
+                            <label class="option"><input type="radio" name="q1"><span class="option-label"></span><span class="option-text">مجموعة حل</span></label>
+                        </div>
                     </div>
-                </div>
-                <!-- Question 2 -->
-                <div class="question-block">
-                    <p>٢. حل المعادلة: ١٣ – ك = ٥</p>
-                    <div class="options-container">
-                        <label class="option"><input type="radio" name="q2" value="a"><span class="option-label">أ</span><span class="option-text">-٨</span></label>
-                        <label class="option"><input type="radio" name="q2" value="b"><span class="option-label">ب</span><span class="option-text">١٨</span></label>
-                        <label class="option"><input type="radio" name="q2" value="c"><span class="option-label">ج</span><span class="option-text">٨</span></label>
-                        <label class="option"><input type="radio" name="q2" value="d"><span class="option-label">د</span><span class="option-text">-١٨</span></label>
+                    <!-- Question 2 -->
+                    <div class="question-block" data-question-id="q2">
+                        <p>٢. حل المعادلة: ١٣ – ك = ٥</p>
+                        <div class="options-container">
+                            <label class="option"><input type="radio" name="q2"><span class="option-label"></span><span class="option-text">-٨</span></label>
+                            <label class="option"><input type="radio" name="q2"><span class="option-label"></span><span class="option-text">١٨</span></label>
+                            <label class="option" data-correct="true"><input type="radio" name="q2"><span class="option-label"></span><span class="option-text">٨</span></label>
+                            <label class="option"><input type="radio" name="q2"><span class="option-label"></span><span class="option-text">-١٨</span></label>
+                        </div>
                     </div>
-                </div>
-                <!-- Question 3 -->
-                 <div class="question-block">
-                    <p>٣. حل المعادلة: -٨س = ٩٦</p>
-                    <div class="options-container">
-                        <label class="option"><input type="radio" name="q3" value="a"><span class="option-label">أ</span><span class="option-text">١٢</span></label>
-                        <label class="option"><input type="radio" name="q3" value="b"><span class="option-label">ب</span><span class="option-text">-١٢</span></label>
-                        <label class="option"><input type="radio" name="q3" value="c"><span class="option-label">ج</span><span class="option-text">٨٨</span></label>
-                        <label class="option"><input type="radio" name="q3" value="d"><span class="option-label">د</span><span class="option-text">١٠٤</span></label>
+                    <!-- Question 3 -->
+                     <div class="question-block" data-question-id="q3">
+                        <p>٣. حل المعادلة: -٨س = ٩٦</p>
+                        <div class="options-container">
+                            <label class="option"><input type="radio" name="q3"><span class="option-label"></span><span class="option-text">١٢</span></label>
+                            <label class="option" data-correct="true"><input type="radio" name="q3"><span class="option-label"></span><span class="option-text">-١٢</span></label>
+                            <label class="option"><input type="radio" name="q3"><span class="option-label"></span><span class="option-text">٨٨</span></label>
+                            <label class="option"><input type="radio" name="q3"><span class="option-label"></span><span class="option-text">١٠٤</span></label>
+                        </div>
                     </div>
-                </div>
-                <!-- Question 4 -->
-                <div class="question-block">
-                    <p>٤. عدد نقص بمقدار ٨ فأصبح ١٥. ما هي المعادلة التي تمثل هذه الجملة؟</p>
-                    <div class="options-container">
-                        <label class="option"><input type="radio" name="q4" value="a"><span class="option-label">أ</span><span class="option-text">س – ٨ = ١٥</span></label>
-                        <label class="option"><input type="radio" name="q4" value="b"><span class="option-label">ب</span><span class="option-text">س + ٨ = ١٥</span></label>
-                        <label class="option"><input type="radio" name="q4" value="c"><span class="option-label">ج</span><span class="option-text">س – ١٥ = ٨</span></label>
-                        <label class="option"><input type="radio" name="q4" value="d"><span class="option-label">د</span><span class="option-text">٨س = ١٥</span></label>
+                    <!-- Question 4 -->
+                    <div class="question-block" data-question-id="q4">
+                        <p>٤. عدد نقص بمقدار ٨ فأصبح ١٥. ما هي المعادلة التي تمثل هذه الجملة؟</p>
+                        <div class="options-container">
+                            <label class="option" data-correct="true"><input type="radio" name="q4"><span class="option-label"></span><span class="option-text">س – ٨ = ١٥</span></label>
+                            <label class="option"><input type="radio" name="q4"><span class="option-label"></span><span class="option-text">س + ٨ = ١٥</span></label>
+                            <label class="option"><input type="radio" name="q4"><span class="option-label"></span><span class="option-text">س – ١٥ = ٨</span></label>
+                            <label class="option"><input type="radio" name="q4"><span class="option-label"></span><span class="option-text">٨س = ١٥</span></label>
+                        </div>
                     </div>
-                </div>
-                <!-- Question 5 -->
-                <div class="question-block">
-                    <p>٥. حل المعادلة: ١٠ = <span class="fraction"><span class="numerator">س</span><span class="denominator">٤</span></span> + ٣</p>
-                    <div class="options-container">
-                        <label class="option"><input type="radio" name="q5" value="a"><span class="option-label">أ</span><span class="option-text">٧</span></label>
-                        <label class="option"><input type="radio" name="q5" value="b"><span class="option-label">ب</span><span class="option-text">٥٢</span></label>
-                        <label class="option"><input type="radio" name="q5" value="c"><span class="option-label">ج</span><span class="option-text">٢٨</span></label>
-                        <label class="option"><input type="radio" name="q5" value="d"><span class="option-label">د</span><span class="option-text">١٢</span></label>
+                    <!-- Question 5 -->
+                    <div class="question-block" data-question-id="q5">
+                        <p>٥. حل المعادلة: ١٠ = <span class="fraction"><span class="numerator">س</span><span class="denominator">٤</span></span> + ٣</p>
+                        <div class="options-container">
+                            <label class="option"><input type="radio" name="q5"><span class="option-label"></span><span class="option-text">٧</span></label>
+                            <label class="option"><input type="radio" name="q5"><span class="option-label"></span><span class="option-text">٥٢</span></label>
+                            <label class="option" data-correct="true"><input type="radio" name="q5"><span class="option-label"></span><span class="option-text">٢٨</span></label>
+                            <label class="option"><input type="radio" name="q5"><span class="option-label"></span><span class="option-text">١٢</span></label>
+                        </div>
                     </div>
-                </div>
-                <!-- Question 6 -->
-                <div class="question-block">
-                    <p>٦. ثلاثة أعداد فردية متتالية مجموعها ٧٥. ما معادلتها؟ (أصغرها ن)</p>
-                    <div class="options-container">
-                        <label class="option"><input type="radio" name="q6" value="a"><span class="option-label">أ</span><span class="option-text">ن+(ن+١)+(ن+٢)=٧٥</span></label>
-                        <label class="option"><input type="radio" name="q6" value="b"><span class="option-label">ب</span><span class="option-text">٣ن = ٧٥</span></label>
-                        <label class="option"><input type="radio" name="q6" value="c"><span class="option-label">ج</span><span class="option-text">ن+(ن+٢)+(ن+٤)=٧٥</span></label>
-                        <label class="option"><input type="radio" name="q6" value="d"><span class="option-label">د</span><span class="option-text">ن(ن+٢)(ن+٤)=٧٥</span></label>
+                    <!-- Question 6 -->
+                    <div class="question-block" data-question-id="q6">
+                        <p>٦. ثلاثة أعداد فردية متتالية مجموعها ٧٥. ما معادلتها؟ (أصغرها ن)</p>
+                        <div class="options-container">
+                            <label class="option"><input type="radio" name="q6"><span class="option-label"></span><span class="option-text">ن+(ن+١)+(ن+٢)=٧٥</span></label>
+                            <label class="option"><input type="radio" name="q6"><span class="option-label"></span><span class="option-text">٣ن = ٧٥</span></label>
+                            <label class="option" data-correct="true"><input type="radio" name="q6"><span class="option-label"></span><span class="option-text">ن+(ن+٢)+(ن+٤)=٧٥</span></label>
+                            <label class="option"><input type="radio" name="q6"><span class="option-label"></span><span class="option-text">ن(ن+٢)(ن+٤)=٧٥</span></label>
+                        </div>
                     </div>
-                </div>
-                <!-- Question 7 -->
-                 <div class="question-block">
-                    <p>٧. ما هو حل المعادلة: ٨ + ٤م = ٤م - ١؟</p>
-                    <div class="options-container">
-                        <label class="option"><input type="radio" name="q7" value="a"><span class="option-label">أ</span><span class="option-text">جميع الأعداد الحقيقية</span></label>
-                        <label class="option"><input type="radio" name="q7" value="b"><span class="option-label">ب</span><span class="option-text">مستحيلة الحل (∅)</span></label>
-                        <label class="option"><input type="radio" name="q7" value="c"><span class="option-label">ج</span><span class="option-text">م = ٢</span></label>
-                        <label class="option"><input type="radio" name="q7" value="d"><span class="option-label">د</span><span class="option-text">م = -٢</span></label>
+                    <!-- Question 7 -->
+                     <div class="question-block" data-question-id="q7">
+                        <p>٧. ما هو حل المعادلة: ٨ + ٤م = ٤م - ١؟</p>
+                        <div class="options-container">
+                            <label class="option"><input type="radio" name="q7"><span class="option-label"></span><span class="option-text">جميع الأعداد الحقيقية</span></label>
+                            <label class="option" data-correct="true"><input type="radio" name="q7"><span class="option-label"></span><span class="option-text">مستحيلة الحل (∅)</span></label>
+                            <label class="option"><input type="radio" name="q7"><span class="option-label"></span><span class="option-text">م = ٢</span></label>
+                            <label class="option"><input type="radio" name="q7"><span class="option-label"></span><span class="option-text">م = -٢</span></label>
+                        </div>
                     </div>
                 </div>
             </div>
+            <div class="page-footer">صفحة ١ من ٢</div>
         </div>
-        <div class="page-footer">صفحة ١ من ٢</div>
-    </div>
-    <!-- PAGE 1 END -->
-    
-    <!-- PAGE 2 START -->
-    <div class="page">
-        <div class="page-content">
-             <div class="questions-grid">
-                <!-- Question 8 -->
-                 <div class="question-block">
-                    <p>٨. اكتب معادلة القيمة المطلقة التي نقطة منتصفها ٢٧ والمسافة ٢.</p>
-                    <div class="options-container">
-                        <label class="option"><input type="radio" name="q8" value="a"><span class="option-label">أ</span><span class="option-text">|س + ٢٧| = ٢</span></label>
-                        <label class="option"><input type="radio" name="q8" value="b"><span class="option-label">ب</span><span class="option-text">|س – ٢| = ٢٧</span></label>
-                        <label class="option"><input type="radio" name="q8" value="c"><span class="option-label">ج</span><span class="option-text">|س – ٢٧| = ٢</span></label>
-                        <label class="option"><input type="radio" name="q8" value="d"><span class="option-label">د</span><span class="option-text">|س + ٢| = ٢٧</span></label>
+        <!-- PAGE 1 END -->
+        
+        <!-- PAGE 2 START -->
+        <div class="page">
+            <div class="page-content">
+                 <div class="questions-grid">
+                    <!-- Question 8 -->
+                     <div class="question-block" data-question-id="q8">
+                        <p>٨. اكتب معادلة القيمة المطلقة التي نقطة منتصفها ٢٧ والمسافة ٢.</p>
+                        <div class="options-container">
+                            <label class="option"><input type="radio" name="q8"><span class="option-label"></span><span class="option-text">|س + ٢٧| = ٢</span></label>
+                            <label class="option"><input type="radio" name="q8"><span class="option-label"></span><span class="option-text">|س – ٢| = ٢٧</span></label>
+                            <label class="option" data-correct="true"><input type="radio" name="q8"><span class="option-label"></span><span class="option-text">|س – ٢٧| = ٢</span></label>
+                            <label class="option"><input type="radio" name="q8"><span class="option-label"></span><span class="option-text">|س + ٢| = ٢٧</span></label>
+                        </div>
+                    </div>
+                    <!-- Question 9 -->
+                     <div class="question-block" data-question-id="q9">
+                        <p>٩. حل المعادلة: -|س| = ٥</p>
+                        <div class="options-container">
+                            <label class="option"><input type="radio" name="q9"><span class="option-label"></span><span class="option-text">{٥}</span></label>
+                            <label class="option"><input type="radio" name="q9"><span class="option-label"></span><span class="option-text">{-٥}</span></label>
+                            <label class="option"><input type="radio" name="q9"><span class="option-label"></span><span class="option-text">{-٥, ٥}</span></label>
+                            <label class="option" data-correct="true"><input type="radio" name="q9"><span class="option-label"></span><span class="option-text">مجموعة خالية (∅)</span></label>
+                        </div>
+                    </div>
+                    <!-- Question 10 -->
+                     <div class="question-block" data-question-id="q10">
+                        <p>١٠. حل المعادلة: |٢س – ٣| = -١١</p>
+                        <div class="options-container">
+                            <label class="option" data-correct="true"><input type="radio" name="q10"><span class="option-label"></span><span class="option-text">مجموعة خالية (∅)</span></label>
+                            <label class="option"><input type="radio" name="q10"><span class="option-label"></span><span class="option-text">{-٤, ٧}</span></label>
+                            <label class="option"><input type="radio" name="q10"><span class="option-label"></span><span class="option-text">{٤, -٧}</span></label>
+                            <label class="option"><input type="radio" name="q10"><span class="option-label"></span><span class="option-text">{٧}</span></label>
+                        </div>
+                    </div>
+                    <!-- Question 11 -->
+                     <div class="question-block" data-question-id="q11">
+                        <p>١١. حل المعادلة: ٧(أ – ٢) = ٤(أ + ١)</p>
+                        <div class="options-container">
+                            <label class="option"><input type="radio" name="q11"><span class="option-label"></span><span class="option-text">أ = -٦</span></label>
+                            <label class="option"><input type="radio" name="q11"><span class="option-label"></span><span class="option-text">أ = ١٨</span></label>
+                            <label class="option"><input type="radio" name="q11"><span class="option-label"></span><span class="option-text">أ = ٣</span></label>
+                            <label class="option" data-correct="true"><input type="radio" name="q11"><span class="option-label"></span><span class="option-text">أ = ٦</span></label>
+                        </div>
+                    </div>
+                    <!-- Question 12 -->
+                     <div class="question-block" data-question-id="q12">
+                        <p>١٢. أي من المعادلات التالية تعتبر متطابقة؟</p>
+                        <div class="options-container">
+                            <label class="option"><input type="radio" name="q12"><span class="option-label"></span><span class="option-text">س + ٥ = ١٠</span></label>
+                            <label class="option" data-correct="true"><input type="radio" name="q12"><span class="option-label"></span><span class="option-text">٣(٢+س)=٦+٣س</span></label>
+                            <label class="option"><input type="radio" name="q12"><span class="option-label"></span><span class="option-text">س + ١ = س</span></label>
+                            <label class="option"><input type="radio" name="q12"><span class="option-label"></span><span class="option-text">٢س = ٨</span></label>
+                        </div>
                     </div>
                 </div>
-                <!-- Question 9 -->
-                 <div class="question-block">
-                    <p>٩. حل المعادلة: -|س| = ٥</p>
-                    <div class="options-container">
-                        <label class="option"><input type="radio" name="q9" value="a"><span class="option-label">أ</span><span class="option-text">{٥}</span></label>
-                        <label class="option"><input type="radio" name="q9" value="b"><span class="option-label">ب</span><span class="option-text">{-٥}</span></label>
-                        <label class="option"><input type="radio" name="q9" value="c"><span class="option-label">ج</span><span class="option-text">{-٥, ٥}</span></label>
-                        <label class="option"><input type="radio" name="q9" value="d"><span class="option-label">د</span><span class="option-text">مجموعة خالية (∅)</span></label>
-                    </div>
-                </div>
-                <!-- Question 10 -->
-                 <div class="question-block">
-                    <p>١٠. حل المعادلة: |٢س – ٣| = -١١</p>
-                    <div class="options-container">
-                        <label class="option"><input type="radio" name="q10" value="a"><span class="option-label">أ</span><span class="option-text">مجموعة خالية (∅)</span></label>
-                        <label class="option"><input type="radio" name="q10" value="b"><span class="option-label">ب</span><span class="option-text">{-٤, ٧}</span></label>
-                        <label class="option"><input type="radio" name="q10" value="c"><span class="option-label">ج</span><span class="option-text">{٤, -٧}</span></label>
-                        <label class="option"><input type="radio" name="q10" value="d"><span class="option-label">د</span><span class="option-text">{٧}</span></label>
-                    </div>
-                </div>
-                <!-- Question 11 -->
-                 <div class="question-block">
-                    <p>١١. حل المعادلة: ٧(أ – ٢) = ٤(أ + ١)</p>
-                    <div class="options-container">
-                        <label class="option"><input type="radio" name="q11" value="a"><span class="option-label">أ</span><span class="option-text">أ = -٦</span></label>
-                        <label class="option"><input type="radio" name="q11" value="b"><span class="option-label">ب</span><span class="option-text">أ = ١٨</span></label>
-                        <label class="option"><input type="radio" name="q11" value="c"><span class="option-label">ج</span><span class="option-text">أ = ٣</span></label>
-                        <label class="option"><input type="radio" name="q11" value="d"><span class="option-label">د</span><span class="option-text">أ = ٦</span></label>
-                    </div>
-                </div>
-                <!-- Question 12 -->
-                 <div class="question-block">
-                    <p>١٢. أي من المعادلات التالية تعتبر متطابقة؟</p>
-                    <div class="options-container">
-                        <label class="option"><input type="radio" name="q12" value="a"><span class="option-label">أ</span><span class="option-text">س + ٥ = ١٠</span></label>
-                        <label class="option"><input type="radio" name="q12" value="b"><span class="option-label">ب</span><span class="option-text">٣(٢+س)=٦+٣س</span></label>
-                        <label class="option"><input type="radio" name="q12" value="c"><span class="option-label">ج</span><span class="option-text">س + ١ = س</span></label>
-                        <label class="option"><input type="radio" name="q12" value="d"><span class="option-label">د</span><span class="option-text">٢س = ٨</span></label>
-                    </div>
-                </div>
-            </div>
 
-            <h2 class="section-title">الأسئلة المقالية</h2>
-            
-            <div class="essay-questions-container">
-                <div class="essay-question-block">
-                    <p id="q13-text">١٣. أوجد حل المعادلة متعددة الخطوات التالية:</p>
-                    <p style="text-align: center; font-size: 18px; font-weight: normal;">٣(ك – ٥) + ٩ = ٦</p>
-                    <textarea class="answer-space" id="q13-answer" placeholder="اكتب خطوات الحل هنا..."></textarea>
-                    <div class="feedback" id="q13-feedback"></div>
-                </div>
+                <h2 class="section-title">الأسئلة المقالية</h2>
                 
-                <div class="essay-question-block">
-                    <p id="q14-text">١٤. أوجد حل معادلة القيمة المطلقة التالية:</p>
-                    <p style="text-align: center; font-size: 18px; font-weight: normal;">|٢س + ٣| - ٤ = ٥</p>
-                    <textarea class="answer-space" id="q14-answer" placeholder="اكتب خطوات الحل هنا..."></textarea>
-                    <div class="feedback" id="q14-feedback"></div>
+                <div class="essay-questions-container">
+                    <div class="essay-question-block">
+                        <p id="q13-text">١٣. أوجد حل المعادلة متعددة الخطوات التالية:</p>
+                        <p style="text-align: center; font-size: 18px; font-weight: normal;">٣(ك – ٥) + ٩ = ٦</p>
+                        <textarea class="answer-space" id="q13-answer" placeholder="اكتب خطوات الحل هنا..."></textarea>
+                        <div class="feedback" id="q13-feedback"></div>
+                    </div>
+                    
+                    <div class="essay-question-block">
+                        <p id="q14-text">١٤. أوجد حل معادلة القيمة المطلقة التالية:</p>
+                        <p style="text-align: center; font-size: 18px; font-weight: normal;">|٢س + ٣| - ٤ = ٥</p>
+                        <textarea class="answer-space" id="q14-answer" placeholder="اكتب خطوات الحل هنا..."></textarea>
+                        <div class="feedback" id="q14-feedback"></div>
+                    </div>
                 </div>
+
             </div>
-
+            <div class="page-footer">صفحة ٢ من ٢</div>
         </div>
-        <div class="page-footer">صفحة ٢ من ٢</div>
+        <!-- PAGE 2 END -->
     </div>
-    <!-- PAGE 2 END -->
+
     <script>
-        // This function grades the multiple-choice questions and returns the score.
+        // Global variables to store student data and test state
+        let studentName = '';
+        let studentClass = '';
+        let startTime;
+        let attemptCount = 1;
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
+
+        /**
+         * Fetches student data from Google Sheet using their ID and starts the test.
+         */
+        async function loginWithId() {
+            const studentId = document.getElementById('student-id-input').value.trim();
+            const classId = document.getElementById('student-class-input').value; // FIX: Get classId from selector
+            const statusElement = document.getElementById('login-status');
+            
+            // FIX: Check for both studentId and classId
+            if (!studentId || !classId) {
+                statusElement.textContent = 'يرجى إدخال رقم الهوية واختيار الصف.';
+                return;
+            }
+
+            statusElement.textContent = 'جاري التحقق من البيانات...';
+            
+            // FIX: Add classId to the URL to match the backend script's requirement
+            const url = `${SCRIPT_URL}?action=getStudentData&studentId=${studentId}&classId=${classId}`;
+
+            try {
+                const response = await fetch(url);
+                const result = await response.json();
+
+                if (result.status === 'success' && result.data) {
+                    // Store student data to be used in the test
+                    const student = result.data;
+                    localStorage.setItem('currentStudent', JSON.stringify(student));
+                    
+                    // Initialize and start the test
+                    startTest(student);
+                } else {
+                    throw new Error(result.message || 'رقم الهوية أو الصف غير صحيح.');
+                }
+            } catch (error) {
+                console.error("Fetch Student Error:", error);
+                statusElement.textContent = `خطأ: ${error.message}`;
+            }
+        }
+
+        function startTest(student) {
+            studentName = student.name;
+            studentClass = student.class;
+
+            // Hide login modal and show test container
+            document.getElementById('login-modal').style.display = 'none';
+            document.getElementById('test-container').style.display = 'block';
+            document.querySelector('.controls').style.display = 'flex';
+
+
+            // Update attempt count
+            let storedAttempts = localStorage.getItem('mathTestAttempts');
+            attemptCount = storedAttempts ? parseInt(storedAttempts) + 1 : 1;
+            localStorage.setItem('mathTestAttempts', attemptCount);
+
+            // Display student info and date in the header
+            document.getElementById('display-student-name').textContent = studentName;
+            document.getElementById('display-student-class').textContent = studentClass;
+            const today = new Date();
+            const hijriDate = new Intl.DateTimeFormat('ar-SA-u-ca-islamic-nu-arab', { day: 'numeric', month: 'long', year: 'numeric' }).format(today);
+            document.getElementById('display-test-date').textContent = hijriDate;
+            
+            // Start the timer
+            startTime = Date.now();
+            
+            // Shuffle options for a new attempt
+            shuffleOptions();
+        }
+
+        // This function shuffles the options for each multiple-choice question.
+        function shuffleOptions() {
+            const questions = document.querySelectorAll('.question-block[data-question-id]');
+            const optionLabels = ['أ', 'ب', 'ج', 'د'];
+
+            questions.forEach(question => {
+                const container = question.querySelector('.options-container');
+                if (container) {
+                    const options = Array.from(container.children);
+                    for (let i = options.length - 1; i > 0; i--) {
+                        const j = Math.floor(Math.random() * (i + 1));
+                        [options[i], options[j]] = [options[j], options[i]];
+                    }
+                    container.innerHTML = '';
+                    options.forEach((option, index) => {
+                        option.querySelector('.option-label').textContent = optionLabels[index];
+                        container.appendChild(option);
+                    });
+                }
+            });
+        }
+        
+        // This function runs when the page is fully loaded.
+        document.addEventListener('DOMContentLoaded', () => {
+           // The page now starts with the login modal visible by default.
+           // No immediate action is needed here, loginWithId() will be called on button click.
+        });
+
+        // This function grades the multiple-choice questions.
         function gradeMultipleChoice() {
-            const correctAnswers = {
-                q1: 'a', q2: 'c', q3: 'b', q4: 'a',
-                q5: 'c', q6: 'c', q7: 'b', q8: 'c',
-                q9: 'd', q10: 'a', q11: 'd', q12: 'b'
-            };
-
             let score = 0;
-            const totalQuestions = Object.keys(correctAnswers).length;
-
+            const questions = document.querySelectorAll('.question-block[data-question-id]');
             document.querySelectorAll('.option').forEach(label => {
                 label.classList.remove('correct', 'incorrect');
             });
-
-            for (let i = 1; i <= totalQuestions; i++) {
-                const questionName = `q${i}`;
-                const userAnswerNode = document.querySelector(`input[name="${questionName}"]:checked`);
-                const correctAnswerValue = correctAnswers[questionName];
-
-                document.querySelectorAll(`input[name="${questionName}"]`).forEach(option => {
-                    if (option.value === correctAnswerValue) {
-                        option.parentElement.classList.add('correct');
-                    }
-                });
-
+            questions.forEach(question => {
+                const questionId = question.dataset.questionId;
+                const userAnswerNode = document.querySelector(`input[name="${questionId}"]:checked`);
+                const correctAnswerNode = question.querySelector('.option[data-correct="true"]');
+                if (correctAnswerNode) {
+                    correctAnswerNode.classList.add('correct');
+                }
                 if (userAnswerNode) {
-                    if (userAnswerNode.value === correctAnswerValue) {
+                    const selectedLabel = userAnswerNode.parentElement;
+                    if (selectedLabel.dataset.correct) {
                         score++;
                     } else {
-                        userAnswerNode.parentElement.classList.add('incorrect');
+                        selectedLabel.classList.add('incorrect');
                     }
                 }
-            }
+            });
             return score;
         }
 
-        /**
-         * Grades a single essay question using the Gemini API.
-         * @param {string} questionId - The ID of the question (e.g., 'q13').
-         * @param {number} maxScore - The maximum score for this question.
-         * @returns {Promise<number>} - The calculated score for the question.
-         */
-        async function gradeSingleEssayWithAI(questionId, maxScore) {
-            const questionElement = document.getElementById(`${questionId}-text`).parentElement;
-            const questionText = Array.from(questionElement.querySelectorAll('p')).map(p => p.textContent).join(' ');
-            const userAnswer = document.getElementById(`${questionId}-answer`).value;
-            const feedbackElement = document.getElementById(`${questionId}-feedback`);
+        // This function grades the essay questions.
+        function gradeEssays() {
+            let totalEssayScore = 0;
+            const clean = (text) => text.replace(/\s/g, '');
 
-            feedbackElement.className = 'feedback loading';
-            feedbackElement.textContent = 'يتم التصحيح الآن باستخدام الذكاء الاصطناعي...';
-            feedbackElement.style.display = 'block';
+            // Question 13
+            let score13 = 0;
+            const answer13 = document.getElementById('q13-answer').value;
+            const feedback13 = document.getElementById('q13-feedback');
+            const cleanAnswer13 = clean(answer13);
+            const step13Keywords = ['3ك-15=-3', '٣ك-١٥=-٣', '3(ك-5)=-3', '٣(ك-٥)=-٣', '3ك=12', '٣ك=١٢'];
+            const finalAnswer13Keywords = ['ك=4', 'ك=٤'];
+            if (step13Keywords.some(key => cleanAnswer13.includes(key))) score13 += 1;
+            if (finalAnswer13Keywords.some(key => cleanAnswer13.includes(key))) score13 += 1;
+            score13 = Math.min(score13, 2);
+            let feedbackText13 = `<strong>الدرجة: ${score13} / 2</strong><br>`;
+            feedbackText13 += score13 === 2 ? 'إجابة كاملة وصحيحة!' : `إجابتك غير مكتملة. تفصيل الحل النموجي:<br>٣(ك - ٥) = -٣ &larr; <em>(درجة)</em><br><strong>ك = ٤</strong> &larr; <em>(درجة)</em>`;
+            feedback13.className = score13 === 2 ? 'feedback correct' : 'feedback incorrect';
+            feedback13.innerHTML = feedbackText13;
+            feedback13.style.display = 'block';
+            totalEssayScore += score13;
 
-            if (!userAnswer.trim()) {
-                feedbackElement.textContent = `الدرجة: 0 / ${maxScore}. لم يتم تقديم إجابة.`;
-                feedbackElement.className = 'feedback incorrect';
-                return 0;
-            }
+            // Question 14
+            let score14 = 0;
+            const answer14 = document.getElementById('q14-answer').value;
+            const feedback14 = document.getElementById('q14-feedback');
+            const cleanAnswer14 = clean(answer14);
+            const final14aKeywords = ['س=3', 'س=٣'];
+            const step14aKeywords = ['2س=6', '٢س=٦', '2س+3=9', '٢س+٣=٩', '|2س+3|=9', '|٢س+٣|=٩'];
+            if (step14aKeywords.some(key => cleanAnswer14.includes(key))) score14 += 1;
+            if (final14aKeywords.some(key => cleanAnswer14.includes(key))) score14 += 1;
+            const final14bKeywords = ['س=-6', 'س=-٦'];
+            const step14bKeywords = ['2س=-12', '٢س=-١٢', '2س+3=-9', '٢س+٣=-٩'];
+            if (step14bKeywords.some(key => cleanAnswer14.includes(key))) score14 += 1;
+            if (final14bKeywords.some(key => cleanAnswer14.includes(key))) score14 += 1;
+            score14 = Math.min(score14, 4);
+            let feedbackText14 = `<strong>الدرجة: ${score14} / 4</strong><br>`;
+            feedbackText14 += score14 === 4 ? 'إجابة كاملة وصحيحة!' : `إجابتك غير مكتملة. تفصيل الحل النموجي:<br>|٢س + ٣| = ٩<br><strong>الحل الأول:</strong> ٢س + ٣ = ٩ <em>(درجة)</em> &larr; <strong>س = ٣</strong> <em>(درجة)</em><br><strong>الحل الثاني:</strong> ٢س + ٣ = -٩ <em>(درجة)</em> &larr; <strong>س = -٦</strong> <em>(درجة)</em>`;
+            feedback14.className = score14 === 4 ? 'feedback correct' : 'feedback incorrect';
+            feedback14.innerHTML = feedbackText14;
+            feedback14.style.display = 'block';
+            totalEssayScore += score14;
             
-            const apiKey = ""; // The platform will provide the key
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
-
-            const systemPrompt = `You are an expert math teacher's assistant. Your task is to grade a student's answer to an algebra problem based on a detailed scoring rubric.
-                - The total score for the question is ${maxScore} points.
-                - Award points based on these rules:
-                    - **For single-answer questions (like multi-step equations):** Award 1 point for any valid intermediate step shown, and 1 point for the correct final answer.
-                    - **For multi-answer questions (like absolute value equations):** The problem has two solution branches. Each branch is worth ${maxScore / 2} points (1 for a valid step, 1 for the final answer).
-                - Analyze the student's work carefully.
-                - Respond ONLY with a JSON object in the format: {"score": <calculated_score>, "feedback": "<detailed_feedback_in_arabic>"}`;
-
-            const userQuery = `Grade the following student's work:\n\n**Question:** "${questionText}"\n\n**Student's Answer:**\n\`\`\`\n${userAnswer}\n\`\`\``;
-
-            try {
-                const response = await fetch(apiUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{ parts: [{ text: userQuery }] }],
-                        systemInstruction: { parts: [{ text: systemPrompt }] },
-                        generationConfig: { responseMimeType: "application/json" }
-                    })
-                });
-
-                if (!response.ok) {
-                    throw new Error(`API Error: ${response.status}`);
-                }
-
-                const result = await response.json();
-                const jsonText = result.candidates[0].content.parts[0].text;
-                const parsedResult = JSON.parse(jsonText);
-
-                const score = parsedResult.score || 0;
-                const feedbackText = parsedResult.feedback || "لم يتمكن الذكاء الاصطناعي من تحليل الإجابة.";
-
-                feedbackElement.innerHTML = `<strong>الدرجة: ${score} / ${maxScore}</strong><br>${feedbackText}`;
-                feedbackElement.className = score === maxScore ? 'feedback correct' : 'feedback incorrect';
-                return score;
-
-            } catch (error) {
-                console.error("Error grading with AI:", error);
-                feedbackElement.textContent = 'حدث خطأ أثناء التصحيح. يرجى المحاولة مرة أخرى.';
-                feedbackElement.className = 'feedback incorrect';
-                return 0; // Return 0 on error
-            }
+            return totalEssayScore;
         }
 
+        function formatDuration(ms) {
+            const totalSeconds = Math.floor(ms / 1000);
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = totalSeconds % 60;
+            return `${minutes} دقيقة و ${seconds.toString().padStart(2, '0')} ثانية`;
+        }
+        
         // Main function to grade the entire test.
-        async function gradeAll() {
+        function gradeAll() {
+            if (!studentName || !studentClass) {
+                alert('حدث خطأ. لم يتم العثور على بيانات الطالب.');
+                return;
+            }
+
             document.getElementById('grade-all-btn').disabled = true;
             
             const mcqScore = gradeMultipleChoice();
+            const essayScore = gradeEssays();
+            const totalScore = mcqScore + essayScore;
+
+            // Show results modal
+            const endTime = Date.now();
+            const duration = formatDuration(endTime - startTime);
+            const now = new Date();
+            const completionTime = new Intl.DateTimeFormat('ar-SA', { dateStyle: 'medium', timeStyle: 'short' }).format(now);
+
+            document.getElementById('result-student-name').textContent = studentName;
+            document.getElementById('result-student-class').textContent = studentClass;
+            document.getElementById('result-date-time').textContent = completionTime;
+            document.getElementById('result-duration').textContent = duration;
+            document.getElementById('result-attempt').textContent = attemptCount;
+            document.getElementById('result-score').textContent = `${totalScore} / 18`;
             
-            // Grade essays in parallel for speed
-            const essayScores = await Promise.all([
-                gradeSingleEssayWithAI('q13', 2),
-                gradeSingleEssayWithAI('q14', 4)
-            ]);
-
-            const totalEssayScore = essayScores.reduce((sum, score) => sum + score, 0);
-            const totalScore = mcqScore + totalEssayScore;
-
-            const scoreDisplay = document.getElementById('score-display');
-            scoreDisplay.textContent = `الدرجة النهائية: ${totalScore} / 18`;
-            scoreDisplay.style.display = 'block';
+            document.getElementById('result-modal').style.display = 'flex';
+        }
+        
+        function retryTest() {
+            location.reload();
         }
     </script>
 </body>

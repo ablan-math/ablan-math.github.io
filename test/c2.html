@@ -1,1 +1,707 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>اختبار الوحدة 2 - رياضيات تفاعلي</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Cairo', sans-serif;
+            background-color: #e0e0e0;
+            margin: 0;
+            padding: 20px 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.6); display: flex;
+            justify-content: center; align-items: center; z-index: 2000;
+        }
+        .modal-content {
+            background-color: white; padding: 30px 40px; border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3); text-align: center;
+            width: 450px; max-width: 90%;
+        }
+        .modal-content h2 { margin: 0 0 20px 0; font-size: 22px; }
+        .modal-content .form-group { margin-bottom: 15px; text-align: right; }
+        .modal-content label { display: block; margin-bottom: 5px; font-weight: bold; }
+        .modal-content input, .modal-content select {
+            width: 100%; padding: 10px; font-family: 'Cairo', sans-serif;
+            font-size: 16px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box;
+        }
+        .modal-validation-message { color: #dc3545; font-size: 14px; margin-top: 10px; min-height: 20px; }
+        
+        #result-modal .result-grid {
+            display: grid; grid-template-columns: auto 1fr; gap: 8px 15px;
+            text-align: right; margin: 20px 0; align-items: center;
+        }
+        #result-modal .result-grid strong { font-weight: bold; }
+        #result-modal .result-score {
+            grid-column: 1 / -1; text-align: center; font-size: 28px; font-weight: bold;
+            color: #28a745; margin-top: 10px; border-top: 1px solid #eee; padding-top: 15px;
+        }
+        #result-modal .submission-note {
+            margin-top: 20px; padding: 10px; background-color: #e9f7ec;
+            border: 1px solid #28a745; border-radius: 5px; font-size: 14px;
+        }
+        .modal-buttons { display: flex; justify-content: center; gap: 15px; margin-top: 25px; }
+
+        .page {
+            background: white; width: 210mm; min-height: 297mm; padding: 15mm;
+            margin-bottom: 20px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+            box-sizing: border-box; position: relative; display: flex; flex-direction: column;
+        }
+        .page-content { flex-grow: 1; }
+        .page-footer { text-align: center; font-size: 12px; color: #888; padding-top: 10px; }
+
+        .test-header {
+            text-align: center; border-bottom: 2px solid #333; padding-bottom: 15px; margin-bottom: 25px;
+        }
+        .test-header h1 { margin: 0; font-size: 24px; }
+        .test-header h2 { margin: 5px 0 0 0; font-size: 20px; font-weight: normal; color: #555; }
+        .test-header .info { display: flex; justify-content: space-around; align-items: center; margin-top: 15px; font-size: 14px; }
+
+        .questions-grid { display: grid; grid-template-columns: 1fr; gap: 15px; }
+        .question-block {
+            border: 1px solid #e0e0e0; padding: 12px 15px; border-radius: 8px;
+            background-color: #fafafa; display: flex; flex-direction: column;
+        }
+        
+        /* MODIFIED: Question prompt styling */
+        .question-prompt {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 0 0 12px 0;
+            font-size: 16px;
+            font-weight: bold;
+            line-height: 1.6;
+        }
+        /* NEW: Style for highlighting the question number */
+        .question-number {
+            background-color: #e9e9e9;
+            padding: 3px 9px;
+            border-radius: 5px;
+            flex-shrink: 0;
+        }
+        .question-title { flex-grow: 1; font-weight: normal;}
+
+        .options-container { display: flex; flex-wrap: nowrap; justify-content: space-between; gap: 8px; }
+        .option {
+            background-color: #ffffff; border: 1px solid #ccc; border-radius: 5px; padding: 5px 10px;
+            font-size: 14px; flex-grow: 1; white-space: nowrap; display: flex;
+            align-items: center; cursor: pointer; transition: background-color 0.2s, border-color 0.2s;
+        }
+        .option:hover { background-color: #f0f8ff; border-color: #007bff; }
+        .option input[type="radio"] { display: none; }
+        .option input[type="radio"]:checked + .option-label {
+            background-color: #007bff; color: white; border-color: #0056b3;
+        }
+        .option-label {
+            display: inline-flex; align-items: center; justify-content: center; width: 24px;
+            height: 24px; border: 1.5px solid #555; border-radius: 50%;
+            font-weight: bold; color: #333; margin-left: 8px; flex-shrink: 0;
+            transition: background-color 0.2s, color 0.2s;
+        }
+        .option-text { flex-grow: 1; text-align: center; }
+        .fraction {
+            display: inline-flex; flex-direction: column; vertical-align: middle;
+            margin: 0 0.2em; text-align: center; position: relative; top: -0.3em;
+        }
+        .numerator { padding: 0 0.2em; }
+        .denominator { border-top: 1.5px solid currentColor; padding: 0 0.2em; }
+        .controls {
+            position: fixed; top: 20px; left: 20px; display: flex;
+            flex-direction: column; gap: 10px; z-index: 1000;
+        }
+        .btn {
+            background-color: #007bff; color: white; border: none; padding: 12px 24px;
+            border-radius: 5px; cursor: pointer; font-size: 16px; font-family: 'Cairo', sans-serif;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2); text-align: center; transition: background-color 0.2s;
+        }
+        .btn:hover { background-color: #0056b3; }
+        .correct-button { background-color: #28a745; }
+        .correct-button:hover { background-color: #218838; }
+        .retry-button { background-color: #6c757d; }
+        .retry-button:hover { background-color: #5a6268; }
+        .review-button { background-color: #17a2b8; }
+        .review-button:hover { background-color: #138496; }
+        .option.correct { border-color: #28a745; background-color: #e9f7ec; }
+        .option.incorrect { border-color: #dc3545; background-color: #fdeeee; }
+
+        .section-title {
+            font-size: 18px; font-weight: bold; margin-top: 25px; margin-bottom: 10px;
+            border-bottom: 1px solid #eee; padding-bottom: 5px;
+        }
+        .essay-questions-container { display: flex; justify-content: space-between; gap: 15px; align-items: stretch; }
+        .essay-question-block {
+            border: 1px solid #e0e0e0; padding: 15px; border-radius: 8px;
+            background-color: #fdfdfd; margin-top: 8px; flex: 1; display: flex; flex-direction: column;
+        }
+
+        .answer-space {
+            min-height: 100px; border: 1px solid #ccc; border-radius: 5px; margin-top: 5px;
+            padding: 8px; flex-grow: 1; font-size: 16px; font-family: 'Cairo', sans-serif;
+            resize: vertical; width: 100%; box-sizing: border-box;
+        }
+        
+        /* MODIFIED: Styles for multi-part essay question */
+        .multi-part-answer { margin-top: 10px; display: flex; flex-direction: column; gap: 10px; }
+        .answer-space-single-line {
+            width: 100%; padding: 8px; font-family: 'Cairo', sans-serif; font-size: 16px;
+            border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box;
+        }
+
+        /* NEW: Added resize to single line textareas */
+        .answer-space-single-line[rows] {
+            resize: vertical;
+        }
+
+        .feedback {
+            margin-top: 8px; padding: 8px; border-radius: 4px; font-weight: bold;
+            display: none; text-align: right; line-height: 1.8;
+        }
+        .feedback.correct { background-color: #e9f7ec; color: #28a745; }
+        .feedback.incorrect { background-color: #fdeeee; color: #dc3545; }
+
+        @media (max-width: 768px) {
+            body { padding: 0; }
+            .page {
+                width: 100%; min-height: auto; height: auto; padding: 15px;
+                margin-bottom: 0; box-shadow: none; border-bottom: 5px solid #e0e0e0;
+            }
+             .page:last-of-type { border-bottom: none; }
+            .test-header .info { flex-direction: column; align-items: flex-start; gap: 8px; }
+            .options-container { flex-wrap: wrap; gap: 10px; }
+            .option { flex-basis: calc(50% - 20px); }
+            .essay-questions-container { flex-direction: column; }
+            .controls { top: 10px; left: 10px; }
+            .btn { padding: 10px 18px; font-size: 14px; }
+        }
+
+        @media print {
+            body { background-color: white; padding: 0; margin: 0; }
+            .page {
+                box-shadow: none; margin: 0; width: auto; min-height: 0;
+                height: auto; padding: 0; display: block; border-bottom: none;
+            }
+            .page:not(:last-of-type) { page-break-after: always; }
+            .controls, .page-footer, .feedback, .modal-overlay, .option input[type="radio"] { display: none !important; }
+            
+            /* NEW: Force horizontal layout for options during printing */
+            .options-container {
+                display: flex !important;
+                flex-wrap: nowrap !important;
+                justify-content: space-between !important;
+                gap: 5px !important; /* Reduced gap for print */
+            }
+
+            .option {
+                flex: 1; /* Make options share space equally */
+                border: 1px solid #ccc !important;
+                padding: 4px 8px !important;
+                font-size: 12px !important; /* Smaller font for print */
+            }
+
+            .option-label { /* Show an empty circle for printing */
+                border: 1.5px solid #555 !important;
+                background-color: white !important;
+                color: #555 !important;
+                 width: 20px !important;
+                height: 20px !important;
+            }
+
+            .essay-questions-container {
+                display: flex !important;
+                gap: 15px !important;
+                page-break-inside: avoid; /* Attempt to keep essay questions on the same page */
+            }
+            .essay-question-block { flex: 1; }
+            .answer-space, .answer-space-single-line, textarea {
+                border: 1px dotted #999 !important;
+                background-color: #f9f9f9 !important; /* Add a very light background to indicate answer area */
+                -webkit-print-color-adjust: exact; /* Force browsers to print background colors */
+                print-color-adjust: exact;
+            }
+
+
+            @page { size: A4; margin: 15mm; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="login-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h2>تسجيل الدخول للاختبار</h2>
+            <div class="form-group">
+                <label for="student-id-input">رقم الهوية (الأحوال/الإقامة):</label>
+                <input type="number" id="student-id-input" placeholder="أدخل رقم هويتك" required>
+            </div>
+            <div class="form-group">
+                <label for="student-class-input">الصف:</label>
+                <select id="student-class-input" required>
+                    <option value="" disabled selected>اختر صفك...</option>
+                    <option value="3-1">٣/أول</option>
+                    <option value="3-2">٣/ثاني</option>
+                    <option value="3-3">٣/ثالث</option>
+                </select>
+            </div>
+            <p id="login-status" class="modal-validation-message"></p>
+            <button class="btn correct-button" onclick="loginWithId()">دخول</button>
+        </div>
+    </div>
+    
+    <div id="result-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <h2>نتيجة الاختبار</h2>
+            <div class="result-grid">
+                <strong>اسم الطالب:</strong> <span id="result-student-name"></span>
+                <strong>الصف:</strong> <span id="result-student-class"></span>
+                <strong>مدة الحل:</strong> <span id="result-duration"></span>
+                <strong>رقم المحاولة:</strong> <span id="result-attempt"></span>
+                <strong>تاريخ الإجابة:</strong> <span id="result-date-time"></span>
+                <div class="result-score">الدرجة: <span id="result-score"></span></div>
+            </div>
+            <p class="submission-note"><strong>هام:</strong> يرجى أخذ لقطة شاشة لهذه النتيجة وإرسالها إلى الأستاذ عبر الواتساب لاعتمادها.</p>
+            <div class="modal-buttons">
+                <button class="btn review-button" onclick="reviewAnswers()">مراجعة الإجابات</button>
+                <button class="btn retry-button" onclick="retryTest()">إعادة الاختبار</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="controls" style="display: none;">
+        <button class="btn print-button" onclick="window.print()">طباعة</button>
+        <button id="grade-all-btn" class="btn correct-button" onclick="gradeAll()">تصحيح الاختبار بالكامل</button>
+        <button id="show-result-btn" class="btn correct-button" onclick="showResultModal()" style="display: none;">مشاهدة النتيجة</button>
+        <button id="retry-btn-main" class="btn retry-button" onclick="retryTest()" style="display: none;">إعادة الاختبار</button>
+    </div>
+
+    <div id="test-container" style="display: none;">
+        <div class="page">
+            <div class="page-content">
+                <div class="test-header">
+                    <h1>اختبار الوحدة 2. رياضيات تفاعلي</h1>
+                    <h2>الوحدة 2: الدوال الخطية والمتتابعات الحسابية</h2>
+                    <div class="info">
+                        <span><strong>اسم الطالب:</strong> <span id="display-student-name"></span></span>
+                        <span><strong>الصف:</strong> <span id="display-student-class"></span></span>
+                        <span><strong>التاريخ:</strong> <span id="display-test-date"></span></span>
+                    </div>
+                </div>
+
+                <div class="questions-grid">
+                    <div class="question-block" data-question-id="q1">
+                        <p class="question-prompt"><span class="question-number">١.</span><span class="question-title">أي من المعادلات التالية تمثل دالة خطية؟</span></p>
+                        <div class="options-container">
+                            <label class="option"><input type="radio" name="q1"><span class="option-label"></span><span class="option-text">ص = س<sup>٢</sup></span></label>
+                            <label class="option" data-correct="true"><input type="radio" name="q1"><span class="option-label"></span><span class="option-text">ص = ٥ - ٢س</span></label>
+                            <label class="option"><input type="radio" name="q1"><span class="option-label"></span><span class="option-text">ص = |س|</span></label>
+                            <label class="option"><input type="radio" name="q1"><span class="option-label"></span><span class="option-text">ص = <span class="fraction"><span class="numerator">١</span><span class="denominator">س</span></span></span></label>
+                        </div>
+                    </div>
+                    <div class="question-block" data-question-id="q2">
+                        <p class="question-prompt"><span class="question-number">٢.</span><span class="question-title">إذا كانت د(س) = ٢س - ٨، فما قيمة د(٦)؟</span></p>
+                        <div class="options-container">
+                            <label class="option"><input type="radio" name="q2"><span class="option-label"></span><span class="option-text">١٢</span></label>
+                            <label class="option" data-correct="true"><input type="radio" name="q2"><span class="option-label"></span><span class="option-text">٤</span></label>
+                            <label class="option"><input type="radio" name="q2"><span class="option-label"></span><span class="option-text">-٤</span></label>
+                            <label class="option"><input type="radio" name="q2"><span class="option-label"></span><span class="option-text">٢٠</span></label>
+                        </div>
+                    </div>
+                     <div class="question-block" data-question-id="q3">
+                        <p class="question-prompt"><span class="question-number">٣.</span><span class="question-title">تعتمد تكلفة فاتورة الكهرباء على كمية الاستهلاك. المتغير المستقل هو:</span></p>
+                        <div class="options-container">
+                            <label class="option"><input type="radio" name="q3"><span class="option-label"></span><span class="option-text">تكلفة الفاتورة</span></label>
+                            <label class="option" data-correct="true"><input type="radio" name="q3"><span class="option-label"></span><span class="option-text">كمية الاستهلاك</span></label>
+                            <label class="option"><input type="radio" name="q3"><span class="option-label"></span><span class="option-text">وقت الاستهلاك</span></label>
+                            <label class="option"><input type="radio" name="q3"><span class="option-label"></span><span class="option-text">عدد الأجهزة</span></label>
+                        </div>
+                    </div>
+                    <div class="question-block" data-question-id="q4">
+                        <p class="question-prompt"><span class="question-number">٤.</span><span class="question-title">ما هو مجال العلاقة { (٥، ٠)، (٢، ٨)، (١، ٣) } ؟</span></p>
+                        <div class="options-container">
+                             <label class="option"><input type="radio" name="q4"><span class="option-label"></span><span class="option-text">{٣، ٢، ١}</span></label>
+                             <label class="option"><input type="radio" name="q4"><span class="option-label"></span><span class="option-text">{١، ٨، ٥}</span></label>
+                             <label class="option" data-correct="true"><input type="radio" name="q4"><span class="option-label"></span><span class="option-text">{١، ٢، ٥}</span></label>
+                             <label class="option"><input type="radio" name="q4"><span class="option-label"></span><span class="option-text">{٠، ١، ٢، ٣، ٥، ٨}</span></label>
+                        </div>
+                    </div>
+                    <div class="question-block" data-question-id="q5">
+                        <p class="question-prompt"><span class="question-number">٥.</span><span class="question-title">ما هي الدالة المولدة (الأم) لجميع الدوال الخطية؟</span></p>
+                        <div class="options-container">
+                            <label class="option" data-correct="true"><input type="radio" name="q5"><span class="option-label"></span><span class="option-text">د(س) = س</span></label>
+                            <label class="option"><input type="radio" name="q5"><span class="option-label"></span><span class="option-text">د(س) = س<sup>٢</sup></span></label>
+                            <label class="option"><input type="radio" name="q5"><span class="option-label"></span><span class="option-text">د(س) = |س|</span></label>
+                            <label class="option"><input type="radio" name="q5"><span class="option-label"></span><span class="option-text">د(س) = ١</span></label>
+                        </div>
+                    </div>
+                    <div class="question-block" data-question-id="q6">
+                        <p class="question-prompt"><span class="question-number">٦.</span><span class="question-title">ما هو المقطع السيني للمعادلة ص = ٢؟</span></p>
+                        <div class="options-container">
+                            <label class="option"><input type="radio" name="q6"><span class="option-label"></span><span class="option-text">٢</span></label>
+                            <label class="option"><input type="radio" name="q6"><span class="option-label"></span><span class="option-text">٠</span></label>
+                            <label class="option"><input type="radio" name="q6"><span class="option-label"></span><span class="option-text">-٢</span></label>
+                            <label class="option" data-correct="true"><input type="radio" name="q6"><span class="option-label"></span><span class="option-text">لا يوجد</span></label>
+                        </div>
+                    </div>
+                     <div class="question-block" data-question-id="q7">
+                        <p class="question-prompt"><span class="question-number">٧.</span><span class="question-title">أوجد المقطعين السيني (س) والصادي (ص) للمعادلة ٣س + ٦ص = ١٨</span></p>
+                        <div class="options-container">
+                            <label class="option" data-correct="true"><input type="radio" name="q7"><span class="option-label"></span><span class="option-text">س=٦، ص=٣</span></label>
+                            <label class="option"><input type="radio" name="q7"><span class="option-label"></span><span class="option-text">س=٣، ص=٦</span></label>
+                             <label class="option"><input type="radio" name="q7"><span class="option-label"></span><span class="option-text">س=١٨، ص=١٨</span></label>
+                            <label class="option"><input type="radio" name="q7"><span class="option-label"></span><span class="option-text">س=-٦، ص=-٣</span></label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="page-footer">صفحة ١ من ٢</div>
+        </div>
+        
+        <div class="page">
+            <div class="page-content">
+                 <div class="questions-grid">
+                     <div class="question-block" data-question-id="q8">
+                        <p class="question-prompt"><span class="question-number">٨.</span><span class="question-title">عندما يتحرك الخط المستقيم للأعلى عند التحرك من اليسار إلى اليمين، يكون ميله:</span></p>
+                        <div class="options-container">
+                            <label class="option" data-correct="true"><input type="radio" name="q8"><span class="option-label"></span><span class="option-text">موجبًا</span></label>
+                            <label class="option"><input type="radio" name="q8"><span class="option-label"></span><span class="option-text">سالبًا</span></label>
+                            <label class="option"><input type="radio" name="q8"><span class="option-label"></span><span class="option-text">صفرًا</span></label>
+                            <label class="option"><input type="radio" name="q8"><span class="option-label"></span><span class="option-text">غير معرف</span></label>
+                        </div>
+                    </div>
+                     <div class="question-block" data-question-id="q9">
+                        <p class="question-prompt"><span class="question-number">٩.</span><span class="question-title">أوجد ميل المستقيم المار بالنقطتين (٢، ٥) و (٤، ٩).</span></p>
+                        <div class="options-container">
+                            <label class="option" data-correct="true"><input type="radio" name="q9"><span class="option-label"></span><span class="option-text">٢</span></label>
+                            <label class="option"><input type="radio" name="q9"><span class="option-label"></span><span class="option-text">-٢</span></label>
+                            <label class="option"><input type="radio" name="q9"><span class="option-label"></span><span class="option-text"><span class="fraction"><span class="numerator">١</span><span class="denominator">٢</span></span></span></label>
+                            <label class="option"><input type="radio" name="q9"><span class="option-label"></span><span class="option-text">٤</span></label>
+                        </div>
+                    </div>
+                     <div class="question-block" data-question-id="q10">
+                        <p class="question-prompt"><span class="question-number">١٠.</span><span class="question-title">ما ترتيب الحد الذي قيمته (٥٥) في المتتابعة الحسابية: ١٠، ١٥، ٢٠، ...؟</span></p>
+                        <div class="options-container">
+                            <label class="option" data-correct="true"><input type="radio" name="q10"><span class="option-label"></span><span class="option-text">الحد العاشر</span></label>
+                            <label class="option"><input type="radio" name="q10"><span class="option-label"></span><span class="option-text">الحد التاسع</span></label>
+                            <label class="option"><input type="radio" name="q10"><span class="option-label"></span><span class="option-text">الحد الحادي عشر</span></label>
+                            <label class="option"><input type="radio" name="q10"><span class="option-label"></span><span class="option-text">الحد الخامس</span></label>
+                        </div>
+                    </div>
+                     <div class="question-block" data-question-id="q11">
+                        <p class="question-prompt"><span class="question-number">١١.</span><span class="question-title">ما أساس المتتابعة الحسابية: -٥، -١، ٣، ٧، ...؟</span></p>
+                        <div class="options-container">
+                            <label class="option" data-correct="true"><input type="radio" name="q11"><span class="option-label"></span><span class="option-text">٤</span></label>
+                            <label class="option"><input type="radio" name="q11"><span class="option-label"></span><span class="option-text">-٤</span></label>
+                             <label class="option"><input type="radio" name="q11"><span class="option-label"></span><span class="option-text">٥</span></label>
+                            <label class="option"><input type="radio" name="q11"><span class="option-label"></span><span class="option-text">-٥</span></label>
+                        </div>
+                    </div>
+                     <div class="question-block" data-question-id="q12">
+                        <p class="question-prompt"><span class="question-number">١٢.</span><span class="question-title">ما معادلة الحد النوني للمتتابعة: ٤، ٩، ١٤، ١٩، ...؟</span></p>
+                        <div class="options-container">
+                            <label class="option"><input type="radio" name="q12"><span class="option-label"></span><span class="option-text">أ<sub>ن</sub> = ٥ن + ٤</span></label>
+                            <label class="option" data-correct="true"><input type="radio" name="q12"><span class="option-label"></span><span class="option-text">أ<sub>ن</sub> = ٥ن - ١</span></label>
+                            <label class="option"><input type="radio" name="q12"><span class="option-label"></span><span class="option-text">أ<sub>ن</sub> = ٤ن + ٥</span></label>
+                            <label class="option"><input type="radio" name="q12"><span class="option-label"></span><span class="option-text">أ<sub>ن</sub> = ٤ن - ١</span></label>
+                        </div>
+                    </div>
+                </div>
+
+                <h2 class="section-title">الأسئلة المقالية</h2>
+                
+                <div class="essay-questions-container">
+                    <div class="essay-question-block">
+                        <p class="question-prompt"><span class="question-number">١٣.</span><span class="question-title">أوجد صفر الدالة د(س) = ٣س - ٩. وضح خطوات الحل.</span></p>
+                        <textarea class="answer-space" id="q13-answer" placeholder="اكتب خطوات الحل هنا..."></textarea>
+                        <div class="feedback" id="q13-feedback"></div>
+                    </div>
+                    
+                    <div class="essay-question-block">
+                        <p class="question-prompt"><span class="question-number">١٤.</span><span class="question-title">لمتتابعة حسابية حدها الأول ٥ وأساسها ٣، أوجد قيمة الحد العشرين.</span></p>
+                        <div class="multi-part-answer">
+                            <input type="text" id="q14-part1" class="answer-space-single-line" placeholder="أ) اكتب الحدود الثلاثة الأولى للمتتابعة...">
+                            <textarea id="q14-part2" class="answer-space-single-line" rows="2" placeholder="ب) اكتب معادلة الحد النوني (أن)..."></textarea>
+                            <textarea class="answer-space" id="q14-part3" placeholder="ج) أوجد قيمة الحد العشرين (وضح الخطوات)..."></textarea>
+                        </div>
+                        <div class="feedback" id="q14-feedback"></div>
+                    </div>
+                </div>
+
+            </div>
+            <div class="page-footer">صفحة ٢ من ٢</div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let studentName = '', studentClass = '', startTime, attemptCount = 1;
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
+
+        // NEW: Check for a saved login when the page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            const savedStudent = localStorage.getItem('currentStudent');
+            if (savedStudent) {
+                // If student data is found, bypass the login modal and start the test
+                startTest(JSON.parse(savedStudent));
+            }
+        });
+
+        async function loginWithId() {
+            const studentId = document.getElementById('student-id-input').value.trim();
+            const classId = document.getElementById('student-class-input').value;
+            const statusElement = document.getElementById('login-status');
+            
+            if (!studentId || !classId) {
+                statusElement.textContent = 'يرجى إدخال رقم الهوية واختيار الصف.';
+                return;
+            }
+            statusElement.textContent = 'جاري التحقق من البيانات...';
+            
+            const url = `${SCRIPT_URL}?action=getStudentData&studentId=${studentId}&classId=${classId}`;
+            try {
+                const response = await fetch(url);
+                const result = await response.json();
+                if (result.status === 'success' && result.data) {
+                    // NEW: Save student data to local storage to persist the session
+                    localStorage.setItem('currentStudent', JSON.stringify(result.data));
+                    startTest(result.data);
+                } else {
+                    throw new Error(result.message || 'رقم الهوية أو الصف غير صحيح.');
+                }
+            } catch (error) {
+                console.error("Fetch Student Error:", error);
+                statusElement.textContent = `خطأ: ${error.message}`;
+            }
+        }
+
+        function startTest(student) {
+            studentName = student.name;
+            studentClass = student.class;
+            document.getElementById('login-modal').style.display = 'none';
+            document.getElementById('test-container').style.display = 'block';
+            document.querySelector('.controls').style.display = 'flex';
+            let storedAttempts = localStorage.getItem('mathTestAttempts_U2');
+            attemptCount = storedAttempts ? parseInt(storedAttempts) + 1 : 1;
+            localStorage.setItem('mathTestAttempts_U2', attemptCount);
+            document.getElementById('display-student-name').textContent = studentName;
+            document.getElementById('display-student-class').textContent = studentClass;
+            const today = new Date();
+            const hijriDate = new Intl.DateTimeFormat('ar-SA-u-ca-islamic-nu-arab', { day: 'numeric', month: 'long', year: 'numeric' }).format(today);
+            document.getElementById('display-test-date').textContent = hijriDate;
+            startTime = Date.now();
+            shuffleOptions();
+        }
+
+        function shuffleOptions() {
+            const questions = document.querySelectorAll('.question-block[data-question-id]');
+            const optionLabels = ['أ', 'ب', 'ج', 'د'];
+            questions.forEach(question => {
+                const container = question.querySelector('.options-container');
+                if (container) {
+                    const options = Array.from(container.children);
+                    for (let i = options.length - 1; i > 0; i--) {
+                        const j = Math.floor(Math.random() * (i + 1));
+                        [options[i], options[j]] = [options[j], options[i]];
+                    }
+                    container.innerHTML = '';
+                    options.forEach((option, index) => {
+                        option.querySelector('.option-label').textContent = optionLabels[index];
+                        container.appendChild(option);
+                    });
+                }
+            });
+        }
+        
+        function gradeMultipleChoice() {
+            let score = 0;
+            const questions = document.querySelectorAll('.question-block[data-question-id]');
+            document.querySelectorAll('.option').forEach(label => {
+                label.classList.remove('correct', 'incorrect');
+            });
+            questions.forEach(question => {
+                const questionId = question.dataset.questionId;
+                const userAnswerNode = document.querySelector(`input[name="${questionId}"]:checked`);
+                const correctAnswerNode = question.querySelector('.option[data-correct="true"]');
+                if (correctAnswerNode) correctAnswerNode.classList.add('correct');
+                if (userAnswerNode) {
+                    const selectedLabel = userAnswerNode.parentElement;
+                    if (selectedLabel.dataset.correct) {
+                        score++;
+                    } else {
+                        selectedLabel.classList.add('incorrect');
+                    }
+                }
+            });
+            return score;
+        }
+
+        function gradeEssays() {
+            let totalEssayScore = 0;
+            const clean = (text) => text.replace(/\s/g, '').replace(/،/g, ','); // Keep parens for now
+            const cleanAndSimple = (text) => text.replace(/[()]/g, '').replace(/\s/g, '').replace(/،/g, ',');
+
+
+            // Question 13
+            let score13 = 0;
+            const answer13 = document.getElementById('q13-answer').value;
+            const feedback13 = document.getElementById('q13-feedback');
+            const cleanAnswer13 = cleanAndSimple(answer13);
+            if (['3س-9=0', '٣س-٩=٠', '3س=9', '٣س=٩', 'د(س)=0', '٠=٣س-٩'].some(key => cleanAnswer13.includes(cleanAndSimple(key)))) score13 += 1;
+            if (['س=3', 'س=٣', '3=س', '٣=س'].some(key => cleanAnswer13.includes(cleanAndSimple(key)))) score13 += 1;
+            score13 = Math.min(score13, 2);
+            let feedbackText13 = `<strong>الدرجة: ${score13} / 2</strong><br>`;
+            feedbackText13 += score13 === 2 ? 'إجابة كاملة وصحيحة!' : `الحل النموذجي:<br>٣س - ٩ = ٠ &larr; <em>(درجة)</em><br><strong>س = ٣</strong> &larr; <em>(درجة)</em>`;
+            feedback13.className = score13 === 2 ? 'feedback correct' : 'feedback incorrect';
+            feedback13.innerHTML = feedbackText13;
+            feedback13.style.display = 'block';
+            totalEssayScore += score13;
+
+            // Question 14
+            let score14 = 0;
+            const answer14_part1 = document.getElementById('q14-part1').value;
+            const answer14_part2 = document.getElementById('q14-part2').value;
+            const answer14_part3 = document.getElementById('q14-part3').value;
+            const feedback14 = document.getElementById('q14-feedback');
+            
+            // --- Part 1 Grading (Sequence) ---
+            const cleanPart1 = cleanAndSimple(answer14_part1);
+            if ((cleanPart1.includes('5') || cleanPart1.includes('٥')) &&
+                (cleanPart1.includes('8') || cleanPart1.includes('٨')) &&
+                (cleanPart1.includes('11') || cleanPart1.includes('١١'))) {
+                score14 += 1;
+            }
+
+            // --- Part 2 Grading (Nth Term Formula) ---
+            const cleanPart2 = cleanAndSimple(answer14_part2).replace(/×/g, '*');
+            const hasNthTermExplicit = ['أن=5+(н-1)*3', 'أن=٥+(н-١)*٣'].some(key => cleanPart2.includes(cleanAndSimple(key)));
+            const hasNthTermSimplified = ((cleanPart2.includes('3н') || cleanPart2.includes('٣н')) && (cleanPart2.includes('+2') || cleanPart2.includes('+٢'))) ||
+                                        ((cleanPart2.includes('2+') || cleanPart2.includes('٢+')) && (cleanPart2.includes('3н') || cleanPart2.includes('٣н')));
+            if (hasNthTermExplicit || hasNthTermSimplified) {
+                score14 += 1;
+            }
+
+            // --- Part 3 Grading (20th Term Calculation) ---
+            // A more robust cleaning for this part to handle implicit multiplication
+            let cleanPart3 = clean(answer14_part3)
+                                .replace(/×/g, '*')
+                                .replace(/(\d)\(/g, '$1*(') // 3(20) -> 3*(20)
+                                .replace(/\)(\d)/g, ')*$1'); // (20)3 -> (20)*3
+
+            const finalAnswerFound = cleanPart3.includes("62") || cleanPart3.includes("٦٢");
+            
+            const substitutionChecks = [
+                '5+19*3', '٥+١٩*٣', '5+57', '٥+٥٧', '3*20+2', '٣*٢٠+٢', '60+2', '٦٠+٢',
+                '2+3*20', '٢+٣*٢٠', '2+60', '٢+٦٠', '5+(20-1)*3', '٥+(٢٠-١)*٣'
+            ];
+            
+            // Remove all spaces and parentheses for final check
+            cleanPart3 = cleanAndSimple(cleanPart3);
+
+            let stepFound = substitutionChecks.some(key => cleanPart3.includes(cleanAndSimple(key)));
+
+            if (finalAnswerFound) {
+                score14++;
+            }
+            if (stepFound) {
+                score14++;
+            }
+            // Ensure student doesn't get 2 points just for writing "62" and a simple form like "60+2"
+            if (finalAnswerFound && stepFound && (cleanPart3 === "62" || cleanPart3 === "٦٢")){
+                 score14--; // If the only thing written is the final answer, it shouldn't count as a step.
+            }
+
+
+            score14 = Math.min(score14, 4);
+            let feedbackText14 = `<strong>الدرجة: ${score14} / 4</strong><br>`;
+            feedbackText14 += score14 === 4 ? 'إجابة كاملة وصحيحة!' : `الحل النموذجي:<br><strong>أ) الحدود:</strong> ٥، ٨، ١١ <em>(درجة)</em><br><strong>ب) معادلة الحد النوني:</strong> أن = ٣ن + ٢ <em>(درجة)</em><br><strong>ج) قيمة الحد ٢٠:</strong> ٦٢ <em>(درجتان)</em>`;
+            feedback14.className = score14 === 4 ? 'feedback correct' : 'feedback incorrect';
+            feedback14.innerHTML = feedbackText14;
+            feedback14.style.display = 'block';
+            totalEssayScore += score14;
+            
+            return totalEssayScore;
+        }
+
+        function formatDuration(ms) {
+            const totalSeconds = Math.floor(ms / 1000);
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = totalSeconds % 60;
+            return `${minutes} دقيقة و ${seconds.toString().padStart(2, '0')} ثانية`;
+        }
+        
+        function gradeAll() {
+            if (!studentName || !studentClass) { console.error('Student data not found.'); return; }
+            document.getElementById('grade-all-btn').disabled = true;
+            const totalScore = gradeMultipleChoice() + gradeEssays();
+            const duration = formatDuration(Date.now() - startTime);
+            const completionTime = new Intl.DateTimeFormat('ar-SA', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date());
+
+            document.getElementById('result-student-name').textContent = studentName;
+            document.getElementById('result-student-class').textContent = studentClass;
+            document.getElementById('result-date-time').textContent = completionTime;
+            document.getElementById('result-duration').textContent = duration;
+            document.getElementById('result-attempt').textContent = attemptCount;
+            document.getElementById('result-score').textContent = `${totalScore} / 18`;
+            
+            document.getElementById('result-modal').style.display = 'flex';
+            document.getElementById('grade-all-btn').style.display = 'none';
+            document.getElementById('show-result-btn').style.display = 'block';
+            document.getElementById('retry-btn-main').style.display = 'block';
+        }
+        
+        function showResultModal() { document.getElementById('result-modal').style.display = 'flex'; }
+        
+        // MODIFIED: This function now resets the test state without reloading the page.
+        function retryTest() {
+            // 1. Hide result modal and reset control buttons
+            document.getElementById('result-modal').style.display = 'none';
+            document.getElementById('grade-all-btn').style.display = 'block';
+            document.getElementById('grade-all-btn').disabled = false;
+            document.getElementById('show-result-btn').style.display = 'none';
+            document.getElementById('retry-btn-main').style.display = 'none';
+
+            // 2. Clear all previous answers and visual feedback
+            document.querySelectorAll('input[type="radio"]').forEach(radio => {
+                radio.checked = false;
+            });
+            document.querySelectorAll('.option').forEach(option => {
+                option.classList.remove('correct', 'incorrect');
+            });
+            document.getElementById('q13-answer').value = '';
+            document.getElementById('q14-part1').value = '';
+            document.getElementById('q14-part2').value = '';
+            document.getElementById('q14-part3').value = '';
+            document.querySelectorAll('.feedback').forEach(feedback => {
+                feedback.style.display = 'none';
+                feedback.innerHTML = '';
+            });
+
+            // 3. Prepare for the new attempt
+            shuffleOptions();
+            startTime = Date.now();
+            
+            // Increment attempt count for the new try
+            attemptCount++;
+            localStorage.setItem('mathTestAttempts_U2', attemptCount);
+            document.getElementById('result-attempt').textContent = attemptCount;
+
+            // Scroll to the top of the page to start fresh
+            window.scrollTo(0, 0);
+        }
+
+        function reviewAnswers() { document.getElementById('result-modal').style.display = 'none'; }
+    </script>
+</body>
+</html>
+
+
 

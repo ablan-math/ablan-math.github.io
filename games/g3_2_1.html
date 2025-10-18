@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لعبة معادلة الخط المستقيم</title>
+    <!-- استخدام Tailwind CSS للتصميم السريع والمتجاوب --><script src="https://cdn.tailwindcss.com"></script>
+    <!-- استيراد خط عربي لتحسين الواجهة --><link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        /* تخصيص الخط والأنماط الأساسية */
+        body {
+            font-family: 'Tajawal', sans-serif;
+            -webkit-tap-highlight-color: transparent; /* إزالة التظليل عند النقر على الأجهزة اللمسية */
+            /* الخلفية الجديدة */
+            background-image: url('https://ablan-math.github.io/img/g3_2/g3_2.jpg');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed; /* لتثبيت الخلفية عند التمرير وضمان امتدادها */
+        }
+        /* تصميم مخصص للزر ليعطي شعوراً أفضل عند النقر */
+        .answer-btn {
+            transition: transform 0.1s ease, box-shadow 0.1s ease;
+        }
+        .answer-btn:active {
+            transform: translateY(2px);
+            box-shadow: none;
+        }
+        /* أنماط للإجابات الصحيحة والخاطئة */
+        .correct {
+            background-color: #28a745 !important; /* أخضر */
+            color: white !important;
+            border-color: #218838 !important;
+            animation: pulse 0.6s ease;
+        }
+        .incorrect {
+            background-color: #dc3545 !important; /* أحمر */
+            color: white !important;
+            border-color: #c82333 !important;
+            animation: shake 0.6s ease;
+        }
+        /* حركات بسيطة لإضافة لمسة جمالية */
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.03); }
+            100% { transform: scale(1); }
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-5px); }
+            40%, 80% { transform: translateX(5px); }
+        }
+        .disabled-options {
+            pointer-events: none;
+            opacity: 0.8;
+        }
+        /* أنماط شاشة الشرح (Modal) */
+        .modal {
+            transition: opacity 0.3s ease;
+        }
+        .modal-content {
+            transition: transform 0.3s ease;
+        }
+
+        /* تعديلات على الألوان لتناسب الخلفية الذهبية/البنية */
+        .card-bg {
+            background-color: rgba(255, 255, 255, 0.9);
+        }
+        #score-container {
+             background-color: rgba(255, 255, 255, 0.95);
+             color: #8B4513; /* بني */
+        }
+        #question-container {
+            background-color: rgba(250, 240, 230, 0.9); /* بيج فاتح */
+            border-color: #deb887; /* ذهبي باهت */
+            color: #2c3e50;
+        }
+        .text-blue-600 { /* لون أرقام السؤال */
+            color: #8B4513; /* بني */
+        }
+        .text-slate-700 {
+            color: #3d2b1f; /* بني داكن */
+        }
+        .answer-btn {
+            background-color: rgba(255, 255, 255, 0.9);
+            border-color: #d2b48c; /* تان */
+        }
+        .answer-btn:hover {
+            background-color: rgba(253, 245, 230, 0.95);
+            border-color: #c7993b; /* ذهبي */
+        }
+        .text-amber-500 {
+            color: #ffc107; /* أصفر ذهبي للكأس */
+        }
+        
+        #explanation-button {
+            background-color: rgba(220, 220, 220, 0.9);
+            color: #34495e;
+        }
+        #explanation-button:hover {
+            background-color: rgba(200, 200, 200, 0.95);
+        }
+        .text-green-700 { color: #28a745; }
+        .bg-green-100 { background-color: #d4edda; }
+        .border-green-300 { border-color: #c3e6cb; }
+        .text-red-600 { color: #dc3545; }
+        .bg-blue-50 { background-color: rgba(253, 245, 230, 0.8); }
+        .text-blue-700 { color: #8B4513; }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-4">
+
+    <!-- شاشة البداية --><div id="start-screen" class="w-full max-w-md mx-auto p-6 card-bg rounded-2xl shadow-2xl text-center">
+        <h1 class="text-3xl font-bold text-[#b8860b] mb-4">تحدي المعادلة الخطية</h1>
+        <p id="welcomeMessage" class="text-slate-700 text-base mb-6">اختبر مهارتك في إيجاد معادلة الخط المستقيم بصيغة الميل والمقطع.</p>
+        <p class="text-slate-700 font-medium mb-8 bg-blue-50 p-3 rounded-lg border border-[#deb887]">💡 نصيحة: جهّز ورقة وقلمًا لتساعدك في الحل!</p>
+        <button id="start-button" class="w-full bg-[#c7993b] text-white font-bold py-3 px-4 rounded-xl hover:bg-[#a97e28] focus:outline-none focus:ring-4 focus:ring-[#c7993b]/50 transition-all duration-300 shadow-lg text-lg">
+            ابدأ التحدي!
+        </button>
+        <p class="text-sm text-slate-500 mt-8">إعداد وبرمجة: أ. عبدالعزيز خالد العبلان</p>
+    </div>
+
+    <!-- حاوية اللعبة الرئيسية (مخفية في البداية) --><div id="game-container" class="hidden w-full max-w-md mx-auto p-4 md:p-6 card-bg rounded-2xl shadow-2xl text-center flex flex-col">
+        <!-- SVG Icons --><div class="hidden">
+            <svg id="trophy-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
+            <svg id="checkmark-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            <svg id="cross-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        </div>
+        
+        <div class="flex-grow">
+            <div id="score-container" class="flex justify-center items-center gap-2 text-lg font-bold text-amber-500 mb-4 rounded-lg shadow-inner">
+                <div id="trophy-container"></div>
+                <span>النقاط: </span>
+                <span id="score">٠</span>
+            </div>
+            <div id="question-container" class="p-4 border-2 rounded-lg mb-4 text-lg font-bold transition-all duration-300 shadow-md">
+                <p id="question-text">لنبدأ التحدي!</p>
+            </div>
+            <div id="answers-container" class="grid grid-cols-2 gap-3"></div>
+        </div>
+        
+        <div class="mt-auto pt-4">
+            <div id="feedback-container" class="mb-2 h-8 flex items-center justify-center transition-all duration-300"></div>
+            <div id="controls-container" class="grid grid-cols-2 gap-3">
+                <button id="explanation-button" class="hidden w-full text-gray-700 font-bold py-2 px-3 rounded-lg hover:bg-gray-300 focus:outline-none focus:ring-4 focus:ring-gray-300 transition-all duration-300 text-sm shadow-sm">اعرف لماذا؟</button>
+                <button id="next-button" class="hidden w-full bg-[#c7993b] text-white font-bold py-2 px-3 rounded-lg hover:bg-[#a97e28] focus:outline-none focus:ring-4 focus:ring-[#c7993b]/50 transition-all duration-300 shadow-lg text-base">السؤال التالي</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- شاشة النهاية --><div id="finish-screen" class="hidden w-full max-w-md mx-auto p-6 card-bg rounded-2xl shadow-2xl text-center">
+        <h2 class="text-3xl font-bold text-[#b8860b] mb-4">انتهى التحدي!</h2>
+        <div id="final-result-display" class="space-y-2 mb-6">
+            <!-- النتائج ستعرض هنا -->
+        </div>
+        <div id="leaderboard-loader" style="display: none;" class="flex justify-center items-center">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+        </div>
+        <div id="leaderboard-container">
+            <!-- سجل الأبطال سيعرض هنا -->
+        </div>
+        <div id="finish-game-wrapper" style="display: none;" class="mt-6">
+             <button id="finish-game-btn" class="w-full bg-[#c7993b] text-white font-bold py-3 px-4 rounded-xl hover:bg-[#a97e28] focus:outline-none focus:ring-4 focus:ring-[#c7993b]/50 transition-all duration-300 shadow-lg text-lg">العودة للمنصة</button>
+        </div>
+    </div>
+
+    <!-- شاشة الشرح (Modal) --><div id="explanation-modal" class="modal hidden fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50">
+        <div class="modal-content w-full max-w-md bg-white/80 backdrop-blur-sm rounded-2xl p-5 shadow-xl text-right scale-95 opacity-0">
+            <div class="flex justify-between items-center mb-3">
+                <h2 class="text-xl font-bold text-[#b8860b]">خطوات الحل</h2>
+                <button id="close-modal-button" class="text-slate-400 hover:text-slate-600 text-3xl leading-none">&times;</button>
+            </div>
+            <div id="explanation-content" class="text-slate-700 space-y-2 leading-relaxed text-sm"></div>
+        </div>
+    </div>
+
+    <script>
+        // --- عناصر الواجهة ---
+        const startScreenEl = document.getElementById('start-screen');
+        const gameContainerEl = document.getElementById('game-container');
+        const finishScreenEl = document.getElementById('finish-screen');
+        const startButtonEl = document.getElementById('start-button');
+        const questionTextEl = document.getElementById('question-text');
+        const answersContainerEl = document.getElementById('answers-container');
+        const feedbackContainerEl = document.getElementById('feedback-container');
+        const nextButtonEl = document.getElementById('next-button');
+        const scoreEl = document.getElementById('score');
+        const trophyContainerEl = document.getElementById('trophy-container');
+        const explanationButtonEl = document.getElementById('explanation-button');
+        const explanationModalEl = document.getElementById('explanation-modal');
+        const explanationContentEl = document.getElementById('explanation-content');
+        const closeModalButtonEl = document.getElementById('close-modal-button');
+
+        // --- حالة اللعبة ---
+        let state = {
+            score: 0,
+            currentQuestionDetails: {},
+            questionCount: 0,
+        };
+        const TOTAL_QUESTIONS = 5;
+        let startTime;
+
+        // --- دوال مساعدة ---
+        const getRandomInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+        const toArabicNumerals = (num) => {
+            const arabicNumerals = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+            return String(num).replace(/[0-9.-]/g, (d) => {
+                if (d === '-') return '-';
+                if (d === '.') return '٫';
+                return arabicNumerals[parseInt(d)];
+            });
+        };
+        const shuffleArray = (array) => {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        };
+        const formatEquation = (m, b) => {
+            if (m === 0) return `ص = ${toArabicNumerals(b)}`;
+            let equation = 'ص = ';
+            if (m === 1) equation += 'س';
+            else if (m === -1) equation += '-س';
+            else equation += `${toArabicNumerals(m)} س`;
+            if (b > 0) equation += ` + ${toArabicNumerals(b)}`;
+            else if (b < 0) equation += ` - ${toArabicNumerals(Math.abs(b))}`;
+            return equation;
+        };
+        
+        // --- منطق اللعبة ---
+        function generateQuestion() {
+            state.questionCount++;
+            let questionType;
+            if (state.questionCount === 1) questionType = 'direct';
+            else if (state.questionCount <= 3) questionType = 'pointSlope';
+            else if (state.questionCount <= 5) questionType = 'twoPoints';
+            
+            let m = getRandomInt(-5, 5);
+            if (m === 0) m = getRandomInt(1, 4) * (Math.random() < 0.5 ? 1 : -1);
+            let b = getRandomInt(-10, 10);
+            
+            if (questionType === 'direct') {
+                questionTextEl.innerHTML = `ما هي معادلة المستقيم الذي ميله <span class="text-blue-600">${toArabicNumerals(m)}</span> ومقطعه الصادي <span class="text-blue-600">${toArabicNumerals(b)}</span>؟`;
+                state.currentQuestionDetails = { questionType, m, b };
+            } else {
+                let x1 = getRandomInt(-5, 5);
+                let y1 = m * x1 + b;
+                state.currentQuestionDetails = { questionType, m, b, x1, y1 };
+                if (questionType === 'pointSlope') {
+                    questionTextEl.innerHTML = `ما هي معادلة المستقيم الذي ميله <span class="text-blue-600">${toArabicNumerals(m)}</span> ويمر بالنقطة <span class="text-blue-600">(${toArabicNumerals(x1)}، ${toArabicNumerals(y1)})</span>؟`;
+                } else { // twoPoints
+                    let x2;
+                    do { x2 = getRandomInt(-5, 5); } while (x2 === x1);
+                    let y2 = m * x2 + b;
+                    state.currentQuestionDetails.x2 = x2;
+                    state.currentQuestionDetails.y2 = y2;
+                    questionTextEl.innerHTML = `ما هي معادلة المستقيم الذي يمر بالنقطتين <span class="text-blue-600">(${toArabicNumerals(x1)}، ${toArabicNumerals(y1)})</span> و <span class="text-blue-600">(${toArabicNumerals(x2)}، ${toArabicNumerals(y2)})</span>؟`;
+                }
+            }
+            
+            const options = [{ m, b, correct: true }];
+            const addedOptions = new Set([`${m},${b}`]);
+
+            // **منطق جديد للإجابات المضللة**
+            // 1. إضافة خيار بنفس الميل ومقطع خاطئ
+            if (options.length < 4) {
+                let wrongB;
+                do { wrongB = b + getRandomInt(-5, 5); } while (wrongB === b);
+                const optionKey = `${m},${wrongB}`;
+                if (!addedOptions.has(optionKey)) {
+                    options.push({ m: m, b: wrongB, correct: false });
+                    addedOptions.add(optionKey);
+                }
+            }
+
+            // 2. تعبئة باقي الخيارات بشكل متنوع
+            while (options.length < 4) {
+                let wrongM, wrongB;
+                // 50% فرصة لإنشاء خيار آخر بنفس الميل (لمزيد من التحدي)
+                if (Math.random() < 0.5) {
+                    wrongM = m;
+                    do { wrongB = b + getRandomInt(-6, 6); } while (wrongB === b);
+                } else {
+                    // خيار بميل مختلف
+                    do {
+                        wrongM = m + getRandomInt(-2, 2);
+                        wrongB = b + getRandomInt(-5, 5);
+                    } while (wrongM === m); // نضمن أن الميل مختلف
+                }
+                
+                const optionKey = `${wrongM},${wrongB}`;
+                if (!addedOptions.has(optionKey)) {
+                    options.push({ m: wrongM, b: wrongB, correct: false });
+                    addedOptions.add(optionKey);
+                }
+            }
+            shuffleArray(options);
+            displayOptions(options);
+        }
+
+        function displayOptions(options) {
+            answersContainerEl.innerHTML = '';
+            options.forEach(option => {
+                const button = document.createElement('button');
+                button.className = 'answer-btn w-full p-3 border-2 rounded-lg text-base font-bold hover:border-[#c7993b] focus:outline-none focus:ring-2 focus:ring-[#c7993b]/50 shadow-md';
+                button.textContent = formatEquation(option.m, option.b);
+                button.onclick = () => checkAnswer(option.correct, button);
+                answersContainerEl.appendChild(button);
+            });
+        }
+        
+        function checkAnswer(isCorrect, button) {
+            answersContainerEl.classList.add('disabled-options');
+            explanationButtonEl.classList.remove('hidden');
+            feedbackContainerEl.innerHTML = '';
+
+            if (isCorrect) {
+                state.score += 10;
+                scoreEl.textContent = toArabicNumerals(state.score);
+                button.classList.add('correct');
+                const feedbackIcon = document.getElementById('checkmark-icon').cloneNode(true);
+                const feedbackText = document.createElement('span');
+                feedbackIcon.classList.add('text-green-500', 'w-7', 'h-7');
+                feedbackText.className = 'text-green-600 font-bold text-lg mr-2';
+                feedbackText.textContent = 'إجابة رائعة!';
+                feedbackContainerEl.appendChild(feedbackText);
+                feedbackContainerEl.appendChild(feedbackIcon);
+            } else {
+                button.classList.add('incorrect');
+                const correctButton = Array.from(answersContainerEl.children).find(btn => btn.textContent === formatEquation(state.currentQuestionDetails.m, state.currentQuestionDetails.b));
+                if(correctButton) correctButton.classList.add('correct');
+                const feedbackIcon = document.getElementById('cross-icon').cloneNode(true);
+                feedbackIcon.classList.add('text-red-500', 'w-7', 'h-7');
+                feedbackContainerEl.appendChild(feedbackIcon);
+            }
+            
+            if(state.questionCount >= TOTAL_QUESTIONS){
+                nextButtonEl.textContent = 'عرض النتيجة';
+            }
+            nextButtonEl.classList.remove('hidden');
+        }
+        
+        function handleNextStep(){
+            if(state.questionCount >= TOTAL_QUESTIONS){
+                endGame();
+            } else {
+                resetForNextQuestion();
+            }
+        }
+
+        function endGame(){
+            const endTime = new Date();
+            const totalTimeInSeconds = Math.round((endTime - startTime) / 1000);
+            gameContainerEl.classList.add('hidden');
+            finishScreenEl.classList.remove('hidden');
+            saveAndFinishGame(state.score, totalTimeInSeconds);
+        }
+
+        function generateExplanationHTML() {
+            const { questionType, m, b, x1, y1, x2, y2 } = state.currentQuestionDetails;
+            let html = '';
+            if (questionType === 'direct') {
+                html = `<p>لإيجاد المعادلة مباشرةً من الميل والمقطع:</p>
+                    <ol class="list-decimal list-inside space-y-2 mt-2">
+                        <li>نبدأ بالصيغة: <code class="font-mono text-blue-700 bg-blue-50 p-1 rounded">ص = م س + ب</code></li>
+                        <li>لدينا الميل <strong class="text-red-600">م = ${toArabicNumerals(m)}</strong> والمقطع <strong class="text-red-600">ب = ${toArabicNumerals(b)}</strong>.</li>
+                        <li>نعوض مباشرةً في الصيغة:
+                            <div class="text-center my-2"><code class="font-bold text-base text-green-700 bg-green-100 p-2 rounded-lg border-2 border-green-300 inline-block">${formatEquation(m,b)}</code></div>
+                        </li></ol>`;
+            } else if (questionType === 'pointSlope') {
+                html = `<p>لإيجاد المعادلة من ميل ونقطة:</p>
+                    <ol class="list-decimal list-inside space-y-2 mt-2">
+                        <li>نبدأ بالصيغة: <code class="font-mono text-blue-700 bg-blue-50 p-1 rounded">ص = م س + ب</code></li>
+                        <li>لدينا الميل <strong class="text-red-600">م = ${toArabicNumerals(m)}</strong>. ونريد إيجاد (ب).</li>
+                        <li>نعوض بالنقطة <strong class="text-red-600">(${toArabicNumerals(x1)}، ${toArabicNumerals(y1)})</strong> والميل في الصيغة:
+                            <br><code class="font-mono text-blue-700 bg-blue-50 p-1 rounded">${toArabicNumerals(y1)} = (${toArabicNumerals(m)}) × (${toArabicNumerals(x1)}) + ب</code></li>
+                        <li>نبسط المعادلة لإيجاد (ب):
+                            <br><code class="font-mono text-blue-700 bg-blue-50 p-1 rounded">${toArabicNumerals(y1)} = ${toArabicNumerals(m * x1)} + ب</code>
+                            <br><code class="font-mono text-blue-700 bg-blue-50 p-1 rounded">ب = ${toArabicNumerals(y1)} - (${toArabicNumerals(m * x1)}) = ${toArabicNumerals(b)}</code></li>
+                        <li>نكتب المعادلة النهائية:
+                            <div class="text-center my-2"><code class="font-bold text-base text-green-700 bg-green-100 p-2 rounded-lg border-2 border-green-300 inline-block">${formatEquation(m,b)}</code></div>
+                        </li></ol>`;
+            } else { // twoPoints
+                 const fractionHTML = (num, den) => `<span class="inline-flex flex-col text-center align-middle mx-1 leading-none"><span class="px-1 pb-1">${num}</span><span class="border-t-2 border-current w-full"></span><span class="px-1 pt-1">${den}</span></span>`;
+                 html = `<p>لإيجاد المعادلة من نقطتين:</p>
+                    <ol class="list-decimal list-inside space-y-2 mt-2">
+                        <li>أولاً، نحسب الميل (م):
+                            <div class="flex items-center justify-center bg-blue-50 p-2 rounded my-1 text-blue-700 font-mono text-sm">
+                                <span class="mx-1">م =</span>${fractionHTML('ص₂ - ص₁', 'س₂ - س₁')}<span class="mx-1">=</span>${fractionHTML(`${toArabicNumerals(y2)} - (${toArabicNumerals(y1)})`, `${toArabicNumerals(x2)} - (${toArabicNumerals(x1)})`)}<span class="mx-1">= ${toArabicNumerals(m)}</span>
+                            </div>
+                        </li>
+                        <li>الآن نستخدم الميل مع إحدى النقطتين (مثلاً الأولى) لإيجاد المقطع (ب).</li>
+                        <li>نعوض بالنقطة <strong class="text-red-600">(${toArabicNumerals(x1)}، ${toArabicNumerals(y1)})</strong> والميل:
+                            <br><code class="font-mono text-blue-700 bg-blue-50 p-1 rounded">${toArabicNumerals(y1)} = (${toArabicNumerals(m)}) × (${toArabicNumerals(x1)}) + ب</code></li>
+                        <li>نبسط لإيجاد (ب):<br><code class="font-mono text-blue-700 bg-blue-50 p-1 rounded">ب = ${toArabicNumerals(b)}</code></li>
+                        <li>نكتب المعادلة النهائية:
+                            <div class="text-center my-2"><code class="font-bold text-base text-green-700 bg-green-100 p-2 rounded-lg border-2 border-green-300 inline-block">${formatEquation(m,b)}</code></div>
+                        </li></ol>`;
+            }
+            return html;
+        }
+
+        function showExplanation() {
+            explanationContentEl.innerHTML = generateExplanationHTML();
+            explanationModalEl.classList.remove('hidden');
+            setTimeout(() => {
+                explanationModalEl.classList.remove('opacity-0');
+                explanationModalEl.querySelector('.modal-content').classList.remove('scale-95', 'opacity-0');
+                explanationModalEl.querySelector('.modal-content').classList.add('scale-100', 'opacity-100');
+            }, 10);
+        }
+
+        function hideExplanation() {
+             explanationModalEl.querySelector('.modal-content').classList.remove('scale-100', 'opacity-100');
+             explanationModalEl.querySelector('.modal-content').classList.add('scale-95', 'opacity-0');
+             explanationModalEl.classList.add('opacity-0');
+             setTimeout(() => {
+                explanationModalEl.classList.add('hidden');
+             }, 300);
+        }
+
+        function resetForNextQuestion() {
+            answersContainerEl.classList.remove('disabled-options');
+            feedbackContainerEl.innerHTML = '';
+            nextButtonEl.classList.add('hidden');
+            explanationButtonEl.classList.add('hidden');
+            generateQuestion();
+        }
+
+        function initializeGame() {
+            startButtonEl.addEventListener('click', () => {
+                state.score = 0;
+                state.questionCount = 0;
+                scoreEl.textContent = toArabicNumerals(state.score);
+                startTime = new Date();
+                startScreenEl.classList.add('hidden');
+                gameContainerEl.classList.remove('hidden');
+                finishScreenEl.classList.add('hidden');
+                resetForNextQuestion();
+            });
+            
+            trophyContainerEl.appendChild(document.getElementById('trophy-icon').cloneNode(true));
+            nextButtonEl.addEventListener('click', handleNextStep);
+            explanationButtonEl.addEventListener('click', showExplanation);
+            closeModalButtonEl.addEventListener('click', hideExplanation);
+            explanationModalEl.addEventListener('click', (e) => {
+                if (e.target === explanationModalEl) hideExplanation();
+            });
+        }
+        
+        document.addEventListener('DOMContentLoaded', initializeGame);
+
+// --- START OF CONNECTION & LEADERBOARD ENGINE ---
+(function() {
+    // --- CONFIGURATION (عدّل هذه الإعدادات لكل لعبة) ---
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
+    const GAME_ID = 'g3_2_1';                       // مثال: 'g1_1_1'
+    const GAME_MAX_POINTS = 50;                     // أقصى نقاط في اللعبة
+    const PLATFORM_MAX_GRADE = 5;                   // الدرجة النهائية في المنصة
+    const METRIC_TYPE = 'time';                     // نوع المعيار: 'time', 'stars', 'errors'
+    const METRIC_LABEL = 'الوقت (ثواني)';           // اسم المعيار للعرض في الجدول
+
+    // --- Read URL Parameters ---
+    const urlParams = new URLSearchParams(window.location.search);
+    const studentId = urlParams.get('studentId');
+    const classId = urlParams.get('classId');
+    const studentName = urlParams.get('studentName');
+
+    let currentUser = (studentId && studentName) ? { id: studentId, name: studentName } : null;
+
+    // --- CORE FUNCTIONS ---
+
+    // 1. الدالة الرئيسية التي تستدعيها عند انتهاء اللعبة
+    window.saveAndFinishGame = function(points, metricValue) {
+        const finalPoints = parseFloat(points) || 0;
+        const finalMetric = parseFloat(metricValue) || 0;
+        const maxPoints = parseFloat(GAME_MAX_POINTS) || 1;
+        const finalGrade = (finalPoints / maxPoints) * PLATFORM_MAX_GRADE;
+
+        const resultDisplay = document.getElementById('final-result-display');
+        if (resultDisplay) {
+            resultDisplay.innerHTML = `
+                <p class="text-gray-700">النقاط: <span class="font-bold text-xl">${finalPoints} / ${maxPoints}</span></p>
+                <p class="text-[#b8860b]">الدرجة في المنصة: <span class="font-bold text-2xl">${finalGrade.toFixed(1)} / ${PLATFORM_MAX_GRADE}</span></p>
+            `;
+        }
+
+        if (studentId && classId) {
+            const params = new URLSearchParams({
+                action: 'saveGrade',
+                studentId: studentId,
+                classId: classId,
+                itemId: GAME_ID,
+                grade: finalGrade.toFixed(2),
+                metricValue: Math.round(finalMetric).toString()
+            });
+            fetch(`${SCRIPT_URL}?${params.toString()}`)
+                .then(res => res.json())
+                .then(result => console.log('Save result:', result.status))
+                .catch(err => console.error("Save Error:", err))
+                .finally(fetchAndShowLeaderboard);
+        } else {
+            console.log(`Visitor finished. Score: ${finalPoints}, Metric: ${finalMetric}`);
+            fetchAndShowLeaderboard();
+        }
+    }
+
+    // 2. دالة جلب وعرض سجل الأبطال
+    function fetchAndShowLeaderboard() {
+        const loader = document.getElementById('leaderboard-loader');
+        const container = document.getElementById('leaderboard-container');
+        if (!loader || !container) return;
+        
+        if (!classId) {
+            console.log("No classId found, skipping leaderboard for visitor.");
+            container.innerHTML = `<p class="text-center text-gray-500 mt-4">سجل الأبطال متاح للطلاب المسجلين فقط.</p>`;
+            showFinishButton();
+            return;
+        }
+
+        loader.style.display = 'block';
+        container.innerHTML = '';
+
+        const params = new URLSearchParams({
+            action: 'getLeaderboard',
+            gameId: GAME_ID,
+            metricType: METRIC_TYPE,
+            classId: classId
+        });
+
+        fetch(`${SCRIPT_URL}?${params.toString()}`)
+            .then(res => res.json())
+            .then(response => {
+                if (response.status === 'success' && response.data) {
+                    displayLeaderboard(response.data);
+                } else {
+                    throw new Error(response.message || 'Failed to load leaderboard data.');
+                }
+            })
+            .catch(err => {
+                console.error("Leaderboard Error:", err);
+                container.innerHTML = `<p class="text-center text-red-500">حدث خطأ في تحميل سجل الأبطال.</p>`;
+            })
+            .finally(() => {
+                loader.style.display = 'none';
+                showFinishButton();
+            });
+    }
+    
+    // 3. دالة بناء جدول سجل الأبطال
+    function displayLeaderboard(data) {
+        const container = document.getElementById('leaderboard-container');
+        if (!data || data.length === 0) {
+            container.innerHTML = `<p class="text-center text-gray-500 mt-4">لا توجد نتائج بعد. كن أول الأبطال!</p>`;
+            return;
+        }
+
+        let tableHTML = `
+            <div class="mt-6 border-t pt-4">
+                <h3 class="text-2xl font-bold text-center text-gray-800 mb-4">🏆 سجل الأبطال 🏆</h3>
+                <table class="min-w-full bg-white shadow-md rounded-lg">
+                    <thead class="bg-gray-800 text-white">
+                        <tr>
+                            <th class="text-center py-2 px-3">الترتيب</th>
+                            <th class="text-right py-2 px-3">اسم الطالب</th>
+                            <th class="text-center py-2 px-3">الدرجة</th>
+                            <th class="text-center py-2 px-3">${METRIC_LABEL}</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-gray-700">`;
+
+        data.forEach((player, index) => {
+            const rank = index + 1;
+            let rankDisplay = rank;
+            if (rank === 1) rankDisplay = '🥇';
+            if (rank === 2) rankDisplay = '🥈';
+            if (rank === 3) rankDisplay = '🥉';
+
+            const isCurrentUser = (currentUser && player.name === currentUser.name);
+            const rowClass = isCurrentUser ? 'bg-amber-100 font-bold' : (index % 2 === 0 ? 'bg-gray-100' : '');
+
+            tableHTML += `
+                <tr class="${rowClass}">
+                    <td class="text-center py-2 px-3 text-xl">${rankDisplay}</td>
+                    <td class="text-right py-2 px-3">${player.name}</td>
+                    <td class="text-center py-2 px-3">${player.grade.toFixed(1)}</td>
+                    <td class="text-center py-2 px-3">${player.metricValue}</td>
+                </tr>`;
+        });
+
+        tableHTML += `</tbody></table></div>`;
+        container.innerHTML = tableHTML;
+    }
+
+    // 4. إظهار زر الإنهاء
+    function showFinishButton() {
+        const finishWrapper = document.getElementById('finish-game-wrapper');
+        if (finishWrapper) {
+            finishWrapper.style.display = 'block';
+        }
+    }
+
+    // 5. التعامل مع زر الإنهاء وتخصيص رسالة الترحيب
+    document.addEventListener('DOMContentLoaded', () => {
+        // Personalize welcome message
+        const welcomeMessage = document.getElementById('welcomeMessage');
+        if (studentName && welcomeMessage) {
+            welcomeMessage.innerHTML = `أهلاً بك يا <span class="font-bold text-[#b8860b]">${studentName}</span>! انطلق في رحلتك لحل ألغاز المعادلة الخطية.`;
+        }
+
+        const finishBtn = document.getElementById('finish-game-btn');
+        if (finishBtn) {
+            finishBtn.addEventListener('click', () => {
+                window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*');
+            });
+        }
+    });
+})();
+// --- END OF CONNECTION & LEADERBOARD ENGINE ---
+    </script>
+</body>
+</html>
+

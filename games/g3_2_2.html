@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لعبة الخبير الاستراتيجي</title>
+    <!-- استخدام Tailwind CSS للتصميم السريع والمتجاوب -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- استيراد خط عربي لتحسين الواجهة -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        /* تخصيص الخط والأنماط الأساسية */
+        html {
+            background-color: #fdfaf6; /* نقل لون الخلفية هنا لضمان ظهور الأيقونة */
+        }
+        body {
+            font-family: 'Tajawal', sans-serif;
+            -webkit-tap-highlight-color: transparent; /* إزالة التظليل عند النقر على الأجهزة اللمسية */
+            transition: background-color 0.5s ease-in-out;
+        }
+        /* طبقة الخلفية الديناميكية */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: var(--background-svg);
+            background-size: 90vmin auto; /* حجم الأيقونة (90% من البعد الأصغر للشاشة) */
+            background-position: center;
+            background-repeat: no-repeat;
+            z-index: -1;
+            opacity: 0.12; /* أيقونة أكثر وضوحًا */
+            transition: background-image 0.5s ease-in-out, opacity 0.5s ease-in-out;
+        }
+        /* تصميم مخصص للزر ليعطي شعوراً أفضل عند النقر */
+        .answer-btn {
+            transition: transform 0.1s ease, box-shadow 0.1s ease;
+        }
+        .answer-btn:active {
+            transform: translateY(2px);
+            box-shadow: none;
+        }
+        /* أنماط للإجابات الصحيحة والخاطئة */
+        .correct {
+            background-color: #28a745 !important;
+            color: white !important;
+            border-color: #218838 !important;
+            animation: pulse 0.6s ease;
+        }
+        .incorrect {
+            background-color: #dc3545 !important;
+            color: white !important;
+            border-color: #c82333 !important;
+            animation: shake 0.6s ease;
+        }
+        /* حركات بسيطة لإضافة لمسة جمالية */
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.03); }
+            100% { transform: scale(1); }
+        }
+        @keyframes rank-up {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.15); opacity: 0.7; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-5px); }
+            40%, 80% { transform: translateX(5px); }
+        }
+        .disabled-options {
+            pointer-events: none;
+            opacity: 0.8;
+        }
+        /* أنماط شاشة الشرح (Modal) */
+        .modal {
+            transition: opacity 0.3s ease;
+        }
+        .modal-content {
+            transition: transform 0.3s ease;
+        }
+
+        /* تعديلات على الألوان لتناسب الخلفية الذهبية/البنية */
+        .card-bg {
+            background-color: rgba(255, 255, 255, 0.88); /* زيادة الشفافية قليلاً */
+            backdrop-filter: blur(6px); /* زيادة التمويه للحفاظ على وضوح النص */
+        }
+        #question-container {
+            background-color: rgba(250, 240, 230, 0.9); /* بيج فاتح */
+            border-color: #deb887; /* ذهبي باهت */
+            color: #2c3e50;
+        }
+        .text-blue-600 { /* لون الأرقام في السؤال */
+            color: #8B4513; /* بني */
+        }
+        .text-slate-700 {
+            color: #3d2b1f; /* بني داكن */
+        }
+        .answer-btn {
+            background-color: rgba(255, 255, 255, 0.9);
+            border-color: #d2b48c; /* تان */
+        }
+        .answer-btn:hover {
+            background-color: rgba(253, 245, 230, 0.95);
+            border-color: #c7993b; /* ذهبي */
+        }
+        .text-amber-500 {
+            color: #ffc107; /* أصفر ذهبي للكأس */
+        }
+        
+        #explanation-button {
+            background-color: rgba(220, 220, 220, 0.9);
+            color: #34495e;
+        }
+        #explanation-button:hover {
+            background-color: rgba(200, 200, 200, 0.95);
+        }
+        .text-green-700 { color: #28a745; }
+        .bg-green-100 { background-color: #d4edda; }
+        .border-green-300 { border-color: #c3e6cb; }
+        .text-red-600 { color: #dc3545; }
+        .bg-blue-50 { background-color: rgba(253, 245, 230, 0.8); }
+        .text-blue-700 { color: #8B4513; }
+
+        /* أنماط شريط التقدم الجديد */
+        .rank-label {
+            transition: all 0.4s ease-in-out;
+            text-align: center;
+            flex: 1;
+        }
+        .rank-label.active {
+            color: #b8860b;
+            font-weight: 700;
+            transform: scale(1.1);
+        }
+        .rank-label.achieved {
+            animation: rank-up 0.6s ease;
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-4">
+
+    <!-- شاشة البداية -->
+    <div id="start-screen" class="w-full max-w-md mx-auto p-6 card-bg rounded-2xl shadow-2xl text-center">
+        <h1 class="text-3xl font-bold text-[#b8860b] mb-4">الخبير الاستراتيجي</h1>
+        <p id="welcomeMessage" class="text-slate-700 text-base mb-6">أهلاً بك في رحلتك لتصبح خبيراً استراتيجياً! مهمتك هي تحليل البيانات وتقديم استشارات دقيقة للمستقبل.</p>
+        <p class="text-slate-700 font-medium mb-8 bg-blue-50 p-3 rounded-lg border border-[#deb887]">💡 نصيحة: جهّز ورقة وقلمًا لتساعدك في حساباتك الاستراتيجية!</p>
+        <button id="start-button" class="w-full bg-[#c7993b] text-white font-bold py-3 px-4 rounded-xl hover:bg-[#a97e28] focus:outline-none focus:ring-4 focus:ring-[#c7993b]/50 transition-all duration-300 shadow-lg text-lg">
+            ابدأ المسيرة المهنية!
+        </button>
+        <p class="text-sm text-slate-500 mt-8">إعداد وبرمجة: أ. عبدالعزيز خالد العبلان</p>
+    </div>
+
+    <!-- حاوية اللعبة الرئيسية (مخفية في البداية) -->
+    <div id="game-container" class="hidden w-full max-w-md mx-auto p-4 md:p-6 card-bg rounded-2xl shadow-2xl text-center flex flex-col">
+        <!-- SVG Icons -->
+        <div class="hidden">
+            <svg id="checkmark-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            <svg id="cross-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        </div>
+        
+        <div class="flex-grow">
+            <!-- شريط التقدم الجديد -->
+            <div id="progress-container" class="w-full mb-4">
+                <div id="score-text" class="text-center font-bold text-lg text-[#8B4513] mb-2">النقاط: ٠ / ١٠٠</div>
+                <div class="w-full bg-gray-200 rounded-full h-4 shadow-inner border border-gray-300 overflow-hidden">
+                    <div id="progress-bar-fill" class="bg-gradient-to-r from-amber-400 to-yellow-500 h-full rounded-full transition-all duration-500 ease-out" style="width: 0%"></div>
+                </div>
+                <div id="rank-labels-container" class="flex justify-between mt-1 text-xs text-slate-500 px-1">
+                    <!-- الرتب ستُضاف هنا بواسطة جافاسكريبت -->
+                </div>
+            </div>
+            
+            <div id="stage-title" class="text-center font-bold text-slate-600 mb-2"></div>
+            <div id="question-container" class="p-4 border-2 rounded-lg mb-4 text-base font-medium transition-all duration-300 shadow-md text-right leading-relaxed">
+                <p id="question-text"></p>
+            </div>
+            <div id="answers-container" class="grid grid-cols-2 gap-3"></div>
+        </div>
+        
+        <div class="mt-auto pt-4">
+            <div id="feedback-container" class="mb-2 h-8 flex items-center justify-center transition-all duration-300"></div>
+            <div id="controls-container" class="grid grid-cols-2 gap-3">
+                <button id="explanation-button" class="hidden w-full text-gray-700 font-bold py-2 px-3 rounded-lg hover:bg-gray-300 focus:outline-none focus:ring-4 focus:ring-gray-300 transition-all duration-300 text-sm shadow-sm">عرض التحليل</button>
+                <button id="next-button" class="hidden w-full bg-[#c7993b] text-white font-bold py-2 px-3 rounded-lg hover:bg-[#a97e28] focus:outline-none focus:ring-4 focus:ring-[#c7993b]/50 transition-all duration-300 shadow-lg text-base">المهمة التالية</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- شاشة النهاية -->
+    <div id="finish-screen" class="hidden w-full max-w-md mx-auto p-6 card-bg rounded-2xl shadow-2xl text-center">
+        <h2 class="text-3xl font-bold text-[#b8860b] mb-2">انتهت الرحلة!</h2>
+        <p id="final-message" class="text-slate-700 text-lg mb-4"></p>
+        <div id="final-rank-container" class="bg-amber-100 border-2 border-amber-400 p-3 rounded-xl mb-6 shadow-lg">
+             <h3 id="final-rank-name" class="text-2xl font-bold text-[#b8860b]"></h3>
+        </div>
+        <div id="final-result-display" class="space-y-2 mb-6">
+            <!-- النتائج ستعرض هنا -->
+        </div>
+        <div id="leaderboard-loader" style="display: none;" class="flex justify-center items-center">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+        </div>
+        <div id="leaderboard-container">
+            <!-- سجل الأبطال سيعرض هنا -->
+        </div>
+        <div id="finish-game-wrapper" style="display: none;" class="mt-6">
+             <button id="finish-game-btn" class="w-full bg-[#c7993b] text-white font-bold py-3 px-4 rounded-xl hover:bg-[#a97e28] focus:outline-none focus:ring-4 focus:ring-[#c7993b]/50 transition-all duration-300 shadow-lg text-lg">العودة للمنصة</button>
+        </div>
+    </div>
+
+    <!-- شاشة الشرح (Modal) -->
+    <div id="explanation-modal" class="modal hidden fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50">
+        <div class="modal-content w-full max-w-lg bg-white/95 backdrop-blur-sm rounded-2xl p-5 shadow-xl text-right scale-95 opacity-0">
+            <div class="flex justify-between items-center mb-3">
+                <h2 class="text-xl font-bold text-[#b8860b]">التحليل الاستراتيجي للحل</h2>
+                <button id="close-modal-button" class="text-slate-400 hover:text-slate-600 text-3xl leading-none">&times;</button>
+            </div>
+            <div id="explanation-content" class="text-slate-700 space-y-3 leading-relaxed text-sm max-h-[60vh] overflow-y-auto pr-2"></div>
+        </div>
+    </div>
+
+    <script>
+        // --- عناصر الواجهة ---
+        const startScreenEl = document.getElementById('start-screen');
+        const gameContainerEl = document.getElementById('game-container');
+        const finishScreenEl = document.getElementById('finish-screen');
+        const startButtonEl = document.getElementById('start-button');
+        const questionTextEl = document.getElementById('question-text');
+        const answersContainerEl = document.getElementById('answers-container');
+        const feedbackContainerEl = document.getElementById('feedback-container');
+        const nextButtonEl = document.getElementById('next-button');
+        const stageTitleEl = document.getElementById('stage-title');
+        const explanationButtonEl = document.getElementById('explanation-button');
+        const explanationModalEl = document.getElementById('explanation-modal');
+        const explanationContentEl = document.getElementById('explanation-content');
+        const closeModalButtonEl = document.getElementById('close-modal-button');
+        const scoreTextEl = document.getElementById('score-text');
+        const progressBarFillEl = document.getElementById('progress-bar-fill');
+        const rankLabelsContainerEl = document.getElementById('rank-labels-container');
+        const finalRankNameEl = document.getElementById('final-rank-name');
+        const finalMessageEl = document.getElementById('final-message');
+
+
+        // --- بيانات اللعبة ---
+        const ranks = [
+            { name: "متدرب", threshold: 0 },
+            { name: "مساعد", threshold: 20 },
+            { name: "مخطط", threshold: 50 },
+            { name: "مستشار", threshold: 80 },
+            { name: "خبير", threshold: 100 }
+        ];
+        
+        const icons = {
+            laptop: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 15.5 2 18h20l-1.5-2.5h-17Z"/><path d="M2.5 15.5 7 7h10l4.5 8.5h-19Z"/><path d="m7 7 5 4.5 5-4.5"/><path d="M12 11.5V14"/></svg>`,
+            gym: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5 3 8l1 5 4.5-1.5.5-5-2.5-1.5Z"/><path d="M17.5 6.5 21 8l-1 5-4.5-1.5-.5-5 2.5-1.5Z"/><path d="m8.5 8.5-1 5"/><path d="m15.5 8.5 1 5"/><path d="M8 12.5h8"/></svg>`,
+            store: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V7l7-4 7 4v14"/><path d="M19 7H5"/><path d="M17 21v-8H7v8"/><path d="M7 13h10"/><path d="M12 21v-8"/></svg>`,
+            company_down: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V5l7-3 7 3v16H5Z"/><path d="m14.5 13-2.5 3-2.5-3"/><path d="M12 16V9"/><path d="M5 5.5 12 9l7-3.5"/></svg>`,
+            factory: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V7L9.5 4l4.5 3v1.5L19 7v14H5Z"/><path d="m9.5 4-4.5 3"/><path d="m14 7-4.5-3"/><path d="M16 12h2"/><path d="M16 15h2"/><path d="M16 18h2"/><path d="M8 12h2"/><path d="M8 15h2"/><path d="M8 18h2"/></svg>`
+        };
+
+        const questions = [
+            { stageTitle: "المستوى الأول - المرحلة 1", scenario: "بدأت التوفير لشراء لابتوب جديد وكان معك مبلغ أولي قدره <span class='text-blue-600'>250 ريالاً</span>. بعد <span class='text-blue-600'>3 أشهر</span>، أصبح لديك <span class='text-blue-600'>700 ريال</span>. ما هي المعادلة التي تصف العلاقة بين المبلغ (ص) وعدد الأشهر (س)؟", type: 'discovery', points: [{x: 0, y: 250}, {x: 3, y: 700}], m: 150, b: 250, icon: icons.laptop },
+            { stageTitle: "المستوى الأول - المرحلة 2", scenario: "تحليل رائع! أنت تقترب من هدفك. استعمل المعادلة الصحيحة للاستشراف بالمبلغ الذي ستجمعه بعد <span class='text-blue-600'>8 أشهر</span>.<br><br><code class='block text-center text-base p-2 rounded-md bg-green-100 text-green-800 border border-green-300'>ص = ١٥٠ س + ٢٥٠</code>", type: 'prediction', predictionX: 8, correctAnswer: 1450, m: 150, b: 250, unit: "ريالاً", icon: icons.laptop },
+            
+            { stageTitle: "المستوى الثاني - المرحلة 1", scenario: "سجلت في نادٍ رياضي. بعد <span class='text-blue-600'>شهرين</span>، كان إجمالي ما دفعته <span class='text-blue-600'>400 ريال</span>. وبعد <span class='text-blue-600'>5 أشهر</span>، وصل المبلغ إلى <span class='text-blue-600'>850 ريالاً</span>. ما هي المعادلة التي تصف التكلفة الإجمالية (ص) لعدد الأشهر (س)؟", type: 'discovery', points: [{x: 2, y: 400}, {x: 5, y: 850}], m: 150, b: 100, icon: icons.gym },
+            { stageTitle: "المستوى الثاني - المرحلة 2", scenario: "أحسنت! لقد تمكنت من تحديد تكلفة الاشتراك. الآن استكمل التحليل للاستشراف بإجمالي ما ستدفعه بعد <span class='text-blue-600'>12 شهراً</span>.<br><br><code class='block text-center text-base p-2 rounded-md bg-green-100 text-green-800 border border-green-300'>ص = ١٥٠ س + ١٠٠</code>", type: 'prediction', predictionX: 12, correctAnswer: 1900, m: 150, b: 100, unit: "ريالاً", icon: icons.gym },
+            
+            { stageTitle: "المستوى الثالث - المرحلة 1", scenario: "متجر إلكتروني لاحظ أنه بعد <span class='text-blue-600'>4 أيام</span> من حملة تسويقية، حقق أرباحاً قدرها <span class='text-blue-600'>1500 ريال</span>. وبعد <span class='text-blue-600'>10 أيام</span>، وصلت الأرباح إلى <span class='text-blue-600'>4500 ريال</span>. ما هي معادلة نمو الأرباح (ص) خلال الأيام (س)؟", type: 'discovery', points: [{x: 4, y: 1500}, {x: 10, y: 4500}], m: 500, b: -500, icon: icons.store },
+            { stageTitle: "المستوى الثالث - المرحلة 2", scenario: "عمل ممتاز! صاحب المتجر معجب بتحليلك. قدم له استشارة للاستشراف بالأرباح المتوقعة بعد <span class='text-blue-600'>20 يوماً</span>.<br><br><code class='block text-center text-base p-2 rounded-md bg-green-100 text-green-800 border border-green-300'>ص = ٥٠٠ س - ٥٠٠</code>", type: 'prediction', predictionX: 20, correctAnswer: 9500, m: 500, b: -500, unit: "ريالاً", icon: icons.store },
+            
+            { stageTitle: "المستوى الرابع - المرحلة 1", scenario: "مؤسسة تقنية تواجه صعوبات. بدأت بـ <span class='text-blue-600'>80 موظفاً</span>. بعد <span class='text-blue-600'>3 سنوات</span>، انخفض العدد إلى <span class='text-blue-600'>50 موظفاً</span> بسبب إعادة الهيكلة. ما هي المعادلة التي تصف تناقص عدد الموظفين (ص) عبر السنوات (س)؟", type: 'discovery', points: [{x: 0, y: 80}, {x: 3, y: 50}], m: -10, b: 80, icon: icons.company_down },
+            { stageTitle: "المستوى الرابع - المرحلة 2", scenario: "تحليلك دقيق. بناءً على هذا المعدل، كم سيتبقى من الموظفين بعد <span class='text-blue-600'>7 سنوات</span> إذا استمر الوضع كما هو؟<br><br><code class='block text-center text-base p-2 rounded-md bg-green-100 text-green-800 border border-green-300'>ص = -١٠ س + ٨٠</code>", type: 'prediction', predictionX: 7, correctAnswer: 10, m: -10, b: 80, unit: "موظفين", icon: icons.company_down },
+            
+            { stageTitle: "المستوى الخامس - المرحلة 1", scenario: "مصنع لاحظ أنه بعد <span class='text-blue-600'>3 ساعات</span> من تشغيل خط إنتاج، تم إنتاج <span class='text-blue-600'>500 وحدة</span>. وبعد <span class='text-blue-600'>8 ساعات</span>، وصل الإنتاج إلى <span class='text-blue-600'>1500 وحدة</span>. ما هي معادلة الإنتاج (ص) بالساعة (س)؟", type: 'discovery', points: [{x: 3, y: 500}, {x: 8, y: 1500}], m: 200, b: -100, icon: icons.factory },
+            { stageTitle: "المستوى الخامس - المرحلة 2", scenario: "أنت الآن تقدم استشارات للمصانع الكبرى! استشرف إجمالي الإنتاج المتوقع بعد <span class='text-blue-600'>12 ساعة</span> عمل.<br><br><code class='block text-center text-base p-2 rounded-md bg-green-100 text-green-800 border border-green-300'>ص = ٢٠٠ س - ١٠٠</code>", type: 'prediction', predictionX: 12, correctAnswer: 2300, m: 200, b: -100, unit: "وحدة", icon: icons.factory }
+        ];
+
+        let state = { score: 0, currentQuestionIndex: 0, currentRankIndex: 0 };
+        let startTime;
+
+        const toArabicNumerals = (num) => {
+            const arabicNumerals = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+            return String(num).replace(/[0-9.-]/g, (d) => {
+                if (d === '-') return '-'; if (d === '.') return '٫';
+                return arabicNumerals[parseInt(d)];
+            });
+        };
+        const shuffleArray = (array) => {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        };
+        const formatEquation = (m, b) => {
+            let equation = 'ص = ';
+            if (m === 1) equation += 'س';
+            else if (m === -1) equation += '-س';
+            else if (m !== 0) equation += `${toArabicNumerals(m)} س`;
+
+            if (b > 0) equation += (m !== 0) ? ` + ${toArabicNumerals(b)}` : toArabicNumerals(b);
+            else if (b < 0) equation += ` - ${toArabicNumerals(Math.abs(b))}`;
+            
+            if (m === 0 && b === 0) return 'ص = ٠';
+            return equation;
+        };
+        
+        function updateProgressBar() {
+            const score = state.score;
+            const maxScore = 100;
+            const percentage = Math.min((score / maxScore) * 100, 100);
+
+            progressBarFillEl.style.width = `${percentage}%`;
+            scoreTextEl.textContent = `النقاط: ${toArabicNumerals(score)} / ${toArabicNumerals(maxScore)}`;
+
+            let newRankIndex = 0;
+            for (let i = ranks.length - 1; i >= 0; i--) {
+                if (score >= ranks[i].threshold) {
+                    newRankIndex = i;
+                    break;
+                }
+            }
+            
+            if (newRankIndex > state.currentRankIndex) {
+                 state.currentRankIndex = newRankIndex;
+                 const rankLabel = document.getElementById(`rank-label-${newRankIndex}`);
+                 if (rankLabel) {
+                    rankLabel.classList.add('achieved');
+                    setTimeout(() => rankLabel.classList.remove('achieved'), 600);
+                 }
+            }
+
+            const rankLabels = document.querySelectorAll('.rank-label');
+            rankLabels.forEach((label, index) => {
+                if (index === state.currentRankIndex) {
+                    label.classList.add('active');
+                } else {
+                    label.classList.remove('active');
+                }
+            });
+        }
+
+
+        function displayQuestion() {
+            resetUIForNewQuestion();
+            const q = questions[state.currentQuestionIndex];
+            
+            const svgIcon = encodeURIComponent(q.icon.replace(/currentColor/g, '#8B4513'));
+            document.body.style.setProperty('--background-svg', `url('data:image/svg+xml;utf8,${svgIcon}')`);
+            
+            stageTitleEl.textContent = q.stageTitle;
+            questionTextEl.innerHTML = q.scenario;
+
+            const options = generateOptions(q);
+            displayOptions(options, q);
+        }
+
+        function generateOptions(q) {
+            let finalOptions;
+            if (q.type === 'discovery') {
+                const correctOpt = { m: q.m, b: q.b, correct: true };
+                const options = new Set([JSON.stringify(correctOpt)]);
+                
+                options.add(JSON.stringify({ m: q.m, b: q.b + (Math.random() < 0.5 ? 10 : -10), correct: false }));
+                options.add(JSON.stringify({ m: -q.m, b: q.b, correct: false }));
+                options.add(JSON.stringify({ m: q.m + (Math.random() < 0.5 ? 5 : -5), b: -q.b, correct: false }));
+
+                while (options.size < 4) {
+                    options.add(JSON.stringify({ m: q.m + (Math.random() > 0.5 ? 1 : -1) * 5, b: q.b + (Math.random() > 0.5 ? 1 : -1) * 10, correct: false}));
+                }
+                finalOptions = Array.from(options).slice(0, 4).map(opt => JSON.parse(opt));
+
+            } else { // type 'prediction'
+                const correctAnswer = q.correctAnswer;
+                const options = new Set([correctAnswer]);
+                options.add(correctAnswer + (Math.random() < 0.5 ? 10 : -10));
+                options.add(correctAnswer + (Math.random() < 0.5 ? 50 : -50));
+                options.add(Math.floor(correctAnswer * (0.8 + Math.random() * 0.4)));
+
+                while (options.size < 4) {
+                    options.add(Math.floor(Math.random() * correctAnswer * 2));
+                }
+                finalOptions = Array.from(options).slice(0, 4).map(value => ({
+                    value: Math.round(value),
+                    correct: value === correctAnswer
+                }));
+                 if (!finalOptions.some(opt => opt.correct)) {
+                    finalOptions[0] = { value: correctAnswer, correct: true };
+                }
+            }
+            shuffleArray(finalOptions);
+            return finalOptions;
+        }
+
+        function displayOptions(options, q) {
+            answersContainerEl.innerHTML = '';
+            options.forEach(option => {
+                const button = document.createElement('button');
+                button.className = 'answer-btn w-full p-3 border-2 rounded-lg text-base font-bold hover:border-[#c7993b] focus:outline-none focus:ring-2 focus:ring-[#c7993b]/50 shadow-md';
+                
+                if (q.type === 'discovery') {
+                    button.textContent = formatEquation(option.m, option.b);
+                    button.dataset.equation = formatEquation(option.m, option.b);
+                } else {
+                    button.textContent = `${toArabicNumerals(option.value)} ${q.unit}`;
+                    button.dataset.value = option.value;
+                }
+
+                button.onclick = () => checkAnswer(option.correct, button);
+                answersContainerEl.appendChild(button);
+            });
+        }
+
+        function checkAnswer(isCorrect, button) {
+            answersContainerEl.classList.add('disabled-options');
+            explanationButtonEl.classList.remove('hidden');
+            feedbackContainerEl.innerHTML = '';
+
+            if (isCorrect) {
+                state.score += 10;
+                updateProgressBar();
+                button.classList.add('correct');
+                const feedbackIcon = document.getElementById('checkmark-icon').cloneNode(true);
+                const feedbackText = document.createElement('span');
+                feedbackIcon.classList.add('text-green-500', 'w-7', 'h-7');
+                feedbackText.className = 'text-green-600 font-bold text-lg mr-2';
+                feedbackText.textContent = 'تحليل دقيق!';
+                feedbackContainerEl.appendChild(feedbackText);
+                feedbackContainerEl.appendChild(feedbackIcon);
+            } else {
+                button.classList.add('incorrect');
+                const q = questions[state.currentQuestionIndex];
+                let correctButton;
+                if(q.type === 'discovery') {
+                    const correctEq = formatEquation(q.m, q.b);
+                    correctButton = Array.from(answersContainerEl.children).find(btn => btn.dataset.equation === correctEq);
+                } else {
+                     correctButton = Array.from(answersContainerEl.children).find(btn => parseInt(btn.dataset.value) === q.correctAnswer);
+                }
+                if(correctButton) correctButton.classList.add('correct');
+
+                const feedbackIcon = document.getElementById('cross-icon').cloneNode(true);
+                feedbackIcon.classList.add('text-red-500', 'w-7', 'h-7');
+                feedbackContainerEl.appendChild(feedbackIcon);
+            }
+            
+            if (state.currentQuestionIndex >= questions.length - 1) {
+                nextButtonEl.textContent = 'إنهاء وعرض الترقية النهائية';
+            }
+            nextButtonEl.classList.remove('hidden');
+            
+            document.getElementById('controls-container').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+        function handleNextStep() {
+            state.currentQuestionIndex++;
+            if (state.currentQuestionIndex >= questions.length) {
+                endGame();
+            } else {
+                displayQuestion();
+            }
+        }
+        
+        function endGame() {
+            const endTime = new Date();
+            const totalTimeInSeconds = Math.round((endTime - startTime) / 1000);
+            
+            const finalRankIndex = state.currentRankIndex;
+            const finalRankInfo = ranks[finalRankIndex];
+
+            let message = '';
+            if (finalRankIndex === 0) {
+                message = 'أنهيت التحدي ولكنك لا تزال في الرتبة الأولى. حاول مجدداً!';
+            } else if (finalRankIndex === ranks.length - 1) {
+                message = 'إنجاز مذهل! لقد وصلت إلى أعلى رتبة:';
+            } else {
+                const arabicNumerals = ["الأولى", "الثانية", "الثالثة", "الرابعة", "الخامسة"];
+                message = `عمل رائع! لقد وصلت إلى الرتبة الـ${arabicNumerals[finalRankIndex]}:`;
+            }
+            finalMessageEl.textContent = message;
+
+            finalRankNameEl.textContent = `🏆 ${finalRankInfo.name} الاستراتيجي 🏆`;
+
+            gameContainerEl.classList.add('hidden');
+            finishScreenEl.classList.remove('hidden');
+            saveAndFinishGame(state.score, totalTimeInSeconds);
+        }
+
+        function generateExplanationHTML() {
+            const q = questions[state.currentQuestionIndex];
+            let html = '';
+            if (q.type === 'discovery') {
+                 const [p1, p2] = q.points;
+                 const fractionHTML = (num, den) => `<span class="inline-flex flex-col text-center align-middle mx-1 leading-none"><span class="px-1 pb-1">${num}</span><span class="border-t-2 border-current w-full"></span><span class="px-1 pt-1">${den}</span></span>`;
+                 html = `<p class="font-bold text-base">لإيجاد المعادلة، نتبع الخطوات التالية:</p>
+                      <ol class="list-decimal list-inside space-y-3 mt-2">
+                          <li><strong class="text-red-600">استخراج البيانات الأولية:</strong> من السيناريو، نحدد نقطتين (الزمن، القيمة):
+                              <ul class="list-disc list-inside mr-4 mt-1 bg-blue-50 p-2 rounded">
+                                  <li>النقطة الأولى: (${toArabicNumerals(p1.x)}، ${toArabicNumerals(p1.y)})</li>
+                                  <li>النقطة الثانية: (${toArabicNumerals(p2.x)}، ${toArabicNumerals(p2.y)})</li>
+                              </ul>
+                          </li>
+                          <li><strong class="text-red-600">حساب معدل التغير (الميل م):</strong>
+                             <div class="flex items-center justify-center bg-blue-50 p-2 rounded my-1 text-blue-700 font-mono text-sm">
+                                 <span class="mx-1">م =</span>${fractionHTML('ص₂ - ص₁', 'س₂ - س₁')}
+                                 <span class="mx-1">=</span>${fractionHTML(`${toArabicNumerals(p2.y)} - (${toArabicNumerals(p1.y)})`, `${toArabicNumerals(p2.x)} - (${toArabicNumerals(p1.x)})`)}
+                                 <span class="mx-1">= ${toArabicNumerals(q.m)}</span>
+                             </div>
+                          </li>
+                          <li><strong class="text-red-600">إيجاد نقطة البداية (المقطع الصادي ب):</strong> نعوض بالميل والنقطة الأولى في <code class="font-mono">ص = م س + ب</code>
+                              <br><code class="font-mono text-blue-700 bg-blue-50 p-1 rounded">${toArabicNumerals(p1.y)} = (${toArabicNumerals(q.m)}) × (${toArabicNumerals(p1.x)}) + ب</code>
+                              <br><code class="font-mono text-blue-700 bg-blue-50 p-1 rounded">ب = ${toArabicNumerals(p1.y)} - ${toArabicNumerals(q.m * p1.x)} = ${toArabicNumerals(q.b)}</code>
+                          </li>
+                          <li><strong class="text-red-600">صياغة المعادلة النهائية:</strong>
+                              <div class="text-center my-2"><code class="font-bold text-base text-green-700 bg-green-100 p-2 rounded-lg border-2 border-green-300 inline-block">${formatEquation(q.m, q.b)}</code></div>
+                          </li>
+                      </ol>`;
+            } else { // prediction
+                html = `<p class="font-bold text-base">لاستخدام المعادلة في الاستشراف، نتبع الخطوات التالية:</p>
+                       <ol class="list-decimal list-inside space-y-3 mt-2">
+                           <li><strong class="text-red-600">المعادلة المعطاة:</strong> لدينا النموذج الرياضي الذي يصف الموقف.
+                               <div class="text-center my-2"><code class="font-bold text-base text-green-700 bg-green-100 p-2 rounded-lg border-2 border-green-300 inline-block">${formatEquation(q.m, q.b)}</code></div>
+                           </li>
+                           <li><strong class="text-red-600">تحديد القيمة المستقبلية (س):</strong> السؤال يطلب منا الاستشراف عند <strong class='text-red-600'>س = ${toArabicNumerals(q.predictionX)}</strong>.</li>
+                           <li><strong class="text-red-600">التعويض في المعادلة:</strong> نستبدل (س) بقيمتها ونقوم بالحساب.
+                                <br><code class="font-mono text-blue-700 bg-blue-50 p-1 rounded">ص = (${toArabicNumerals(q.m)}) × (${toArabicNumerals(q.predictionX)}) ${q.b >= 0 ? '+' : '-'} ${toArabicNumerals(Math.abs(q.b))}</code>
+                                <br><code class="font-mono text-blue-700 bg-blue-50 p-1 rounded">ص = ${toArabicNumerals(q.m * q.predictionX + q.b)}</code>
+                           </li>
+                           <li><strong class="text-red-600">النتيجة النهائية:</strong>
+                               <div class="text-center my-2"><strong class="font-bold text-lg text-green-700 bg-green-100 p-2 rounded-lg border-2 border-green-300 inline-block">النتيجة: ${toArabicNumerals(q.correctAnswer)} ${q.unit}</strong></div>
+                           </li>
+                       </ol>`;
+            }
+            return html;
+        }
+
+        function showExplanation() {
+            explanationContentEl.innerHTML = generateExplanationHTML();
+            explanationModalEl.classList.remove('hidden');
+            setTimeout(() => {
+                explanationModalEl.classList.remove('opacity-0');
+                explanationModalEl.querySelector('.modal-content').classList.remove('scale-95', 'opacity-0');
+                explanationModalEl.querySelector('.modal-content').classList.add('scale-100', 'opacity-100');
+            }, 10);
+        }
+
+        function hideExplanation() {
+             explanationModalEl.querySelector('.modal-content').classList.remove('scale-100', 'opacity-100');
+             explanationModalEl.querySelector('.modal-content').classList.add('scale-95', 'opacity-0');
+             explanationModalEl.classList.add('opacity-0');
+             setTimeout(() => {
+                 explanationModalEl.classList.add('hidden');
+             }, 300);
+        }
+
+        function resetUIForNewQuestion() {
+            answersContainerEl.classList.remove('disabled-options');
+            feedbackContainerEl.innerHTML = '';
+            nextButtonEl.classList.add('hidden');
+            explanationButtonEl.classList.add('hidden');
+            nextButtonEl.textContent = 'المهمة التالية';
+        }
+
+        function initializeGame() {
+            ranks.forEach((rank, index) => {
+                const label = document.createElement('span');
+                label.textContent = rank.name;
+                label.className = 'rank-label';
+                label.id = `rank-label-${index}`;
+                rankLabelsContainerEl.appendChild(label);
+            });
+
+            startButtonEl.addEventListener('click', () => {
+                state.score = 0;
+                state.currentQuestionIndex = 0;
+                state.currentRankIndex = 0;
+                updateProgressBar();
+                startTime = new Date();
+                startScreenEl.classList.add('hidden');
+                gameContainerEl.classList.remove('hidden');
+                finishScreenEl.classList.add('hidden');
+                displayQuestion();
+            });
+            
+            nextButtonEl.addEventListener('click', handleNextStep);
+            explanationButtonEl.addEventListener('click', showExplanation);
+            closeModalButtonEl.addEventListener('click', hideExplanation);
+            explanationModalEl.addEventListener('click', (e) => {
+                if (e.target === explanationModalEl) hideExplanation();
+            });
+        }
+        
+        document.addEventListener('DOMContentLoaded', initializeGame);
+
+    // --- START OF CONNECTION & LEADERBOARD ENGINE ---
+    (function() {
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
+        const GAME_ID = 'g3_2_2'; // ID جديد
+        const GAME_MAX_POINTS = 100;
+        const PLATFORM_MAX_GRADE = 5;
+        const METRIC_TYPE = 'time';
+        const METRIC_LABEL = 'الوقت (ثواني)';
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const studentId = urlParams.get('studentId');
+        const classId = urlParams.get('classId');
+        const studentName = urlParams.get('studentName');
+        let currentUser = (studentId && studentName) ? { id: studentId, name: studentName } : null;
+
+        window.saveAndFinishGame = function(points, metricValue) {
+            const finalPoints = parseFloat(points) || 0;
+            const finalMetric = parseFloat(metricValue) || 0;
+            const maxPoints = parseFloat(GAME_MAX_POINTS) || 1;
+            const finalGrade = (finalPoints / maxPoints) * PLATFORM_MAX_GRADE;
+
+            const resultDisplay = document.getElementById('final-result-display');
+            if (resultDisplay) {
+                resultDisplay.innerHTML = `
+                    <p class="text-gray-700">النقاط: <span class="font-bold text-xl">${finalPoints} / ${maxPoints}</span></p>
+                    <p class="text-[#b8860b]">الدرجة في المنصة: <span class="font-bold text-2xl">${finalGrade.toFixed(1)} / ${PLATFORM_MAX_GRADE}</span></p>
+                `;
+            }
+
+            if (studentId && classId) {
+                const params = new URLSearchParams({
+                    action: 'saveGrade',
+                    studentId: studentId,
+                    classId: classId,
+                    itemId: GAME_ID,
+                    grade: finalGrade.toFixed(2),
+                    metricValue: Math.round(finalMetric).toString()
+                });
+                fetch(`${SCRIPT_URL}?${params.toString()}`)
+                    .then(res => res.json())
+                    .then(result => console.log('Save result:', result.status))
+                    .catch(err => console.error("Save Error:", err))
+                    .finally(fetchAndShowLeaderboard);
+            } else {
+                console.log(`Visitor finished. Score: ${finalPoints}, Metric: ${finalMetric}`);
+                fetchAndShowLeaderboard();
+            }
+        }
+
+        function fetchAndShowLeaderboard() {
+            const loader = document.getElementById('leaderboard-loader');
+            const container = document.getElementById('leaderboard-container');
+            if (!loader || !container) return;
+            
+            if (!classId) {
+                container.innerHTML = `<p class="text-center text-gray-500 mt-4">سجل الأبطال متاح للطلاب المسجلين فقط.</p>`;
+                showFinishButton();
+                return;
+            }
+
+            loader.style.display = 'block';
+            container.innerHTML = '';
+            const params = new URLSearchParams({
+                action: 'getLeaderboard',
+                gameId: GAME_ID,
+                metricType: METRIC_TYPE,
+                classId: classId
+            });
+
+            fetch(`${SCRIPT_URL}?${params.toString()}`)
+                .then(res => res.json())
+                .then(response => {
+                    if (response.status === 'success' && response.data) {
+                        displayLeaderboard(response.data);
+                    } else {
+                        throw new Error(response.message || 'Failed to load leaderboard data.');
+                    }
+                })
+                .catch(err => {
+                    console.error("Leaderboard Error:", err);
+                    container.innerHTML = `<p class="text-center text-red-500">حدث خطأ في تحميل سجل الأبطال.</p>`;
+                })
+                .finally(() => {
+                    loader.style.display = 'none';
+                    showFinishButton();
+                });
+        }
+        
+        function displayLeaderboard(data) {
+            const container = document.getElementById('leaderboard-container');
+            if (!data || data.length === 0) {
+                container.innerHTML = `<p class="text-center text-gray-500 mt-4">لا توجد نتائج بعد. كن أول الأبطال!</p>`;
+                return;
+            }
+
+            let tableHTML = `
+                <div class="mt-6 border-t pt-4">
+                    <h3 class="text-2xl font-bold text-center text-gray-800 mb-4">🏆 سجل الخبراء 🏆</h3>
+                    <table class="min-w-full bg-white shadow-md rounded-lg">
+                        <thead class="bg-gray-800 text-white">
+                            <tr>
+                                <th class="text-center py-2 px-3">الترتيب</th>
+                                <th class="text-right py-2 px-3">اسم الخبير</th>
+                                <th class="text-center py-2 px-3">الدرجة</th>
+                                <th class="text-center py-2 px-3">${METRIC_LABEL}</th>
+                            </tr>
+                        </thead>
+                        <tbody class="text-gray-700">`;
+
+            data.forEach((player, index) => {
+                const rank = index + 1;
+                let rankDisplay = rank;
+                if (rank === 1) rankDisplay = '🥇';
+                if (rank === 2) rankDisplay = '🥈';
+                if (rank === 3) rankDisplay = '🥉';
+
+                const isCurrentUser = (currentUser && player.name === currentUser.name);
+                const rowClass = isCurrentUser ? 'bg-amber-100 font-bold' : (index % 2 === 0 ? 'bg-gray-100' : '');
+
+                tableHTML += `
+                    <tr class="${rowClass}">
+                        <td class="text-center py-2 px-3 text-xl">${rankDisplay}</td>
+                        <td class="text-right py-2 px-3">${player.name}</td>
+                        <td class="text-center py-2 px-3">${player.grade.toFixed(1)}</td>
+                        <td class="text-center py-2 px-3">${player.metricValue}</td>
+                    </tr>`;
+            });
+
+            tableHTML += `</tbody></table></div>`;
+            container.innerHTML = tableHTML;
+        }
+
+        function showFinishButton() {
+            const finishWrapper = document.getElementById('finish-game-wrapper');
+            if (finishWrapper) {
+                finishWrapper.style.display = 'block';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const welcomeMessage = document.getElementById('welcomeMessage');
+            if (studentName && welcomeMessage) {
+                welcomeMessage.innerHTML = `أهلاً بك يا <span class="font-bold text-[#b8860b]">${studentName}</span>! انطلق في رحلتك لتصبح خبيراً استراتيجياً.`;
+            }
+            const finishBtn = document.getElementById('finish-game-btn');
+            if (finishBtn) {
+                finishBtn.addEventListener('click', () => {
+                    window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*');
+                });
+            }
+        });
+    })();
+    </script>
+</body>
+</html>
+

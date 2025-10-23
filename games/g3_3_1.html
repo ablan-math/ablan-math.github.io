@@ -1,0 +1,1252 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لعبة طائرة المعادلات (ميل ونقطة)</title>
+    <style>
+        /* --- إعدادات أساسية للصفحة --- */
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #87CEEB; /* لون السماء */
+            font-family: 'Cairo', sans-serif; /* خط عربي جميل */
+            overflow: hidden;
+            color: #fff;
+        }
+
+        /* --- حاوية اللعبة الرئيسية --- */
+        #game-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px; /* تحديد عرض أقصى للعبة */
+            height: 100%;
+            max-height: 600px;
+            background: linear-gradient(to bottom, #87CEEB 0%, #B0E0E6 100%); /* تدرج لون السماء */
+            border: 5px solid #fff;
+            border-radius: 15px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+            overflow: hidden; /* إخفاء أي عناصر تخرج عن إطار اللعبة */
+        }
+
+        /* --- لوحة الرسم (الكانفاس) --- */
+        #gameCanvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            background-color: transparent;
+        }
+
+        /* --- واجهة المستخدم (النقاط والرسائل) --- */
+        #ui-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            box-sizing: border-box;
+            pointer-events: none; /* السماح للنقرات بالمرور إلى الكانفاس */
+        }
+
+        /* --- شريط المعلومات العلوي --- */
+        #top-bar {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: rgba(0, 0, 0, 0.2);
+            padding: 10px;
+            border-radius: 10px;
+        }
+
+        #equation-display, #task-display {
+            font-size: clamp(1.2rem, 4vw, 1.8rem);
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        
+        /* --- [تعديل] جعل الخط أصغر قليلاً لمعادلة الميل ونقطة --- */
+        #equation-display {
+             font-size: clamp(1.1rem, 3.8vw, 1.7rem);
+        }
+
+        #task-display {
+            font-size: clamp(1rem, 3.5vw, 1.4rem);
+            color: #FFD700;
+        }
+
+        /* --- عرض النقاط والصحة --- */
+        #stats-container {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 10px;
+        }
+
+        #score, #health {
+            font-size: clamp(1.4rem, 4.5vw, 2rem);
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+            background-color: rgba(0, 0, 0, 0.2);
+            padding: 5px 20px;
+            border-radius: 10px;
+        }
+
+        /* --- رسائل اللعبة (البدء، النهاية) --- */
+        #message-box {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(255, 255, 255, 0.95);
+            color: #333;
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            pointer-events: all;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.4);
+            border: 2px solid white;
+            width: 90%;
+            max-width: 550px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        #message-box h1 { margin: 0 0 10px 0; font-size: clamp(1.8rem, 5vw, 2.2rem); }
+        #message-box p { margin: 0 0 20px 0; font-size: clamp(1rem, 3vw, 1.2rem); }
+
+        /* --- أزرار نهاية اللعبة --- */
+        #end-game-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-top: 20px;
+            width: 100%;
+        }
+        #restart-button, #finish-game-btn {
+            padding: 12px 25px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: transform 0.2s, background-color 0.2s;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        #restart-button {
+            background-color: #FFD700;
+            color: #333;
+        }
+        #finish-game-btn {
+            background-color: #6c757d;
+            color: white;
+        }
+        #restart-button:hover { transform: scale(1.05); background-color: #FFC700; }
+        #finish-game-btn:hover { transform: scale(1.05); background-color: #5a6268; }
+        
+        /* --- أنماط سجل الأبطال ومحرك الربط --- */
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        .font-bold { font-weight: bold; }
+        .mt-4 { margin-top: 1rem; }
+        .mt-6 { margin-top: 1.5rem; }
+        .mb-4 { margin-bottom: 1rem; }
+        .pt-4 { padding-top: 1rem; }
+        .py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+        .px-3 { padding-left: 0.75rem; padding-right: 0.75rem; }
+        .border-t { border-top: 1px solid #e5e7eb; }
+        .text-xl { font-size: 1.25rem; }
+        .text-2xl { font-size: 1.5rem; }
+        .text-gray-700 { color: #374151; }
+        .text-gray-800 { color: #1f2937; }
+        .text-gray-500 { color: #6b7280; }
+        .text-blue-600 { color: #2563EB; }
+        .text-red-500 { color: #ef4444; }
+        .text-white { color: #ffffff; }
+        .text-yellow-300 { color: #ca8a04; }
+        
+        #leaderboard-container table {
+            min-width: 100%;
+            background-color: white;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            border-radius: 0.5rem;
+            border-collapse: collapse;
+            overflow: hidden;
+        }
+        #leaderboard-container thead {
+            background-color: #1f2937;
+            color: #ffffff;
+        }
+        .bg-blue-100 { background-color: #dbeafe; }
+        .bg-gray-100 { background-color: #f3f4f6; }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .animate-spin {
+            animation: spin 1s linear infinite;
+        }
+        #leaderboard-loader div {
+            border-bottom-color: #1f2937;
+            border-radius: 50%;
+            height: 3rem;
+            width: 3rem;
+            border-width: 2px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+        <div id="ui-container">
+            <div id="top-bar" style="visibility: hidden;">
+                <div id="equation-display"></div>
+                <div id="task-display"></div>
+            </div>
+            <div id="stats-container" style="visibility: hidden;">
+                 <div id="health">الصحة: ❤️❤️❤️</div>
+                 <div id="score">النقاط: ٠</div>
+            </div>
+            <div id="message-box">
+                <h1>لعبة طائرة المعادلات</h1>
+                <!-- [تعديل] تغيير رسالة الترحيب -->
+                <p id="welcomeMessage">حلّق بطائرتك وأكمل مهمتك المزدوجة: ابحث عن الميل الصحيح، ثم حدد النقطة الصحيحة لإكمال المعادلة.</p>
+                <div id="developer-info" class="mt-4 text-sm text-gray-500">
+                    <p>تطوير وبرمجة: الأستاذ عبدالعزيز خالد العبلان</p>
+                </div>
+                
+                <!-- 1. لعرض نتيجة الطالب الحالية -->
+                <div id="final-result-display" class="text-center text-xl mt-4"></div>
+
+                <!-- 2. لعرض أيقونة التحميل -->
+                <div id="leaderboard-loader" style="display: none;" class="text-center mt-6">
+                    <div class="animate-spin"></div>
+                    <p>جاري تحميل سجل الأبطال...</p>
+                </div>
+
+                <!-- 3. لعرض جدول سجل الأبطال -->
+                <div id="leaderboard-container" class="mt-4"></div>
+
+                <!-- 4. حاوية الأزرار النهائية -->
+                <div id="end-game-buttons">
+                    <button id="restart-button">بدء اللعبة</button>
+                </div>
+                <div id="finish-game-wrapper" style="display: none;" class="mt-4">
+                     <button id="finish-game-btn">إنهاء والعودة</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- إعداد الكانفاس ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const gameContainer = document.getElementById('game-container');
+
+        // --- عناصر واجهة المستخدم ---
+        const scoreEl = document.getElementById('score');
+        const healthEl = document.getElementById('health');
+        const messageBox = document.getElementById('message-box');
+        const restartButton = document.getElementById('restart-button');
+        const equationDisplay = document.getElementById('equation-display');
+        const taskDisplay = document.getElementById('task-display');
+        const topBar = document.getElementById('top-bar');
+        const statsContainer = document.getElementById('stats-container');
+
+        let canvasWidth, canvasHeight;
+        
+        // --- متغيرات اللعبة ---
+        let score = 0;
+        let errors = 0; 
+        let gameOver = true;
+        let clouds = [];
+        let particles = [];
+        let frame = 0;
+        let keys = {};
+        let fireworksInterval = null;
+        
+        // [جديد] متغير حالة للتحميل
+        let gameIsAttemptingToStart = false;
+        
+        let backgroundSpeedLandmark = 0.2;
+        let backgroundSpeedBack = 0.5;
+        let backgroundSpeedFront = 0.8;
+        let cityOffsetLandmark = 0;
+        let cityOffsetBack = 0;
+        let cityOffsetFront = 0;
+
+        // --- [لمسة جديدة] متغيرات اللعبة التعليمية ---
+        let currentProblemIndex = 0;
+        let currentProblem; 
+        // --- [لمسة جديدة] متغير حالة المهمة (إيجاد الميل أو النقطة) ---
+        let currentTaskState = 'finding_slope'; // 'finding_slope' or 'finding_point'
+        const totalProblems = 5; // 5 أسئلة، كل سؤال بنقطتين (ميل ونقطة) = 10 نقاط
+
+        // --- دوال مساعدة ---
+        function toArabicNumerals(num) {
+            const arabicNumerals = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+            let str = String(num);
+            const isNegative = str.startsWith('-');
+            if (isNegative) str = str.substring(1);
+            str = str.replace(/[0-9]/g, d => arabicNumerals[parseInt(d)]);
+            return isNegative ? '−' + str : str;
+        }
+
+        function getRandomInt(min, max, exclude = []) {
+            let num;
+            do {
+                num = Math.floor(Math.random() * (max - min + 1)) + min;
+            } while (exclude.includes(num));
+            return num;
+        }
+
+        // --- [جديد] دالة لخلط عناصر المصفوفة ---
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
+        // --- ضبط أبعاد الكانفاس بشكل متجاوب ---
+        function resizeCanvas() {
+            canvasWidth = gameContainer.clientWidth;
+            canvasHeight = gameContainer.clientHeight;
+            canvas.width = canvasWidth;
+            canvas.height = canvasHeight;
+            
+            // [تعديل] تم إزالة تحديد حجم الطائرة من هنا، سيعتمد على الصورة
+        }
+        window.addEventListener('resize', resizeCanvas);
+        
+
+        // --- الطائرة (اللاعب) ---
+        const plane = {
+            x: 0, y: 0, 
+            width: 80, height: 40, // [تعديل] حجم افتراضي احتياطي
+            verticalSpeed: 6, health: 3, isExploded: false,
+            img: new Image(),
+            imgLoaded: false,
+            
+            init: function() {
+                this.img.onload = () => {
+                    this.imgLoaded = true;
+                    // [تعديل] ضبط حجم الطائرة بناءً على الصورة (مع تصغيرها)
+                    // [تعديل 2] تم التصغير بنسبة 15% إضافية (0.07 -> 0.06) بناءً على طلبك
+                    const scale = 0.06; 
+                    this.width = this.img.width * scale;
+                    this.height = this.img.height * scale;
+                    
+                    // [الحل 2] إذا كانت اللعبة تحاول البدء، ابدأها الآن
+                    if (gameIsAttemptingToStart) {
+                        runActualGameStart();
+                    }
+                };
+                this.img.onerror = () => {
+                    // In case the image fails, draw a fallback
+                    console.error("Image failed to load. Using fallback drawing.");
+                    this.imgLoaded = false; 
+                    // [الحل 2] ابدأ اللعبة بالشكل الاحتياطي
+                    if (gameIsAttemptingToStart) {
+                        runActualGameStart();
+                    }
+                };
+                // [تعديل] استخدام الرابط الكامل للصورة
+                this.img.src = 'https://ablan-math.github.io/img/g3_2/taara.png';
+            },
+
+            draw() {
+                if(this.isExploded) return;
+                
+                ctx.save();
+                // [الحل 3] اذهب إلى موضع الطائرة واقلب اتجاه الرسم
+                ctx.translate(this.x, this.y);
+                ctx.scale(-1, 1); // عكس الاتجاه أفقيًا
+
+                if (this.imgLoaded) {
+                    // [تعديل] ارسم الصورة مقلوبة (مركزها y)
+                    // نرسم من 0 إلى العرض (والذي سيُرسم لليسار بسبب .scale)
+                    ctx.drawImage(this.img, 0, -this.height / 2, this.width, this.height);
+                } else {
+                    // [تعديل] رسم شكل احتياطي مقلوب
+                    ctx.fillStyle = '#d9534f';
+                    ctx.beginPath();
+                    ctx.moveTo(0, 0); // من اليمين
+                    ctx.quadraticCurveTo(this.width * 0.7, -this.height * 0.5, this.width, 0); // إلى اليسار
+                    ctx.quadraticCurveTo(this.width * 0.7, this.height * 0.5, this.width, 0);
+                    ctx.fill();
+                }
+                ctx.restore();
+            },
+            update() {
+                if (keys['ArrowUp'] || keys['w']) this.y -= this.verticalSpeed;
+                if (keys['ArrowDown'] || keys['s']) this.y += this.verticalSpeed;
+                
+                // [تعديل] ضمان بقاء الطائرة (التي مركزها y) ضمن الشاشة
+                if (this.y < this.height / 2) this.y = this.height / 2;
+                if (this.y > canvasHeight - this.height / 2) this.y = canvasHeight - this.height / 2;
+            }
+        };
+        
+        plane.init(); // [تعديل] بدء تحميل الصورة
+        
+        resizeCanvas(); 
+
+        // --- جزيئات الدخان والانفجار والألعاب النارية ---
+        class Particle {
+            constructor(x, y, color, size, speedX, speedY, type = 'smoke') {
+                this.x = x; this.y = y; this.color = color; this.size = size;
+                this.speedX = speedX; this.speedY = speedY; this.life = 1;
+                this.type = type;
+                this.gravity = 0.1;
+            }
+            update() {
+                if (this.type === 'firework') {
+                    this.speedY += this.gravity;
+                }
+                this.x += this.speedX;
+                this.y += this.speedY;
+                this.life -= 0.02;
+                if (this.size > 0.2 && this.type !== 'firework') this.size -= 0.1;
+            }
+            draw() {
+                ctx.fillStyle = this.color; ctx.globalAlpha = this.life;
+                ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill(); ctx.globalAlpha = 1;
+            }
+        }
+
+        // --- السحب (العقبات والإجابات) ---
+        class Cloud {
+            // [تعديل] تبسيط المُدخلات، text هو الآن كائن { prefix, val, den, isPoint }
+            constructor(text, isCorrect, answerType, initialX) {
+                this.width = canvasWidth * 0.25;
+                this.height = this.width * 0.6;
+                this.x = initialX;
+                this.y = Math.random() * (canvasHeight - this.height * 1.5) + this.height * 0.5;
+                this.speed = Math.random() * 0.5 + 0.8; 
+                this.color = '#FFFFFF';
+                this.isCollected = false; 
+                this.isHit = false; 
+                this.text = text; // { prefix, val, den, isPoint }
+                this.isCorrect = isCorrect;
+                this.answerType = answerType; // 'slope' or 'point'
+            }
+            update() {
+                this.x -= this.speed;
+            }
+            draw() {
+                // [تعديل] تم تغيير yPos لرفع النص إلى منتصف السحابة
+                // كان: const yPos = this.y + this.height / 2 - 5;
+                const yPos = this.y + this.height * 0.25; 
+
+                ctx.fillStyle = this.color;
+                ctx.globalAlpha = 0.9;
+                ctx.beginPath();
+                ctx.arc(this.x + this.width * 0.25, this.y + this.height * 0.5, this.width * 0.25, Math.PI, Math.PI * 2);
+                ctx.arc(this.x + this.width * 0.5, this.y + this.height * 0.3, this.width * 0.3, Math.PI, Math.PI * 2);
+                ctx.arc(this.x + this.width * 0.75, this.y + this.height * 0.5, this.width * 0.25, Math.PI, Math.PI * 2);
+                ctx.fill();
+                ctx.globalAlpha = 1;
+
+                ctx.fillStyle = '#333';
+                const fontSize = this.width * 0.15;
+                ctx.font = `bold ${fontSize}px Cairo`;
+                ctx.textBaseline = 'middle';
+                
+                // --- [تعديل] منطق رسم النص ليدعم الكسور والنقاط ---
+                if (this.text.den) {
+                    // رسم كسر (للميل)
+                    drawFraction(this.text.prefix, this.text.val, this.text.den, this.x + this.width / 2, yPos, fontSize);
+                } else if (this.text.isPoint) {
+                    // رسم نقطة (مثل: (٣ ، ٥))
+                    ctx.textAlign = 'center';
+                    ctx.fillText(this.text.val, this.x + this.width / 2, yPos);
+                } else {
+                    // رسم نص عادي (مثل: م = ٢)
+                    ctx.textAlign = 'center';
+                    ctx.fillText(this.text.prefix + toArabicNumerals(this.text.val), this.x + this.width / 2, yPos);
+                }
+            }
+        }
+        
+        // --- دالة رسم الكسور ---
+        function drawFraction(prefix, num, den, x, y, fontSize) {
+            const numArabic = toArabicNumerals(num);
+            const denArabic = toArabicNumerals(den);
+            
+            ctx.textAlign = 'right';
+            ctx.fillText(prefix, x + (fontSize * 1.5), y); 
+
+            ctx.textAlign = 'center';
+            const fractionX = x - ctx.measureText(prefix).width + (fontSize * 0.75); 
+            ctx.fillText(numArabic, fractionX, y - (fontSize * 0.5));
+            ctx.fillRect(fractionX - (fontSize * 0.75), y, fontSize * 1.5, 3); 
+            ctx.fillText(denArabic, fractionX, y + (fontSize * 0.75));
+        }
+
+        // --- [لمسة جديدة] التحكم في السحب والاصطدامات (مُعاد كتابته بالكامل) ---
+        function handleClouds() {
+            for (let i = clouds.length - 1; i >= 0; i--) {
+                const cloud = clouds[i];
+                cloud.update();
+                cloud.draw();
+
+                if (detectCollision(plane, cloud)) {
+                    if(cloud.isCollected || cloud.isHit) continue;
+
+                    if (cloud.isCorrect) {
+                        // --- منطق المهمة المزدوجة ---
+                        if (currentTaskState === 'finding_slope' && cloud.answerType === 'slope') {
+                            // --- نجح في المهمة الأولى (الميل) ---
+                            score++;
+                            scoreEl.textContent = `النقاط: ${toArabicNumerals(score)}`;
+                            cloud.isCollected = true;
+                            cloud.color = '#90EE90';
+                            currentTaskState = 'finding_point';
+                            // الانتقال للمهمة الثانية (النقطة)
+                            setTimeout(() => populateClouds('point'), 500); 
+                        } 
+                        else if (currentTaskState === 'finding_point' && cloud.answerType === 'point') {
+                             // --- نجح في المهمة الثانية (النقطة) ---
+                            score++;
+                            scoreEl.textContent = `النقاط: ${toArabicNumerals(score)}`;
+                            cloud.isCollected = true;
+                            cloud.color = '#90EE90';
+                            // الانتقال للسؤال التالي
+                            setTimeout(nextProblem, 1000); 
+                        }
+                        // (إذا اصطدم بسحابة صحيحة لكنها ليست للمهمة الحالية، نتجاهلها)
+
+                    } else {
+                        // --- اصطدم بسحابة خاطئة ---
+                        cloud.isHit = true; 
+                        cloud.color = '#FFCCCB'; 
+                        plane.health--;
+                        errors++; 
+                        updateHealthDisplay();
+                        if (plane.health <= 0) {
+                            
+                            // --- [تصحيح الخطأ المنطقي 3] ---
+                            // تم تغيير مكان الانفجار ليكون في مركز الطائرة
+                            // كان: createExplosion(plane.x + plane.width / 2, plane.y + plane.height / 2);
+                            createExplosion(plane.x - plane.width / 2, plane.y);
+
+                            plane.isExploded = true;
+                            setTimeout(endGame, 500);
+                        }
+                    }
+                }
+                
+                // [تعديل] إعادة تدوير السحب (إذا لم تُلمس) أو حذفها (إذا ضُربت)
+                if (cloud.x < -cloud.width) {
+                    if (cloud.isHit || cloud.isCollected) {
+                        // 1. إذا تم ضربها أو جمعها، احذفها
+                        clouds.splice(i, 1);
+                    } else {
+                        // 2. إذا لم يتم لمسها، أعد تدويرها (اجعلها تظهر مجدداً)
+                        // ابحث عن أبعد سحابة على اليمين لتحديد مكان ظهورها التالي
+                        let max_x = 0;
+                        for (const c of clouds) {
+                            if (c.x > max_x) max_x = c.x;
+                        }
+                        const farthestX = Math.max(max_x, canvasWidth); 
+                        
+                        // أعد تعيين الموضع والسرعة
+                        cloud.x = farthestX + (canvasWidth / 2.5); // (canvasWidth / 2.5) هي المسافة الأصلية بين السحب
+                        cloud.y = Math.random() * (canvasHeight - cloud.height * 1.5) + cloud.height * 0.5;
+                        cloud.speed = Math.random() * 0.5 + 0.8;
+                    }
+                }
+            }
+        }
+        
+        // --- [لمسة جديدة] دالة لإنشاء موجات السحب (بدلاً من createNewCloud) ---
+        function populateClouds(type) {
+            clouds = []; // مسح جميع السحب الحالية
+            const problem = currentProblem;
+            let answers = [];
+
+            if (type === 'slope') {
+                taskDisplay.textContent = `المهمة الأولى: أوجد الميل (م)`;
+                answers.push({ text: problem.slopeText, isCorrect: true, answerType: 'slope' });
+                problem.distractorSlopes.forEach(d => {
+                    answers.push({ text: d, isCorrect: false, answerType: 'slope' });
+                });
+            } else if (type === 'point') {
+                taskDisplay.textContent = `المهمة الثانية: أوجد النقطة (س₁ ، ص₁)`;
+                answers.push({ text: problem.pointText, isCorrect: true, answerType: 'point' });
+                 problem.distractorPoints.forEach(d => {
+                    answers.push({ text: d, isCorrect: false, answerType: 'point' });
+                });
+            }
+
+            answers = answers.sort(() => Math.random() - 0.5);
+
+            // توزيع 4 سحب على الشاشة
+            for(let i = 0; i < 4; i++) { 
+                const ans = answers[i];
+                if (!ans) continue;
+                // [ملاحظة] زيادة المسافة بين السحب (2.5 -> 3.0) لإعطاء مساحة أكبر
+                const initialX = canvasWidth + i * (canvasWidth / 2.5); 
+                clouds.push(new Cloud(ans.text, ans.isCorrect, ans.answerType, initialX));
+            }
+        }
+
+
+        // --- تحميل السؤال التالي ---
+        function nextProblem() {
+            currentProblemIndex++;
+            if (currentProblemIndex >= totalProblems) {
+                endGame(true); // فوز
+                return;
+            }
+            loadProblem(currentProblemIndex);
+        }
+
+        // --- [تعديل] توليد سؤال جديد (معادلة ميل ونقطة) ---
+        function generateProblem(levelIndex) {
+            let m, p1; // m = slope, p1 = point {x, y}
+            let slopeText, pointText;
+            let distractorSlopes = [], distractorPoints = [];
+            
+            const level = levelIndex + 1;
+
+            // توليد الميل والنقطة
+            if (level === 1) { // أعداد صحيحة موجبة
+                m = { val: getRandomInt(2, 5) };
+                p1 = { x: getRandomInt(1, 9), y: getRandomInt(1, 9) };
+            } else if (level === 2) { // إدخال إشارات سالبة
+                m = { val: getRandomInt(-5, -1) };
+                p1 = { x: getRandomInt(-9, -1, [0]), y: getRandomInt(1, 9) };
+            } else if (level === 3) { // إشارات سالبة للنقطة
+                m = { val: getRandomInt(2, 5) };
+                p1 = { x: getRandomInt(1, 9), y: getRandomInt(-9, -1, [0]) };
+            } else if (level === 4) { // [تعديل] المستوى الرابع: س = 0
+                const num = getRandomInt(1, 4);
+                let den = getRandomInt(2, 5);
+                while(den <= num) den = getRandomInt(2, 5);
+                m = { val: num, den: den };
+                // اجعل س = 0 دائماً
+                p1 = { x: 0, y: getRandomInt(-5, 5, [0]) };
+            } else { // [تعديل] المستوى الخامس: ص = 0
+                m = { val: Math.random() > 0.5 ? 1 : -1 };
+                // اجعل ص = 0 دائماً
+                p1 = { x: getRandomInt(-9, 9, [0]), y: 0 };
+            }
+
+            // --- إنشاء نصوص الإجابات الصحيحة ---
+            slopeText = { prefix: 'م = ', val: m.val, den: m.den };
+            pointText = { val: `(${toArabicNumerals(p1.x)} ، ${toArabicNumerals(p1.y)})`, isPoint: true };
+
+            // --- [تعديل] إنشاء المشتتات (المنطق الجديد الأكثر صعوبة) ---
+            
+            // --- 1. مشتتات الميل ---
+            const slopeDistractorsSet = new Set();
+            const mVal = m.val / (m.den || 1); // القيمة الفعلية للميل
+
+            // أضف عكس الإشارة
+            if (m.den) {
+                slopeDistractorsSet.add(JSON.stringify({ prefix: 'م = ', val: -m.val, den: m.den }));
+            } else {
+                slopeDistractorsSet.add(JSON.stringify({ prefix: 'م = ', val: -m.val }));
+            }
+
+            // أضف المقلوب (إذا لم يكن الميل 1 أو -1)
+            if (mVal !== 0 && Math.abs(mVal) !== 1) {
+                if (m.den) {
+                    // مقلوب الكسر
+                    slopeDistractorsSet.add(JSON.stringify({ prefix: 'م = ', val: m.den, den: m.val }));
+                    // مقلوب الكسر بعكس الإشارة
+                    slopeDistractorsSet.add(JSON.stringify({ prefix: 'م = ', val: -m.den, den: m.val }));
+                } else {
+                    // مقلوب العدد الصحيح
+                    slopeDistractorsSet.add(JSON.stringify({ prefix: 'م = ', val: 1, den: m.val }));
+                }
+            }
+
+            // أضف قيم النقطة (س و ص) كمشتتات للميل
+            if (p1.x !== 0 && p1.x !== mVal) slopeDistractorsSet.add(JSON.stringify({ prefix: 'م = ', val: p1.x }));
+            if (p1.y !== 0 && p1.y !== mVal) slopeDistractorsSet.add(JSON.stringify({ prefix: 'م = ', val: p1.y }));
+            
+            // أضف عكس قيم النقطة
+            if (-p1.x !== 0 && -p1.x !== mVal) slopeDistractorsSet.add(JSON.stringify({ prefix: 'م = ', val: -p1.x }));
+            if (-p1.y !== 0 && -p1.y !== mVal) slopeDistractorsSet.add(JSON.stringify({ prefix: 'م = ', val: -p1.y }));
+            
+            // تحويل Set إلى مصفوفة
+            distractorSlopes = Array.from(slopeDistractorsSet).map(item => JSON.parse(item));
+            shuffleArray(distractorSlopes); // خلط
+            distractorSlopes = distractorSlopes.slice(0, 3); // أخذ 3 مشتتات فقط
+
+            // --- 2. مشتتات النقطة ---
+            const pointDistractorsSet = new Set();
+            const mSimpleVal = m.den ? null : m.val; // قيمة الميل الصحيح (إذا لم يكن كسراً)
+
+            // المشتتات الأساسية (عكس الإشارات وقلب الإحداثيات)
+            if (p1.x !== 0 || p1.y !== 0) { // تجنب (-0 ، -0)
+                pointDistractorsSet.add(`(${toArabicNumerals(-p1.x)} ، ${toArabicNumerals(-p1.y)})`); // 1. عكس الإشارات
+            }
+            if (p1.x !== p1.y) { // تجنب قلب (2 ، 2)
+                pointDistractorsSet.add(`(${toArabicNumerals(p1.y)} ، ${toArabicNumerals(p1.x)})`); // 2. قلب الإحداثيات
+            }
+            if (p1.x !== 0) {
+                pointDistractorsSet.add(`(${toArabicNumerals(-p1.x)} ، ${toArabicNumerals(p1.y)})`); // 3. عكس إشارة س فقط
+            }
+            if (p1.y !== 0) {
+                pointDistractorsSet.add(`(${toArabicNumerals(p1.x)} ، ${toArabicNumerals(-p1.y)})`); // 4. عكس إشارة ص فقط
+            }
+
+            // المشتتات الجديدة (استخدام الميل في النقطة)
+            if (mSimpleVal !== null) {
+                if (mSimpleVal !== p1.x) pointDistractorsSet.add(`(${toArabicNumerals(mSimpleVal)} ، ${toArabicNumerals(p1.y)})`);
+                if (mSimpleVal !== p1.y) pointDistractorsSet.add(`(${toArabicNumerals(p1.x)} ، ${toArabicNumerals(mSimpleVal)})`);
+                
+                // وعكس إشاراتها (إذا كانت مختلفة)
+                if (-mSimpleVal !== p1.x && mSimpleVal !== 0) pointDistractorsSet.add(`(${toArabicNumerals(-mSimpleVal)} ، ${toArabicNumerals(p1.y)})`);
+                if (-mSimpleVal !== p1.y && mSimpleVal !== 0) pointDistractorsSet.add(`(${toArabicNumerals(p1.x)} ، ${toArabicNumerals(-mSimpleVal)})`);
+            }
+
+            // إزالة الإجابة الصحيحة إذا ظهرت بالخطأ (لضمان 3 مشتتات)
+            pointDistractorsSet.delete(`(${toArabicNumerals(p1.x)} ، ${toArabicNumerals(p1.y)})`);
+
+            // تحويل Set إلى مصفوفة
+            let pointDistractorsList = Array.from(pointDistractorsSet);
+            shuffleArray(pointDistractorsList); // خلط
+            
+            // التأكد من وجود 3 مشتتات على الأقل (للحالات النادرة مثل النقطة (0,0))
+            while (pointDistractorsList.length < 3) {
+                const randX = getRandomInt(-5, 5, [0, p1.x]);
+                const randY = getRandomInt(-5, 5, [0, p1.y]);
+                const newDistractor = `(${toArabicNumerals(randX)} ، ${toArabicNumerals(randY)})`;
+                if (newDistractor !== pointText.val) { // التأكد مجدداً أنه ليس الإجابة الصحيحة
+                     pointDistractorsList.push(newDistractor);
+                }
+            }
+
+            pointDistractorsList = pointDistractorsList.slice(0, 3); // أخذ 3 مشتتات
+            
+            // تحويلها إلى التنسيق المطلوب
+            distractorPoints = pointDistractorsList.map(val => ({ val: val, isPoint: true }));
+            
+            return { m, p1, slopeText, pointText, distractorSlopes, distractorPoints };
+        }
+        
+        // --- [تعديل] دالة عرض المعادلة (ميل ونقطة) ---
+        function displayEquation() {
+            const m = currentProblem.m;
+            const p1 = currentProblem.p1;
+            
+            let eqHTML = 'ص ';
+            // جزء ص (ص - ص₁)
+            if (p1.y > 0) eqHTML += `− ${toArabicNumerals(p1.y)}`;
+            else if (p1.y < 0) eqHTML += `+ ${toArabicNumerals(Math.abs(p1.y))}`;
+            // (إذا ص = 0 ، لا يضيف شيء)
+
+            eqHTML += ' = ';
+
+            // جزء الميل (م)
+            if (m.den) { // كسر
+                eqHTML += `${m.val < 0 ? '−' : ''}<span style="display: inline-block; text-align: center; vertical-align: middle; font-size: 1.5rem; line-height: 1;">${toArabicNumerals(Math.abs(m.val))}<br>―<br>${toArabicNumerals(m.den)}</span>`;
+            } else if (m.val === 1) {
+                // لا يكتب شيء (يكتب القوس فقط)
+            } else if (m.val === -1) {
+                eqHTML += '−';
+            } else if (m.val !== 0) {
+                eqHTML += toArabicNumerals(m.val);
+            } else {
+                eqHTML += '٠';
+            }
+
+            // جزء س (س - س₁)
+            if (m.val !== 0) {
+                eqHTML += '(س ';
+                if (p1.x > 0) eqHTML += `− ${toArabicNumerals(p1.x)}`;
+                else if (p1.x < 0) eqHTML += `+ ${toArabicNumerals(Math.abs(p1.x))}`;
+                eqHTML += ')';
+            }
+            
+            if (m.val === 0) { // إذا كان الميل صفر، المعادلة هي ص - ص1 = 0
+                eqHTML = 'ص ';
+                if (p1.y > 0) eqHTML += `− ${toArabicNumerals(p1.y)}`;
+                else if (p1.y < 0) eqHTML += `+ ${toArabicNumerals(Math.abs(p1.y))}`;
+                eqHTML += ' = ٠';
+            }
+
+            equationDisplay.innerHTML = eqHTML;
+        }
+
+
+        // --- [تعديل] تحميل بيانات السؤال وإنشاء السحب ---
+        function loadProblem(index) {
+            currentProblem = generateProblem(index); 
+            
+            // [لمسة جديدة] ضبط الحالة لبدء المهمة الأولى (الميل)
+            currentTaskState = 'finding_slope'; 
+            
+            // [لمسة جديدة] عرض المعادلة
+            displayEquation();
+            
+            // [لمسة جديدة] بدء موجة السحب الأولى (الميل)
+            populateClouds('slope');
+        }
+
+        // --- كشف الاصطدام ---
+        function detectCollision(p, c) {
+             // [تعديل 4] زيادة الهامش العمودي بشكل خاص
+             // تم تغيير القيمة من 0.35 إلى 0.45 للعمودي (Y)
+             // ومن 0.35 إلى 0.40 للأفقي (X)
+             const paddingX = p.width * 0.40; 
+             const paddingY = p.height * 0.45; // هامش عمودي أكبر ليناسب ارتفاع الطائرة
+             
+             // [تعديل] حساب حدود الطائرة بناءً على المركز (p.y)
+             const planeTop = p.y - p.height / 2 + paddingY;
+             const planeBottom = p.y + p.height / 2 - paddingY;
+             // [تعديل] حساب حدود الطائرة المقلوبة (p.x هو اليمين)
+             const planeLeft = p.x - p.width + paddingX;
+             const planeRight = p.x - paddingX;
+             
+             // نفترض أن y للسحابة هو العلوي
+             const cloudTop = c.y; 
+             const cloudBottom = c.y + c.height;
+             const cloudLeft = c.x;
+             const cloudRight = c.x + c.width;
+
+             // [تعديل] منطق اصطدام دقيق
+             return (planeLeft < cloudRight &&
+                       planeRight > cloudLeft &&
+                       planeTop < cloudBottom &&
+                       planeBottom > cloudTop);
+        }
+        
+        // --- التحكم في الجزيئات ---
+        function handleParticles() {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                particles[i].update();
+                particles[i].draw();
+                if (particles[i].life <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+        }
+        
+        // --- إنشاء تأثير الدخان ---
+        // [ملاحظة] التعليقات الأصلية هنا كانت خاطئة
+        function handleSmoke() {
+            if (plane.health < 3 && !plane.isExploded) {
+                // [تعديل 2] تقريب الدخان لمنتصف الطائرة (0.85 -> 0.6) بناءً على طلبك
+                const smokeX = plane.x - (plane.width * 0.6); // أقرب للمركز
+                const smokeY = plane.y; // عند المركز
+                if (plane.health === 2 && frame % 6 === 0) {
+                    
+                    // --- [تصحيح الخطأ المنطقي] ---
+                    // تم تغيير السرعة الأفقية (speedX) من 3 إلى -2
+                    // لجعل الدخان يتجه لليسار (خلف الطائرة)
+                    particles.push(new Particle(smokeX, smokeY, '#333', 8, -2, Math.random() - 0.5)); 
+                
+                }
+                if (plane.health === 1 && frame % 4 === 0) {
+
+                    // --- [تصحيح الخطأ المنطقي] ---
+                    // تم تغيير السرعة الأفقية (speedX) من 3.5 و 3 إلى -2.5 و -2
+                    // لجعل الدخان يتجه لليسار (خلف الطائرة)
+                    particles.push(new Particle(smokeX, smokeY, '#333', 9, -2.5, Math.random() - 0.5));
+                    particles.push(new Particle(smokeX, smokeY, '#d9534f', 7, -2, Math.random() - 0.5));
+                }
+            }
+        }
+        
+        // --- إنشاء تأثير الانفجار ---
+        function createExplosion(x, y) {
+            for (let i = 0; i < 50; i++) {
+                const size = Math.random() * 10 + 5;
+                const speedX = (Math.random() - 0.5) * 10;
+                const speedY = (Math.random() - 0.5) * 10;
+                const color = Math.random() < 0.5 ? '#FFA500' : '#FF4500';
+                particles.push(new Particle(x, y, color, size, speedX, speedY));
+            }
+        }
+
+        // --- إنشاء تأثير الألعاب النارية ---
+        function createFirework(x, y) {
+            const colors = ['#FFD700', '#FF4500', '#ADFF2F', '#00BFFF', '#EE82EE'];
+            for (let i = 0; i < 30; i++) {
+                const angle = (i / 30) * Math.PI * 2;
+                const speed = Math.random() * 5 + 2;
+                const speedX = Math.cos(angle) * speed;
+                const speedY = Math.sin(angle) * speed;
+                const color = colors[Math.floor(Math.random() * colors.length)];
+                particles.push(new Particle(x, y, color, 3, speedX, speedY, 'firework'));
+            }
+        }
+        
+        // --- دوال رسم المعالم والخلفية ---
+        // (لا تغييرات هنا... تم الإبقاء على نفس الخلفية المميزة)
+        function drawBackground() {
+            cityOffsetLandmark -= backgroundSpeedLandmark;
+            cityOffsetBack -= backgroundSpeedBack;
+            cityOffsetFront -= backgroundSpeedFront;
+            if (cityOffsetLandmark <= -canvasWidth * 2.5) cityOffsetLandmark = 0;
+            if (cityOffsetBack <= -canvasWidth) cityOffsetBack = 0;
+            if (cityOffsetFront <= -canvasWidth) cityOffsetFront = 0;
+
+            function drawLandmarkLayer(offset) {
+                ctx.fillStyle = '#9DB2BF';
+                for (let i = 0; i < 2; i++) {
+                    const firstTowerX = offset + i * canvasWidth * 2.5 + canvasWidth * 0.7;
+                    drawKingdomTower(firstTowerX, canvasHeight, 90, 330);
+                    const secondTowerX = offset + i * canvasWidth * 2.5 + canvasWidth * 1.5;
+                    drawFaisaliahTower(secondTowerX, canvasHeight, 70, 290);
+                }
+            }
+            function drawBuildingLayer(offset, color, seed, minHeight, heightRange, layerType) {
+                ctx.fillStyle = color;
+                for (let i = 0; i < 2; i++) {
+                    let currentX = offset + i * canvasWidth;
+                    let buildingIndex = 0;
+                    while (currentX < offset + (i + 1) * canvasWidth) {
+                        const randomizer = Math.abs(Math.sin(buildingIndex * seed));
+                        let isLandmark = false;
+                        if (layerType === 'front' && buildingIndex > 0 && buildingIndex % 12 === 0) {
+                            drawMinaret(currentX, canvasHeight, 20, 90);
+                            currentX += 25;
+                            isLandmark = true;
+                        }
+                        if (!isLandmark) {
+                            const buildingWidth = (randomizer * 40 + 30) * (canvasWidth / 800);
+                            const buildingHeight = (randomizer * heightRange + minHeight) * (canvasHeight / 600);
+                            ctx.fillRect(currentX, canvasHeight - buildingHeight, buildingWidth, buildingHeight);
+                            const gap = 5;
+                            currentX += buildingWidth + gap;
+                        }
+                        buildingIndex++;
+                    }
+                }
+            }
+            drawLandmarkLayer(cityOffsetLandmark);
+            drawBuildingLayer(cityOffsetBack, '#6c757d', 0.8, 80, 70, 'back');
+            drawBuildingLayer(cityOffsetFront, '#4a4a4a', 0.5, 40, 50, 'front');
+        }
+        function drawMinaret(x, yBase, width, height) { ctx.fillRect(x, yBase - height, width, height); ctx.fillRect(x - 5, yBase - height, width + 10, 10); ctx.beginPath(); ctx.arc(x + width / 2, yBase - height - 10, width * 0.7, Math.PI, 2 * Math.PI); ctx.fill(); ctx.beginPath(); ctx.arc(x + width / 2, yBase - height - 20, 8, Math.PI * 1.25, Math.PI * 1.75); ctx.stroke(); }
+        function drawKingdomTower(x, yBase, width, height) { ctx.beginPath(); ctx.moveTo(x, yBase); ctx.lineTo(x + width, yBase); ctx.lineTo(x + width, yBase - height * 0.8); ctx.arc(x + width / 2, yBase - height * 0.8, width / 2, 0, Math.PI, true); ctx.lineTo(x, yBase - height * 0.8); ctx.closePath(); ctx.fill(); ctx.save(); ctx.globalCompositeOperation = 'destination-out'; ctx.beginPath(); ctx.arc(x + width / 2, yBase - height * 0.85, width / 2.5, 0, 2 * Math.PI); ctx.fill(); ctx.restore(); }
+        function drawFaisaliahTower(x, yBase, width, height) { ctx.beginPath(); ctx.moveTo(x, yBase); ctx.lineTo(x + width, yBase); ctx.lineTo(x + width * 0.6, yBase - height); ctx.lineTo(x + width * 0.4, yBase - height); ctx.closePath(); ctx.fill(); ctx.save(); ctx.fillStyle = '#a7c5d4'; ctx.beginPath(); ctx.arc(x + width / 2, yBase - height * 0.7, width * 0.3, 0, 2 * Math.PI); ctx.fill(); ctx.restore(); }
+        
+        // --- تحديث عرض الصحة ---
+        function updateHealthDisplay() {
+            healthEl.textContent = 'الصحة: ' + '❤️'.repeat(plane.health > 0 ? plane.health : 0);
+        }
+
+        // --- حلقة اللعبة الرئيسية ---
+        function animate() {
+            ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+            drawBackground();
+            handleParticles(); 
+            
+            if (!gameOver) {
+                handleClouds();
+                plane.update();
+                plane.draw();
+                handleSmoke(); 
+                frame++;
+            }
+            requestAnimationFrame(animate);
+        }
+        
+        // --- [الحل 2] فصل دالة بدء اللعبة الفعلية ---
+        function runActualGameStart() {
+            gameOver = false;
+            score = 0;
+            errors = 0; 
+            currentProblemIndex = -1;
+            plane.health = 3;
+            plane.isExploded = false;
+            particles = [];
+            clouds = [];
+            frame = 0;
+
+            // --- [تصحيح الخطأ المنطقي 1] ---
+            // تغيير موقع الطائرة من 75% (يمين) إلى 25% (يسار)
+            // لإعطاء اللاعب وقتاً لرؤية السحب.
+            plane.x = canvasWidth * 0.25; 
+            
+            plane.y = canvasHeight / 2;
+            scoreEl.textContent = `النقاط: ${toArabicNumerals(score)}`;
+            updateHealthDisplay();
+            
+            messageBox.style.display = 'none';
+            topBar.style.visibility = 'visible';
+            statsContainer.style.visibility = 'visible';
+            
+            restartButton.disabled = false;
+            
+            nextProblem(); // سيبدأ السؤال الأول
+        }
+        
+        // --- بدء اللعبة ---
+        function startGame() {
+            if (fireworksInterval) {
+                clearInterval(fireworksInterval);
+                fireworksInterval = null;
+            }
+            
+            gameIsAttemptingToStart = true;
+            
+            // [الحل 2] التحقق إذا كانت الصورة جاهزة
+            if (plane.imgLoaded) {
+                runActualGameStart();
+            } else {
+                // إذا لم تكن جاهزة، أظهر رسالة تحميل وانتظر
+                restartButton.textContent = 'جاري تحميل الطائرة...';
+                restartButton.disabled = true;
+                // دالة plane.init.onload ستقوم بتشغيل runActualGameStart
+            }
+        }
+
+        // --- إنهاء اللعبة ---
+        function endGame(isWin = false) {
+            gameOver = true;
+            gameIsAttemptingToStart = false; // [جديد] إيقاف محاولة البدء
+            
+            // Show end-game elements, hide start-game elements
+            messageBox.style.display = 'flex';
+            messageBox.querySelector('h1').style.display = 'none';
+            document.getElementById('welcomeMessage').style.display = 'none';
+            document.getElementById('developer-info').style.display = 'none';
+            restartButton.textContent = 'العب مرة أخرى';
+            restartButton.disabled = false; // [جديد] التأكد من تفعيل الزر
+            topBar.style.visibility = 'hidden';
+            statsContainer.style.visibility = 'hidden';
+
+            // استدعاء دالة الحفظ وعرض السجل
+            // [تعديل] النقاط الآن هي 10 (2 لكل سؤال)
+            saveAndFinishGame(score, errors);
+            
+            if (isWin && score >= 8) { // فوز إذا كانت النقاط 8 أو أكثر
+                if (fireworksInterval) clearInterval(fireworksInterval);
+                fireworksInterval = setInterval(() => {
+                    createFirework(Math.random() * canvasWidth, Math.random() * canvasHeight * 0.5);
+                }, 500);
+            }
+        }
+
+        // --- التحكم ---
+        window.addEventListener('keydown', e => keys[e.key] = true);
+        window.addEventListener('keyup', e => delete keys[e.key]);
+        gameContainer.addEventListener('mousemove', e => {
+            if (gameOver) return;
+            const rect = canvas.getBoundingClientRect();
+            // [الحل 2] إزالة حساب المنتصف من هنا. اجعل y يتبع الفأرة مباشرة.
+            plane.y = e.clientY - rect.top;
+        });
+        gameContainer.addEventListener('touchmove', e => {
+            if (gameOver) return;
+            e.preventDefault();
+            const rect = canvas.getBoundingClientRect();
+            // [الحل 2] إزالة حساب المنتصف من هنا. اجعل y يتبع اللمسة مباشرة.
+            plane.y = e.touches[0].clientY - rect.top;
+        }, { passive: false });
+        
+        restartButton.addEventListener('click', startGame);
+        
+        // --- بدء الحلقة الرسومية ---
+        animate();
+    </script>
+    
+    <!-- --- START OF CONNECTION & LEADERBOARD ENGINE --- -->
+    <!-- [تعديل] تم تغيير GAME_ID ليعكس اللعبة الجديدة -->
+    <script>
+    (function() {
+        // --- CONFIGURATION (عدّل هذه الإعدادات لكل لعبة) ---
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
+        const GAME_ID = 'g3_3_1'; // [تعديل] تم تغيير ID اللعبة إلى 1.2 (ميل ونقطة)
+        const GAME_MAX_POINTS = 10; // 5 أسئلة * نقطتين (ميل ونقطة)
+        const PLATFORM_MAX_GRADE = 5;
+        const METRIC_TYPE = 'errors';
+        const METRIC_LABEL = 'الأخطاء';
+
+        // --- Read URL Parameters ---
+        const urlParams = new URLSearchParams(window.location.search);
+        const studentId = urlParams.get('studentId');
+        const classId = urlParams.get('classId');
+        const studentName = urlParams.get('studentName');
+
+        let currentUser = (studentId && studentName) ? { id: studentId, name: studentName } : null;
+
+        // --- CORE FUNCTIONS ---
+
+        // 1. الدالة الرئيسية التي تستدعيها عند انتهاء اللعبة
+        window.saveAndFinishGame = function(points, metricValue) {
+            const finalPoints = parseFloat(points) || 0;
+            const finalMetric = parseFloat(metricValue) || 0;
+            const maxPoints = parseFloat(GAME_MAX_POINTS) || 1;
+            const finalGrade = (finalPoints / maxPoints) * PLATFORM_MAX_GRADE;
+
+            const resultDisplay = document.getElementById('final-result-display');
+            if (resultDisplay) {
+                resultDisplay.innerHTML = `
+                    <p class="text-gray-700">النقاط: <span class="font-bold text-xl">${finalPoints} / ${maxPoints}</span></p>
+                    <p class="text-blue-600">الدرجة في المنصة: <span class="font-bold text-2xl">${finalGrade.toFixed(1)} / ${PLATFORM_MAX_GRADE}</span></p>
+                `;
+            }
+
+            if (studentId && classId) {
+                const params = new URLSearchParams({
+                    action: 'saveGrade',
+                    studentId: studentId,
+                    classId: classId,
+                    itemId: GAME_ID,
+                    grade: finalGrade.toFixed(2),
+                    metricValue: Math.round(finalMetric).toString()
+                });
+                fetch(`${SCRIPT_URL}?${params.toString()}`)
+                    .then(res => res.json())
+                    .then(result => console.log('Save result:', result.status))
+                    .catch(err => console.error("Save Error:", err))
+                    .finally(fetchAndShowLeaderboard);
+            } else {
+                console.log(`Visitor finished. Score: ${finalPoints}, Metric: ${finalMetric}`);
+                fetchAndShowLeaderboard();
+            }
+        }
+
+        // 2. دالة جلب وعرض سجل الأبطال
+        function fetchAndShowLeaderboard() {
+            const loader = document.getElementById('leaderboard-loader');
+            const container = document.getElementById('leaderboard-container');
+            if (!loader || !container) return;
+            
+            if (!classId) {
+                console.log("No classId found, skipping leaderboard for visitor.");
+                container.innerHTML = `<p class="text-center text-gray-500 mt-4">سجل الأبطال متاح للطلاب المسجلين فقط.</p>`;
+                showFinishButton();
+                return;
+            }
+
+            loader.style.display = 'block';
+            container.innerHTML = '';
+
+            const params = new URLSearchParams({
+                action: 'getLeaderboard',
+                gameId: GAME_ID,
+                metricType: METRIC_TYPE,
+                classId: classId
+            });
+
+            fetch(`${SCRIPT_URL}?${params.toString()}`)
+                .then(res => res.json())
+                .then(response => {
+                    if (response.status === 'success' && response.data) {
+                        displayLeaderboard(response.data);
+                    } else {
+                        throw new Error(response.message || 'Failed to load leaderboard data.');
+                    }
+                })
+                .catch(err => {
+                    console.error("Leaderboard Error:", err);
+                    container.innerHTML = `<p class="text-center text-red-500">حدث خطأ في تحميل سجل الأبطال.</p>`;
+                })
+                .finally(() => {
+                    loader.style.display = 'none';
+                    showFinishButton();
+                });
+        }
+        
+        // 3. دالة بناء جدول سجل الأبطال
+        function displayLeaderboard(data) {
+            const container = document.getElementById('leaderboard-container');
+            if (!data || data.length === 0) {
+                container.innerHTML = `<p class="text-center text-gray-500 mt-4">لا توجد نتائج بعد. كن أول الأبطال!</p>`;
+                return;
+            }
+
+            let tableHTML = `
+                <div class="mt-6 border-t pt-4">
+                    <h3 class="text-2xl font-bold text-center text-gray-800 mb-4">🏆 سجل الأبطال 🏆</h3>
+                    <table class="min-w-full bg-white shadow-md rounded-lg">
+                        <thead class="bg-gray-800 text-white">
+                            <tr>
+                                <th class="text-center py-2 px-3">الترتيب</th>
+                                <th class="text-right py-2 px-3">اسم الطالب</th>
+                                <th class="text-center py-2 px-3">الدرجة</th>
+                                <th class="text-center py-2 px-3">${METRIC_LABEL}</th>
+                            </tr>
+                        </thead>
+                        <tbody class="text-gray-700">`;
+
+            data.forEach((player, index) => {
+                const rank = index + 1;
+                let rankDisplay = rank;
+                if (rank === 1) rankDisplay = '🥇';
+                if (rank === 2) rankDisplay = '🥈';
+                if (rank === 3) rankDisplay = '🥉';
+
+                const isCurrentUser = (currentUser && player.name === currentUser.name);
+                const rowClass = isCurrentUser ? 'bg-blue-100 font-bold' : (index % 2 === 0 ? 'bg-gray-100' : '');
+
+                tableHTML += `
+                    <tr class="${rowClass}">
+                        <td class="text-center py-2 px-3 text-xl">${rankDisplay}</td>
+                        <td class="text-right py-2 px-3">${player.name}</td>
+                        <td class="text-center py-2 px-3">${player.grade.toFixed(1)}</td>
+                        <td class="text-center py-2 px-3">${player.metricValue}</td>
+                    </tr>`;
+            });
+
+            tableHTML += `</tbody></table></div>`;
+            container.innerHTML = tableHTML;
+        }
+
+        // 4. إظهار زر الإنهاء
+        function showFinishButton() {
+            const finishWrapper = document.getElementById('finish-game-wrapper');
+            if (finishWrapper) {
+                finishWrapper.style.display = 'block';
+            }
+        }
+
+        // 5. التعامل مع زر الإنهاء وتخصيص رسالة الترحيب
+        document.addEventListener('DOMContentLoaded', () => {
+            // Personalize welcome message
+            const welcomeMessage = document.getElementById('welcomeMessage');
+            if (studentName && welcomeMessage) {
+                // Decode the student's name from URL encoding (e.g., %20 becomes a space)
+                const decodedStudentName = decodeURIComponent(studentName);
+                welcomeMessage.innerHTML = `أهلاً بك يا <span class="font-bold text-yellow-300">${decodedStudentName}</span>! أكمل مهمتك المزدوجة: ابحث عن الميل الصحيح، ثم حدد النقطة الصحيحة.`;
+            }
+
+            const finishBtn = document.getElementById('finish-game-btn');
+            if (finishBtn) {
+                finishBtn.addEventListener('click', () => {
+                    window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*');
+                });
+            }
+        });
+    })();
+    // --- END OF CONNECTION & LEADERBOARD ENGINE ---
+    </script>
+    
+</body>
+</html>
+
+
+

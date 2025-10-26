@@ -1,0 +1,1472 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لعبة تحويلات المعادلة</title> <!-- تم التعديل هنا -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        /* استخدام خط Cairo كخط أساسي */
+        body {
+            font-family: 'Cairo', sans-serif;
+            direction: rtl;
+            overscroll-behavior: none;
+        }
+
+        /* تنسيق مخصص للمعادلات والأرقام */
+        .equation-font {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 1rem; /* 16px */
+            font-weight: 700;
+            text-align: center;
+        }
+
+        /* تنسيق الأرقام السفلية (subscript) */
+        sub {
+            font-size: 0.75em;
+            vertical-align: sub;
+            line-height: 0;
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        /* منطقة إفلات المعاملات */
+        .dropzone {
+            width: 3.2rem; /* 51.2px */
+            height: 2.8rem;  /* 44.8px */
+            font-size: 1rem; /* 16px */
+            border: 2px dashed #9ca3af; 
+            border-radius: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            transition: background-color 0.2s, border-color 0.2s;
+            background-color: #f9fafb;
+        }
+        
+        /* تنسيق منطقة الإفلات عند السحب فوقها */
+        .dropzone-over {
+            background-color: #dbeafe; /* blue-100 */
+            border-color: #3b82f6; /* blue-500 */
+        }
+
+        /* "القطع" القابلة للسحب */
+        .draggable {
+            width: 2.8rem;   /* 44.8px */
+            height: 2.3rem;/* 36.8px */
+            font-size: 1rem; /* 16px */
+            background-color: #ffffff;
+            border: 1px solid #d1d5db;
+            border-radius: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            cursor: grab;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            transition: transform 0.1s;
+        }
+
+        /* تنسيق "القطعة" أثناء سحبها */
+        .draggable.dragging {
+            opacity: 0.5;
+            cursor: grabbing;
+            transform: scale(1.05);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        
+        /* تنسيق خانة الإجابة الصحيحة */
+        .correct {
+            background-color: #dcfce7; /* green-100 */
+            border-color: #22c55e; /* green-500 */
+            color: #166534; /* green-800 */
+        }
+
+        /* تنسيق خانة الإجابة الخاطئة */
+        .incorrect {
+            background-color: #fee2e2; /* red-100 */
+            border-color: #ef4444; /* red-500 */
+            color: #991b1b; /* red-800 */
+        }
+        
+        /* تنسيق الكسور العمودية */
+        .fraction {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0 0.2em;
+            vertical-align: middle;
+            position: relative;
+            top: -0.3em;
+        }
+        .numerator {
+            font-size: 0.85em;
+            line-height: 1;
+        }
+        .denominator {
+            font-size: 0.85em;
+            border-top: 2px solid currentColor; /* خط الكسر */
+            line-height: 1;
+            padding-top: 2px;
+        }
+        
+        /* أحجام أكبر للشاشات (sm) وما فوق */
+        @media (min-width: 640px) {
+            .equation-font {
+                font-size: 1.1rem; /* 18px */
+            }
+            .dropzone {
+                width: 4rem; /* 64px */
+                height: 3.2rem; /* 51.2px */
+                font-size: 1.1rem; /* 18px */
+            }
+            .draggable {
+                width: 3.5rem; /* 56px */
+                height: 2.8rem; /* 44.8px */
+                font-size: 1.1rem; /* 18px */
+            }
+        }
+
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background-color: rgba(0, 0, 0, 0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s, visibility 0.3s;
+        }
+        .modal-overlay.show {
+            opacity: 1;
+            visibility: visible;
+        }
+        .modal-content {
+            background-color: white;
+            padding: 1.5rem; /* p-6 */
+            border-radius: 0.75rem; /* rounded-xl */
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            max-width: 90%;
+            width: 400px;
+            transform: scale(0.95);
+            transition: transform 0.3s;
+        }
+        .modal-overlay.show .modal-content {
+            transform: scale(1);
+        }
+
+        /* تنسيق "حبة النقاط" للأكشن */
+        .score-pill {
+            position: fixed;
+            z-index: 1000;
+            background-color: #16a34a; /* green-600 */
+            color: white;
+            padding: 2px 8px;
+            border-radius: 99px;
+            font-size: 1rem;
+            font-weight: bold;
+            transition: transform 0.8s ease-out, opacity 0.8s ease-out;
+            transform: translateY(0) scale(1);
+            opacity: 1;
+            pointer-events: none; /* لمنع اعتراض الضغطات */
+        }
+        
+        /* إضافة مزلاق عند الحاجة */
+        #solution-text {
+            max-height: 60vh;
+            overflow-y: auto;
+            padding-left: 0.5rem; /* 8px */
+        }
+
+        .solution-modal-step {
+            display: flex;
+            align-items: flex-start; /* محاذاة لبداية الدائرة */
+            gap: 0.75rem; /* 12px */
+        }
+        .step-circle {
+            flex-shrink: 0;
+            width: 1.75rem; /* 28px */
+            height: 1.75rem; /* 28px */
+            border-radius: 99px;
+            background-color: #3b82f6; /* blue-500 */
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1rem;
+            font-family: 'Courier New', Courier, monospace;
+            margin-top: 4px; /* لضبط المحاذاة مع السطر الأول */
+        }
+        
+        /* حاوية للنص والمعادلة */
+        .step-text-wrapper {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+        }
+
+        .step-text {
+            font-family: 'Cairo', sans-serif;
+            font-size: 0.95rem; /* 15px */
+            line-height: 1.6;
+        }
+        
+        /* تنسيق سطر المعادلة */
+        .solution-equation {
+            direction: ltr;
+            text-align: center; /* (توسيط المعادلة) */
+            margin-top: 4px;
+            margin-bottom: 8px; /*_فصل بين الخطوات */
+            padding: 4px 8px;
+            background-color: #f9fafb; /* gray-50 */
+            border-radius: 0.25rem; /* rounded */
+            width: 100%;
+            /* تطبيق خصائص .equation-font */
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 1rem;
+            font-weight: 700;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-dvh flex items-center justify-center p-2 sm:p-4 overflow-hidden">
+
+    <!-- شاشة شروط الصورة القياسية -->
+    <div id="info-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h3 class="text-xl font-bold text-blue-700 mb-4 text-center">
+                شروط الصورة القياسية
+            </h3>
+            <p class="text-gray-700 mb-3 text-center" dir="ltr" style="font-family: 'Courier New', Courier, monospace; font-size: 1.1rem;">
+                أ س + ب ص = ج
+            </p>
+            <ul class="list-disc list-inside space-y-2 text-gray-700 text-sm sm:text-base">
+                <li>المعامل <span class="font-bold equation-font" dir="ltr">أ</span> (معامل س) يجب أن يكون عدداً صحيحاً موجباً (أو صفراً).</li>
+                <li>المعاملان <span class="font-bold equation-font" dir="ltr">ب</span> (معامل ص) و <span class="font-bold equation-font" dir="ltr">ج</span> (الحد الثابت) يجب أن يكونا عددين صحيحين.</li>
+                <li>لا يوجد كسور في المعادلة.</li>
+            </ul>
+            <button id="close-modal-btn" class="mt-6 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200">
+                فهمت
+            </button>
+        </div>
+    </div>
+
+    <!-- شاشة شرح النقاط -->
+    <div id="scoring-info-screen" class="modal-overlay" style="z-index: 60;">
+        <div class="modal-content text-center">
+            <h3 class="text-2xl font-bold text-blue-700 mb-4">
+                نظام النقاط
+            </h3>
+            <ul class="list-disc list-inside space-y-3 text-gray-700 text-base sm:text-lg text-right">
+                <li>كل إجابة صحيحة في الصندوق من المحاولة الأولى = <span class="font-bold text-green-600">10 نقاط</span>.</li>
+                <li>إذا أخطأت في الصندوق، فالمحاولة التالية له = <span class="font-bold text-yellow-600">5 نقاط</span>.</li>
+                <li>لديك محاولتان لكل سؤال.</li>
+            </ul>
+            <button id="start-game-btn" class="mt-8 w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-10 rounded-lg text-lg shadow-md transition duration-200">
+                ابدأ التحدي!
+            </button>
+        </div>
+    </div>
+
+    <!-- شاشة بدء المرحلة الأولى -->
+    <div id="stage-1-start-modal" class="modal-overlay" style="z-index: 65;">
+        <div class="modal-content text-center">
+            <h3 class="text-2xl font-bold text-blue-700 mb-4">
+                المرحلة الأولى
+            </h3>
+            <p class="text-lg text-gray-700 mb-5">
+                مهمتك هي تحويل المعادلة:
+                <br>
+                <span class="font-bold text-green-600">من ميل ونقطة إلى ميل ومقطع</span>
+            </p>
+            <div class="p-4 bg-green-50 border border-green-200 rounded-lg">
+                <h4 class="text-lg font-bold text-green-700 mb-3 text-center">
+                    الصيغة المستهدفة
+                </h4>
+                <p class="text-gray-700 mb-3 text-center" dir="ltr" style="font-family: 'Courier New', Courier, monospace; font-size: 1.2rem;">
+                    ص = م س + ب
+                </p>
+            </div>
+            <button id="start-stage1-btn" class="mt-8 w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-10 rounded-lg text-lg shadow-md transition duration-200">
+                ابدأ المرحلة الأولى
+            </button>
+        </div>
+    </div>
+
+
+    <!-- شاشة إظهار النقاط المكتسبة -->
+    <div id="score-modal" class="modal-overlay" style="z-index: 70;">
+        <div class="modal-content text-center">
+            <h3 class="text-2xl font-bold text-green-600 mb-2">أحسنت!</h3>
+            <p id="points-earned-text" class="text-4xl font-bold text-blue-700 mb-4 equation-font">+٢٠ نقطة</p>
+            <div class="border-t pt-4 mt-4 space-y-2 text-sm sm:text-base text-gray-600">
+                <p id="current-question-text">السؤال: ١ / ٥</p>
+                <p id="total-score-text">إجمالي النقاط: ٢٠</p>
+            </div>
+            <button id="continue-btn" class="mt-6 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200">
+                متابعة
+            </button>
+        </div>
+    </div>
+
+    <!-- شاشة انتقالية للمرحلة الثانية -->
+    <div id="stage-transition-modal" class="modal-overlay" style="z-index: 75;">
+        <div class="modal-content text-center">
+            <h3 class="text-2xl font-bold text-green-600 mb-4">
+                أنهيت المرحلة الأولى بنجاح!
+            </h3>
+            <p class="text-lg text-gray-700 mb-5">
+                أنت الآن تنتقل إلى المرحلة الثانية:
+                <br>
+                <span class="font-bold text-blue-700">التحويل إلى الصورة القياسية</span>
+            </p>
+            <div class="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <h4 class="text-lg font-bold text-blue-700 mb-3 text-center">
+                    تذكير بالشروط
+                </h4>
+                <p class="text-gray-700 mb-3 text-center" dir="ltr" style="font-family: 'Courier New', Courier, monospace; font-size: 1.1rem;">
+                    أ س + ب ص = ج
+                </p>
+                <ul class="list-disc list-inside space-y-2 text-gray-700 text-sm text-right">
+                    <li>المعامل (أ) يجب أن يكون موجباً.</li>
+                    <li>المعاملات (أ، ب، ج) يجب أن تكون أعداداً صحيحة (بدون كسور).</li>
+                </ul>
+            </div>
+            <button id="start-stage2-btn" class="mt-8 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-10 rounded-lg text-lg shadow-md transition duration-200">
+                ابدأ المرحلة الثانية
+            </button>
+        </div>
+    </div>
+
+
+    <!-- نافذة "اعرف لماذا؟" -->
+    <div id="solution-modal" class="modal-overlay" style="z-index: 80;"> <!-- z-index أعلى -->
+        <div class="modal-content">
+            <h3 class="text-xl font-bold text-blue-700 mb-4 text-center">
+                خطوات الحل
+            </h3>
+            <div id="solution-text" class="space-y-3 text-gray-700 text-base" dir="rtl" style="text-align: right; line-height: 2;">
+                <!-- سيتم تعبئة الخطوات هنا -->
+            </div>
+            <button id="close-solution-btn" class="mt-6 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200">
+                إغلاق
+            </button>
+        </div>
+    </div>
+
+
+    <!-- شاشة البداية -->
+    <div id="start-screen" class="container max-w-lg w-full mx-auto bg-white p-6 sm:p-8 rounded-xl shadow-xl flex flex-col items-center justify-center text-center">
+        <h1 class="text-3xl sm:text-4xl font-bold text-blue-700 mb-4">
+            لعبة تحويلات المعادلة <!-- تم التعديل هنا -->
+        </h1>
+        <p id="welcomeMessage" class="text-lg text-gray-700 mb-4">
+            مرحباً بك في لعبة تحويل المعادلات!
+        </p>
+        <p class="text-base text-gray-500 mb-6">
+            تصميم وتطوير: الأستاذ عبدالعزيز العبلان
+        </p>
+        <div class="mb-6 w-full p-3 sm:p-4 bg-blue-50 border-l-4 border-blue-500 rounded-lg text-sm">
+            <h3 class="font-bold text-blue-700 mb-3 text-center text-base sm:text-lg">القوانين الأساسية</h3>
+            <div class="flex flex-col items-center gap-2 equation-font text-gray-700" dir="ltr">
+                <p>ص - ص<sub>١</sub> = م(س - س<sub>١</sub>) <span class="text-sm text-gray-500 font-sans" dir="rtl">(ميل ونقطة)</span></p>
+                <p>ص = م س + ب <span class="text-sm text-gray-500 font-sans" dir="rtl">(ميل ومقطع)</span></p>
+                <p>أ س + ب ص = ج <span class="text-sm text-gray-500 font-sans" dir="rtl">(الصورة القياسية)</span></p>
+            </div>
+        </div>
+        <button id="start-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-12 rounded-lg text-xl shadow-md transition duration-200 transform hover:scale-105">
+            ابدأ اللعبة
+        </button>
+    </div>
+
+    <!-- حاوية اللعبة -->
+    <div id="game-container" class="container max-w-2xl w-full h-dvh max-h-[900px] mx-auto bg-white p-3 sm:p-4 rounded-xl shadow-xl flex-col hidden">
+        
+        <!-- (إضافة: إعدادات اللعبة في متغيرات JS) -->
+        <script>
+            var GAME_ID = 'g3_3_2'; // (السطر 484)
+            var GAME_MAX_POINTS = 130; // (2 أسئلة * 20) + (3 أسئلة * 30) = 40 + 90 = 130
+            var PLATFORM_MAX_GRADE = 5; 
+            var METRIC_TYPE = 'errors'; 
+            var METRIC_LABEL = 'عدد الأخطاء';
+        </script>
+        
+        <div class="flex-shrink-0">
+            <div class="h-2 sm:h-3"></div>
+        </div>
+        <div class="flex-shrink-0 mb-3 p-3 bg-gray-50 rounded-lg shadow-inner text-center">
+            <h2 class="text-base sm:text-lg font-semibold text-gray-800 mb-2">المعادلة الأصلية (ميل ونقطة):</h2>
+            <p id="original-equation" class="equation-font text-blue-600 min-h-[2.5rem] flex items-center justify-center"></p>
+        </div>
+        <div class="flex-shrink-0 mb-3">
+            <div class="flex items-center justify-center gap-2 mb-3">
+                <h2 id="target-title" class="text-base sm:text-lg font-semibold text-gray-800 text-center">الصورة المستهدفة:</h2>
+                <button id="info-btn" title="شروط الصورة القياسية" class="w-6 h-6 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center font-bold text-lg transition hover:bg-blue-200">
+                    ℹ️
+                </button>
+            </div>
+            
+            <!-- حاوية الصورة القياسية (بالترتيب الصحيح) -->
+            <div id="builder-container" class="flex items-center justify-center gap-2 sm:gap-3 equation-font hidden">
+                <div id="drop-a" class="dropzone" data-target="a"></div>
+                <span class="text-lg sm:text-2xl font-bold text-gray-700">س</span>
+                <span class="text-lg sm:text-2xl font-bold text-gray-700">+</span>
+                <div id="drop-b" class="dropzone" data-target="b"></div>
+                <span class="text-lg sm:text-2xl font-bold text-gray-700">ص</span>
+                <span class="text-lg sm:text-2xl font-bold text-gray-700">=</span>
+                <div id="drop-c" class="dropzone" data-target="c"></div>
+            </div>
+
+            <!-- حاوية الميل والمقطع (بالترتيب الصحيح) -->
+            <div id="slope-intercept-builder-container" class="flex items-center justify-center gap-2 sm:gap-3 equation-font hidden">
+                <span class="text-lg sm:text-2xl font-bold text-gray-700">ص</span>
+                <span class="text-lg sm:text-2xl font-bold text-gray-700">=</span>
+                <div id="drop-m" class="dropzone" data-target="m"></div>
+                <span class="text-lg sm:text-2xl font-bold text-gray-700">س</span>
+                <span class="text-lg sm:text-2xl font-bold text-gray-700">+</span>
+                <div id="drop-b-si" class="dropzone" data-target="b"></div>
+            </div>
+        </div>
+        <!-- حاوية القطع القابلة للسحب -->
+        <div class="flex-grow min-h-0 overflow-hidden mb-2 p-1 bg-gray-50 rounded-lg shadow-inner"> 
+            <h3 class="text-sm sm:text-md font-semibold text-center text-gray-700 mb-2 mt-2">اسحب من هذه القطع:</h3> 
+            <div id="options-container" class="flex flex-wrap items-center justify-center gap-2 sm:gap-3 min-h-[4rem] pb-2"> 
+            </div>
+        </div>
+        <!-- الأزرار والنتيجة -->
+        <div class="flex-shrink-0 text-center">
+            <div id="feedback" class="h-10 sm:h-12 mb-1 text-base sm:text-xl font-bold"></div>
+            
+            <button id="check-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-5 sm:py-3 sm:px-8 rounded-lg text-sm sm:text-lg shadow-md transition duration-200">
+                تحقق من الإجابة
+            </button>
+            <button id="next-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-5 sm:py-3 sm:px-8 rounded-lg text-sm sm:text-lg shadow-md transition duration-200 hidden">
+                السؤال التالي
+            </button>
+            <!-- زر "اعرف لماذا؟" -->
+            <button id="show-solution-btn" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-5 sm:py-3 sm:px-8 rounded-lg text-sm sm:text-lg shadow-md transition duration-200 ml-2 hidden">
+                اعرف لماذا؟
+            </button>
+            <button id="reset-dropzones-btn" class="bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-5 sm:py-3 sm:px-8 rounded-lg text-sm sm:text-lg shadow-md transition duration-200 ml-2">
+                إعادة تعيين
+            </button>
+        </div>
+    </div>
+
+    <!-- (إصلاح: نقل دالة الأرقام العربية إلى النطاق العام) -->
+    <script>
+        const arabicNumerals = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+        
+        function toArabicNumerals(num) {
+            if (num === null || num === undefined) return '';
+            let str = String(num);
+            let result = '';
+            for (let i = 0; i < str.length; i++) {
+                if (str[i] === '-') {
+                    result += '-';
+                } else if (/\d/.test(str[i])) {
+                    result += arabicNumerals[parseInt(str[i])];
+                } else {
+                    result += str[i];
+                }
+            }
+            // استخدام \u200F بدلاً من \u200E لضمان عرض السالب لليسار في سياق عربي
+            return '\u200F' + result; 
+        }
+    </script>
+    <!-- (نهاية الإصلاح) -->
+
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+
+            const problemBanks = [
+                // --- البنك 0: ميل ومقطع ---
+                [
+                    { 
+                        equation: "y - 5 = 2(x - 3)", 
+                        targetForm: 'slopeIntercept', 
+                        slopeInterceptSolution: { m: 2, b: -1 }, // y = 2x - 1
+                        options: [2, -1, 1, 5, -6, 3],
+                        solutionSteps: `
+                            <div class="solution-modal-step"><span class="step-circle">١</span><div class="step-text-wrapper"><span class="step-text">المعادلة الأصلية:</span><div class="solution-equation">ص - ٥ = ٢(س - ٣)</div></div></div>
+                            <div class="solution-modal-step"><span class="step-circle">٢</span><div class="step-text-wrapper"><span class="step-text">فك القوس (توزيع ٢):</span><div class="solution-equation">ص - ٥ = ٢س - ٦</div></div></div>
+                            <div class="solution-modal-step"><span class="step-circle">٣</span><div class="step-text-wrapper"><span class="step-text">إضافة ٥ للطرفين (لتبقى ص وحدها):</span><div class="solution-equation">ص = ٢س - ٦ + ٥</div></div></div>
+                            <div class="solution-modal-step"><span class="step-circle">٤</span><div class="step-text-wrapper"><span class="step-text">الحل النهائي (ميل ومقطع):</span><div class="solution-equation">ص = ٢س - ١</div></div></div>
+                        `
+                    },
+                    { 
+                        equation: "y - 1 = 3(x - 2)", 
+                        targetForm: 'slopeIntercept', 
+                        slopeInterceptSolution: { m: 3, b: -5 }, // y = 3x - 5
+                        options: [3, -5, 1, 2, -6, 5],
+                        solutionSteps: `
+                            <div class="solution-modal-step"><span class="step-circle">١</span><div class="step-text-wrapper"><span class="step-text">المعادلة الأصلية:</span><div class="solution-equation">ص - ١ = ٣(س - ٢)</div></div></div>
+                            <div class="solution-modal-step"><span class="step-circle">٢</span><div class="step-text-wrapper"><span class="step-text">فك القوس (توزيع ٣):</span><div class="solution-equation">ص - ١ = ٣س - ٦</div></div></div>
+                            <div class="solution-modal-step"><span class="step-circle">٣</span><div class="step-text-wrapper"><span class="step-text">إضافة ١ للطرفين:</span><div class="solution-equation">ص = ٣س - ٦ + ١</div></div></div>
+                            <div class="solution-modal-step"><span class="step-circle">٤</span><div class="step-text-wrapper"><span class="step-text">الحل النهائي (ميل ومقطع):</span><div class="solution-equation">ص = ٣س - ٥</div></div></div>
+                        `
+                    },
+                    { 
+                        equation: "y + 2 = 1(x - 4)", 
+                        targetForm: 'slopeIntercept', 
+                        slopeInterceptSolution: { m: 1, b: -6 }, // y = 1x - 6
+                        options: [1, -6, -2, 4, -4, 6],
+                        solutionSteps: `
+                            <div class="solution-modal-step"><span class="step-circle">١</span><div class="step-text-wrapper"><span class="step-text">المعادلة الأصلية:</span><div class="solution-equation">ص + ٢ = ١(س - ٤)</div></div></div>
+                            <div class="solution-modal-step"><span class="step-circle">٢</span><div class="step-text-wrapper"><span class="step-text">فك القوس (توزيع ١):</span><div class="solution-equation">ص + ٢ = ١س - ٤</div></div></div>
+                            <div class="solution-modal-step"><span class="step-circle">٣</span><div class="step-text-wrapper"><span class="step-text">طرح ٢ من الطرفين:</span><div class="solution-equation">ص = ١س - ٤ - ٢</div></div></div>
+                            <div class="solution-modal-step"><span class="step-circle">٤</span><div class="step-text-wrapper"><span class="step-text">الحل النهائي (ميل ومقطع):</span><div class="solution-equation">ص = ١س - ٦</div></div></div>
+                        `
+                    }
+                ],
+                // --- البنك 1: ميل ومقطع ---
+                [
+                    { 
+                        equation: "y - 10 = 2(x - 8)", 
+                        targetForm: 'slopeIntercept', 
+                        slopeInterceptSolution: { m: 2, b: -6 }, // y = 2x - 6
+                        options: [2, -1, 6, -6, 26, 8],
+                        solutionSteps: `
+                            <div class="solution-modal-step"><span class="step-circle">١</span><div class="step-text-wrapper"><span class="step-text">المعادلة الأصلية:</span><div class="solution-equation">ص - ١٠ = ٢(س - ٨)</div></div></div>
+                            <div class="solution-modal-step"><span class="step-circle">٢</span><div class="step-text-wrapper"><span class="step-text">فك القوس (توزيع ٢):</span><div class="solution-equation">ص - ١٠ = ٢س - ١٦</div></div></div>
+                            <div class="solution-modal-step"><span class="step-circle">٣</span><div class="step-text-wrapper"><span class="step-text">إضافة ١٠ للطرفين:</span><div class="solution-equation">ص = ٢س - ١٦ + ١٠</div></div></div>
+                            <div class="solution-modal-step"><span class="step-circle">٤</span><div class="step-text-wrapper"><span class="step-text">الحل النهائي (ميل ومقطع):</span><div class="solution-equation">ص = ٢س - ٦</div></div></div>
+                        `
+                    },
+                    { 
+                        equation: "y - 3 = 4(x - 1)", 
+                        targetForm: 'slopeIntercept', 
+                        slopeInterceptSolution: { m: 4, b: -1 }, // y = 4x - 1
+                        options: [4, -1, 3, 1, -4, 5],
+                        solutionSteps: `
+                            <div class="solution-modal-step"><span class="step-circle">١</span><div class="step-text-wrapper"><span class="step-text">المعادلة الأصلية:</span><div class="solution-equation">ص - ٣ = ٤(س - ١)</div></div></div>
+                            <div class="solution-modal-step"><span class="step-circle">٢</span><div class="step-text-wrapper"><span class="step-text">فك القوس (توزيع ٤):</span><div class="solution-equation">ص - ٣ = ٤س - ٤</div></div></div>
+                            <div class="solution-modal-step"><span class="step-circle">٣</span><div class="step-text-wrapper"><span class="step-text">إضافة ٣ للطرفين:</span><div class="solution-equation">ص = ٤س - ٤ + ٣</div></div></div>
+                            <div class="solution-modal-step"><span class="step-circle">٤</span><div class="step-text-wrapper"><span class="step-text">الحل النهائي (ميل ومقطع):</span><div class="solution-equation">ص = ٤س - ١</div></div></div>
+                        `
+                    },
+                    { 
+                        equation: "y + 5 = 2(x + 1)", 
+                        targetForm: 'slopeIntercept', 
+                        slopeInterceptSolution: { m: 2, b: -3 }, // y = 2x - 3
+                        options: [2, -3, 5, 1, -5, 3],
+                        solutionSteps: `
+                            <div class="solution-modal-step"><span class="step-circle">١</span><div class="step-text-wrapper"><span class="step-text">المعادلة الأصلية:</span><div class="solution-equation">ص + ٥ = ٢(س + ١)</div></div></div>
+                            <div class="solution-modal-step"><span class="step-circle">٢</span><div class="step-text-wrapper"><span class="step-text">فك القوس (توزيع ٢):</span><div class="solution-equation">ص + ٥ = ٢س + ٢</div></div></div>
+                            <div class="solution-modal-step"><span class="step-circle">٣</span><div class="step-text-wrapper"><span class="step-text">طرح ٥ من الطرفين:</span><div class="solution-equation">ص = ٢س + ٢ - ٥</div></div></div>
+                            <div class="solution-modal-step"><span class="step-circle">٤</span><div class="step-text-wrapper"><span class="step-text">الحل النهائي (ميل ومقطع):</span><div class="solution-equation">ص = ٢س - ٣</div></div></div>
+                        `
+                    }
+                ],
+                // --- البنك 2: قياسية ---
+                [
+                    { 
+                        equation: "y - 6 = -3(x + 2)", 
+                        targetForm: 'standard', 
+                        standardSolution: { a: 3, b: 1, c: 0 }, // 3x + y = 0
+                        options: [3, 1, 0, -3, 12, -6],
+                        solutionSteps: `
+                            <div class="solution-modal-step"><span class="step-circle">١</span><div class="step-text-wrapper"><span class="step-text">المعادلة الأصلية:</span><div class="solution-equation">ص - ٦ = -٣(س + ٢)</div></div></div>
+                            <div class="solution-modal-step"><span class="step-circle">٢</span><div class="step-text-wrapper"><span class="step-text">فك القوس (توزيع -٣):</span><div class="solution-equation">ص - ٦ = -٣س - ٦</div></div></div>
+                            <div class="solution-modal-step"><span class="step-circle">٣</span><div class="step-text-wrapper"><span class="step-text">نقل -٣س للطرف الأيمن (لتصبح أ موجبة):</span><div class="solution-equation">٣س + ص - ٦ = -٦</div></div></div>
+                            <div class="solution-modal-step"><span class="step-circle">٤</span><div class="step-text-wrapper"><span class="step-text">إضافة ٦ للطرفين:</span><div class="solution-equation">٣س + ص = -٦ + ٦</div></div></div>
+                            <div class="solution-modal-step"><span class="step-circle">٥</span><div class="step-text-wrapper"><span class="step-text">الحل النهائي (الصورة القياسية):</span><div class="solution-equation">٣س + ١ص = ٠</div></div></div>
+                        `
+                    },
+                    { 
+                        equation: "y - 2 = -2(x + 1)", 
+                        targetForm: 'standard', 
+                        standardSolution: { a: 2, b: 1, c: 0 }, // 2x + y = 0
+                        options: [2, 1, 0, -2, -1, 3],
+                        solutionSteps: `
+                            <div class="solution-modal-step"><span class="step-circle">١</span><div class="step-text-wrapper"><span class="step-text">المعادلة الأصلية:</span><div class="solution-equation">ص - ٢ = -٢(س + ١)</div></div></div>
+                            <div class="solution-modal-step"><span class="step-circle">٢</span><div class="step-text-wrapper"><span class="step-text">فك القوس (توزيع -٢):</span><div class="solution-equation">ص - ٢ = -٢س - ٢</div></div></div>
+                            <div class="solution-modal-step"><span class="step-circle">٣</span><div class="step-text-wrapper"><span class="step-text">نقل -٢س للطرف الأيمن:</span><div class="solution-equation">٢س + ص - ٢ = -٢</div></div></div>
+                            <div class="solution-modal-step"><span class="step-circle">٤</span><div class="step-text-wrapper"><span class="step-text">إضافة ٢ للطرفين:</span><div class="solution-equation">٢س + ص = -٢ + ٢</div></div></div>
+                            <div class="solution-modal-step"><span class="step-circle">٥</span><div class="step-text-wrapper"><span class="step-text">الحل النهائي (الصورة القياسية):</span><div class="solution-equation">٢س + ١ص = ٠</div></div></div>
+                        `
+                    },
+                    { 
+                        equation: "y + 4 = -1(x - 3)", 
+                        targetForm: 'standard', 
+                        standardSolution: { a: 1, b: 1, c: -1 }, // x + y = -1
+                        options: [1, 1, -1, 4, 3, -4],
+                        solutionSteps: `
+                            <div class="solution-modal-step"><span class="step-circle">١</span><div class="step-text-wrapper"><span class="step-text">المعادلة الأصلية:</span><div class="solution-equation">ص + ٤ = -١(س - ٣)</div></div></div>
+                            <div class="solution-modal-step"><span class="step-circle">٢</span><div class="step-text-wrapper"><span class="step-text">فك القوس (توزيع -١):</span><div class="solution-equation">ص + ٤ = -س + ٣</div></div></div>
+                            <div class="solution-modal-step"><span class="step-circle">٣</span><div class="step-text-wrapper"><span class="step-text">نقل -س للطرف الأيمن:</span><div class="solution-equation">س + ص + ٤ = ٣</div></div></div>
+                            <div class="solution-modal-step"><span class="step-circle">٤</span><div class="step-text-wrapper"><span class="step-text">طرح ٤ من الطرفين:</span><div class="solution-equation">س + ص = ٣ - ٤</div></div></div>
+                            <div class="solution-modal-step"><span class="step-circle">٥</span><div class="step-text-wrapper"><span class="step-text">الحل النهائي (الصورة القياسية):</span><div class="solution-equation">١س + ١ص = -١</div></div></div>
+                        `
+                    }
+                ],
+                // --- البنك 3: قياسية ---
+                [
+                    { 
+                        equation: "y + 1 = 4(x - 1)", 
+                        targetForm: 'standard', 
+                        standardSolution: { a: 4, b: -1, c: 5 }, // 4x - y = 5
+                        options: [4, -1, 5, 1, -4, -5],
+                        solutionSteps: `
+                            <div class="solution-modal-step"><span class="step-circle">١</span><div class="step-text-wrapper"><span class="step-text">المعادلة الأصلية:</span><div class="solution-equation">ص + ١ = ٤(س - ١)</div></div></div>
+                            <div class="solution-modal-step"><span class="step-circle">٢</span><div class="step-text-wrapper"><span class="step-text">فك القوس (توزيع ٤):</span><div class="solution-equation">ص + ١ = ٤س - ٤</div></div></div>
+                            <div class="solution-modal-step"><span class="step-circle">٣</span><div class="step-text-wrapper"><span class="step-text">نقل ص للطرف الأيمن:</span><div class="solution-equation">١ = ٤س - ص - ٤</div></div></div>
+                            <div class="solution-modal-step"><span class="step-circle">٤</span><div class="step-text-wrapper"><span class="step-text">إضافة ٤ للطرفين:</span><div class="solution-equation">١ + ٤ = ٤س - ص</div></div></div>
+                            <div class="solution-modal-step"><span class="step-circle">٥</span><div class="step-text-wrapper"><span class="step-text">الحل النهائي (الصورة القياسية):</span><div class="solution-equation">٤س - ١ص = ٥</div></div></div>
+                        `
+                    },
+                    { 
+                        equation: "y - 2 = 3(x - 2)", 
+                        targetForm: 'standard', 
+                        standardSolution: { a: 3, b: -1, c: 4 }, // 3x - y = 4
+                        options: [3, -1, 4, 2, -6, -4],
+                        solutionSteps: `
+                            <div class="solution-modal-step"><span class="step-circle">١</span><div class="step-text-wrapper"><span class="step-text">المعادلة الأصلية:</span><div class="solution-equation">ص - ٢ = ٣(س - ٢)</div></div></div>
+                            <div class="solution-modal-step"><span class="step-circle">٢</span><div class="step-text-wrapper"><span class="step-text">فك القوس (توزيع ٣):</span><div class="solution-equation">ص - ٢ = ٣س - ٦</div></div></div>
+                            <div class="solution-modal-step"><span class="step-circle">٣</span><div class="step-text-wrapper"><span class="step-text">نقل ص للطرف الأيمن:</span><div class="solution-equation">هو : -٢ = ٣س - ص - ٦</div></div></div>
+                            <div class="solution-modal-step"><span class="step-circle">٤</span><div class="step-text-wrapper"><span class="step-text">إضافة ٦ للطرفين:</span><div class="solution-equation">هو : -٢ + ٦ = ٣س - ص</div></div></div>
+                            <div class="solution-modal-step"><span class="step-circle">٥</span><div class="step-text-wrapper"><span class="step-text">الحل النهائي (الصورة القياسية):</span><div class="solution-equation">٣س - ١ص = ٤</div></div></div>
+                        `
+                    },
+                    { 
+                        equation: "y + 3 = 2(x + 1)", 
+                        targetForm: 'standard', 
+                        standardSolution: { a: 2, b: -1, c: 1 }, // 2x - y = 1
+                        options: [2, -1, 1, 3, -2, -1],
+                        solutionSteps: `
+                            <div class="solution-modal-step"><span class="step-circle">١</span><div class="step-text-wrapper"><span class="step-text">المعادلة الأصلية:</span><div class="solution-equation">ص + ٣ = ٢(س + ١)</div></div></div>
+                            <div class="solution-modal-step"><span class="step-circle">٢</span><div class="step-text-wrapper"><span class="step-text">فك القوس (توزيع ٢):</span><div class="solution-equation">ص + ٣ = ٢س + ٢</div></div></div>
+                            <div class="solution-modal-step"><span class="step-circle">٣</span><div class="step-text-wrapper"><span class="step-text">نقل ص للطرف الأيمن:</span><div class="solution-equation">٣ = ٢س - ص + ٢</div></div></div>
+                            <div class="solution-modal-step"><span class="step-circle">٤</span><div class="step-text-wrapper"><span class="step-text">طرح ٢ من الطرفين:</span><div class="solution-equation">٣ - ٢ = ٢س - ص</div></div></div>
+                            <div class="solution-modal-step"><span class="step-circle">٥</span><div class="step-text-wrapper"><span class="step-text">الحل النهائي (الصورة القياسية):</span><div class="solution-equation">٢س - ١ص = ١</div></div></div>
+                        `
+                    }
+                ],
+                // --- البنك 4: قياسية (كسر) ---
+                [
+                    { 
+                        equation: "y - 2 = (1/3)(x - 6)", 
+                        targetForm: 'standard', 
+                        standardSolution: { a: 1, b: -3, c: 0 }, // x - 3y = 0
+                        options: [1, -3, 0, 3, 2, 6],
+                        solutionSteps: `
+                            <div class="solution-modal-step"><span class="step-circle">١</span><div class="step-text-wrapper"><span class="step-text">المعادلة الأصلية:</span><div class="solution-equation">ص - ٢ = <span class="fraction"><span class="numerator">١</span><span class="denominator">٣</span></span>(س - ٦)</div></div></div>
+                            <div class="solution-modal-step"><span class="step-circle">٢</span><div class="step-text-wrapper"><span class="step-text">ضرب الطرفين في ٣:</span><div class="solution-equation">٣(ص - ٢) = ١(س - ٦)</div></div></div>
+                            <div class="solution-modal-step"><span class="step-circle">٣</span><div class="step-text-wrapper"><span class="step-text">فك الأقواس:</span><div class="solution-equation">٣ص - ٦ = س - ٦</div></div></div>
+                            <div class="solution-modal-step"><span class="step-circle">٤</span><div class="step-text-wrapper"><span class="step-text">نقل ٣ص للطرف الأيمن:</span><div class="solution-equation">هو : -٦ = س - ٣ص - ٦</div></div></div>
+                            <div class="solution-modal-step"><span class="step-circle">٥</span><div class="step-text-wrapper"><span class="step-text">إضافة ٦ للطرفين:</span><div class="solution-equation">هو : -٦ + ٦ = س - ٣ص</div></div></div>
+                            <div class="solution-modal-step"><span class="step-circle">٦</span><div class="step-text-wrapper"><span class="step-text">الحل النهائي (الصورة القياسية):</span><div class="solution-equation">١س - ٣ص = ٠</div></div></div>
+                        `
+                    },
+                    { 
+                        equation: "y - 1 = (1/2)(x - 4)", 
+                        targetForm: 'standard', 
+                        standardSolution: { a: 1, b: -2, c: 2 }, // x - 2y = 2
+                        options: [1, -2, 2, 4, -4, -1],
+                        solutionSteps: `
+                            <div class="solution-modal-step"><span class="step-circle">١</span><div class="step-text-wrapper"><span class="step-text">المعادلة الأصلية:</span><div class="solution-equation">ص - ١ = <span class="fraction"><span class="numerator">١</span><span class="denominator">٢</span></span>(س - ٤)</div></div></div>
+                            <div class="solution-modal-step"><span class="step-circle">٢</span><div class="step-text-wrapper"><span class="step-text">ضرب الطرفين في ٢:</span><div class="solution-equation">٢(ص - ١) = ١(س - ٤)</div></div></div>
+                            <div class="solution-modal-step"><span class="step-circle">٣</span><div class="step-text-wrapper"><span class="step-text">فك الأقواس:</span><div class="solution-equation">٢ص - ٢ = س - ٤</div></div></div>
+                            <div class="solution-modal-step"><span class="step-circle">٤</span><div class="step-text-wrapper"><span class="step-text">نقل ٢ص للطرف الأيمن:</span><div class="solution-equation">هو : -٢ = س - ٢ص - ٤</div></div></div>
+                            <div class="solution-modal-step"><span class="step-circle">٥</span><div class="step-text-wrapper"><span class="step-text">إضافة ٤ للطرفين:</span><div class="solution-equation">هو : -٢ + ٤ = س - ٢ص</div></div></div>
+                            <div class="solution-modal-step"><span class="step-circle">٦</span><div class="step-text-wrapper"><span class="step-text">الحل النهائي (الصورة القياسية):</span><div class="solution-equation">١س - ٢ص = ٢</div></div></div>
+                        `
+                    },
+                    { 
+                        equation: "y + 1 = (1/4)(x - 8)", 
+                        targetForm: 'standard', 
+                        standardSolution: { a: 1, b: -4, c: 12 }, // x - 4y = 12
+                        options: [1, -4, 12, 4, 8, -8],
+                        solutionSteps: `
+                            <div class="solution-modal-step"><span class="step-circle">١</span><div class="step-text-wrapper"><span class="step-text">المعادلة الأصلية:</span><div class="solution-equation">ص + ١ = <span class="fraction"><span class="numerator">١</span><span class="denominator">٤</span></span>(س - ٨)</div></div></div>
+                            <div class="solution-modal-step"><span class="step-circle">٢</span><div class="step-text-wrapper"><span class="step-text">ضرب الطرفين في ٤:</span><div class="solution-equation">٤(ص + ١) = ١(س - ٨)</div></div></div>
+                            <div class="solution-modal-step"><span class="step-circle">٣</span><div class="step-text-wrapper"><span class="step-text">فك الأقواس:</span><div class="solution-equation">٤ص + ٤ = س - ٨</div></div></div>
+                            <div class="solution-modal-step"><span class="step-circle">٤</span><div class="step-text-wrapper"><span class="step-text">نقل ٤ص للطرف الأيمن:</span><div class="solution-equation">٤ = س - ٤ص - ٨</div></div></div>
+                            <div class="solution-modal-step"><span class="step-circle">٥</span><div class="step-text-wrapper"><span class="step-text">إضافة ٨ للطرفين:</span><div class="solution-equation">٤ + ٨ = س - ٤ص</div></div></div>
+                            <div class="solution-modal-step"><span class="step-circle">٦</span><div class="step-text-wrapper"><span class="step-text">الحل النهائي (الصورة القياسية):</span><div class="solution-equation">١س - ٤ص = ١٢</div></div></div>
+                        `
+                    }
+                ]
+            ];
+            
+            function formatEquation(equation) {
+                let formatted = equation.replace(/\((\d+)\/(\d+)\)/g, (match, num, den) => {
+                    return `<span class="fraction"><span class="numerator">${toArabicNumerals(num)}</span><span class="denominator">${toArabicNumerals(den)}</span></span>`;
+                });
+                formatted = formatted.replace(/-?\d+/g, (match) => {
+                    if (match.includes('<')) return match;
+                    // إضافة "هو : " قبل المعادلة التي تبدأ بسالب
+                    if (match.startsWith('-')) {
+                         return 'هو : ' + toArabicNumerals(match);
+                    }
+                    return toArabicNumerals(match);
+                });
+                formatted = formatted.replace(/x/g, 'س').replace(/y/g, 'ص');
+                return formatted;
+            }
+
+            let currentProblemIndex = 0;
+            let draggedItem = null; 
+            let totalScore = 0;
+            let lastPointsEarned = 0; // النقاط المكتسبة في المحاولة الأخيرة لهذا السؤال
+            let currentProblemAttempts = {}; // تتبع المحاولات لكل صندوق: { a: 1, b: 2, c: 1 }
+            let questionAttempt = 1; // 1 أو 2، محاولة السؤال الحالي
+            let totalMetricErrors = 0; // إجمالي الأخطاء في المحاولة الأولى
+            let sessionProblems = []; // الأسئلة المختارة لهذه الجلسة
+
+
+            const startScreen = document.getElementById('start-screen');
+            const gameContainer = document.getElementById('game-container');
+            const startBtn = document.getElementById('start-btn');
+            
+            const scoringInfoScreen = document.getElementById('scoring-info-screen');
+            const startGameBtn = document.getElementById('start-game-btn');
+
+            const originalEquationEl = document.getElementById('original-equation');
+            const dropzones = document.querySelectorAll('.dropzone'); 
+            const optionsContainer = document.getElementById('options-container');
+            const checkBtn = document.getElementById('check-btn');
+            const nextBtn = document.getElementById('next-btn');
+            const feedbackEl = document.getElementById('feedback');
+            const resetDropzonesBtn = document.getElementById('reset-dropzones-btn');
+
+            const infoModal = document.getElementById('info-modal');
+            const infoBtn = document.getElementById('info-btn');
+            const closeModalBtn = document.getElementById('close-modal-btn');
+            
+            const scoreModal = document.getElementById('score-modal');
+            const pointsEarnedText = document.getElementById('points-earned-text');
+            const continueBtn = document.getElementById('continue-btn');
+            const currentQuestionText = document.getElementById('current-question-text');
+            const totalScoreText = document.getElementById('total-score-text');
+
+            const stageTransitionModal = document.getElementById('stage-transition-modal');
+            const startStage2Btn = document.getElementById('start-stage2-btn');
+
+            const stage1StartModal = document.getElementById('stage-1-start-modal');
+            const startStage1Btn = document.getElementById('start-stage1-btn');
+
+
+            const solutionModal = document.getElementById('solution-modal');
+            const solutionText = document.getElementById('solution-text');
+            const showSolutionBtn = document.getElementById('show-solution-btn');
+            const closeSolutionBtn = document.getElementById('close-solution-btn');
+
+
+            const targetTitle = document.getElementById('target-title');
+            const standardBuilder = document.getElementById('builder-container');
+            const slopeInterceptBuilder = document.getElementById('slope-intercept-builder-container');
+
+            function generateSessionProblems() {
+                sessionProblems = []; 
+                for (const bank of problemBanks) {
+                    const randomIndex = Math.floor(Math.random() * bank.length);
+                    const selectedProblem = bank[randomIndex];
+                    sessionProblems.push(selectedProblem);
+                }
+            }
+
+
+            function shuffle(array) {
+                for (let i = array.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [array[i], array[j]] = [array[j], array[i]];
+                }
+                return array;
+            }
+
+            function loadProblem(index) {
+                resetDropzones();
+                feedbackEl.textContent = '';
+                feedbackEl.className = 'h-10 sm:h-12 mb-1 text-base sm:text-xl font-bold';
+                
+                currentProblemAttempts = {}; // إعادة تعيين محاولات الصناديق للسؤال الجديد
+                questionAttempt = 1; // إعادة تعيين محاولة السؤال
+                lastPointsEarned = 0; // إعادة تعيين النقاط المكتسبة
+                
+                const problem = sessionProblems[index];
+
+                originalEquationEl.innerHTML = formatEquation(problem.equation);
+
+                standardBuilder.classList.add('hidden');
+                slopeInterceptBuilder.classList.add('hidden');
+                
+                if (problem.targetForm === 'slopeIntercept') {
+                    slopeInterceptBuilder.classList.remove('hidden');
+                    targetTitle.textContent = 'صورة الميل والمقطع المستهدفة:';
+                    infoBtn.classList.add('hidden'); 
+                } else { // 'standard'
+                    standardBuilder.classList.remove('hidden');
+                    targetTitle.textContent = 'الصورة القياسية المستهدفة:';
+                    infoBtn.classList.remove('hidden'); 
+                }
+                
+                optionsContainer.innerHTML = '';
+                const shuffledOptions = shuffle([...problem.options]);
+                
+                shuffledOptions.forEach(optionValue => {
+                    const optionEl = document.createElement('div');
+                    optionEl.classList.add('draggable', 'equation-font');
+                    optionEl.textContent = toArabicNumerals(optionValue);
+                    
+                    optionEl.draggable = true;
+                    optionEl.dataset.value = optionValue; 
+                    
+                    optionEl.addEventListener('dragstart', handleDragStart);
+                    optionEl.addEventListener('dragend', handleDragEnd);
+                    optionEl.addEventListener('touchstart', handleTouchStart, { passive: false });
+                    optionEl.addEventListener('touchmove', handleTouchMove, { passive: false });
+                    optionEl.addEventListener('touchend', handleTouchEnd);
+
+                    optionsContainer.appendChild(optionEl);
+                });
+
+                checkBtn.classList.remove('hidden');
+                resetDropzonesBtn.classList.remove('hidden');
+                nextBtn.classList.add('hidden');
+                showSolutionBtn.classList.add('hidden'); 
+            }
+
+
+            function handleDragStart(e) {
+                if (e.type === 'dragstart') {
+                    draggedItem = this;
+                    this.classList.add('dragging');
+                    e.dataTransfer.setData('text/plain', this.dataset.value);
+                    e.dataTransfer.effectAllowed = 'move';
+                }
+            }
+
+            function handleDragEnd() {
+                if (draggedItem) {
+                    draggedItem.classList.remove('dragging');
+                }
+                draggedItem = null;
+            }
+
+            function handleDragOver(e) {
+                e.preventDefault(); 
+                e.dataTransfer.dropEffect = 'move';
+                this.classList.add('dropzone-over');
+            }
+
+            function handleDragLeave() {
+                this.classList.remove('dropzone-over');
+            }
+
+            function handleDrop(e) {
+                e.preventDefault();
+                this.classList.remove('dropzone-over');
+                if (draggedItem) { 
+                    dropItemIntoZone(draggedItem, this);
+                }
+            }
+            
+            let touchStartX = 0;
+            let touchStartY = 0;
+            let originalParent = null;
+
+            function handleTouchStart(e) {
+                e.preventDefault(); 
+                draggedItem = this;
+                originalParent = this.parentElement;
+                
+                const touch = e.touches[0];
+                touchStartX = touch.clientX;
+                touchStartY = touch.clientY;
+                
+                document.body.appendChild(draggedItem); 
+                draggedItem.classList.add('dragging');
+                draggedItem.style.position = 'absolute';
+                draggedItem.style.zIndex = '1000';
+
+                moveElement(draggedItem, touch, true);
+            }
+
+            function handleTouchMove(e) {
+                e.preventDefault(); 
+                if (!draggedItem) return;
+                moveElement(draggedItem, e.touches[0], false);
+                
+                const touch = e.touches[0];
+                const elementOver = document.elementFromPoint(touch.clientX, touch.clientY);
+                
+                dropzones.forEach(zone => {
+                    if (zone === elementOver || zone.contains(elementOver)) {
+                        zone.classList.add('dropzone-over');
+                    } else {
+                        zone.classList.remove('dropzone-over');
+                    }
+                });
+            }
+
+            function handleTouchEnd(e) {
+                if (!draggedItem) return;
+
+                draggedItem.classList.remove('dragging');
+                draggedItem.style.position = 'static';
+                draggedItem.style.zIndex = 'auto';
+                draggedItem.style.transform = '';
+                draggedItem.style.left = '';
+                draggedItem.style.top = '';
+
+                const touch = e.changedTouches[0];
+                const elementOver = document.elementFromPoint(touch.clientX, touch.clientY);
+
+                let dropped = false;
+                dropzones.forEach(zone => {
+                    zone.classList.remove('dropzone-over');
+                    if (zone === elementOver || zone.contains(elementOver)) {
+                        dropItemIntoZone(draggedItem, zone);
+                        dropped = true;
+                    }
+                });
+
+                if (!dropped) {
+                    originalParent.appendChild(draggedItem);
+                }
+
+                draggedItem = null;
+                originalParent = null;
+            }
+
+            function moveElement(el, touch, isStart) {
+                const rect = el.getBoundingClientRect();
+                const x = touch.clientX - rect.width / 2;
+                const y = touch.clientY - rect.height / 2;
+                
+                el.style.left = `${x}px`;
+                el.style.top = `${y}px`;
+                if (!isStart) {
+                    el.style.transform = `scale(1.05)`; 
+                }
+            }
+
+            function dropItemIntoZone(item, zone) {
+                if (zone.hasChildNodes()) {
+                    const oldDraggable = zone.firstElementChild;
+                    (originalParent || optionsContainer).appendChild(oldDraggable); 
+                }
+                zone.innerHTML = ''; 
+                zone.appendChild(item);
+                
+                item.style.position = 'static';
+                item.style.transform = '';
+                item.style.left = '';
+                item.style.top = '';
+            }
+            
+            function resetDropzones() {
+                dropzones.forEach(zone => {
+                    if (zone.hasChildNodes()) {
+                        const child = zone.firstElementChild;
+                        optionsContainer.appendChild(child); 
+                        child.style.position = 'static';
+                        child.style.transform = '';
+                        child.style.left = '';
+                        child.style.top = '';
+                    }
+                    zone.innerHTML = ''; 
+                    zone.className = 'dropzone equation-font'; 
+                });
+                 // إعادة تعيين حالة الصناديق إلى محاولة أولى عند إعادة التعيين
+                currentProblemAttempts = {};
+                questionAttempt = 1;
+                feedbackEl.textContent = ''; // مسح أي رسالة خطأ سابقة
+            }
+
+            // ========= (إصلاح: دالة التحقق من الإجابة - نظام النقاط الدقيق) =========
+            function checkAnswer() {
+                let allCorrectInThisCheck = true;
+                const problem = sessionProblems[currentProblemIndex];
+                let builderZones, solution;
+                let errorCountThisAttempt = 0;
+                let finalPointsForQuestion = 0; // النقاط النهائية *لهذا السؤال* - سيتم حسابها عند انتهاء السؤال
+                
+                if (problem.targetForm === 'slopeIntercept') {
+                    builderZones = slopeInterceptBuilder.querySelectorAll('.dropzone');
+                    solution = problem.slopeInterceptSolution;
+                } else { // 'standard'
+                    builderZones = standardBuilder.querySelectorAll('.dropzone');
+                    solution = problem.standardSolution;
+                }
+
+                // 1. Check zones, update attempts visual state
+                builderZones.forEach(zone => {
+                    const targetName = zone.dataset.target;
+                    const expectedValue = solution[targetName];
+                    const droppedValue = zone.firstElementChild ? parseInt(zone.firstElementChild.dataset.value, 10) : null;
+                    
+                    zone.classList.remove('correct', 'incorrect');
+                    
+                    if (droppedValue === expectedValue) {
+                        zone.classList.add('correct');
+                        if (!currentProblemAttempts[targetName]) {
+                            currentProblemAttempts[targetName] = 1; // Mark as correct on attempt 1
+                        }
+                    } else {
+                        zone.classList.add('incorrect');
+                        allCorrectInThisCheck = false;
+                        if (questionAttempt === 1) {
+                            errorCountThisAttempt++; 
+                        }
+                        currentProblemAttempts[targetName] = 2; // Mark as needing attempt 2 (or failed)
+                    }
+                });
+
+                // 2. Update total errors (only on first attempt if incorrect)
+                if (questionAttempt === 1 && !allCorrectInThisCheck) {
+                    totalMetricErrors += errorCountThisAttempt; 
+                }
+
+                // 3. Determine feedback and if question is finished
+                let questionFinished = false;
+
+                if (allCorrectInThisCheck) {
+                    feedbackEl.textContent = `ممتاز! إجابة صحيحة.`;
+                    feedbackEl.className = 'h-10 sm:h-12 mb-1 text-base sm:text-xl font-bold text-green-600';
+                    showEndButtons();
+                    questionFinished = true;
+                } else if (questionAttempt === 1) {
+                    feedbackEl.textContent = 'للأسف، حاول مرة أخرى. الصناديق الخاطئة أصبحت بنصف النقاط.';
+                    feedbackEl.className = 'h-10 sm:h-12 mb-1 text-base font-bold text-red-600';
+                    questionAttempt = 2; // Move to attempt 2
+                } else { // Attempt 2 and still incorrect (partially or fully)
+                    feedbackEl.textContent = 'للأسف، انتهت محاولاتك.';
+                    feedbackEl.className = 'h-10 sm:h-12 mb-1 text-base sm:text-xl font-bold text-red-600';
+                    showEndButtons();
+                    questionFinished = true;
+                }
+
+                // 4. Calculate final points for the question *only* when finished
+                if (questionFinished) {
+                    finalPointsForQuestion = 0; // Reset before final calculation
+                    builderZones.forEach(zone => {
+                        if (zone.classList.contains('correct')) { // Only count correct boxes
+                            const targetName = zone.dataset.target;
+                            const attempt = currentProblemAttempts[targetName] || 1; // Get attempt status (1 or 2)
+                            finalPointsForQuestion += (attempt === 1) ? 10 : 5;
+                        }
+                    });
+                    totalScore += finalPointsForQuestion; // Add the final points to total score
+                    lastPointsEarned = finalPointsForQuestion; // Store points earned *for this question*
+                } else {
+                     lastPointsEarned = 0; // Not finished, no points earned yet for display
+                }
+            }
+            // ========= (نهاية الإصلاح) =========
+
+            function showEndButtons() {
+                checkBtn.classList.add('hidden');
+                resetDropzonesBtn.classList.add('hidden');
+                nextBtn.classList.remove('hidden');
+                showSolutionBtn.classList.remove('hidden');
+            }
+
+            // ========= (تعديل: دالة نهاية اللعبة - رسالة مخصصة) =========
+            function advanceToNextProblem() {
+                currentProblemIndex++;
+                if (currentProblemIndex < sessionProblems.length) {
+                    loadProblem(currentProblemIndex);
+                } else {
+                    // --- نهاية اللعبة ---
+                    gameContainer.style.display = 'none'; 
+                    startScreen.style.display = 'none';
+                    document.querySelectorAll('.modal-overlay').forEach(modal => modal.classList.remove('show'));
+
+                    // تحديد الرسالة النهائية بناءً على النسبة المئوية
+                    const maxPointsPossible = GAME_MAX_POINTS || 1;
+                    const scorePercentage = (maxPointsPossible > 0) ? (totalScore / maxPointsPossible) * 100 : 0; // Handle division by zero
+                    let endMessage = '';
+                    if (scorePercentage >= 80) {
+                        endMessage = 'أحسنت! لقد أتقنت تحويل المعادلات.';
+                    } else if (scorePercentage >= 50) {
+                        endMessage = 'عمل جيد! أنت في طريقك لإتقان تحويل المعادلات.';
+                    } else {
+                        endMessage = 'لقد أكملت التحدي. استمر في التدريب لتتقن تحويل المعادلات!';
+                    }
+
+                    let endScreenHTML = `
+                        <div class="container max-w-lg w-full mx-auto bg-white p-6 sm:p-8 rounded-xl shadow-xl text-center flex flex-col justify-center">
+                            <h1 class="text-3xl font-bold text-green-700 mb-6">لقد أكملت اللعبة بنجاح!</h1>
+                            <p class="text-lg text-gray-700 mb-2">${endMessage}</p> <!-- الرسالة المخصصة هنا -->
+                            
+                            <div id="final-result-display" class="my-4 p-4 bg-gray-100 rounded-lg">
+                                <!-- سيتم التعبئة بواسطة saveAndFinishGame -->
+                            </div>
+                            
+                            <div id="leaderboard-loader" class="my-4" style="display: none;">
+                                <p class="text-blue-500">يتم تحميل سجل الأبطال...</p>
+                            </div>
+
+                            <div id="leaderboard-container"></div>
+
+                            <div id="finish-game-wrapper" class="mt-8" style="display: none;">
+                                <button id="finish-game-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-10 rounded-lg text-lg shadow-md transition duration-200">
+                                    العودة إلى المنصة
+                                </button>
+                                <button onclick="location.reload()" class="bg-gray-400 hover:bg-gray-500 text-white font-bold py-3 px-10 rounded-lg text-lg shadow-md transition duration-200 ml-2">
+                                    العب مرة أخرى
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    
+                    document.body.insertAdjacentHTML('beforeend', endScreenHTML);
+                    if (window.saveAndFinishGame) {
+                        window.saveAndFinishGame(totalScore, totalMetricErrors);
+                    } else {
+                        console.error("Save function not found!");
+                    }
+                }
+            }
+             // ========= (نهاية التعديل) =========
+
+            // --- ربط المستمعين ---
+
+            dropzones.forEach(zone => {
+                zone.addEventListener('dragover', handleDragOver);
+                zone.addEventListener('dragleave', handleDragLeave);
+                zone.addEventListener('drop', handleDrop);
+            });
+            
+            checkBtn.addEventListener('click', checkAnswer);
+            
+            nextBtn.addEventListener('click', () => {
+                
+                const problem = sessionProblems[currentProblemIndex];
+                let builderZones;
+
+                // حدد الصناديق الصحيحة *حالياً* لعرض النقاط لها
+                if (problem.targetForm === 'slopeIntercept') {
+                    builderZones = slopeInterceptBuilder.querySelectorAll('.dropzone.correct');
+                } else {
+                    builderZones = standardBuilder.querySelectorAll('.dropzone.correct');
+                }
+                
+                let animationDelay = 0;
+                let actualPointsToShow = lastPointsEarned; 
+
+                if (actualPointsToShow > 0) { 
+                    builderZones.forEach(zone => {
+                        const targetName = zone.dataset.target;
+                        const attempt = currentProblemAttempts[targetName] || 1; 
+                        const points = (attempt === 1) ? 10 : 5;
+
+                        const pill = document.createElement('span');
+                        pill.textContent = `+${toArabicNumerals(points)}`;
+                        pill.className = 'score-pill equation-font';
+                        
+                        const rect = zone.getBoundingClientRect();
+                        pill.style.left = `${rect.left + (rect.width / 2) - 15}px`; 
+                        pill.style.top = `${rect.top}px`;
+                        document.body.appendChild(pill);
+
+                        setTimeout(() => {
+                            pill.style.transform = 'translateY(-70px) scale(1.3)';
+                            pill.style.opacity = '0';
+                            
+                            setTimeout(() => {
+                                pill.remove();
+                            }, 800); 
+                        }, animationDelay);
+                        
+                        animationDelay += 150; 
+                    });
+                }
+                
+                setTimeout(() => {
+                    showPointsModal(actualPointsToShow); 
+                }, (actualPointsToShow > 0) ? animationDelay + 300 : 0); 
+            });
+
+
+            resetDropzonesBtn.addEventListener('click', resetDropzones);
+
+            document.body.addEventListener('touchmove', (e) => {
+                if (draggedItem) {
+                    handleTouchMove(e);
+                }
+            }, { passive: false });
+            
+            // --- تشغيل اللعبة ---
+            startBtn.addEventListener('click', () => {
+                startScreen.classList.add('hidden');
+                scoringInfoScreen.classList.add('show'); 
+            });
+
+            startGameBtn.addEventListener('click', () => {
+                scoringInfoScreen.classList.remove('show');
+                showModal(stage1StartModal);
+            });
+
+            startStage1Btn.addEventListener('click', () => {
+                hideModal(stage1StartModal);
+                gameContainer.classList.remove('hidden');
+                gameContainer.classList.add('flex'); 
+                generateSessionProblems();
+                loadProblem(0);
+            });
+
+
+            // --- دوال النوافذ المنبثقة ---
+            function showModal(modal) {
+                modal.classList.add('show');
+            }
+            function hideModal(modal) {
+                modal.classList.remove('show');
+            }
+
+            function showPointsModal(points) {
+                if (points > 0) {
+                    pointsEarnedText.textContent = `+${toArabicNumerals(points)} نقطة`;
+                    pointsEarnedText.classList.remove('text-red-600');
+                    pointsEarnedText.classList.add('text-blue-700');
+                    scoreModal.querySelector('h3').textContent = 'أحسنت!';
+                    scoreModal.querySelector('h3').classList.add('text-green-600');
+                } else {
+                    pointsEarnedText.textContent = `+${toArabicNumerals(0)} نقطة`;
+                    pointsEarnedText.classList.remove('text-blue-700');
+                    pointsEarnedText.classList.add('text-red-600');
+                    scoreModal.querySelector('h3').textContent = 'لا بأس!';
+                    scoreModal.querySelector('h3').classList.remove('text-green-600');
+                }
+                
+                totalScoreText.textContent = `إجمالي النقاط: ${toArabicNumerals(totalScore)}`;
+                currentQuestionText.textContent = `السؤال: ${toArabicNumerals(currentProblemIndex + 1)} / ${toArabicNumerals(sessionProblems.length)}`;
+                showModal(scoreModal);
+            }
+
+            function handleContinueClick() {
+                hideModal(scoreModal);
+                
+                // إذا كنا في السؤال الثاني (index = 1)، أظهر شاشة المرحلة الثانية
+                if (currentProblemIndex === 1) { 
+                    showModal(stageTransitionModal);
+                } else {
+                    advanceToNextProblem();
+                }
+            }
+
+            continueBtn.addEventListener('click', handleContinueClick);
+
+            startStage2Btn.addEventListener('click', () => {
+                hideModal(stageTransitionModal);
+                advanceToNextProblem();
+            });
+
+            infoBtn.addEventListener('click', () => showModal(infoModal));
+            closeModalBtn.addEventListener('click', () => hideModal(infoModal));
+            infoModal.addEventListener('click', (e) => {
+                if (e.target === infoModal) hideModal(infoModal);
+            });
+            scoreModal.addEventListener('click', (e) => {
+                if (e.target === scoreModal) {
+                    handleContinueClick();
+                }
+            });
+
+            showSolutionBtn.addEventListener('click', () => {
+                const problem = sessionProblems[currentProblemIndex];
+                solutionText.innerHTML = problem.solutionSteps;
+                showModal(solutionModal);
+            });
+            closeSolutionBtn.addEventListener('click', () => hideModal(solutionModal));
+            solutionModal.addEventListener('click', (e) => {
+                if (e.target === solutionModal) hideModal(solutionModal);
+            });
+
+        });
+    </script>
+
+    <!-- (إصلاح: محرك الربط وسجل الأبطال) -->
+    <script>
+    // --- START OF CONNECTION & LEADERBOARD ENGINE ---
+    (function() {
+        
+        // --- CONFIGURATION ( سيتم القراءة من متغيرات JS) ---
+        let SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
+        let GAME_ID, GAME_MAX_POINTS, PLATFORM_MAX_GRADE, METRIC_TYPE, METRIC_LABEL;
+
+        // --- Read URL Parameters ---
+        const urlParams = new URLSearchParams(window.location.search);
+        const studentId = urlParams.get('studentId');
+        const classId = urlParams.get('classId');
+        const studentName = urlParams.get('studentName');
+
+        let currentUser = (studentId && studentName) ? { id: studentId, name: studentName } : null;
+
+        // --- CORE FUNCTIONS ---
+
+        // 1. الدالة الرئيسية التي تستدعيها عند انتهاء اللعبة
+        window.saveAndFinishGame = function(points, metricValue) {
+            
+            // (إصلاح: قراءة الإعدادات في نهاية اللعبة، وليس عند التحميل)
+            GAME_ID = window.GAME_ID || 'default_game';
+            GAME_MAX_POINTS = window.GAME_MAX_POINTS || 1;
+            PLATFORM_MAX_GRADE = window.PLATFORM_MAX_GRADE || 5;
+            METRIC_TYPE = window.METRIC_TYPE || 'time';
+            METRIC_LABEL = window.METRIC_LABEL || 'Metric';
+            // (نهاية الإصلاح)
+
+            const finalPoints = parseFloat(points) || 0;
+            const finalMetric = parseFloat(metricValue) || 0;
+            const maxPoints = parseFloat(GAME_MAX_POINTS) || 1;
+            let finalGrade = (maxPoints > 0) ? (finalPoints / maxPoints) * PLATFORM_MAX_GRADE : 0; // تجنب القسمة على صفر
+            if (finalGrade > PLATFORM_MAX_GRADE) finalGrade = PLATFORM_MAX_GRADE;
+             if (finalGrade < 0) finalGrade = 0; // التأكد من عدم وجود درجة سالبة
+
+            const resultDisplay = document.getElementById('final-result-display');
+            if (resultDisplay) {
+                const toAr = typeof toArabicNumerals === 'function' ? toArabicNumerals : (n) => n;
+                resultDisplay.innerHTML = `
+                    <p class="text-gray-700">النقاط: <span class="font-bold text-xl">${toAr(finalPoints)} / ${toAr(maxPoints)}</span></p>
+                    <p class="text-blue-600">الدرجة في المنصة: <span class="font-bold text-2xl">${finalGrade.toFixed(1)} / ${PLATFORM_MAX_GRADE}</span></p>
+                `;
+            }
+
+            if (studentId && classId) {
+                const params = new URLSearchParams({
+                    action: 'saveGrade',
+                    studentId: studentId,
+                    classId: classId,
+                    itemId: GAME_ID,
+                    grade: finalGrade.toFixed(2),
+                    metricValue: Math.round(finalMetric).toString()
+                });
+                fetch(`${SCRIPT_URL}?${params.toString()}`)
+                    .then(res => res.json())
+                    .then(result => console.log('Save result:', result.status))
+                    .catch(err => console.error("Save Error:", err))
+                    .finally(fetchAndShowLeaderboard);
+            } else {
+                console.log(`Visitor finished. Score: ${finalPoints}, Metric: ${finalMetric}`);
+                fetchAndShowLeaderboard();
+            }
+        }
+
+        // 2. دالة جلب وعرض سجل الأبطال
+        function fetchAndShowLeaderboard() {
+            const loader = document.getElementById('leaderboard-loader');
+            const container = document.getElementById('leaderboard-container');
+            if (!loader || !container) return;
+            
+            if (!classId) {
+                console.log("No classId found, skipping leaderboard for visitor.");
+                container.innerHTML = `<p class="text-center text-gray-500 mt-4">سجل الأبطال متاح للطلاب المسجلين فقط.</p>`;
+                showFinishButton();
+                return;
+            }
+
+            loader.style.display = 'block';
+            container.innerHTML = '';
+
+            const params = new URLSearchParams({
+                action: 'getLeaderboard',
+                gameId: GAME_ID,
+                metricType: METRIC_TYPE,
+                classId: classId
+            });
+
+            fetch(`${SCRIPT_URL}?${params.toString()}`)
+                .then(res => res.json())
+                .then(response => {
+                    if (response.status === 'success' && response.data) {
+                        displayLeaderboard(response.data);
+                    } else {
+                        throw new Error(response.message || 'Failed to load leaderboard data.');
+                    }
+                })
+                .catch(err => {
+                    console.error("Leaderboard Error:", err);
+                    container.innerHTML = `<p class="text-center text-red-500">حدث خطأ في تحميل سجل الأبطال.</p>`;
+                })
+                .finally(() => {
+                    loader.style.display = 'none';
+                    showFinishButton();
+                });
+        }
+        
+        // 3. دالة بناء جدول سجل الأبطال
+        function displayLeaderboard(data) {
+            const container = document.getElementById('leaderboard-container');
+            if (!data || data.length === 0) {
+                container.innerHTML = `<p class="text-center text-gray-500 mt-4">لا توجد نتائج بعد. كن أول الأبطال!</p>`;
+                return;
+            }
+
+            let tableHTML = `
+                <div class="mt-6 border-t pt-4">
+                    <h3 class="text-2xl font-bold text-center text-gray-800 mb-4">🏆 سجل الأبطال 🏆</h3>
+                    <table class="min-w-full bg-white shadow-md rounded-lg">
+                        <thead class="bg-gray-800 text-white">
+                            <tr>
+                                <th class="text-center py-2 px-3">الترتيب</th>
+                                <th class="text-right py-2 px-3">اسم الطالب</th>
+                                <th class="text-center py-2 px-3">الدرجة</th>
+                                <th class="text-center py-2 px-3">${METRIC_LABEL}</th>
+                            </tr>
+                        </thead>
+                        <tbody class="text-gray-700">`;
+
+            data.forEach((player, index) => {
+                const rank = index + 1;
+                let rankDisplay = rank;
+                if (rank === 1) rankDisplay = '🥇';
+                if (rank === 2) rankDisplay = '🥈';
+                if (rank === 3) rankDisplay = '🥉';
+
+                const isCurrentUser = (currentUser && player.name === currentUser.name);
+                const rowClass = isCurrentUser ? 'bg-blue-100 font-bold' : (index % 2 === 0 ? 'bg-gray-100' : '');
+                
+                const toAr = typeof toArabicNumerals === 'function' ? toArabicNumerals : (n) => n;
+
+                tableHTML += `
+                    <tr class="${rowClass}">
+                        <td class="text-center py-2 px-3 text-xl">${rankDisplay}</td>
+                        <td class="text-right py-2 px-3">${player.name}</td>
+                        <td class="text-center py-2 px-3">${player.grade.toFixed(1)}</td>
+                        <td class="text-center py-2 px-3">${toAr(player.metricValue)}</td>
+                    </tr>`;
+            });
+
+            tableHTML += `</tbody></table></div>`;
+            container.innerHTML = tableHTML;
+        }
+
+        // 4. إظهار زر الإنهاء
+        function showFinishButton() {
+            const finishWrapper = document.getElementById('finish-game-wrapper');
+            if (finishWrapper) {
+                finishWrapper.style.display = 'block';
+            }
+        }
+
+        // 5. التعامل مع زر الإنهاء وتخصيص رسالة الترحيب
+        document.addEventListener('DOMContentLoaded', () => {
+            // Personalize welcome message
+            const welcomeMessage = document.getElementById('welcomeMessage');
+            if (studentName && welcomeMessage) {
+                welcomeMessage.innerHTML = `أهلاً بك يا <span class="font-bold text-blue-600">${studentName}</span>! جاهز لتحدي المعادلات؟`;
+            }
+
+            document.body.addEventListener('click', function(event) {
+                if (event.target.id === 'finish-game-btn') {
+                    window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*');
+                }
+            });
+        });
+    })();
+    // --- END OF CONNECTION & LEADERBOARD ENGINE ---
+    </script>
+
+</body>
+</html>
+

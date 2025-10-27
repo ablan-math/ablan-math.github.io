@@ -987,7 +987,7 @@
                 const problem = sessionProblems[currentProblemIndex];
                 let builderZones, solution;
                 let errorCountThisAttempt = 0;
-                let finalPointsForQuestion = 0; // النقاط النهائية *لهذا السؤال* - سيتم حسابها عند انتهاء السؤال
+                let pointsEarnedIfFinished = 0; // النقاط المحتملة لو انتهى السؤال الآن
                 
                 if (problem.targetForm === 'slopeIntercept') {
                     builderZones = slopeInterceptBuilder.querySelectorAll('.dropzone');
@@ -997,7 +997,7 @@
                     solution = problem.standardSolution;
                 }
 
-                // 1. Check zones, update attempts visual state
+                // 1. Check zones, update attempts visual state, calculate potential points
                 builderZones.forEach(zone => {
                     const targetName = zone.dataset.target;
                     const expectedValue = solution[targetName];
@@ -1010,6 +1010,8 @@
                         if (!currentProblemAttempts[targetName]) {
                             currentProblemAttempts[targetName] = 1; // Mark as correct on attempt 1
                         }
+                        // Calculate potential points based on attempt status
+                        pointsEarnedIfFinished += (currentProblemAttempts[targetName] === 1) ? 10 : 5;
                     } else {
                         zone.classList.add('incorrect');
                         allCorrectInThisCheck = false;
@@ -1046,16 +1048,17 @@
 
                 // 4. Calculate final points for the question *only* when finished
                 if (questionFinished) {
-                    finalPointsForQuestion = 0; // Reset before final calculation
+                    // Recalculate final points *only* based on current correct boxes and their attempt status
+                    let finalPointsForQuestion = 0;
                     builderZones.forEach(zone => {
-                        if (zone.classList.contains('correct')) { // Only count correct boxes
+                        if (zone.classList.contains('correct')) {
                             const targetName = zone.dataset.target;
-                            const attempt = currentProblemAttempts[targetName] || 1; // Get attempt status (1 or 2)
+                            const attempt = currentProblemAttempts[targetName] || 1; 
                             finalPointsForQuestion += (attempt === 1) ? 10 : 5;
                         }
                     });
-                    totalScore += finalPointsForQuestion; // Add the final points to total score
-                    lastPointsEarned = finalPointsForQuestion; // Store points earned *for this question*
+                    totalScore += finalPointsForQuestion; 
+                    lastPointsEarned = finalPointsForQuestion; 
                 } else {
                      lastPointsEarned = 0; // Not finished, no points earned yet for display
                 }
@@ -1400,20 +1403,22 @@
                 container.innerHTML = `<p class="text-center text-gray-500 mt-4">لا توجد نتائج بعد. كن أول الأبطال!</p>`;
                 return;
             }
-
+            
+            // --- تعديل: إضافة حاوية المزلاق ---
             let tableHTML = `
                 <div class="mt-6 border-t pt-4">
                     <h3 class="text-2xl font-bold text-center text-gray-800 mb-4">🏆 سجل الأبطال 🏆</h3>
-                    <table class="min-w-full bg-white shadow-md rounded-lg">
-                        <thead class="bg-gray-800 text-white">
-                            <tr>
-                                <th class="text-center py-2 px-3">الترتيب</th>
-                                <th class="text-right py-2 px-3">اسم الطالب</th>
-                                <th class="text-center py-2 px-3">الدرجة</th>
-                                <th class="text-center py-2 px-3">${METRIC_LABEL}</th>
-                            </tr>
-                        </thead>
-                        <tbody class="text-gray-700">`;
+                    <div class="max-h-60 overflow-y-auto border rounded-lg"> {/* <!-- الحاوية الجديدة هنا --> */}
+                        <table class="min-w-full bg-white shadow-md rounded-lg">
+                            <thead class="bg-gray-800 text-white sticky top-0 z-10"> {/* <!-- جعل الرأس ثابتاً --> */}
+                                <tr>
+                                    <th class="text-center py-2 px-3">الترتيب</th>
+                                    <th class="text-right py-2 px-3">اسم الطالب</th>
+                                    <th class="text-center py-2 px-3">الدرجة</th>
+                                    <th class="text-center py-2 px-3">${METRIC_LABEL}</th>
+                                </tr>
+                            </thead>
+                            <tbody class="text-gray-700">`;
 
             data.forEach((player, index) => {
                 const rank = index + 1;
@@ -1436,9 +1441,10 @@
                     </tr>`;
             });
 
-            tableHTML += `</tbody></table></div>`;
+            tableHTML += `</tbody></table></div></div>`; // --- إغلاق الحاوية الجديدة ---
             container.innerHTML = tableHTML;
         }
+        // --- نهاية التعديل ---
 
         // 4. إظهار زر الإنهاء
         function showFinishButton() {

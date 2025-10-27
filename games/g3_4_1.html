@@ -1,0 +1,1315 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لعبة المستقيمات المتوازية والمتعامدة</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        /* استخدام خط Cairo كخط أساسي */
+        body {
+            font-family: 'Cairo', sans-serif;
+            direction: rtl;
+            overscroll-behavior: none;
+        }
+
+        /* تنسيق مخصص للمعادلات والأرقام */
+        .equation-font {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 1.1rem; /* 18px */
+            font-weight: 700;
+            text-align: center;
+        }
+
+        /* تنسيق الأرقام السفلية (subscript) */
+        sub {
+            font-size: 0.75em;
+            vertical-align: sub;
+            line-height: 0;
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        /* تنسيق الكسور العمودية */
+        .fraction {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0 0.2em;
+            vertical-align: middle;
+            position: relative;
+            top: -0.3em;
+        }
+        .numerator {
+            font-size: 0.85em;
+            line-height: 1;
+        }
+        .denominator {
+            font-size: 0.85em;
+            border-top: 2px solid currentColor; /* خط الكسر */
+            line-height: 1;
+            padding-top: 2px;
+        }
+        
+        /* تنسيق زر الخيار */
+        .choice-button {
+            width: 100%;
+            padding: 0.75rem 1rem; /* 12px 16px */
+            background-color: #ffffff;
+            border: 2px solid #d1d5db; /* gray-300 */
+            border-radius: 0.75rem; /* rounded-xl */
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            transition: all 0.2s;
+            cursor: pointer;
+            text-align: center;
+        }
+        .choice-button:hover {
+            background-color: #f9fafb; /* gray-50 */
+            border-color: #6b7280; /* gray-500 */
+        }
+        .choice-button.selected {
+            border-color: #2563eb; /* blue-600 */
+            background-color: #dbeafe; /* blue-100 */
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+        }
+        
+        /* حالة الإجابة الصحيحة */
+        .choice-button.correct {
+            border-color: #16a34a; /* green-600 */
+            background-color: #dcfce7; /* green-100 */
+        }
+        
+        /* حالة الإجابة الخاطئة */
+        .choice-button.incorrect {
+            border-color: #dc2626; /* red-600 */
+            background-color: #fee2e2; /* red-100 */
+        }
+        
+        /* حاوية الخيارات لتصبح عمودين */
+        .choices-grid-2 {
+            display: grid;
+            grid-template-columns: 1fr; /* عمود واحد افتراضياً للجوال */
+            gap: 0.75rem; /* 12px */
+        }
+
+        @media (min-width: 640px) { /* sm */
+            .choices-grid-2 {
+                grid-template-columns: repeat(2, 1fr); /* عمودان للشاشات الأكبر */
+                gap: 1rem; /* 16px */
+            }
+        }
+        
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background-color: rgba(0, 0, 0, 0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s, visibility 0.3s;
+        }
+        .modal-overlay.show {
+            opacity: 1;
+            visibility: visible;
+        }
+        .modal-content {
+            background-color: white;
+            padding: 1.5rem; /* p-6 */
+            border-radius: 0.75rem; /* rounded-xl */
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            max-width: 90%;
+            width: 400px;
+            transform: scale(0.95);
+            transition: transform 0.3s;
+        }
+        .modal-overlay.show .modal-content {
+            transform: scale(1);
+        }
+        
+        /* تنسيق نافذة "اعرف لماذا؟" */
+        #solution-text {
+            max-height: 60vh;
+            overflow-y: auto;
+            padding-left: 0.5rem; /* 8px */
+        }
+        .solution-modal-step {
+            display: flex;
+            align-items: flex-start; /* محاذاة لبداية الدائرة */
+            gap: 0.75rem; /* 12px */
+            margin-bottom: 0.75rem; /* 12px */
+        }
+        .step-circle {
+            flex-shrink: 0;
+            width: 1.75rem; /* 28px */
+            height: 1.75rem; /* 28px */
+            border-radius: 99px;
+            background-color: #3b82f6; /* blue-500 */
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1rem;
+            font-family: 'Courier New', Courier, monospace;
+            margin-top: 4px; /* لضبط المحاذاة مع السطر الأول */
+        }
+        .step-text-wrapper {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+        }
+        .step-text {
+            font-family: 'Cairo', sans-serif;
+            font-size: 0.95rem; /* 15px */
+            line-height: 1.6;
+            margin-bottom: 0.5rem; /* 8px */
+        }
+        .solution-equation {
+            direction: ltr;
+            text-align: center;
+            margin-top: 4px;
+            margin-bottom: 8px;
+            padding: 8px 12px;
+            background-color: #f9fafb; /* gray-50 */
+            border: 1px solid #f3f4f6; /* gray-100 */
+            border-radius: 0.375rem; /* rounded-md */
+            width: 100%;
+            /* تطبيق خصائص .equation-font */
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 1.1rem;
+            font-weight: 700;
+        }
+        /* تنسيق الميل الملون (لون فقط) - يطبق على جميع أنواع الميل في الشرح */
+        .highlight-slope { 
+            color: #ca8a04; /* yellow-600 */
+            font-weight: bold;
+            display: inline-block; /* لضمان عدم كسر السطر */
+        }
+        
+        /* إضافة مزلاق لسجل الأبطال */
+        .leaderboard-scroll-container {
+            max-height: 40vh; /* تحديد أقصى ارتفاع */
+            overflow-y: auto; /* إضافة مزلاق عمودي عند الحاجة */
+            border: 1px solid #e5e7eb; /* gray-200 */
+            border-radius: 0.5rem; /* rounded-lg */
+            margin-top: 1rem; /* mb-4 */
+        }
+        /* تعديل بسيط لجدول الأبطال داخل المزلاق */
+         .leaderboard-scroll-container table {
+             margin-bottom: 0; /* إزالة الهامش السفلي للجدول */
+         }
+
+    </style>
+</head>
+<body class="bg-gray-100 min-h-dvh flex items-center justify-center p-2 sm:p-4">
+
+    <!-- شاشة شروط التوازي والتعامد -->
+    <div id="info-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h3 class="text-xl font-bold text-blue-700 mb-4 text-center">
+                شرح التوازي والتعامد
+            </h3>
+            <div class="space-y-3 text-gray-700 text-base text-right">
+                <p>
+                    <span class="font-bold text-blue-600">التوازي:</span> 
+                    يحدث عندما يكون للمستقيمين <span class="font-bold">نفس الميل</span> (م).
+                </p>
+                <div class="equation-font text-gray-700 bg-blue-50 p-2 rounded-md" dir="ltr">
+                    م<sub>١</sub> = م<sub>٢</sub>
+                </div>
+                <hr class="my-2">
+                <p>
+                    <span class="font-bold text-green-600">التعامد:</span> 
+                    يحدث عندما يكون ميل المستقيم الثاني هو <span class="font-bold">مقلوب ومعكوس</span> ميل المستقيم الأول.
+                </p>
+                <div class="equation-font text-gray-700 bg-green-50 p-2 rounded-md" dir="ltr">
+                    م<sub>١</sub> × م<sub>٢</sub> = -١
+                </div>
+            </div>
+            <button id="close-modal-btn" class="mt-6 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200">
+                فهمت
+            </button>
+        </div>
+    </div>
+
+    <!-- شاشة شرح النقاط -->
+    <div id="scoring-info-screen" class="modal-overlay" style="z-index: 60;">
+        <div class="modal-content text-center">
+            <h3 class="text-2xl font-bold text-blue-700 mb-4">
+                نظام النقاط
+            </h3>
+            <ul class="list-disc list-inside space-y-3 text-gray-700 text-base sm:text-lg text-right">
+                <li><span class="font-bold">المرحلة 1 (سهل):</span> <span class="font-bold text-green-600">10 نقاط</span> للسؤال (محاولة واحدة فقط).</li>
+                <li><span class="font-bold">المرحلة 2 (متوسط):</span> <span class="font-bold text-green-600">20 نقطة</span> للمحاولة الأولى، و <span class="font-bold text-yellow-600">10 نقاط</span> للمحاولة الثانية.</li>
+                <li><span class="font-bold">المرحلة 3 (خبير):</span> <span class="font-bold text-green-600">30 نقطة</span> للمحاولة الأولى، و <span class="font-bold text-yellow-600">15 نقاط</span> للمحاولة الثانية.</li>
+            </ul>
+            <button id="start-game-btn" class="mt-8 w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-10 rounded-lg text-lg shadow-md transition duration-200">
+                ابدأ التحدي!
+            </button>
+        </div>
+    </div>
+
+    <!-- شاشة بدء المرحلة الأولى -->
+    <div id="stage-1-start-modal" class="modal-overlay" style="z-index: 65;">
+        <div class="modal-content text-center">
+            <h3 class="text-2xl font-bold text-blue-700 mb-4">
+                المرحلة الأولى: سهل
+            </h3>
+            <p class="text-lg text-gray-700 mb-5">
+                مهمتك هي تحديد المستقيم الصحيح من بين <span class="font-bold">خيارين</span>.
+            </p>
+            <div class="p-4 bg-green-50 border border-green-200 rounded-lg">
+                <h4 class="text-lg font-bold text-green-700 mb-3 text-center">
+                    تذكير
+                </h4>
+                <div class="equation-font text-gray-700" dir="ltr">
+                    ص = م س + ب
+                </div>
+                <p class="text-gray-700 mt-2 text-sm">
+                    ركّز على إيجاد الميل <span class="equation-font">(م)</span> أولاً.
+                </p>
+            </div>
+            <button id="start-stage1-btn" class="mt-8 w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-10 rounded-lg text-lg shadow-md transition duration-200">
+                ابدأ المرحلة الأولى
+            </button>
+        </div>
+    </div>
+
+
+    <!-- شاشة إظهار النقاط المكتسبة -->
+    <div id="score-modal" class="modal-overlay" style="z-index: 70;">
+        <div class="modal-content text-center">
+            <h3 class="text-2xl font-bold text-green-600 mb-2">أحسنت!</h3>
+            <p id="points-earned-text" class="text-4xl font-bold text-blue-700 mb-4 equation-font">+٢٠ نقطة</p>
+            <div class="border-t pt-4 mt-4 space-y-2 text-sm sm:text-base text-gray-600">
+                <p id="current-question-text">السؤال: ١ / ٦</p>
+                <p id="total-score-text">إجمالي النقاط: ٢٠</p>
+            </div>
+            <button id="continue-btn" class="mt-6 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200">
+                متابعة
+            </button>
+        </div>
+    </div>
+
+    <!-- شاشة انتقالية للمرحلة الثانية -->
+    <div id="stage-transition-modal" class="modal-overlay" style="z-index: 75;">
+        <div class="modal-content text-center">
+            <h3 class="text-2xl font-bold text-green-600 mb-4">
+                أنهيت المرحلة الأولى بنجاح!
+            </h3>
+            <p class="text-lg text-gray-700 mb-5">
+                أنت الآن تنتقل إلى المرحلة الثانية:
+                <br>
+                <span class="font-bold text-blue-700">متوسط (٤ خيارات)</span>
+            </p>
+            <div class="p-4 bg-blue-50 border border-blue-200 rounded-lg text-sm sm:text-base">
+                <h4 class="text-lg font-bold text-blue-700 mb-2 text-center">
+                    استعد!
+                </h4>
+                <p class="text-gray-700">
+                    الآن قد تكون الخيارات بصيغ مختلفة (ميل ونقطة) أو تحتاج تبسيط. قد يكون هناك <span class="font-bold">أكثر من إجابة صحيحة</span>.
+                </p>
+            </div>
+            <button id="start-stage2-btn" class="mt-8 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-10 rounded-lg text-lg shadow-md transition duration-200">
+                ابدأ المرحلة الثانية
+            </button>
+        </div>
+    </div>
+
+    <!-- شاشة انتقالية للمرحلة الثالثة -->
+    <div id="stage-3-transition-modal" class="modal-overlay" style="z-index: 75;">
+        <div class="modal-content text-center">
+            <h3 class="text-2xl font-bold text-green-600 mb-4">
+                رائع! أنهيت المرحلة الثانية!
+            </h3>
+            <p class="text-lg text-gray-700 mb-5">
+                أنت الآن تنتقل إلى المرحلة الثالثة:
+                <br>
+                <span class="font-bold text-blue-700">خبير (صيغ أصعب)</span>
+            </p>
+            <div class="p-4 bg-blue-50 border border-blue-200 rounded-lg text-sm sm:text-base">
+                <h4 class="text-lg font-bold text-blue-700 mb-2 text-center">
+                    تحدي الخبراء!
+                </h4>
+                <p class="text-gray-700">
+                    الآن ستظهر الصيغة القياسية أيضاً وقد تحتاج المعادلات لتبسيط. <span class="font-bold">دقق جيداً</span> قبل اختيار الإجابة.
+                </p>
+            </div>
+            <button id="start-stage3-btn" class="mt-8 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-10 rounded-lg text-lg shadow-md transition duration-200">
+                ابدأ المرحلة الثالثة
+            </button>
+        </div>
+    </div>
+
+
+    <!-- نافذة "اعرف لماذا؟" -->
+    <div id="solution-modal" class="modal-overlay" style="z-index: 80;"> <!-- z-index أعلى -->
+        <div class="modal-content">
+            <h3 class="text-xl font-bold text-blue-700 mb-4 text-center">
+                خطوات الحل
+            </h3>
+            <div id="solution-text" class="space-y-3 text-gray-700 text-base" dir="rtl" style="text-align: right; line-height: 2;">
+                <!-- سيتم تعبئة الخطوات هنا -->
+            </div>
+            <button id="close-solution-btn" class="mt-6 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200">
+                إغلاق
+            </button>
+        </div>
+    </div>
+
+
+    <!-- شاشة البداية -->
+    <div id="start-screen" class="container max-w-lg w-full mx-auto bg-white p-6 sm:p-8 rounded-xl shadow-xl flex flex-col items-center justify-center text-center">
+        <h1 class="text-3xl sm:text-4xl font-bold text-blue-700 mb-4">
+            لعبة التوازي والتعامد
+        </h1>
+        <p id="welcomeMessage" class="text-lg text-gray-700 mb-4">
+            مرحباً بك في لعبة المستقيمات المتوازية والمتعامدة!
+        </p>
+        <p class="text-base text-gray-500 mb-6">
+            تصميم وتطوير: الأستاذ عبدالعزيز العبلان
+        </p>
+        <div class="mb-6 w-full p-3 sm:p-4 bg-blue-50 border-l-4 border-blue-500 rounded-lg text-sm">
+            <h3 class="font-bold text-blue-700 mb-3 text-center text-base sm:text-lg">القوانين الأساسية</h3>
+            <div class="flex flex-col items-center gap-2 equation-font text-gray-700" dir="ltr">
+                <p>م<sub>١</sub> = م<sub>٢</sub> <span class="text-sm text-gray-500 font-sans" dir="rtl">(متوازيان)</span></p>
+                <p>م<sub>١</sub> × م<sub>٢</sub> = -١ <span class="text-sm text-gray-500 font-sans" dir="rtl">(متعامدان)</span></p>
+                <p class="text-sm text-gray-500 font-sans" dir="rtl" style="font-family: 'Cairo', sans-serif;">(ميلهما مقلوب ومعكوس للآخر)</p>
+            </div>
+        </div>
+        <button id="start-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-12 rounded-lg text-xl shadow-md transition duration-200 transform hover:scale-105">
+            ابدأ اللعبة
+        </button>
+    </div>
+
+    <!-- حاوية اللعبة -->
+    <div id="game-container" class="container max-w-2xl w-full mx-auto bg-white p-3 sm:p-4 rounded-xl shadow-xl flex-col hidden">
+        
+        <!-- (تعديل: تغيير GAME_ID) -->
+        <script>
+            var GAME_ID = 'g3_4_1'; // تم التغيير هنا
+            var GAME_MAX_POINTS = 120; // (2 * 10) + (2 * 20) + (2 * 30) = 20 + 40 + 60 = 120
+            var PLATFORM_MAX_GRADE = 5; 
+            var METRIC_TYPE = 'errors'; 
+            var METRIC_LABEL = 'عدد الأخطاء';
+        </script>
+        
+        <div class="flex-shrink-0 mb-4 p-3 bg-gray-50 rounded-lg shadow-inner text-center">
+            
+            <!-- (تعديل: دمج السؤال والمعادلة) -->
+            <div class="flex items-center justify-center gap-2 mb-2">
+                <h2 id="question-text" class="text-base sm:text-xl font-semibold text-gray-800 text-center">
+                    <!-- سيتم تحديث نص السؤال هنا -->
+                </h2>
+                <button id="info-btn" title="شرح التوازي والتعامد" class="w-6 h-6 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center font-bold text-lg transition hover:bg-blue-200">
+                    ℹ️
+                </button>
+            </div>
+            
+            <p id="original-equation" class="equation-font text-blue-600 min-h-[2.5rem] flex items-center justify-center"></p>
+        </div>
+
+        <!-- حاوية الخيارات -->
+        <!-- (تعديل: إزالة الإطار والمزلاق) -->
+        <div class="flex-grow min-h-0 mb-3 px-1"> 
+            <div id="options-container" class="flex flex-col gap-3"> 
+                <!-- سيتم تعبئة الخيارات هنا -->
+            </div>
+        </div>
+        
+        <!-- الأزرار والنتيجة -->
+        <div class="flex-shrink-0 text-center">
+            <div id="feedback" class="h-10 sm:h-12 mb-1 text-base sm:text-xl font-bold"></div>
+            
+            <button id="check-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-5 sm:py-3 sm:px-8 rounded-lg text-sm sm:text-lg shadow-md transition duration-200">
+                تحقق من الإجابة
+            </button>
+            <button id="next-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-5 sm:py-3 sm:px-8 rounded-lg text-sm sm:text-lg shadow-md transition duration-200 hidden">
+                السؤال التالي
+            </button>
+            <button id="show-solution-btn" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-5 sm:py-3 sm:px-8 rounded-lg text-sm sm:text-lg shadow-md transition duration-200 ml-2 hidden">
+                اعرف لماذا؟
+            </button>
+            <button id="reset-choices-btn" class="bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-5 sm:py-3 sm:px-8 rounded-lg text-sm sm:text-lg shadow-md transition duration-200 ml-2">
+                مسح الاختيار
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const arabicNumerals = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+        
+        function toArabicNumerals(num) {
+            // تحويل الأرقام الإنجليزية إلى عربية مع معالجة السالب
+            if (num === null || num === undefined) return '';
+            let str = String(num);
+            let result = '';
+            for (let i = 0; i < str.length; i++) {
+                if (str[i] === '-') {
+                    result += '\u200E-'; // علامة التحكم بالاتجاه
+                } else if (/\d/.test(str[i])) {
+                    result += arabicNumerals[parseInt(str[i])];
+                } else {
+                    result += str[i];
+                }
+            }
+            return result;
+        }
+
+        // دالة لتنسيق المعادلات (إخفاء/إظهار ١، تنسيق كسور، أرقام عربية)
+        function formatEquation(equation, showOne = false) { 
+            let formatted = String(equation);
+           
+            // إظهار/إخفاء الميل 1 و -1
+            if (!showOne) {
+                formatted = formatted.replace(/=\s*1x/g, '= x');
+                formatted = formatted.replace(/\(\s*1x/g, '(x');
+                formatted = formatted.replace(/=\s*-1x/g, '= -x');
+                formatted = formatted.replace(/\(\s*-1x/g, '(-x');
+                 formatted = formatted.replace(/= -x/g, '= \u200E-س'); // إصلاح حالة (-س)
+            } else {
+                 formatted = formatted.replace(/=\s*-x/g, '= -1x'); // التأكد من إظهار -1x في الشرح
+                  formatted = formatted.replace(/\(\s*-x/g, '(-1x');
+                 formatted = formatted.replace(/=\s*x/g, '= 1x'); // التأكد من إظهار 1x في الشرح
+                  formatted = formatted.replace(/\(\s*x/g, '(1x');
+            }
+            
+            // تنسيق الكسور مثل (1/2) أو (-1/3) 
+            formatted = formatted.replace(/\((-?\d+)\/(\d+)\)/g, (match, num, den) => {
+                const numArabic = toArabicNumerals(num);
+                const denArabic = toArabicNumerals(den);
+                return `<span class="fraction"><span class="numerator">${numArabic}</span><span class="denominator">${denArabic}</span></span>`;
+            });
+            
+            // تنسيق الأرقام 
+            formatted = formatted.replace(/-?\d+/g, (match) => {
+                if (match.includes('<')) return match; // لا تلمس الأرقام داخل الكسور
+                return toArabicNumerals(match);
+            });
+            
+            // تنسيق المتغيرات
+            formatted = formatted.replace(/x/g, 'س').replace(/y/g, 'ص');
+
+            // إزالة المسافة بعد = وقبل السالب لـ س
+             formatted = formatted.replace(/=\s*(\u200E-)/g, '=$1'); 
+             // إزالة المسافة بعد ( وقبل السالب لـ س
+             formatted = formatted.replace(/\(\s*(\u200E-)/g, '($1');
+
+
+            // إصلاح حالة "-س" مرة أخرى بعد تحويل الأرقام
+             formatted = formatted.replace(new RegExp(toArabicNumerals('-') + 'س', 'g'), '\u200E-س');
+
+
+             // إصلاح حالة "س -" لتصبح "- س" اذا كانت في صيغة قياسية
+            formatted = formatted.replace(/(\d*)س\s*-\s*(\d*)ص/g, (match, a, b) => `${a || ''}س \u200E- ${b || ''}ص`); // تعديل ليشمل المعاملات الفارغة (١)
+
+
+            return formatted;
+        }
+
+        // دالة لتنسيق الشرح (إظهار ١ وتبسيط المعادلات وتلوين الميل)
+         function formatSolutionSteps(steps, problem) {
+             let formattedSteps = steps;
+
+             // تطبيق formatEquation مع showOne = true على كل المعادلات داخل الشرح
+             formattedSteps = formattedSteps.replace(/<div class="solution-equation">(.+?)<\/div>/g, (match, equationContent) => {
+                 // استخراج الميل الأصلي للمعادلة (قبل التنسيق)
+                 let originalSlope = null;
+                 let eqMatch;
+                 // البحث عن الميل كمعامل لـ x أو قبل القوس في صيغة ميل ونقطة
+                 if ((eqMatch = equationContent.match(/=\s*(-?\d+)\s*x/)) || (eqMatch = equationContent.match(/=\s*(-?\d+)\s*\(/)) || (eqMatch = equationContent.match(/=\s*\((-?\d+)\/(\d+)\)\s*x/))) {
+                     originalSlope = eqMatch[0].includes('/') ? `(${eqMatch[2]}/${eqMatch[3]})` : eqMatch[1];
+                 } else if ((eqMatch = equationContent.match(/y\s*-\s*[\u0660-\u0669]+\s*=\s*(-?[\u0660-\u0669]+)\s*\(/))) { // ميل ونقطة مع معامل (أرقام عربية) - للبحث بعد التنسيق
+                     originalSlope = eqMatch[1]; // الميل سيكون بالأرقام العربية هنا
+                 } else if (equationContent.includes('= x') || equationContent.includes('(x')) {
+                     originalSlope = '1';
+                 } else if (equationContent.includes('= -x') || equationContent.includes('(-x')) {
+                     originalSlope = '-1';
+                 } else if ((eqMatch = equationContent.match(/y\s*-\s*[\u0660-\u0669]+\s*=\s*\(/))) { // ميل ونقطة الميل ١
+                      originalSlope = '1';
+                 } else if ((eqMatch = equationContent.match(/y\s*-\s*[\u0660-\u0669]+\s*=\s*-\(/))) { // ميل ونقطة الميل -١
+                      originalSlope = '-1';
+                 }
+
+                 // تنسيق المعادلة (إظهار ١) - الخطوة الأولى للحصول على البنية الصحيحة
+                 let formattedEquation = formatEquation(equationContent, true);
+
+                 // البحث عن الميل المنسق (بالأرقام العربية والكسور) وتطبيق التمييز عليه
+                 if (originalSlope !== null) {
+                     let slopePatternHTML; // النمط بتنسيق HTML للبحث عنه
+                     // تحويل الميل الأصلي (الذي قد يكون إنجليزياً أو عربياً) إلى عربي للبحث به
+                      let slopeArabic = toArabicNumerals(originalSlope.replace(/[\(\)]/g, '')); // إزالة الأقواس إن وجدت للكسور
+                      
+                     if (originalSlope.includes('/')) { // كسر
+                         const parts = originalSlope.match(/\((-?\d+)\/(\d+)\)/);
+                         if (parts) {
+                             const numArabic = toArabicNumerals(parts[1]);
+                             const denArabic = toArabicNumerals(parts[2]);
+                             // بناء النمط للبحث عنه بدقة أكبر داخل بنية الكسر
+                             slopePatternHTML = `<span class="fraction"><span class="numerator">${numArabic}<\/span><span class="denominator">${denArabic}<\/span><\/span>`;
+                             // التأكد من أن التنسيق موجود قبل التغليف
+                             if (formattedEquation.includes(slopePatternHTML)) {
+                                 formattedEquation = formattedEquation.replace(slopePatternHTML, `<span class="highlight-slope">${slopePatternHTML}</span>`);
+                             } else {
+                                 // محاولة البحث عن الكسر بدون الـ span الخارجي كحل بديل
+                                 const innerFractionHTML = `<span class="numerator">${numArabic}<\/span><span class="denominator">${denArabic}<\/span>`;
+                                 if(formattedEquation.includes(innerFractionHTML)){
+                                     formattedEquation = formattedEquation.replace(innerFractionHTML, `<span class="highlight-slope">${innerFractionHTML}</span>`);
+                                 }
+                             }
+                         }
+                     } else { // عدد صحيح
+                         slopePatternHTML = slopeArabic; // الميل بالأرقام العربية
+                          // استخدام تعبير منتظم للبحث عن الميل (مع السالب إذا وجد) والتأكد أنه ليس جزءاً من كسر أو رقم آخر
+                          const regex = new RegExp(`(?<=[=\\( ])${slopePatternHTML}(?=س|[\\) ])(?!<\\/span>|numerator|denominator|\\/\\d)`, 'g');
+                          formattedEquation = formattedEquation.replace(regex, `<span class="highlight-slope">${slopePatternHTML}</span>`);
+                     }
+                 }
+
+                 return `<div class="solution-equation">${formattedEquation}</div>`; 
+             });
+
+             // تنسيق الأرقام والكسور والميل في النص العادي للشرح (لون فقط)
+              formattedSteps = formattedSteps.replace(/(الميل|ميله|ميل الأول|هو)\s*=?\s*(-?\d+)/g, (match, prefix, slope) => {
+                 return `${prefix} = <span class="highlight-slope">${toArabicNumerals(slope)}</span>`;
+             });
+             formattedSteps = formattedSteps.replace(/(الميل|ميله|هو)\s*=?\s*\((-?\d+)\/(\d+)\)/g, (match, prefix, num, den) => {
+                  const numArabic = toArabicNumerals(num);
+                  const denArabic = toArabicNumerals(den);
+                  const fractionHTML = `<span class="fraction"><span class="numerator">${numArabic}</span><span class="denominator">${denArabic}</span></span>`;
+                  return `${prefix} = <span class="highlight-slope">${fractionHTML}</span>`;
+             });
+               
+             // تنسيق باقي الأرقام والكسور في النص العادي للشرح
+             formattedSteps = formattedSteps.replace(/\((-?\d+)\/(\d+)\)(?!<\/span>)/g, (match, num, den) => { // تجنب الكسور الملونة
+                 return `<span class="fraction"><span class="numerator">${toArabicNumerals(num)}</span><span class="denominator">${toArabicNumerals(den)}</span></span>`;
+             });
+             // تنسيق الأرقام التي ليست ميلاً ملوناً
+              formattedSteps = formattedSteps.replace(/(?<!highlight-slope">)\u200E?-?\d+/g, (match) => { 
+                 if (match.includes('<')) return match; 
+                  // التأكد من عدم تلوين الأرقام داخل الكسور المنسقة بالفعل
+                 if (match.includes('numerator') || match.includes('denominator')) return match;
+                 // إزالة علامة الاتجاه قبل التحويل فقط إذا كانت موجودة
+                 const cleanedMatch = match.startsWith('\u200E-') ? match.substring(1) : match;
+                 return toArabicNumerals(cleanedMatch); 
+             });
+
+              formattedSteps = formattedSteps.replace(/x/g, 'س').replace(/y/g, 'ص');
+
+
+            return formattedSteps;
+         }
+
+
+    </script>
+
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+
+            const gameLevels = [
+                // --- المرحلة 1: سهل (10 نقاط، محاولة واحدة) ---
+                {
+                    level: 1,
+                    questionType: 'parallel',
+                    questionText: 'اختر المستقيم الذي يوازي المستقيم المُعطى:',
+                    equation: "y = 2x + 1",
+                    choices: ["y = 2x + 5", "y = 5x + 1"],
+                    correctAnswers: ["y = 2x + 5"],
+                    allowMultiple: false,
+                    solutionSteps: `
+                        <div class="solution-modal-step"><span class="step-circle">١</span><div class="step-text-wrapper"><span class="step-text">المستقيم المُعطى:</span><div class="solution-equation">y = 2x + 1</div></div></div>
+                        <div class="solution-modal-step"><span class="step-circle">٢</span><div class="step-text-wrapper"><span class="step-text">الإجابة الصحيحة:</span><div class="solution-equation">y = 2x + 5</div></div></div>
+                        <div class="solution-modal-step"><span class="step-circle">٣</span><div class="step-text-wrapper"><span class="step-text">لأن المستقيمين متوازيين، يجب أن يكون لهما <span class="font-bold">نفس الميل</span>.</span><span class="step-text">كلا الميلين يساوي 2.</span></div></div>
+                    ` 
+                },
+                {
+                    level: 1,
+                    questionType: 'perpendicular',
+                    questionText: 'اختر المستقيم الذي يُعامد المستقيم المُعطى:',
+                    equation: "y = 3x - 4",
+                    choices: ["y = -3x + 2", "y = (-1/3)x + 1"], 
+                    correctAnswers: ["y = (-1/3)x + 1"],
+                    allowMultiple: false,
+                    solutionSteps: `
+                        <div class="solution-modal-step"><span class="step-circle">١</span><div class="step-text-wrapper"><span class="step-text">المستقيم المُعطى:</span><div class="solution-equation">y = 3x - 4</div></div></div>
+                        <div class="solution-modal-step"><span class="step-circle">٢</span><div class="step-text-wrapper"><span class="step-text">الإجابة الصحيحة:</span><div class="solution-equation">y = (-1/3)x + 1</div></div></div>
+                        <div class="solution-modal-step"><span class="step-circle">٣</span><div class="step-text-wrapper"><span class="step-text">لأن المستقيمين متعامدين، يجب أن يكون ميلهما <span class="font-bold">مقلوب ومعكوس</span> للآخر.</span><span class="step-text">ميل الأول 3. مقلوبه ومعكوسه هو (-1/3).</span></div></div>
+                    `
+                },
+                // --- المرحلة 2: متوسط (20 نقطة، محاولة ثانية بـ 10) ---
+                {
+                    level: 2,
+                    questionType: 'parallel',
+                    questionText: 'اختر جميع المستقيمات التي توازي المستقيم المُعطى:',
+                    equation: "y = -x + 10", // الميل -1
+                    choices: ["y = -x + 5", "y = x + 7", "2y = -2x + 8", "y - 2 = -1(x + 3)"], 
+                    correctAnswers: ["y = -x + 5", "2y = -2x + 8", "y - 2 = -1(x + 3)"],
+                    allowMultiple: true,
+                    solutionSteps: `
+                        <div class="solution-modal-step"><span class="step-circle">١</span><div class="step-text-wrapper"><span class="step-text">المستقيم المُعطى:</span><div class="solution-equation">y = -1x + 10</div><span class="step-text">ميله = -1.</span></div></div>
+                        <div class="solution-modal-step"><span class="step-circle">٢</span><div class="step-text-wrapper"><span class="step-text">نفحص الخيارات لإيجاد الميل -1:</span></div></div>
+                        <div class="solution-modal-step"><span class="step-circle"></span><div class="step-text-wrapper"><span class="step-text"><span class="font-bold">الخيار ١:</span></span><div class="solution-equation">y = -1x + 5</div><span class="text-green-600 font-bold step-text">الميل -1 (صحيح)</span></div></div>
+                        <div class="solution-modal-step"><span class="step-circle"></span><div class="step-text-wrapper"><span class="step-text"><span class="font-bold">الخيار ٢:</span></span><div class="solution-equation">y = 1x + 7</div><span class="text-red-600 font-bold step-text">الميل 1 (خطأ)</span></div></div>
+                        <div class="solution-modal-step"><span class="step-circle"></span><div class="step-text-wrapper"><span class="step-text"><span class="font-bold">الخيار ٣:</span></span><div class="solution-equation">2y = -2x + 8</div><span class="step-text">بقسمة الطرفين على 2:</span><div class="solution-equation">y = -1x + 4</div><span class="text-green-600 font-bold step-text">الميل -1 (صحيح)</span></div></div>
+                        <div class="solution-modal-step"><span class="step-circle"></span><div class="step-text-wrapper"><span class="step-text"><span class="font-bold">الخيار ٤:</span> (صيغة ميل ونقطة)</span><div class="solution-equation">y - 2 = -1(x + 3)</div><span class="text-green-600 font-bold step-text">الميل -1 (صحيح)</span></div></div>
+                    `
+                },
+                 {
+                    level: 2,
+                    questionType: 'perpendicular',
+                    questionText: 'اختر جميع المستقيمات التي تُعامد المستقيم المُعطى:',
+                    equation: "y = (1/2)x + 3", // الميل ١/٢، ميل التعامد -٢
+                    choices: ["y = -2x + 1", "y = 2x + 3", "3y = -6x + 9", "y + 1 = -2(x - 1)"], 
+                    correctAnswers: ["y = -2x + 1", "3y = -6x + 9", "y + 1 = -2(x - 1)"],
+                    allowMultiple: true,
+                    solutionSteps: `
+                        <div class="solution-modal-step"><span class="step-circle">١</span><div class="step-text-wrapper"><span class="step-text">المستقيم المُعطى:</span><div class="solution-equation">y = (1/2)x + 3</div><span class="step-text">ميله = (1/2).</span></div></div>
+                        <div class="solution-modal-step"><span class="step-circle">٢</span><div class="step-text-wrapper"><span class="step-text">الميل العمودي المطلوب (مقلوب ومعكوس) = -2.</span></div></div>
+                        <div class="solution-modal-step"><span class="step-circle">٣</span><div class="step-text-wrapper"><span class="step-text">نفحص الخيارات لإيجاد الميل -2:</span></div></div>
+                        <div class="solution-modal-step"><span class="step-circle"></span><div class="step-text-wrapper"><span class="step-text"><span class="font-bold">الخيار ١:</span></span><div class="solution-equation">y = -2x + 1</div><span class="text-green-600 font-bold step-text">الميل -2 (صحيح)</span></div></div>
+                        <div class="solution-modal-step"><span class="step-circle"></span><div class="step-text-wrapper"><span class="step-text"><span class="font-bold">الخيار ٢:</span></span><div class="solution-equation">y = 2x + 3</div><span class="text-red-600 font-bold step-text">الميل 2 (خطأ)</span></div></div>
+                        <div class="solution-modal-step"><span class="step-circle"></span><div class="step-text-wrapper"><span class="step-text"><span class="font-bold">الخيار ٣:</span></span><div class="solution-equation">3y = -6x + 9</div><span class="step-text">بقسمة الطرفين على 3:</span><div class="solution-equation">y = -2x + 3</div><span class="text-green-600 font-bold step-text">الميل -2 (صحيح)</span></div></div>
+                         <div class="solution-modal-step"><span class="step-circle"></span><div class="step-text-wrapper"><span class="step-text"><span class="font-bold">الخيار ٤:</span> (صيغة ميل ونقطة)</span><div class="solution-equation">y + 1 = -2(x - 1)</div><span class="text-green-600 font-bold step-text">الميل -2 (صحيح)</span></div></div>
+                    `
+                },
+                // --- المرحلة 3: خبير (30 نقطة، محاولة ثانية بـ 15) ---
+                 {
+                    level: 3,
+                    questionType: 'parallel',
+                    questionText: 'اختر جميع المستقيمات التي توازي المستقيم المُعطى (انتبه للصيغ!):',
+                    equation: "y = 2x + 3", // الميل = 2
+                    choices: ["2x - y = -5", "x + 2y = 4", "y - 5 = 2(x - 1)", "3y = 6x + 3"],
+                    correctAnswers: ["2x - y = -5", "y - 5 = 2(x - 1)", "3y = 6x + 3"],
+                    allowMultiple: true,
+                    solutionSteps: `
+                        <div class="solution-modal-step"><span class="step-circle">١</span><div class="step-text-wrapper"><span class="step-text">المستقيم المُعطى:</span><div class="solution-equation">y = 2x + 3</div><span class="step-text">ميله = 2.</span></div></div>
+                        <div class="solution-modal-step"><span class="step-circle">٢</span><div class="step-text-wrapper"><span class="step-text">نفحص الخيارات لإيجاد الميل 2:</span></div></div>
+                        <div class="solution-modal-step"><span class="step-circle"></span><div class="step-text-wrapper"><span class="step-text"><span class="font-bold">الخيار ١:</span> (صيغة قياسية)</span><div class="solution-equation">2x - y = -5</div><span class="step-text">بإعادة الترتيب:</span><div class="solution-equation">y = 2x + 5</div><span class="text-green-600 font-bold step-text">الميل 2 (صحيح)</span></div></div>
+                        <div class="solution-modal-step"><span class="step-circle"></span><div class="step-text-wrapper"><span class="step-text"><span class="font-bold">الخيار ٢:</span> (صيغة قياسية)</span><div class="solution-equation">x + 2y = 4</div><span class="step-text">بإعادة الترتيب والقسمة على 2:</span><div class="solution-equation">y = (-1/2)x + 2</div><span class="text-red-600 font-bold step-text">الميل (-1/2) (خطأ)</span></div></div>
+                        <div class="solution-modal-step"><span class="step-circle"></span><div class="step-text-wrapper"><span class="step-text"><span class="font-bold">الخيار ٣:</span> (صيغة ميل ونقطة)</span><div class="solution-equation">y - 5 = 2(x - 1)</div><span class="text-green-600 font-bold step-text">الميل 2 (صحيح)</span></div></div>
+                        <div class="solution-modal-step"><span class="step-circle"></span><div class="step-text-wrapper"><span class="step-text"><span class="font-bold">الخيار ٤:</span></span><div class="solution-equation">3y = 6x + 3</div><span class="step-text">بقسمة الطرفين على 3:</span><div class="solution-equation">y = 2x + 1</div><span class="text-green-600 font-bold step-text">الميل 2 (صحيح)</span></div></div>
+                    `
+                },
+                 {
+                    level: 3,
+                    questionType: 'perpendicular',
+                    questionText: 'اختر جميع المستقيمات التي تُعامد المستقيم المُعطى (انتبه للصيغ!):',
+                    equation: "y = (1/3)x + 1", // الميل = 1/3، ميل التعامد = -3
+                    choices: ["y = (1/3)x + 5", "3x + y = 9", "y - 1 = -3(x - 2)", "2y = -6x + 4"],
+                    correctAnswers: ["3x + y = 9", "y - 1 = -3(x - 2)", "2y = -6x + 4"],
+                    allowMultiple: true,
+                     solutionSteps: `
+                        <div class="solution-modal-step"><span class="step-circle">١</span><div class="step-text-wrapper"><span class="step-text">المستقيم المُعطى:</span><div class="solution-equation">y = (1/3)x + 1</div><span class="step-text">ميله = (1/3).</span></div></div>
+                        <div class="solution-modal-step"><span class="step-circle">٢</span><div class="step-text-wrapper"><span class="step-text">الميل العمودي المطلوب (مقلوب ومعكوس) = -3.</span></div></div>
+                        <div class="solution-modal-step"><span class="step-circle">٣</span><div class="step-text-wrapper"><span class="step-text">نفحص الخيارات لإيجاد الميل -3:</span></div></div>
+                        <div class="solution-modal-step"><span class="step-circle"></span><div class="step-text-wrapper"><span class="step-text"><span class="font-bold">الخيار ١:</span></span><div class="solution-equation">y = (1/3)x + 5</div><span class="text-red-600 font-bold step-text">الميل (1/3) (خطأ)</span></div></div>
+                        <div class="solution-modal-step"><span class="step-circle"></span><div class="step-text-wrapper"><span class="step-text"><span class="font-bold">الخيار ٢:</span> (صيغة قياسية)</span><div class="solution-equation">3x + y = 9</div><span class="step-text">بإعادة الترتيب:</span><div class="solution-equation">y = -3x + 9</div><span class="text-green-600 font-bold step-text">الميل -3 (صحيح)</span></div></div>
+                        <div class="solution-modal-step"><span class="step-circle"></span><div class="step-text-wrapper"><span class="step-text"><span class="font-bold">الخيار ٣:</span> (صيغة ميل ونقطة)</span><div class="solution-equation">y - 1 = -3(x - 2)</div><span class="text-green-600 font-bold step-text">الميل -3 (صحيح)</span></div></div>
+                        <div class="solution-modal-step"><span class="step-circle"></span><div class="step-text-wrapper"><span class="step-text"><span class="font-bold">الخيار ٤:</span></span><div class="solution-equation">2y = -6x + 4</div><span class="step-text">بقسمة الطرفين على 2:</span><div class="solution-equation">y = -3x + 2</div><span class="text-green-600 font-bold step-text">الميل -3 (صحيح)</span></div></div>
+                    `
+                },
+            ];
+            
+            let currentQuestionIndex = 0;
+            let totalScore = 0;
+            let lastPointsEarned = 0;
+            let questionAttempt = 1; // 1 أو 2
+            let totalMetricErrors = 0;
+            let sessionProblems = []; // ستكون هي نفسها gameLevels
+
+            // --- باقي متغيرات العناصر ---
+            const startScreen = document.getElementById('start-screen');
+            const gameContainer = document.getElementById('game-container');
+            const startBtn = document.getElementById('start-btn');
+            const scoringInfoScreen = document.getElementById('scoring-info-screen');
+            const startGameBtn = document.getElementById('start-game-btn');
+            const originalEquationEl = document.getElementById('original-equation');
+            const optionsContainer = document.getElementById('options-container');
+            const checkBtn = document.getElementById('check-btn');
+            const nextBtn = document.getElementById('next-btn');
+            const feedbackEl = document.getElementById('feedback');
+            const resetChoicesBtn = document.getElementById('reset-choices-btn');
+            const questionTextEl = document.getElementById('question-text');
+            const infoModal = document.getElementById('info-modal');
+            const infoBtn = document.getElementById('info-btn');
+            const closeModalBtn = document.getElementById('close-modal-btn');
+            const scoreModal = document.getElementById('score-modal');
+            const pointsEarnedText = document.getElementById('points-earned-text');
+            const continueBtn = document.getElementById('continue-btn');
+            const currentQuestionText = document.getElementById('current-question-text');
+            const totalScoreText = document.getElementById('total-score-text');
+            const stage1StartModal = document.getElementById('stage-1-start-modal');
+            const startStage1Btn = document.getElementById('start-stage1-btn');
+            const stageTransitionModal = document.getElementById('stage-transition-modal');
+            const startStage2Btn = document.getElementById('start-stage2-btn');
+            const stage3TransitionModal = document.getElementById('stage-3-transition-modal');
+            const startStage3Btn = document.getElementById('start-stage3-btn');
+            const solutionModal = document.getElementById('solution-modal');
+            const solutionText = document.getElementById('solution-text');
+            const showSolutionBtn = document.getElementById('show-solution-btn');
+            const closeSolutionBtn = document.getElementById('close-solution-btn');
+
+
+            function shuffle(array) {
+                // دالة لخلط عناصر مصفوفة (تضمن توزيع الخيارات عشوائياً)
+                for (let i = array.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [array[i], array[j]] = [array[j], array[i]];
+                }
+                return array;
+            }
+
+            function loadProblem(index) {
+                resetChoices();
+                feedbackEl.textContent = '';
+                feedbackEl.className = 'h-10 sm:h-12 mb-1 text-base sm:text-xl font-bold';
+                
+                questionAttempt = 1;
+                lastPointsEarned = 0;
+                
+                const problem = gameLevels[index];
+
+                // عرض المعادلة الأصلية (مع إخفاء ١)
+                originalEquationEl.innerHTML = formatEquation(problem.equation, false); 
+                
+                 // تمييز "يوازي"/"توازي" و "يُعامد"/"تعامد" (مع تجاهل التشكيل) في السؤال لجميع المراحل
+                let questionHTML = problem.questionText;
+                questionHTML = questionHTML.replace(/(ي?وازي)/g, "<span class='font-bold text-blue-600'>$1</span>"); // يوازي أو توازي
+                questionHTML = questionHTML.replace(/(ي?ُ?عامد)/g, "<span class='font-bold text-green-600'>$1</span>"); // يُعامد أو تعامد (مع أو بدون ضمة)
+                questionTextEl.innerHTML = questionHTML;
+
+
+                optionsContainer.innerHTML = '';
+                
+                // تحديد تنسيق الشبكة (عمودين لـ 4 خيارات)
+                if (problem.choices.length === 4) {
+                    optionsContainer.className = 'choices-grid-2';
+                } else {
+                    optionsContainer.className = 'flex flex-col gap-3';
+                }
+                
+                // خلط الخيارات قبل عرضها
+                const shuffledChoices = shuffle([...problem.choices]);
+                
+                shuffledChoices.forEach(choiceText => {
+                    const choiceEl = document.createElement('button');
+                    choiceEl.classList.add('choice-button', 'equation-font');
+                     // عرض الخيارات (مع إخفاء ١ وعدم التمييز)
+                    choiceEl.innerHTML = formatEquation(choiceText, false, false);
+                    choiceEl.dataset.value = choiceText; // تخزين النص الأصلي للتحقق
+                    
+                    choiceEl.addEventListener('click', () => {
+                        toggleChoice(choiceEl, problem.allowMultiple);
+                    });
+
+                    optionsContainer.appendChild(choiceEl);
+                });
+
+                // إظهار وإخفاء الأزرار المناسبة
+                checkBtn.classList.remove('hidden');
+                resetChoicesBtn.classList.remove('hidden');
+                nextBtn.classList.add('hidden');
+                showSolutionBtn.classList.add('hidden'); 
+            }
+
+            function toggleChoice(choiceEl, allowMultiple) {
+                // إلغاء تحديد الآخرين إذا كان الاختيار فردياً
+                if (!allowMultiple) {
+                    optionsContainer.querySelectorAll('.choice-button').forEach(btn => {
+                       if(btn !== choiceEl) btn.classList.remove('selected');
+                    });
+                }
+                // تبديل حالة الزر المختار
+                choiceEl.classList.toggle('selected');
+            }
+
+            function resetChoices() {
+                // إلغاء تحديد جميع الخيارات وإزالة التلوين
+                optionsContainer.querySelectorAll('.choice-button').forEach(btn => {
+                    btn.classList.remove('selected', 'correct', 'incorrect');
+                });
+                feedbackEl.textContent = ''; // مسح رسالة الخطأ
+            }
+
+            function checkAnswer() {
+                const problem = gameLevels[currentQuestionIndex];
+                const selectedChoices = Array.from(optionsContainer.querySelectorAll('.choice-button.selected'))
+                                            .map(btn => btn.dataset.value); // استخدام النص الأصلي للمقارنة
+                const correctAnswers = problem.correctAnswers;
+                
+                let allCorrect = true; // نفترض أن الإجابة صحيحة مبدئياً
+                let errorInSelection = false; // هل اختار المستخدم خياراً خاطئاً؟
+                let missingCorrect = false; // هل فات المستخدم اختيار خيار صحيح؟
+                let currentPoints = 0;
+                
+                // حساب الدرجة الأساسية ونقاط المحاولة الحالية
+                let basePoints = 10; 
+                if (problem.level === 2) basePoints = 20;
+                if (problem.level === 3) basePoints = 30;
+                const pointsForThisAttempt = (questionAttempt === 1) ? basePoints : Math.round(basePoints / 2); // التقريب للنصف
+
+                // التحقق من كل زر خيار
+                const choiceButtons = optionsContainer.querySelectorAll('.choice-button');
+                choiceButtons.forEach(btn => {
+                    const isSelected = btn.classList.contains('selected');
+                    const isCorrect = correctAnswers.includes(btn.dataset.value);
+
+                    if (isSelected && isCorrect) {
+                        btn.classList.add('correct'); // صحيح وتم اختياره
+                    } else if (isSelected && !isCorrect) {
+                        btn.classList.add('incorrect'); // خطأ وتم اختياره
+                        allCorrect = false;
+                        errorInSelection = true;
+                    } else if (!isSelected && isCorrect) {
+                        // صحيح ولكنه لم يُختر
+                        if (problem.allowMultiple) { // فقط إذا كان يجب اختيار أكثر من واحد
+                             allCorrect = false;
+                             missingCorrect = true;
+                        } else if (!problem.allowMultiple && selectedChoices.length === 0) {
+                            // إذا كان الاختيار فردي ولم يختر شيئاً
+                            allCorrect = false;
+                            missingCorrect = true;
+                        }
+                    }
+                });
+                
+                // تأكيد إضافي: هل عدد المختار يطابق عدد الصحيح؟ (للخيارات المتعددة)
+                 if (problem.allowMultiple && selectedChoices.length !== correctAnswers.length) {
+                     // إذا اختار فقط جزءاً صحيحاً ولم يختر أي خطأ، لا نعتبره خطأ كاملاً بعد في المحاولة الأولى
+                     if (!errorInSelection && selectedChoices.length > 0) {
+                         allCorrect = false; // ليس صحيحاً بالكامل لأنه ناقص
+                     } else {
+                          allCorrect = false; // إما اختار خطأ أو لم يختر شيئاً
+                     }
+                 } else if (!problem.allowMultiple && selectedChoices.length !== 1 && correctAnswers.length === 1) {
+                     allCorrect = false; // لم يختر شيئاً أو اختار أكثر من واحد (وهذا غير ممكن بالكود الحالي لكنه احتياط)
+                 }
+
+                // تسجيل الأخطاء (فقط في المحاولة الأولى إذا لم تكن صحيحة بالكامل)
+                if (questionAttempt === 1 && !allCorrect) {
+                    totalMetricErrors += 1; // خطأ واحد للسؤال ككل
+                }
+
+                // تحديد التغذية الراجعة وحالة انتهاء السؤال
+                let questionFinished = false;
+
+                if (allCorrect) {
+                    // --- الإجابة صحيحة وكاملة ---
+                    feedbackEl.textContent = `ممتاز! إجابة صحيحة.`;
+                    feedbackEl.className = 'h-10 sm:h-12 mb-1 text-base sm:text-xl font-bold text-green-600';
+                    currentPoints = pointsForThisAttempt;
+                    questionFinished = true;
+                } else if (problem.level > 1 && questionAttempt === 1) {
+                    // --- المحاولة الأولى في المراحل 2 أو 3 وكانت خاطئة أو ناقصة ---
+                    if (!errorInSelection && missingCorrect) {
+                         feedbackEl.textContent = 'إجابة صحيحة ولكن غير مكتملة. حاول إيجاد الإجابات المتبقية بنصف النقاط.';
+                     } else {
+                        feedbackEl.textContent = 'إجابة غير مكتملة أو خاطئة. حاول مرة أخرى بنصف النقاط.';
+                     }
+                    feedbackEl.className = 'h-10 sm:h-12 mb-1 text-base font-bold text-red-600';
+                    questionAttempt = 2; // الانتقال للمحاولة الثانية
+                    // إزالة التلوين للسماح بمحاولة جديدة
+                    choiceButtons.forEach(btn => btn.classList.remove('correct', 'incorrect'));
+                } else {
+                    // --- إما المرحلة 1 (محاولة واحدة) أو المحاولة الثانية وفشل ---
+                    feedbackEl.textContent = 'للأسف، انتهت محاولاتك.';
+                    feedbackEl.className = 'h-10 sm:h-12 mb-1 text-base sm:text-xl font-bold text-red-600';
+                    currentPoints = 0;
+                    questionFinished = true;
+                    // إظهار الإجابات الصحيحة والخاطئة عند الفشل النهائي
+                    choiceButtons.forEach(btn => {
+                        const isCorrect = correctAnswers.includes(btn.dataset.value);
+                         if (isCorrect) {
+                             btn.classList.add('correct');
+                             // لا نلغي التحديد هنا، نريد أن يرى الطالب ما اختاره وما فاته
+                         } else if (btn.classList.contains('selected')) {
+                              btn.classList.add('incorrect');
+                         }
+                    });
+                }
+
+                // إذا انتهى السؤال (إما صح أو انتهت المحاولات)
+                if (questionFinished) {
+                    totalScore += currentPoints;
+                    lastPointsEarned = currentPoints;
+                    showEndButtons(); // إظهار زر التالي وزر الشرح
+                }
+            }
+
+            function showEndButtons() {
+                checkBtn.classList.add('hidden');
+                resetChoicesBtn.classList.add('hidden');
+                nextBtn.classList.remove('hidden');
+                showSolutionBtn.classList.remove('hidden');
+            }
+
+            function advanceToNextProblem() {
+                currentQuestionIndex++;
+                if (currentQuestionIndex < gameLevels.length) {
+                    loadProblem(currentQuestionIndex);
+                } else {
+                    // --- نهاية اللعبة ---
+                    gameContainer.style.display = 'none'; 
+                    startScreen.style.display = 'none';
+                    document.querySelectorAll('.modal-overlay').forEach(modal => modal.classList.remove('show'));
+
+                    const maxPointsPossible = GAME_MAX_POINTS || 1;
+                    const scorePercentage = (maxPointsPossible > 0) ? (totalScore / maxPointsPossible) * 100 : 0;
+                    let endMessage = '';
+                    if (scorePercentage >= 80) {
+                        endMessage = 'أحسنت! لقد أتقنت التوازي والتعامد.';
+                    } else if (scorePercentage >= 50) {
+                        endMessage = 'عمل جيد! أنت في طريقك لإتقان المفاهيم.';
+                    } else {
+                        endMessage = 'لقد أكملت التحدي. استمر في التدريب!';
+                    }
+
+                    let endScreenHTML = `
+                        <div class="container max-w-lg w-full mx-auto bg-white p-6 sm:p-8 rounded-xl shadow-xl text-center flex flex-col justify-center">
+                            <h1 class="text-3xl font-bold text-green-700 mb-6">لقد أكملت اللعبة بنجاح!</h1>
+                            <p class="text-lg text-gray-700 mb-2">${endMessage}</p>
+                            
+                            <div id="final-result-display" class="my-4 p-4 bg-gray-100 rounded-lg">
+                                <!-- سيتم التعبئة بواسطة saveAndFinishGame -->
+                            </div>
+                            
+                            <div id="leaderboard-loader" class="my-4" style="display: none;">
+                                <p class="text-blue-500">يتم تحميل سجل الأبطال...</p>
+                            </div>
+
+                            <div id="leaderboard-container">
+                                 <!-- سيتم تعبئة سجل الأبطال هنا -->
+                             </div>
+
+                            <div id="finish-game-wrapper" class="mt-8" style="display: none;">
+                                <button id="finish-game-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-10 rounded-lg text-lg shadow-md transition duration-200">
+                                    العودة إلى المنصة
+                                </button>
+                                <button onclick="location.reload()" class="bg-gray-400 hover:bg-gray-500 text-white font-bold py-3 px-10 rounded-lg text-lg shadow-md transition duration-200 ml-2">
+                                    العب مرة أخرى
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    
+                    document.body.insertAdjacentHTML('beforeend', endScreenHTML);
+                    if (window.saveAndFinishGame) {
+                        window.saveAndFinishGame(totalScore, totalMetricErrors);
+                    } else {
+                        console.error("Save function not found!");
+                        // في حالة عدم وجود الدالة، أظهر الأزرار مباشرة
+                        fetchAndShowLeaderboard(); 
+                    }
+                }
+            }
+
+            // --- ربط المستمعين ---
+            
+            checkBtn.addEventListener('click', checkAnswer);
+            
+            nextBtn.addEventListener('click', () => {
+                showPointsModal(lastPointsEarned); 
+            });
+
+
+            resetChoicesBtn.addEventListener('click', resetChoices);
+
+            // --- تشغيل اللعبة ---
+            startBtn.addEventListener('click', () => {
+                startScreen.classList.add('hidden');
+                scoringInfoScreen.classList.add('show'); 
+            });
+
+            startGameBtn.addEventListener('click', () => {
+                scoringInfoScreen.classList.remove('show');
+                showModal(stage1StartModal);
+            });
+
+            startStage1Btn.addEventListener('click', () => {
+                hideModal(stage1StartModal);
+                gameContainer.classList.remove('hidden');
+                gameContainer.classList.add('flex'); 
+                sessionProblems = gameLevels; // استخدام جميع الأسئلة
+                loadProblem(0);
+            });
+
+
+            // --- دوال النوافذ المنبثقة ---
+            function showModal(modal) {
+                if(modal) modal.classList.add('show');
+            }
+            function hideModal(modal) {
+                if(modal) modal.classList.remove('show');
+            }
+
+            function showPointsModal(points) {
+                 // التأكد من أن النقاط رقم صحيح
+                 const displayPoints = Math.round(points);
+
+                if (displayPoints > 0) {
+                    pointsEarnedText.textContent = `+${toArabicNumerals(displayPoints)} نقطة`;
+                    pointsEarnedText.classList.remove('text-red-600');
+                    pointsEarnedText.classList.add('text-blue-700');
+                    scoreModal.querySelector('h3').textContent = 'أحسنت!';
+                    scoreModal.querySelector('h3').classList.add('text-green-600');
+                } else {
+                    pointsEarnedText.textContent = `+${toArabicNumerals(0)} نقطة`;
+                    pointsEarnedText.classList.remove('text-blue-700');
+                    pointsEarnedText.classList.add('text-red-600');
+                    scoreModal.querySelector('h3').textContent = 'لا بأس!';
+                    scoreModal.querySelector('h3').classList.remove('text-green-600');
+                }
+                
+                totalScoreText.textContent = `إجمالي النقاط: ${toArabicNumerals(Math.round(totalScore))}`; // عرض الإجمالي مقرباً
+                currentQuestionText.textContent = `السؤال: ${toArabicNumerals(currentQuestionIndex + 1)} / ${toArabicNumerals(gameLevels.length)}`;
+                showModal(scoreModal);
+            }
+
+            function handleContinueClick() {
+                hideModal(scoreModal);
+                
+                // التحقق من الانتقال للمرحلة التالية
+                if (currentQuestionIndex === 1) { // بعد السؤال الثاني (index 1)، انتقل للمرحلة 2
+                    showModal(stageTransitionModal);
+                } else if (currentQuestionIndex === 3) { // بعد السؤال الرابع (index 3)، انتقل للمرحلة 3
+                    showModal(stage3TransitionModal);
+                } else {
+                    advanceToNextProblem();
+                }
+            }
+
+            continueBtn.addEventListener('click', handleContinueClick);
+
+            startStage2Btn.addEventListener('click', () => {
+                hideModal(stageTransitionModal);
+                advanceToNextProblem();
+            });
+
+            startStage3Btn.addEventListener('click', () => {
+                hideModal(stage3TransitionModal);
+                advanceToNextProblem();
+            });
+
+
+            infoBtn.addEventListener('click', () => showModal(infoModal));
+            closeModalBtn.addEventListener('click', () => hideModal(infoModal));
+            infoModal.addEventListener('click', (e) => {
+                if (e.target === infoModal) hideModal(infoModal);
+            });
+            scoreModal.addEventListener('click', (e) => {
+                if (e.target === scoreModal) {
+                    handleContinueClick();
+                }
+            });
+
+            showSolutionBtn.addEventListener('click', () => {
+                const problem = gameLevels[currentQuestionIndex];
+                // تنسيق الحلول قبل عرضها (مع إظهار ١ وتلوين الميل)
+                solutionText.innerHTML = formatSolutionSteps(problem.solutionSteps, problem); 
+                showModal(solutionModal);
+            });
+            closeSolutionBtn.addEventListener('click', () => hideModal(solutionModal));
+            solutionModal.addEventListener('click', (e) => {
+                if (e.target === solutionModal) hideModal(solutionModal);
+            });
+
+        });
+    </script>
+
+    <!-- (تعديل: محرك الربط وسجل الأبطال - إضافة حاوية المزلاق) -->
+    <script>
+    // --- START OF CONNECTION & LEADERBOARD ENGINE ---
+    (function() {
+        
+        // --- CONFIGURATION ( سيتم القراءة من متغيرات JS) ---
+        let SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
+        let GAME_ID, GAME_MAX_POINTS, PLATFORM_MAX_GRADE, METRIC_TYPE, METRIC_LABEL;
+
+        // --- Read URL Parameters ---
+        const urlParams = new URLSearchParams(window.location.search);
+        const studentId = urlParams.get('studentId');
+        const classId = urlParams.get('classId');
+        const studentName = urlParams.get('studentName');
+
+        let currentUser = (studentId && studentName) ? { id: studentId, name: studentName } : null;
+
+        // --- CORE FUNCTIONS ---
+
+        // 1. الدالة الرئيسية التي تستدعيها عند انتهاء اللعبة
+        window.saveAndFinishGame = function(points, metricValue) {
+            
+            // (إصلاح: قراءة الإعدادات في نهاية اللعبة، وليس عند التحميل)
+            GAME_ID = window.GAME_ID || 'default_game';
+            GAME_MAX_POINTS = window.GAME_MAX_POINTS || 1;
+            PLATFORM_MAX_GRADE = window.PLATFORM_MAX_GRADE || 5;
+            METRIC_TYPE = window.METRIC_TYPE || 'time';
+            METRIC_LABEL = window.METRIC_LABEL || 'Metric';
+            // (نهاية الإصلاح)
+
+            const finalPoints = parseFloat(points) || 0;
+            const finalMetric = parseFloat(metricValue) || 0;
+            const maxPoints = parseFloat(GAME_MAX_POINTS) || 1;
+            let finalGrade = (maxPoints > 0) ? (finalPoints / maxPoints) * PLATFORM_MAX_GRADE : 0; // تجنب القسمة على صفر
+            if (finalGrade > PLATFORM_MAX_GRADE) finalGrade = PLATFORM_MAX_GRADE;
+             if (finalGrade < 0) finalGrade = 0; // التأكد من عدم وجود درجة سالبة
+
+            const resultDisplay = document.getElementById('final-result-display');
+            if (resultDisplay) {
+                const toAr = typeof toArabicNumerals === 'function' ? toArabicNumerals : (n) => n;
+                resultDisplay.innerHTML = `
+                    <p class="text-gray-700">النقاط: <span class="font-bold text-xl">${toAr(Math.round(finalPoints))} / ${toAr(maxPoints)}</span></p>
+                    <p class="text-blue-600">الدرجة في المنصة: <span class="font-bold text-2xl">${finalGrade.toFixed(1)} / ${PLATFORM_MAX_GRADE}</span></p>
+                `;
+            }
+
+            if (studentId && classId) {
+                const params = new URLSearchParams({
+                    action: 'saveGrade',
+                    studentId: studentId,
+                    classId: classId,
+                    itemId: GAME_ID,
+                    grade: finalGrade.toFixed(2),
+                    metricValue: Math.round(finalMetric).toString()
+                });
+                fetch(`${SCRIPT_URL}?${params.toString()}`)
+                    .then(res => res.json())
+                    .then(result => console.log('Save result:', result.status))
+                    .catch(err => console.error("Save Error:", err))
+                    .finally(fetchAndShowLeaderboard);
+            } else {
+                console.log(`Visitor finished. Score: ${finalPoints}, Metric: ${finalMetric}`);
+                fetchAndShowLeaderboard();
+            }
+        }
+
+        // 2. دالة جلب وعرض سجل الأبطال
+        function fetchAndShowLeaderboard() {
+            const loader = document.getElementById('leaderboard-loader');
+            const container = document.getElementById('leaderboard-container');
+            if (!loader || !container) {
+                 showFinishButton(); // أظهر الأزرار حتى لو لم يوجد حاوية للسجل
+                 return;
+             }
+            
+            if (!classId) {
+                console.log("No classId found, skipping leaderboard for visitor.");
+                container.innerHTML = `<p class="text-center text-gray-500 mt-4">سجل الأبطال متاح للطلاب المسجلين فقط.</p>`;
+                showFinishButton();
+                return;
+            }
+
+            loader.style.display = 'block';
+            container.innerHTML = '';
+
+            const params = new URLSearchParams({
+                action: 'getLeaderboard',
+                gameId: GAME_ID,
+                metricType: METRIC_TYPE,
+                classId: classId
+            });
+
+            fetch(`${SCRIPT_URL}?${params.toString()}`)
+                .then(res => res.json())
+                .then(response => {
+                    if (response.status === 'success' && response.data) {
+                        displayLeaderboard(response.data);
+                    } else {
+                        throw new Error(response.message || 'Failed to load leaderboard data.');
+                    }
+                })
+                .catch(err => {
+                    console.error("Leaderboard Error:", err);
+                    container.innerHTML = `<p class="text-center text-red-500">حدث خطأ في تحميل سجل الأبطال.</p>`;
+                })
+                .finally(() => {
+                    loader.style.display = 'none';
+                    showFinishButton();
+                });
+        }
+        
+        // 3. دالة بناء جدول سجل الأبطال (مع إضافة حاوية المزلاق)
+        function displayLeaderboard(data) {
+            const container = document.getElementById('leaderboard-container');
+             if (!container) return; // تأكد من وجود الحاوية
+             
+            if (!data || data.length === 0) {
+                container.innerHTML = `<p class="text-center text-gray-500 mt-4">لا توجد نتائج بعد. كن أول الأبطال!</p>`;
+                return;
+            }
+
+            let tableHTML = `
+                <div class="mt-6 border-t pt-4">
+                    <h3 class="text-2xl font-bold text-center text-gray-800 mb-4">🏆 سجل الأبطال 🏆</h3>
+                    <div class="leaderboard-scroll-container"> <!-- حاوية المزلاق -->
+                        <table class="min-w-full bg-white shadow-md rounded-lg">
+                            <thead class="bg-gray-800 text-white sticky top-0 z-10"> <!-- جعل الرأس ثابتاً وفوق المحتوى -->
+                                <tr>
+                                    <th class="text-center py-2 px-3">الترتيب</th>
+                                    <th class="text-right py-2 px-3">اسم الطالب</th>
+                                    <th class="text-center py-2 px-3">الدرجة</th>
+                                    <th class="text-center py-2 px-3">${METRIC_LABEL}</th>
+                                </tr>
+                            </thead>
+                            <tbody class="text-gray-700">`;
+
+            data.forEach((player, index) => {
+                const rank = index + 1;
+                let rankDisplay = rank;
+                if (rank === 1) rankDisplay = '🥇';
+                if (rank === 2) rankDisplay = '🥈';
+                if (rank === 3) rankDisplay = '🥉';
+
+                const isCurrentUser = (currentUser && player.name === currentUser.name);
+                const rowClass = isCurrentUser ? 'bg-blue-100 font-bold' : (index % 2 === 0 ? 'bg-gray-100' : '');
+                
+                const toAr = typeof toArabicNumerals === 'function' ? toArabicNumerals : (n) => n;
+
+                tableHTML += `
+                    <tr class="${rowClass}">
+                        <td class="text-center py-2 px-3 text-xl">${rankDisplay}</td>
+                        <td class="text-right py-2 px-3">${player.name}</td>
+                        <td class="text-center py-2 px-3">${player.grade.toFixed(1)}</td>
+                        <td class="text-center py-2 px-3">${toAr(player.metricValue)}</td>
+                    </tr>`;
+            });
+
+            tableHTML += `</tbody></table></div></div>`; // إغلاق الحاوية والديف الرئيسي
+            container.innerHTML = tableHTML;
+        }
+
+        // 4. إظهار زر الإنهاء
+        function showFinishButton() {
+            const finishWrapper = document.getElementById('finish-game-wrapper');
+            if (finishWrapper) {
+                finishWrapper.style.display = 'block';
+            }
+        }
+
+        // 5. التعامل مع زر الإنهاء وتخصيص رسالة الترحيب
+        document.addEventListener('DOMContentLoaded', () => {
+            // Personalize welcome message
+            const welcomeMessage = document.getElementById('welcomeMessage');
+            if (studentName && welcomeMessage) {
+                welcomeMessage.innerHTML = `أهلاً بك يا <span class="font-bold text-blue-600">${studentName}</span>! جاهز لتحدي التوازي والتعامد؟`;
+            }
+
+            document.body.addEventListener('click', function(event) {
+                if (event.target.id === 'finish-game-btn') {
+                    window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*');
+                }
+            });
+        });
+    })();
+    // --- END OF CONNECTION & LEADERBOARD ENGINE ---
+    </script>
+
+</body>
+</html>
+

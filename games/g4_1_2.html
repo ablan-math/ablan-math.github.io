@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>لعبة متباينة المشتريات</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Tajawal', sans-serif;
+            touch-action: manipulation;
+            overscroll-behavior-y: contain;
+            position: relative;
+            background-color: #1a202c; /* لون احتياطي داكن */
+        }
+        /* تم تحديث الخلفية بالرابط الجديد */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: #1a202c; /* لون احتياطي داكن */
+            background-image: url("https://ablan-math.github.io/img/g4/mhl.mlabs.jpg"); /* الخلفية الجديدة */
+            background-size: cover;
+            background-position: center;
+            z-index: -1;
+            opacity: 1; 
+            transition: opacity 0.5s ease-in-out;
+        }
+
+        .card-enter { animation: card-enter 0.5s ease-out forwards; }
+        @keyframes card-enter {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        .feedback-correct {
+            animation: feedback-pop 0.3s ease-in-out;
+            background-color: #10B981;
+            color: white;
+        }
+        .feedback-incorrect {
+            animation: feedback-shake 0.5s ease-in-out;
+            background-color: #EF4444;
+            color: white;
+        }
+        @keyframes feedback-pop {
+            0% { transform: scale(0.8); }
+            80% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        @keyframes feedback-shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-5px); }
+            40%, 80% { transform: translateX(5px); }
+        }
+        /* تعديل: جعل نافذة الشرح شبه شفافة */
+        .modal-content { 
+            animation: modal-pop 0.3s ease-out;
+            background-color: rgb(255 255 255 / 0.95); /* شبه شفاف */
+            backdrop-filter: blur(4px); /* تأثير ضبابي */
+        }
+        @keyframes modal-pop {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        .transition-screen {
+            animation: fadeIn 0.5s ease-out;
+            position: relative;
+            overflow: hidden;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .transition-screen > * {
+            position: relative;
+            z-index: 2;
+        }
+        #game-content {
+            position: relative;
+            overflow: hidden;
+        }
+ 
+        /* Custom Scrollbar for Leaderboard */
+        .leaderboard-scroll {
+            max-height: 180px;
+            overflow-y: auto;
+            padding-right: 5px;
+        }
+        .leaderboard-scroll::-webkit-scrollbar {
+            width: 8px;
+        }
+        .leaderboard-scroll::-webkit-scrollbar-track {
+            background: #e0f2fe;
+            border-radius: 10px;
+        }
+        .leaderboard-scroll::-webkit-scrollbar-thumb {
+            background-color: #0ea5e9;
+            border-radius: 10px;
+            border: 2px solid #e0f2fe;
+        }
+  
+        /* تعديل: إعادة ألوان شاشة البداية لتناسب الخلفية الداكنة */
+        #start-screen h1, #start-screen .welcome-text {
+            text-shadow: 2px 2px 6px rgba(0, 0, 0, 0.5);
+            color: #ffffff; 
+        }
+        .credits-text {
+             color: #ffffff; 
+             text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
+        }
+        @keyframes pulse-text {
+            0%, 100% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.05);
+            }
+        }
+        .pulse-animation {
+            animation: pulse-text 2s infinite ease-in-out;
+            display: inline-block;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 flex items-center justify-center min-h-screen p-2 sm:p-4">
+
+    <!-- إضافة: شاشة التحميل -->
+    <div id="loading-screen" class="fixed inset-0 bg-gray-900 flex flex-col items-center justify-center z-[100]">
+        <div class="text-white text-2xl font-bold animate-pulse">... جاري تحميل اللعبة ...</div>
+        <div class="text-gray-400 text-sm mt-2">الرجاء الانتظار</div>
+    </div>
+
+    <!-- Start Screen -->
+    <!-- تعديل: إضافة خلفية شبه شفافة وإخفاء مبدئي -->
+    <div id="start-screen" class="w-full max-w-sm mx-auto bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl p-4 text-center card-enter flex flex-col justify-center items-center h-full py-6 hidden">
+        <h1 class="text-4xl font-bold text-amber-800">لعبة متباينة المشتريات</h1>
+        <!-- تعديل: خلفية وألوان النص لتناسب الخلفية الجديدة -->
+        <div id="welcomeMessage" class="text-base text-white mt-6 mb-8 bg-black/30 backdrop-blur-sm p-4 rounded-xl shadow-lg">
+            <p class="welcome-text">مرحباً بك! ستواجه 10 تحديات، كل تحدٍ من مرحلتين. أجب عن المتباينة وحلها.</p>
+        </div>
+        
+        <!-- تعديل: ألوان الزر لتناسب الخلفية الجديدة -->
+        <button onclick="startGame()" class="w-full bg-amber-600 text-white font-bold py-3 px-6 rounded-lg shadow-md hover:bg-amber-700 focus:outline-none transition-all ring-2 ring-amber-300 backdrop-blur-sm">
+            <span class="pulse-animation text-xl">ابدأ اللعبة</span>
+        </button>
+        <p class="credits-text text-xs text-white/90 font-semibold mt-8 bg-black/30 p-2 rounded-lg">إعداد وتقديم: الأستاذ عبدالعزيز خالد العبلان</p>
+    </div>
+
+    <!-- Game Container -->
+    <!-- تعديل: إخفاء مبدئي -->
+    <div id="game-container" class="w-full max-w-sm mx-auto bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl p-4 space-y-3 hidden">
+        <div id="game-screen"></div>
+    </div>
+
+    <!-- Explanation Modal -->
+    <div id="explanation-modal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
+        <!-- تعديل: .modal-content أصبح شبه شفاف من خلال CSS -->
+        <div class="rounded-lg p-5 w-full max-w-sm modal-content">
+            <div class="flex justify-between items-center mb-2">
+                <h3 class="text-lg font-bold text-amber-700">شرح الإجابة الصحيحة</h3>
+                <button onclick="hideExplanation()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+            </div>
+            <div id="explanation-content" class="space-y-2 text-sm text-gray-700 max-h-[75vh] overflow-y-auto pr-2"></div>
+            <button onclick="hideExplanation()" class="mt-3 w-full bg-gray-500 text-white font-bold py-2 rounded-lg hover:bg-gray-600">إغلاق</button>
+        </div>
+    </div>
+
+    <script>
+        // --- GAME LOGIC ---
+        
+        // --- بنك الأسئلة الجديد ---
+        // تم إعادة هيكلة الأسئلة إلى "مراحل"
+        const allStages = [
+          {
+            levelTitle: "المرحلة البسيطة",
+            questions: [
+              // السؤال 1
+              { 
+                caseTitle: "المرحلة الابتدائية (س١)", 
+                part1: { 
+                    question: "ناتج طرح ٥ من عدد ما هو على الأقل ١٢. اكتب المتباينة التي تمثل هذه الجملة.", 
+                    answer: "س - ٥ ≥ ١٢",
+                    options: ["س - ٥ ≥ ١٢", "س - ٥ > ١٢", "س + ٥ ≥ ١٢", "٥ - س ≥ ١٢"]
+                }, 
+                part2: { 
+                    question: "المتباينة هي: <strong>س - ٥ ≥ ١٢</strong>. ما هو حل هذه المتباينة؟", 
+                    answer: "س ≥ ١٧",
+                    options: ["س ≥ ١٧", "س > ١٧", "س ≥ ٧", "س ≤ ١٧"]
+                } 
+              },
+              // السؤال 2
+              { 
+                caseTitle: "المرحلة الابتدائية (س٢)", 
+                part1: { 
+                    question: "مجموع عدد و ٨ أصغر من ٢٠. اكتب المتباينة التي تمثل هذه الجملة.", 
+                    answer: "س + ٨ < ٢٠",
+                    options: ["س + ٨ ≤ ٢٠", "س + ٨ > ٢٠", "س - ٨ < ٢٠", "س + ٨ < ٢٠"]
+                }, 
+                part2: { 
+                    question: "المتباينة هي: <strong>س + ٨ < ٢٠</strong>. ما هو حل هذه المتباينة؟", 
+                    answer: "س < ١٢",
+                    options: ["س > ١٢", "س < ١٢", "س < ٢٨", "س ≤ ١2"]
+                } 
+              },
+              // السؤال 3
+              { 
+                caseTitle: "المرحلة الابتدائية (س٣)", 
+                part1: { 
+                    question: "عدد ما مطروحاً منه ٣ هو على الأكثر ٧. اكتب المتباينة.", 
+                    answer: "س - ٣ ≤ ٧",
+                    options: ["س - ٣ ≥ ٧", "س - ٣ < ٧", "س + ٣ ≤ ٧", "س - ٣ ≤ ٧"]
+                }, 
+                part2: { 
+                    question: "المتباينة هي: <strong>س - ٣ ≤ ٧</strong>. ما هو الحل؟", 
+                    answer: "س ≤ ١٠",
+                    options: ["س ≥ ١٠", "س < ١٠", "س ≤ ١٠", "س ≤ ٤"]
+                } 
+              }
+            ]
+          },
+          {
+            levelTitle: "مرحلة الزبون",
+            questions: [
+              // السؤال 4
+              { 
+                caseTitle: "مرحلة الزبون (س٤)", 
+                part1: { 
+                    question: "(أنت زبون) معك ١٩٥ ريالاً وتريد شراء بنطال سعره ٧٥ ريالاً وقميص (س). ما المتباينة التي تمثل المبلغ الذي يمكن أن تدفعه للقميص؟", 
+                    answer: "س + ٧٥ ≤ ١٩٥",
+                    options: ["س + ٧٥ ≥ ١٩٥", "س - ٧٥ ≤ ١٩٥", "س + ٧٥ ≤ ١٩٥", "س + ١٩٥ ≤ ٧٥"]
+                }, 
+                part2: { 
+                    question: "المتباينة هي: <strong>س + ٧٥ ≤ ١٩٥</strong>. ما هو أقصى سعر للقميص (س)؟", 
+                    answer: "س ≤ ١٢٠",
+                    options: ["س ≥ ١٢٠", "س ≤ ١٢٠", "س ≤ ٢٧٠", "س < ١٢٠"]
+                } 
+              },
+              // السؤال 5
+              { 
+                caseTitle: "مرحلة الزبون (س٥)", 
+                part1: { 
+                    question: "(أنت زبون) تريد شراء هدية لوالدتك. يجب أن يكون سعرها أكثر من ٥٠ ريالاً. دفعت (س) ريالاً وحصلت على خصم ١٥ ريالاً. ما المتباينة التي تمثل السعر الأصلي؟", 
+                    answer: "س - ١٥ > ٥٠",
+                    options: ["س - ١٥ < ٥٠", "س + ١٥ > ٥٠", "س - ١٥ > ٥٠", "س - ١٥ ≥ ٥٠"]
+                }, 
+                part2: { 
+                    question: "المتباينة هي: <strong>س - ١٥ > ٥٠</strong>. ما هو أقل سعر أصلي (س) للهدية؟", 
+                    answer: "س > ٦٥",
+                    options: ["س < ٦٥", "س > ٣٥", "س ≥ ٦٥", "س > ٦٥"]
+                } 
+              },
+              // السؤال 6
+              { 
+                caseTitle: "مرحلة الزبون (س٦)", 
+                part1: { 
+                    question: "(أنت زبون) لديك كوبون خصم بقيمة ١٠ ريالات. بعد استخدام الكوبون، يجب أن يكون سعر مشترياتك (س) على الأقل ٣٠ ريالاً. ما المتباينة للسعر الأصلي؟", 
+                    answer: "س - ١٠ ≥ ٣٠",
+                    options: ["س - ١٠ ≥ ٣٠", "س + ١٠ ≥ ٣٠", "س - ١٠ ≤ ٣٠", "س - ١٠ > ٣٠"]
+                }, 
+                part2: { 
+                    question: "المتباينة هي: <strong>س - ١٠ ≥ ٣٠</strong>. ما هو أقل سعر أصلي (س)؟", 
+                    answer: "س ≥ ٤٠",
+                    options: ["س ≤ ٤٠", "س ≥ ٢٠", "س > ٤٠", "س ≥ ٤٠"]
+                } 
+              }
+            ]
+          },
+          {
+            levelTitle: "مرحلة الكاشير",
+            questions: [
+              // السؤال 7
+              { 
+                caseTitle: "مرحلة الكاشير (س٧)", 
+                part1: { 
+                    question: "(أنت كاشير) زبون اشترى علبة عصير (س) وخبزاً بـ ٥ ريالات. يجب أن يكون مجموع مشترياته أقل من ٢٥ ريالاً ليستعمل قسيمة. ما المتباينة؟", 
+                    answer: "س + ٥ < ٢٥",
+                    options: ["س + ٥ > ٢٥", "س - ٥ < ٢٥", "س + ٥ < ٢٥", "س + ٥ ≤ ٢٥"]
+                }, 
+                part2: { 
+                    question: "المتباينة هي: <strong>س + ٥ < ٢٥</strong>. ما هو أقصى سعر (س) للعصير؟", 
+                    answer: "س < ٢٠",
+                    options: ["س < ٢٠", "س > ٢٠", "س < ٣٠", "س ≤ ٢٠"]
+                } 
+              },
+              // السؤال 8
+              { 
+                caseTitle: "مرحلة الكاشير (س٨)", 
+                part1: { 
+                    question: "(أنت كاشير) زبون أعطاك مبلغ (س) ريالاً. سعر الأغراض ٤٥ ريالاً، ويجب أن يكون الباقي له على الأقل ١٠ ريالات. ما المتباينة؟", 
+                    answer: "س - ٤٥ ≥ ١٠",
+                    options: ["س - ٤٥ ≤ ١٠", "س + ٤٥ ≥ ١٠", "س - ٤٥ ≥ ١٠", "٤٥ - س ≥ ١٠"]
+                }, 
+                part2: { 
+                    question: "المتباينة هي: <strong>س - ٤٥ ≥ ١٠</strong>. ما هو أقل مبلغ (س) أعطاك إياه الزبون؟", 
+                    answer: "س ≥ ٥٥",
+                    options: ["س ≤ ٥٥", "س ≥ ٥٥", "س > ٥٥", "س ≥ ٣٥"]
+                } 
+              },
+              // السؤال 9
+              { 
+                caseTitle: "مرحلة الكاشير (س٩)", 
+                part1: { 
+                    question: "(أنت كاشير) تريد سارة أن تدخر ٥٠٠ ريال على الأقل. لديها الآن (س) ريالاً، وأضافت لها ٢٦٠ ريالاً. ما المتباينة التي تمثل الموقف؟", 
+                    answer: "س + ٢٦٠ ≥ ٥٠٠",
+                    options: ["س - ٢٦٠ ≥ ٥٠٠", "س + ٢٦٠ ≤ ٥٠٠", "س + ٢٦٠ > ٥٠٠", "س + ٢٦٠ ≥ ٥٠٠"]
+                }, 
+                part2: { 
+                    question: "المتباينة هي: <strong>س + ٢٦٠ ≥ ٥٠٠</strong>. ما هو أقل مبلغ (س) كان لديها؟", 
+                    answer: "س ≥ ٢٤٠",
+                    options: ["س ≥ ٧٦٠", "س ≤ ٢٤٠", "س ≥ ٢٤٠", "س > ٢٤٠"]
+                } 
+              },
+              // السؤال 10
+              { 
+                caseTitle: "مرحلة الكاشير (س١٠)", 
+                part1: { 
+                    question: "(أنت كاشير) زبون يشتري غرضاً (س). لديه قسيمة خصم ٢٠ ريالاً. بعد الخصم، يجب أن يدفع أكثر من ٦٠ ريالاً. ما المتباينة؟", 
+                    answer: "س - ٢٠ > ٦٠",
+                    options: ["س - ٢٠ < ٦٠", "س + ٢٠ > ٦٠", "س - ٢٠ > ٦٠", "س - ٢٠ ≥ ٦٠"]
+                }, 
+                part2: { 
+                    question: "المتباينة هي: <strong>س - ٢٠ > ٦٠</strong>. ما هو أقل سعر (س) للغرض؟", 
+                    answer: "س > ٨٠",
+                    options: ["س < ٨٠", "س > ٤٠", "س ≥ ٨٠", "س > ٨٠"]
+                } 
+              }
+            ]
+          }
+        ];
+        // --- نهاية بنك الأسئلة ---
+
+
+        const startScreenEl = document.getElementById('start-screen');
+        const gameContainerEl = document.getElementById('game-container');
+        const gameScreenEl = document.getElementById('game-screen');
+        const explanationModalEl = document.getElementById('explanation-modal');
+        const explanationContentEl = document.getElementById('explanation-content');
+        
+        let gameQuestions = [];
+        let currentQuestionIndex = 0;
+        let currentGameLevelIndex = 0; // <!-- إضافة: لتتبع المرحلة الحالية
+        let currentStage = 1;
+        let score = 0;
+        let answered = false;
+        
+        let timerInterval = null;
+        let questionStartTime = 0;
+        let totalElapsedTime = 0;
+
+        // دالة لخلط ترتيب الخيارات
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        function toArabicNumerals(numStr) {
+            const arabicNumerals = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+            return String(numStr).replace(/[0-9.-]/g, (char) => {
+                if (char === '.') return '٫';
+                if (char === '-') return '-';
+                return arabicNumerals[parseInt(char)];
+            });
+        }
+        
+        function startTimer() {
+            clearInterval(timerInterval);
+            questionStartTime = Date.now();
+            const timerDisplayEl = document.getElementById('timer-display');
+            
+            const updateTimerDisplay = () => {
+                const timerEl = document.getElementById('timer-display');
+                if (timerEl) {
+                    const currentSessionTime = Date.now() - questionStartTime;
+                    const displayTimeInSeconds = Math.floor((totalElapsedTime + currentSessionTime) / 1000);
+                    timerEl.textContent = toArabicNumerals(displayTimeInSeconds);
+                }
+            };
+            
+            updateTimerDisplay();
+            timerInterval = setInterval(updateTimerDisplay, 1000);
+        }
+
+        function stopTimer() {
+            clearInterval(timerInterval);
+            if (questionStartTime > 0) {
+                totalElapsedTime += Date.now() - questionStartTime;
+                questionStartTime = 0;
+            }
+            const timerEl = document.getElementById('timer-display');
+            if (timerEl) {
+                const displayTimeInSeconds = Math.floor(totalElapsedTime / 1000);
+                 timerEl.textContent = toArabicNumerals(displayTimeInSeconds);
+            }
+        }
+        
+        function startGame() {
+            document.body.classList.add('game-started');
+            
+            // تم تغيير هذه الدالة لتبدأ بالمرحلة الأولى
+            currentGameLevelIndex = 0;
+            score = 0;
+            totalElapsedTime = 0;
+            startScreenEl.classList.add('hidden');
+            gameContainerEl.classList.remove('hidden');
+            
+            loadLevel(); // <!-- تغيير: نبدأ بتحميل المرحلة الأولى
+        }
+        
+        // <!-- تغيير: هذه الدالة أصبحت خاصة بالانتقال بين المراحل -->
+        function showLevelTransitionScreen() {
+            const levelData = allStages[currentGameLevelIndex];
+            let levelName = "";
+            if(currentGameLevelIndex === 0) levelName = "الأولى";
+            else if(currentGameLevelIndex === 1) levelName = "الثانية";
+            else levelName = "الثالثة";
+
+            gameScreenEl.innerHTML = `
+                <div class="transition-screen text-center flex flex-col justify-center items-center min-h-[350px] bg-gradient-to-br from-amber-600 to-yellow-500 rounded-2xl p-6 shadow-lg space-y-4">
+                    <h2 class="text-white text-2xl font-bold drop-shadow-md">المرحلة ${levelName} من ${toArabicNumerals(allStages.length)}</h2>
+                    <p class="text-white/90 text-xl mt-2 font-medium drop-shadow-md">${levelData.levelTitle}</p>
+                    <button onclick="loadQuestion()" class="mt-6 bg-black/20 text-white font-bold py-2 px-10 rounded-lg shadow-md hover:bg-black/30 backdrop-blur-sm transition-all ring-2 ring-white/50">
+                        ابدأ
+                    </button>
+                </div>
+            `;
+        }
+
+        // <!-- إضافة: دالة جديدة لتحميل المرحلة -->
+        function loadLevel() {
+            const levelData = allStages[currentGameLevelIndex];
+            // خلط الأسئلة الخاصة *بهذه المرحلة* فقط
+            gameQuestions = shuffleArray(levelData.questions.slice());
+            currentQuestionIndex = 0;
+            currentStage = 1;
+            
+            // إظهار شاشة الانتقال الخاصة بهذه المرحلة
+            showLevelTransitionScreen();
+        }
+
+        function loadQuestion() {
+            answered = false;
+            const question = gameQuestions[currentQuestionIndex];
+            
+            gameScreenEl.innerHTML = `<div id="game-content" class="space-y-2 card-enter"></div>`;
+            const gameContentEl = document.getElementById('game-content');
+
+            gameContentEl.innerHTML = `
+                <div id="game-header" class="flex justify-between items-center text-base font-bold p-2 bg-sky-100 rounded-lg shadow-inner z-10 relative">
+                    <div class="text-cyan-700">النقاط: <span id="score-display">٠</span></div>
+                    <div class="text-red-600">الوقت: <span id="timer-display">٠</span> ث</div>
+                </div>
+                
+                <!-- هذا هو الجزء الجديد الذي يعرض معلومات المرحلة والسؤال -->
+                <div id="question-header" class="flex justify-between items-center mt-1 mb-2">
+                    <div class="bg-amber-600 text-white text-sm font-bold px-3 py-1 rounded-full shadow">
+                        ${allStages[currentGameLevelIndex].levelTitle}
+                    </div>
+                    <div class="text-gray-600 text-sm font-bold bg-gray-200 px-3 py-1 rounded-full shadow-inner">
+                        السؤال ${toArabicNumerals(currentQuestionIndex + 1)} / ${toArabicNumerals(gameQuestions.length)}
+                    </div>
+                </div>
+                 <!-- تم حذف مربع السيناريو لأنه غير موجود في الأسئلة الجديدة -->
+                <div id="question-area" class="bg-sky-50/70 border border-sky-200 rounded-lg p-3 text-center z-10 relative">
+                     <p class="font-bold text-cyan-800">الجزء ${toArabicNumerals(currentStage)} من ٢</p>
+                     <p class="text-base font-semibold text-gray-900 mt-1" id="question-text"></p>
+                </div>
+                
+                <div id="options-container" class="grid grid-cols-2 gap-2 z-10 relative"></div>
+                <div id="feedback" class="text-center font-bold p-2 rounded-lg text-sm hidden my-1 z-10 relative"></div>
+                <div id="action-buttons" class="hidden flex justify-center items-center gap-2 z-10 relative"></div>`;
+            
+            document.getElementById('score-display').textContent = toArabicNumerals(score);
+            const timerEl = document.getElementById('timer-display');
+            if (timerEl) {
+                 timerEl.textContent = toArabicNumerals(Math.floor(totalElapsedTime / 1000));
+            }
+
+            const questionTextEl = document.getElementById('question-text');
+            const optionsContainerEl = document.getElementById('options-container');
+
+            let part;
+            if (currentStage === 1) {
+                part = question.part1;
+            } else {
+                part = question.part2;
+            }
+
+            questionTextEl.innerHTML = part.question;
+            
+            // خلط الخيارات قبل عرضها
+            const options = shuffleArray(part.options.slice());
+            
+            options.forEach(option => {
+                const button = document.createElement('button');
+                button.className = "w-full bg-amber-600 text-white font-bold p-2 rounded-lg shadow-md hover:bg-amber-700 focus:outline-none flex items-center justify-center min-h-[50px] text-base text-center";
+                // استخدام innerHTML للسماح بعرض الرموز الرياضية بشكل صحيح
+                button.innerHTML = option;
+                button.onclick = () => checkAnswer(option);
+                optionsContainerEl.appendChild(button);
+            });
+
+            startTimer();
+        }
+
+        function checkAnswer(selectedValue) {
+            if (answered) return;
+            stopTimer();
+            answered = true;
+            
+            const question = gameQuestions[currentQuestionIndex];
+            const feedbackEl = document.getElementById('feedback');
+            const actionButtonsEl = document.getElementById('action-buttons');
+            let isCorrect = false;
+
+            document.getElementById('options-container').style.display = 'none';
+            feedbackEl.classList.remove('hidden');
+            actionButtonsEl.classList.remove('hidden');
+
+            let correctAnswer;
+            if (currentStage === 1) {
+                correctAnswer = question.part1.answer;
+                isCorrect = (selectedValue === correctAnswer);
+                if (isCorrect) {
+                    feedbackEl.textContent = "أحسنت! المتباينة صحيحة.";
+                } else {
+                    feedbackEl.innerHTML = `إجابة خاطئة! الإجابة الصحيحة هي: ${correctAnswer}`;
+                }
+                actionButtonsEl.innerHTML = `<button onclick="goToNextStage()" class="w-1/2 bg-amber-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-amber-700 text-sm">التالي</button>
+                                             <button onclick="showExplanation()" class="w-1/2 bg-green-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-green-700 text-sm">اعرف لماذا؟</button>`;
+
+            } else {
+                correctAnswer = question.part2.answer;
+                isCorrect = (selectedValue == correctAnswer);
+                if (isCorrect) {
+                    feedbackEl.textContent = "إجابة ممتازة! الحل دقيق.";
+                } else {
+                    feedbackEl.innerHTML = `إجابة خاطئة! الإجابة الصحيحة هي: ${correctAnswer}`;
+                }
+                
+                // <!-- تغيير: تعديل النص هنا ليعكس الانتقال للمرحلة التالية أو إنهاء اللعبة -->
+                const isLastQuestionInLevel = (currentQuestionIndex === gameQuestions.length - 1);
+                const isLastLevel = (currentGameLevelIndex === allStages.length - 1);
+
+                let buttonText = "السؤال التالي";
+                if (isLastQuestionInLevel && !isLastLevel) {
+                    buttonText = "الانتقال للمرحلة التالية";
+                } else if (isLastQuestionInLevel && isLastLevel) {
+                    buttonText = "النتيجة النهائية";
+                }
+
+                actionButtonsEl.innerHTML = `<button onclick="nextQuestion()" class="w-1/2 bg-amber-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-amber-700 text-sm">${buttonText}</button>
+                                             <button onclick="showExplanation()" class="w-1/2 bg-green-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-green-700 text-sm">اعرف لماذا؟</button>`;
+            }
+
+            if(isCorrect) {
+                score++;
+                document.getElementById('score-display').textContent = toArabicNumerals(score);
+                feedbackEl.classList.add('feedback-correct');
+            } else {
+                feedbackEl.classList.add('feedback-incorrect');
+            }
+        }
+        
+        function goToNextStage() {
+            currentStage = 2;
+            loadQuestion();
+        }
+
+        function nextQuestion() {
+            hideExplanation();
+            currentQuestionIndex++;
+            
+            // <!-- تغيير: التحقق من وجود أسئلة متبقية *في نفس المرحلة* -->
+            if (currentQuestionIndex < gameQuestions.length) {
+                currentStage = 1;
+                loadQuestion(); // <!-- تغيير: تحميل السؤال التالي مباشرة بدون شاشة انتقال
+            } else {
+                // <!-- تغيير: انتهت المرحلة، ننتقل للمرحلة التالية -->
+                currentGameLevelIndex++;
+                if (currentGameLevelIndex < allStages.length) {
+                    loadLevel(); // <!-- تحميل المرحلة التالية (التي ستعرض شاشة انتقال)
+                } else {
+                    endGame(); // <!-- انتهت جميع المراحل، إنهاء اللعبة
+                }
+            }
+        }
+
+        function endGame() {
+            const finalTimeInSeconds = Math.round(totalElapsedTime / 1000);
+             gameScreenEl.innerHTML = `
+                <div class="text-center space-y-3 card-enter p-4">
+                 <h1 class="text-2xl font-bold text-amber-700">اكتملت اللعبة!</h1>
+                 <p class="text-base">لقد أنهيت جميع التحديات.</p>
+                 
+                 <div id="final-result-display" class="bg-gray-100/80 p-3 my-2 rounded-lg shadow-inner">
+                 </div>
+
+                 <div id="leaderboard-loader" style="display: none;"></div>
+                 <div id="leaderboard-container"></div>
+                 
+                 <div id="finish-game-wrapper" style="display: none;" class="space-y-2">
+                      <button id="finish-game-btn" class="w-full bg-amber-600 text-white font-bold py-3 px-6 rounded-lg shadow-md hover:bg-amber-700">
+                        العودة للمنصة
+                      </button>
+                 </div>
+                 <button onclick="window.location.reload()" class="w-full bg-gray-500 text-white font-bold py-2 px-6 rounded-lg shadow-md hover:bg-gray-600 mt-2">
+                   إعادة اللعبة
+                 </button>
+                </div>`;
+            if(window.saveAndFinishGame) {
+                // استدعاء دالة الحفظ مع النقاط والوقت
+                window.saveAndFinishGame(score, finalTimeInSeconds);
+            }
+        }
+        
+        function showExplanation() {
+            const q = gameQuestions[currentQuestionIndex];
+            
+            // تم تبسيط هذا الجزء لعرض الإجابة الصحيحة فقط
+            // يمكنك إضافة شروحات تفصيلية هنا إذا أردت
+            if (currentStage === 1) {
+                explanationContentEl.innerHTML = `
+                    <div class="border-r-4 border-amber-500 pr-3 mb-2 space-y-1">
+                        <p><span class="font-bold">السؤال:</span> ${q.part1.question}</p>
+                    </div>
+                    <div class="border-r-4 border-green-500 pr-3">
+                        <p class="font-bold">الإجابة الصحيحة (المتباينة):</p>
+                        <p class="text-center text-lg font-bold bg-green-100 p-2 rounded">${q.part1.answer}</p>
+                    </div>`;
+            } else {
+                 explanationContentEl.innerHTML = `
+                    <div class="border-r-4 border-amber-500 pr-3 mb-2 space-y-1">
+                        <p><span class="font-bold">المتباينة:</span> ${q.part1.answer}</p>
+                        <p><span class="font-bold">المطلوب:</span> ${q.part2.question.replace(/<[^>]*>/g, '')}</p>
+                    </div>
+                    <div class="border-r-4 border-green-500 pr-3">
+                        <p class="font-bold">الإجابة الصحيحة (الحل):</p>
+                        <p class="text-center text-lg font-bold bg-green-100 p-2 rounded">${q.part2.answer}</p>
+                    </div>`;
+            }
+            
+            explanationModalEl.classList.remove('hidden');
+        }
+
+        function hideExplanation() {
+            explanationModalEl.classList.add('hidden');
+        }
+    </script>
+
+    <script>
+    // --- START OF CONNECTION & LEADERBOARD ENGINE ---
+    (function() {
+        // --- CONFIGURATION (عدّل هذه الإعدادات لكل لعبة) ---
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
+        const GAME_ID = 'g4_1_2'; // تم تغيير معرّف اللعبة
+        const GAME_MAX_POINTS = 20; // 10 أسئلة * مرحلتين = 20 نقطة
+        const PLATFORM_MAX_GRADE = 5;
+        const METRIC_TYPE = 'time';
+        const METRIC_LABEL = 'الوقت (ثواني)';
+
+        // --- Read URL Parameters ---
+        const urlParams = new URLSearchParams(window.location.search);
+        const studentId = urlParams.get('studentId');
+        const classId = urlParams.get('classId');
+        const studentName = urlParams.get('studentName');
+
+        let currentUser = (studentId && studentName) ? { id: studentId, name: studentName } : null;
+
+        // --- CORE FUNCTIONS ---
+
+        // 1. الدالة الرئيسية التي تستدعيها عند انتهاء اللعبة
+        window.saveAndFinishGame = function(points, metricValue) {
+            const finalPoints = parseFloat(points) || 0;
+            const finalMetric = parseFloat(metricValue) || 0;
+            const maxPoints = parseFloat(GAME_MAX_POINTS) || 1;
+            const finalGrade = (finalPoints / maxPoints) * PLATFORM_MAX_GRADE;
+
+            const resultDisplay = document.getElementById('final-result-display');
+            if (resultDisplay) {
+                resultDisplay.innerHTML = `
+                    <div class="flex justify-around text-center">
+                        <div>
+                            <p class="text-sm">النقاط:</p>
+                            <p class="text-2xl font-bold text-amber-600 my-1">${toArabicNumerals(finalPoints)}<span class="text-lg text-gray-600">/${toArabicNumerals(maxPoints)}</span></p>
+                        </div>
+                        <div>
+                            <p class="text-sm">إجمالي الوقت:</p>
+                            <p class="text-2xl font-bold text-red-600 my-1">${toArabicNumerals(finalMetric)} <span class="text-sm">ث</span></p>
+                        </div>
+                    </div>
+                    <p class="text-blue-600 mt-3 text-center border-t pt-2">الدرجة في المنصة: <span class="font-bold text-xl">${finalGrade.toFixed(1)} / ${PLATFORM_MAX_GRADE}</span></p>
+                `;
+            }
+
+            if (studentId && classId) {
+                const params = new URLSearchParams({
+                    action: 'saveGrade',
+                    studentId: studentId,
+                    classId: classId,
+                    itemId: GAME_ID,
+                    grade: finalGrade.toFixed(2),
+                    metricValue: Math.round(finalMetric).toString()
+                });
+                fetch(`${SCRIPT_URL}?${params.toString()}`)
+                    .then(res => res.json())
+                    .then(result => console.log('Save result:', result.status))
+                    .catch(err => console.error("Save Error:", err))
+                    .finally(fetchAndShowLeaderboard);
+            } else {
+                console.log(`Visitor finished. Score: ${finalPoints}, Metric: ${finalMetric}`);
+                fetchAndShowLeaderboard();
+            }
+        }
+
+        // 2. دالة جلب وعرض سجل الأبطال
+        function fetchAndShowLeaderboard() {
+            const loader = document.getElementById('leaderboard-loader');
+            const container = document.getElementById('leaderboard-container');
+            if (!loader || !container) return;
+            
+            if (!classId) {
+                console.log("No classId found, skipping leaderboard for visitor.");
+                container.innerHTML = `<p class="text-center text-gray-500 mt-4 text-sm">سجل الأبطال متاح للطلاب المسجلين فقط.</p>`;
+                showFinishButton();
+                return;
+            }
+
+            loader.style.display = 'block';
+            container.innerHTML = '';
+
+            const params = new URLSearchParams({
+                action: 'getLeaderboard',
+                gameId: GAME_ID,
+                metricType: METRIC_TYPE,
+                classId: classId
+            });
+
+            fetch(`${SCRIPT_URL}?${params.toString()}`)
+                .then(res => res.json())
+                .then(response => {
+                    if (response.status === 'success' && response.data) {
+                        displayLeaderboard(response.data);
+                    } else {
+                        throw new Error(response.message || 'Failed to load leaderboard data.');
+                    }
+                })
+                .catch(err => {
+                    console.error("Leaderboard Error:", err);
+                    container.innerHTML = `<p class="text-center text-red-500 text-sm">حدث خطأ في تحميل سجل الأبطال.</p>`;
+                })
+                .finally(() => {
+                    loader.style.display = 'none';
+                    showFinishButton();
+                });
+        }
+        
+        // 3. دالة بناء جدول سجل الأبطال
+        function displayLeaderboard(data) {
+            const container = document.getElementById('leaderboard-container');
+            if (!data || data.length === 0) {
+                container.innerHTML = `<p class="text-center text-gray-500 mt-4 text-sm">لا توجد نتائج بعد. كن أول الأبطال!</p>`;
+                return;
+            }
+
+            let tableHTML = `
+                <div class="mt-4 border-t pt-2">
+                    <h3 class="text-xl font-bold text-center text-gray-800 mb-2">🏆 سجل الأبطال 🏆</h3>
+                    <div class="leaderboard-scroll">
+                        <table class="min-w-full bg-white shadow-md rounded-lg text-sm">
+                            <thead class="bg-gray-800 text-white sticky top-0">
+                                <tr>
+                                    <th class="text-center py-1 px-2">الترتيب</th>
+                                    <th class="text-right py-1 px-2">اسم الطالب</th>
+                                    <th class="text-center py-1 px-2">الدرجة</th>
+                                    <th class="text-center py-1 px-2">${METRIC_LABEL}</th>
+                                </tr>
+                            </thead>
+                            <tbody class="text-gray-700">`;
+
+            data.forEach((player, index) => {
+                const rank = index + 1;
+                let rankDisplay = rank;
+                if (rank === 1) rankDisplay = '🥇';
+                if (rank === 2) rankDisplay = '🥈';
+                if (rank === 3) rankDisplay = '🥉';
+
+                const isCurrentUser = (currentUser && player.name === currentUser.name);
+                const rowClass = isCurrentUser ? 'bg-blue-100 font-bold' : (index % 2 === 0 ? 'bg-gray-100' : '');
+
+                tableHTML += `
+                    <tr class="${rowClass}">
+                        <td class="text-center py-1 px-2 text-lg">${rankDisplay}</td>
+                        <td class="text-right py-1 px-2">${player.name}</td>
+                        <td class="text-center py-1 px-2">${player.grade.toFixed(1)}</td>
+                        <td class="text-center py-1 px-2">${player.metricValue}</td>
+                    </tr>`;
+            });
+
+            tableHTML += `</tbody></table></div></div>`;
+            container.innerHTML = tableHTML;
+        }
+
+        // 4. إظهار زر الإنهاء
+        function showFinishButton() {
+            const finishWrapper = document.getElementById('finish-game-wrapper');
+            if (finishWrapper) {
+                finishWrapper.style.display = 'block';
+            }
+        }
+
+        // 5. التعامل مع زر الإنهاء وتخصيص رسالة الترحيب
+        document.addEventListener('DOMContentLoaded', () => {
+            
+            // --- NEW PRELOADER LOGIC ---
+            const loadingScreen = document.getElementById('loading-screen');
+            const startScreen = document.getElementById('start-screen');
+            const bgImage = new Image();
+            const imageUrl = "https://ablan-math.github.io/img/g4/mhl.mlabs.jpg";
+            
+            bgImage.onload = function() {
+                // Image is loaded
+                if (loadingScreen) loadingScreen.style.display = 'none';
+                if (startScreen) startScreen.classList.remove('hidden');
+            };
+            
+            bgImage.onerror = function() {
+                // Image failed to load, just start the game
+                console.error("Background image failed to load.");
+                if (loadingScreen) loadingScreen.style.display = 'none';
+                if (startScreen) startScreen.classList.remove('hidden');
+            };
+            
+            bgImage.src = imageUrl;
+            // --- END PRELOADER LOGIC ---
+
+            const welcomeMessageEl = document.getElementById('welcomeMessage');
+            if (studentName && welcomeMessageEl) {
+                welcomeMessageEl.innerHTML = `<p class="welcome-text">أهلاً بك <span class="font-bold text-cyan-300">${studentName}</span>! لديك 10 تحديات، كل تحدٍ من مرحلتين. بالتوفيق!</p>`;
+            }
+            document.body.addEventListener('click', function(event) {
+                if (event.target && event.target.id === 'finish-game-btn') {
+                    window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*');
+                }
+            });
+        });
+    })();
+    </script>
+</body>
+</html>
+
+
+

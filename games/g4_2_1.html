@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لعبة المتباينات</title>
+    <!-- تحميل Tailwind CSS للل تصميم السريع -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- تحميل خط 'Tajawal' من Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+    
+    <style>
+        /* تطبيق الخط العربي 'Tajawal' على كامل الصفحة */
+        body {
+            font-family: 'Tajawal', sans-serif;
+            font-size: 15px; /* تصغير الخط الأساسي قليلاً */
+        }
+
+        /* تنسيق الأرقام داخل الأسئلة */
+        .math-content {
+            unicode-bidi: embed; 
+            font-size: 1.2em; /* تصغير الخط الرياضي قليلاً */
+            font-weight: 700;
+            color: #1E3A8A; 
+        }
+
+        /* --- تنسيق الكسور --- */
+        .fraction {
+            display: inline-block;
+            vertical-align: middle;
+            text-align: center;
+            font-size: 0.9em; 
+            margin: 0 0.2em;
+            line-height: 1.2;
+        }
+        .fraction .numerator {
+            display: block;
+            border-bottom: 2px solid #1E3A8A; 
+            padding: 0 0.2em;
+        }
+        .fraction .denominator {
+            display: block;
+            padding: 0 0.2em;
+        }
+        /* -------------------------- */
+
+        /* كلاسات للرسوم المتحركة لظهور الأسئلة */
+        .question-card.entering {
+            animation: fadeInScaleUp 0.5s ease-out forwards;
+        }
+
+        .question-card.exiting {
+            animation: fadeOutScaleDown 0.3s ease-in forwards;
+        }
+
+        @keyframes fadeInScaleUp {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        @keyframes fadeOutScaleDown {
+            from { opacity: 1; transform: scale(1); }
+            to { opacity: 0; transform: scale(0.9); }
+        }
+
+        /* أنيميشن لزر "اعرف لماذا؟" - تم تعديل المدة إلى 5 ثوان */
+        @keyframes fadeInOut {
+            0% { opacity: 0; transform: scale(0.9); }
+            15% { opacity: 1; transform: scale(1); }
+            90% { opacity: 1; transform: scale(1); }
+            100% { opacity: 0; transform: scale(0.9); }
+        }
+
+        /* كلاسات لتمييز الإجابات */
+        .option-btn.correct {
+            background-color: #10B981;
+            color: white;
+            transform: scale(1.05);
+            border-color: #059669;
+        }
+        .option-btn.incorrect {
+            background-color: #EF4444;
+            color: white;
+            border-color: #DC2626;
+        }
+        .option-btn.disabled {
+            pointer-events: none;
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body class="bg-blue-50 min-h-screen flex items-center justify-center p-2 sm:p-4">
+
+    <div id="game-container" class="w-full max-w-md bg-white rounded-2xl shadow-xl overflow-hidden">
+        
+        <!-- شاشة البداية -->
+        <div id="start-screen" class="p-6 sm:p-8 text-center">
+            <h1 class="text-2xl sm:text-3xl font-bold text-blue-800 mb-3">لعبة المتباينات</h1>
+            <!-- (الخطوة 3) تم إضافة id="welcomeMessage" -->
+            <p id="welcomeMessage" class="text-base sm:text-lg text-gray-700 mb-4">هل أنت مستعد لاختبار مهاراتك في حل المتباينات بالضرب والقسمة؟</p>
+            
+            <!-- القاعدة التعريفية -->
+            <div class="bg-yellow-100 border-r-4 border-yellow-500 text-yellow-800 p-3 mb-4 rounded-lg text-right text-sm" role="alert">
+                <p class="font-bold">تذكير هام:</p>
+                <p>عند الضرب أو القسمة في عدد <span class="font-bold text-red-600">سالب</span>، يجب <span class="font-bold text-red-600">عكس</span> علامة المتباينة (مثل <span class="math-content text-red-600">&lt;</span> تصبح <span class="math-content text-red-600">&gt;</span>).</p>
+            </div>
+            
+            <button id="start-button" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-lg text-lg shadow-lg transition-transform duration-200 transform hover:scale-105 mb-3">
+                ابدأ اللعبة!
+            </button>
+            
+            <!-- فكرة وإعداد -->
+            <p class="text-xs text-gray-500 mt-4">فكرة وإعداد: الأستاذ عبد العزيز خالد العبلان</p>
+        </div>
+
+        <!-- شاشة اللعبة (مخفية في البداية) -->
+        <div id="game-screen" class="hidden p-4 sm:p-6">
+            <!-- الشريط العلوي (النتيجة والسؤال الحالي) -->
+            <div class="flex justify-between items-center mb-4 flex-wrap">
+                <div class="text-base sm:text-lg font-medium text-gray-600">النتيجة: <span id="score" class="font-bold text-green-600">٠</span></div>
+                <!-- الإضافة: عداد الوقت المرئي -->
+                <div id="timer-display" class="text-base sm:text-lg font-medium text-gray-800">الوقت: ٠ ثانية</div>
+                <div class="text-base sm:text-lg font-medium text-gray-600">السؤال <span id="question-number">١</span> / ١٠</div>
+            </div>
+
+            <!-- بطاقة السؤال -->
+            <div id="question-card" class="bg-blue-100 p-4 sm:p-6 rounded-lg mb-4 shadow-md min-h-[90px] flex items-center justify-center">
+                <h2 id="question-text" class="text-xl sm:text-2xl font-bold text-blue-900 text-center math-content"></h2>
+            </div>
+
+            <!-- حاوية الاختيارات -->
+            <div id="options-container" class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                <!-- الأزرار ستتم إضافتها هنا بواسطة JavaScript -->
+            </div>
+
+            <!-- حاوية لزر "اعرف لماذا؟" -->
+            <div id="feedback-container" class="mt-4 h-14 flex items-center justify-center">
+                <!-- زر "اعرف لماذا؟" سيظهر هنا -->
+            </div>
+        </div>
+
+        <!-- شاشة النهاية (مخفية في البداية) -->
+        <div id="end-screen" class="hidden p-6 sm:p-8 text-center">
+            <h2 class="text-2xl sm:text-3xl font-bold text-blue-800 mb-4">انتهت اللعبة!</h2>
+            
+            <!-- (الخطوة 3) إضافة عنصر عرض النتيجة النهائية للمنصة -->
+            <!-- هذا هو العرض الجديد للنتيجة -->
+            <div id="final-result-display" class="my-4 text-center"></div>
+
+            <p class="text-lg sm:text-xl text-gray-700 mb-6">
+                الوقت المستغرق:
+                <span id="final-time" class="font-bold text-gray-800 text-xl sm:text-2xl block my-2"></span>
+            </p>
+
+            <!-- (الخطوة 3) إضافة عناصر سجل الأبطال وزر الإنهاء -->
+            <div id="leaderboard-loader" style="display: none;" class="flex justify-center items-center my-4">
+                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                <p class="mr-2 text-gray-600">جاري تحميل سجل الأبطال...</p>
+            </div>
+            <div id="leaderboard-container"></div>
+            
+            <div id="finish-game-wrapper" style="display: none;" class="mt-6 mb-4">
+                <button id="finish-game-btn" class="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-6 rounded-lg text-lg shadow-lg">
+                    الخروج والعودة للمنصة
+                </button>
+            </div>
+            <!-- نهاية الإضافة -->
+
+            <button id="restart-button" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg text-lg shadow-lg transition-transform duration-200 transform hover:scale-105">
+                أعد اللعب
+            </button>
+        </div>
+    </div>
+
+    <!-- نافذة "اعرف لماذا؟" (Modal) -->
+    <div id="solution-modal" class="hidden fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50" dir="rtl">
+        <div class="bg-white rounded-lg shadow-xl p-5 sm:p-6 w-full max-w-sm text-right">
+            <h3 class="text-xl sm:text-2xl font-bold text-blue-800 mb-4">طريقة الحل:</h3>
+            <div id="solution-text" class="text-base sm:text-lg text-gray-700 mb-6 space-y-2 math-content" style="font-size: 1em;">
+                <!-- سيتم ملء هذا المحتوى بالـ JavaScript -->
+            </div>
+            <button id="close-modal-button" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg text-base sm:text-lg">
+                أغلق
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // --- الإصلاح: تأكد من أن الصفحة قد تم تحميلها بالكامل قبل تشغيل الكود ---
+        document.addEventListener('DOMContentLoaded', (event) => {
+            
+            // --- 1. تعريف عناصر الواجهة ---
+            const startScreen = document.getElementById('start-screen');
+            const gameScreen = document.getElementById('game-screen');
+            const endScreen = document.getElementById('end-screen');
+            
+            const startButton = document.getElementById('start-button');
+            const restartButton = document.getElementById('restart-button');
+            
+            const scoreElement = document.getElementById('score');
+            const questionNumberElement = document.getElementById('question-number');
+            const timerDisplayElement = document.getElementById('timer-display'); // إضافة
+            const questionCard = document.getElementById('question-card');
+            const questionTextElement = document.getElementById('question-text');
+            const optionsContainer = document.getElementById('options-container');
+            const feedbackContainer = document.getElementById('feedback-container'); 
+            
+            // تم حذف تعريف العناصر القديمة
+            // const finalScoreElement = document.getElementById('final-score');
+            // const finalScoreElement5 = document.getElementById('final-score-5'); 
+            const finalTimeElement = document.getElementById('final-time'); 
+
+            // عناصر نافذة الحل
+            const solutionModal = document.getElementById('solution-modal');
+            const solutionTextElement = document.getElementById('solution-text');
+            const closeModalButton = document.getElementById('close-modal-button');
+
+            // --- 2. بنك الأسئلة ---
+            // (تم إضافة خاصية "solution" لكل سؤال)
+            const questions = [
+                {
+                    question: "٢س < ١٠",
+                    options: ["س < ٥", "س > ٥", "س < ٨", "س > -٥"],
+                    answer: "س < ٥",
+                    solution: "نقسم الطرفين على ٢ (عدد موجب)، فتبقى العلامة كما هي. <br> ١٠ / ٢ = ٥. <br> إذن، س < ٥."
+                },
+                {
+                    question: "-٣ص ≥ ١٢",
+                    options: ["ص ≥ -٤", "ص ≤ -٤", "ص ≥ ٤", "ص ≤ ٤"],
+                    answer: "ص ≤ -٤",
+                    solution: "نقسم الطرفين على -٣ (عدد سالب)، ولذلك يجب أن <span class='text-red-600 font-bold'>نعكس</span> علامة المتباينة من ≥ إلى ≤. <br> ١٢ / -٣ = -٤. <br> إذن، ص ≤ -٤."
+                },
+                {
+                    question: "<span class='fraction'><span class='numerator'>١</span><span class='denominator'>٤</span></span>م > ٣",
+                    options: ["م > ١٢", "م < ١٢", "م > <span class='fraction'><span class='numerator'>٣</span><span class='denominator'>٤</span></span>", "م > ٧"],
+                    answer: "م > ١٢",
+                    solution: "نضرب الطرفين في ٤ (عدد موجب)، فتبقى العلامة كما هي. <br> ٣ * ٤ = ١٢. <br> إذن، م > ١٢."
+                },
+                {
+                    question: "-٥ع ≤ -٢٠",
+                    options: ["ع ≤ ٤", "ع ≥ ٤", "ع ≤ -٤", "ع ≥ -٤"],
+                    answer: "ع ≥ ٤",
+                    solution: "نقسم الطرفين على -٥ (عدد سالب)، ولذلك يجب أن <span class='text-red-600 font-bold'>نعكس</span> علامة المتباينة من ≤ إلى ≥. <br> -٢٠ / -٥ = ٤. <br> إذن، ع ≥ ٤."
+                },
+                {
+                    question: "<span class='fraction'><span class='numerator'>س</span><span class='denominator'>-٢</span></span> < ٧",
+                    options: ["س < -١٤", "س > -١٤", "س < ١٤", "س > ٩"],
+                    answer: "س > -١٤",
+                    solution: "نضرب الطرفين في -٢ (عدد سالب)، ولذلك يجب أن <span class='text-red-600 font-bold'>نعكس</span> علامة المتباينة من < إلى >. <br> ٧ * -٢ = -١٤. <br> إذن، س > -١٤."
+                },
+                {
+                    question: "٦ن > -١٨",
+                    options: ["ن > -٣", "ن < -٣", "ن > ٣", "ن < ٣"],
+                    answer: "ن > -٣",
+                    solution: "نقسم الطرفين على ٦ (عدد موجب)، فتبقى العلامة كما هي. <br> -١٨ / ٦ = -٣. <br> إذن، ن > -٣."
+                },
+                {
+                    question: "<span class='fraction'><span class='numerator'>-٢</span><span class='denominator'>٣</span></span>ص ≤ ٦", // كسر سالب
+                    options: ["ص ≤ -٩", "ص ≥ -٩", "ص ≤ -٤", "ص ≥ ٩"],
+                    answer: "ص ≥ -٩",
+                    solution: "نضرب الطرفين في المقلوب (٣ / -٢). بما أنه عدد <span class='text-red-600 font-bold'>سالب</span>، يجب أن <span class='text-red-600 font-bold'>نعكس</span> علامة المتباينة من ≤ إلى ≥. <br> ٦ * (-٣/٢) = -١٨ / ٢ = -٩. <br> إذن، ص ≥ -٩."
+                },
+                {
+                    question: "-ع > ٨",
+                    options: ["ع > -٨", "ع < -٨", "ع > ٨", "ع < ٨"],
+                    answer: "ع < -٨",
+                    solution: "المسألة تعني (-١ع > ٨). نقسم الطرفين على -١ (عدد سالب)، ولذلك يجب أن <span class='text-red-600 font-bold'>نعكس</span> علامة المتباينة من > إلى <. <br> ٨ / -١ = -٨. <br> إذن، ع < -٨."
+                },
+                {
+                    question: "<span class='fraction'><span class='numerator'>١</span><span class='denominator'>٢</span></span>س ≥ -٥",
+                    options: ["س ≥ -١٠", "س ≤ -١٠", "س ≥ -٢.٥", "س ≤ -٢.٥"],
+                    answer: "س ≥ -١٠",
+                    solution: "نضرب الطرفين في ٢ (عدد موجب)، فتبقى العلامة كما هي. <br> -٥ * ٢ = -١٠. <br> إذن، س ≥ -١٠."
+                },
+                {
+                    question: "-١٠م < ٥",
+                    options: ["م > <span class='fraction'><span class='numerator'>-١</span><span class='denominator'>٢</span></span>", "م < <span class='fraction'><span class='numerator'>-١</span><span class='denominator'>٢</span></span>", "م > -٢", "م < -٢"],
+                    answer: "م > <span class='fraction'><span class='numerator'>-١</span><span class='denominator'>٢</span></span>",
+                    solution: "نقسم الطرفين على -١٠ (عدد سالب)، ولذلك يجب أن <span class='text-red-600 font-bold'>نعكس</span> علامة المتباينة من < إلى >. <br> ٥ / -١٠ = -١/٢. <br> إذن، م > <span class='fraction'><span class='numerator'>-١</span><span class='denominator'>٢</span></span>."
+                }
+            ];
+
+            // --- 3. متغيرات حالة اللعبة ---
+            let currentQuestionIndex = 0;
+            let score = 0;
+            let shuffledQuestions = [];
+            let totalTime = 0; 
+            let questionStartTime = 0; 
+            let timerPaused = false; 
+            let nextQuestionTimer = null; 
+            let gameTimerInterval = null; // إضافة: متغير المؤقت المرئي
+
+            // --- 4. وظائف اللعبة ---
+
+            // إضافة: وظيفة تحديث العداد المرئي
+            function updateTimerDisplay() {
+                if (!timerPaused) {
+                    // حساب الوقت المنقضي للسؤال الحالي
+                    let currentQuestionTime = Date.now() - questionStartTime;
+                    // إضافته للوقت الكلي السابق
+                    let displayTime = totalTime + currentQuestionTime;
+
+                    const minutes = Math.floor(displayTime / 60000);
+                    const seconds = ((displayTime % 60000) / 1000).toFixed(0);
+                    
+                    if (minutes > 0) {
+                        timerDisplayElement.textContent = `الوقت: ${minutes}د و ${seconds}ث`;
+                    } else {
+                        timerDisplayElement.textContent = `الوقت: ${seconds} ثانية`;
+                    }
+                }
+            }
+            
+            // وظيفة تنسيق الوقت (للتحديث النهائي عند الإجابة)
+            function formatDisplayTime(timeInMs) {
+                const minutes = Math.floor(timeInMs / 60000);
+                const seconds = ((timeInMs % 60000) / 1000).toFixed(0);
+                if (minutes > 0) {
+                    return `الوقت: ${minutes}د و ${seconds}ث`;
+                } else {
+                    return `الوقت: ${seconds} ثانية`;
+                }
+            }
+
+            function startGame() {
+                score = 0;
+                currentQuestionIndex = 0;
+                totalTime = 0; 
+                timerPaused = false;
+                if (nextQuestionTimer) clearTimeout(nextQuestionTimer); 
+                if (gameTimerInterval) clearInterval(gameTimerInterval); // إيقاف المؤقت القديم
+
+                shuffledQuestions = questions.sort(() => Math.random() - 0.5);
+                
+                scoreElement.textContent = "٠";
+                timerDisplayElement.textContent = "الوقت: ٠ ثانية"; // تصفير العداد المرئي
+                startScreen.classList.add('hidden');
+                endScreen.classList.add('hidden');
+                solutionModal.classList.add('hidden'); 
+                gameScreen.classList.remove('hidden');
+                
+                gameTimerInterval = setInterval(updateTimerDisplay, 1000); // بدء المؤقت المرئي
+                showQuestion();
+            }
+
+            function showQuestion() {
+                optionsContainer.innerHTML = "";
+                feedbackContainer.innerHTML = ""; 
+                questionCard.classList.remove('entering', 'exiting');
+                
+                setTimeout(() => {
+                    questionCard.classList.add('entering');
+                }, 0);
+
+                const question = shuffledQuestions[currentQuestionIndex];
+                
+                questionTextElement.innerHTML = question.question;
+                questionNumberElement.textContent = currentQuestionIndex + 1;
+                
+                question.options.forEach(option => {
+                    const button = document.createElement('button');
+                    button.innerHTML = option; 
+                    button.dataset.option = option; // <-- الإصلاح: تخزين النص الأصلي كـ data attribute
+                    button.className = "option-btn w-full bg-white border-2 border-blue-300 text-blue-800 font-semibold py-3 px-4 rounded-lg shadow-sm hover:bg-blue-100 transition-all duration-200 text-base sm:text-lg math-content";
+                    button.addEventListener('click', () => selectAnswer(button, option, question.answer));
+                    optionsContainer.appendChild(button);
+                });
+
+                timerPaused = false; // استئناف العداد للسؤال الجديد
+                questionStartTime = Date.now();
+            }
+
+            function selectAnswer(selectedButton, selectedOption, correctAnswer) {
+                if (!timerPaused) {
+                    totalTime += Date.now() - questionStartTime;
+                    timerPaused = true; // إيقاف العداد
+                }
+                if (nextQuestionTimer) clearTimeout(nextQuestionTimer);
+
+                // تحديث العداد المرئي بالقيمة النهائية لهذا السؤال
+                timerDisplayElement.textContent = formatDisplayTime(totalTime);
+
+                const allOptions = optionsContainer.querySelectorAll('.option-btn');
+                allOptions.forEach(btn => btn.classList.add('disabled'));
+
+                if (selectedOption === correctAnswer) {
+                    score++;
+                    scoreElement.textContent = score;
+                    selectedButton.classList.add('correct');
+                } else {
+                    selectedButton.classList.add('incorrect');
+                    allOptions.forEach(btn => {
+                        // الإصلاح: المقارنة باستخدام data attribute بدلاً من innerHTML
+                        if (btn.dataset.option === correctAnswer) {
+                            btn.classList.add('correct');
+                        }
+                    });
+                }
+
+                const currentQuestion = shuffledQuestions[currentQuestionIndex];
+                const whyButton = document.createElement('button');
+                whyButton.id = "why-button";
+                whyButton.innerHTML = "اعرف لماذا؟";
+                whyButton.className = "bg-yellow-400 hover:bg-yellow-500 text-yellow-900 font-bold py-2 px-4 rounded-lg shadow-md";
+                whyButton.style.animation = "fadeInOut 5s ease-in-out forwards"; 
+                
+                whyButton.onclick = () => {
+                    showSolutionModal(currentQuestion.solution);
+                };
+                
+                feedbackContainer.innerHTML = ""; 
+                feedbackContainer.appendChild(whyButton);
+
+                nextQuestionTimer = setTimeout(() => {
+                    nextQuestion();
+                }, 5000); 
+            }
+
+            function nextQuestion() {
+                if (nextQuestionTimer) clearTimeout(nextQuestionTimer); 
+                
+                questionCard.classList.remove('entering');
+                questionCard.classList.add('exiting');
+
+                setTimeout(() => {
+                    currentQuestionIndex++;
+                    if (currentQuestionIndex < questions.length) {
+                        showQuestion();
+                    } else {
+                        showEndScreen();
+                    }
+                }, 300); 
+            }
+
+            function showEndScreen() {
+                if (gameTimerInterval) clearInterval(gameTimerInterval); // إيقاف العداد المرئي
+                
+                gameScreen.classList.add('hidden');
+                solutionModal.classList.add('hidden'); 
+                endScreen.classList.remove('hidden');
+                
+                // تم حذف تعبئة العناصر القديمة
+                // finalScoreElement.textContent = `${score} من ${questions.length}`;
+                // finalScoreElement5.textContent = `${score / 2} من ٥`; 
+
+                // استخدام نفس الدالة لتنسيق الوقت النهائي
+                finalTimeElement.textContent = formatDisplayTime(totalTime).replace("الوقت: ", "");
+
+                // --- (الخطوة 4) الإضافة: استدعاء محرك الحفظ وسجل الأبطال ---
+                const metricInSeconds = totalTime / 1000;
+                if (window.saveAndFinishGame) {
+                    // (النقاط، القيمة (الوقت بالثواني))
+                    saveAndFinishGame(score, metricInSeconds);
+                } else {
+                    console.error("محرك الاتصال بالمنصة غير موجود!");
+                    // عرض النتيجة كإجراء احتياطي إذا فشل الاتصال
+                    const loader = document.getElementById('leaderboard-loader');
+                    if (loader) loader.style.display = 'none';
+                    const finishWrapper = document.getElementById('finish-game-wrapper');
+                    if (finishWrapper) finishWrapper.style.display = 'block';
+                }
+                // --- نهاية الإضافة ---
+            }
+
+            function showSolutionModal(solution) {
+                if (nextQuestionTimer) clearTimeout(nextQuestionTimer); 
+                timerPaused = true; // التأكيد على إيقاف العداد
+                
+                solutionTextElement.innerHTML = solution;
+                solutionModal.classList.remove('hidden');
+            }
+
+            function closeModal() {
+                solutionModal.classList.add('hidden');
+                nextQuestion(); // العداد سيعود للعمل عند عرض السؤال التالي
+            }
+
+            // --- 5. ربط الأحداث ---
+            // تم إضافة فحص للتأكد من وجود العناصر قبل ربط الأحداث
+            if (startButton) {
+                startButton.addEventListener('click', startGame);
+            }
+            if (restartButton) {
+                restartButton.addEventListener('click', startGame);
+            }
+            if (closeModalButton) {
+                closeModalButton.addEventListener('click', closeModal); 
+            }
+
+        }); // --- نهاية غلاف DOMContentLoaded ---
+    </script>
+
+    <!-- (الخطوة 1 و 2) إضافة محرك الربط الجديد وتحديث الإعدادات -->
+    <script>
+    // --- START OF CONNECTION & LEADERBOARD ENGINE ---
+    (function() {
+        // --- CONFIGURATION (عدّل هذه الإعدادات لكل لعبة) ---
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
+        const GAME_ID = 'g4_2_1';                       // (تم التحديث)
+        const GAME_MAX_POINTS = 10;                     // أقصى نقاط في اللعبة (صحيح)
+        const PLATFORM_MAX_GRADE = 5;                   // الدرجة النهائية في المنصة
+        const METRIC_TYPE = 'time';                     // نوع المعيار: 'time' (صحيح)
+        const METRIC_LABEL = 'الوقت (ثواني)';           // اسم المعيار للعرض في الجدول
+
+        // --- Read URL Parameters ---
+        const urlParams = new URLSearchParams(window.location.search);
+        const studentId = urlParams.get('studentId');
+        const classId = urlParams.get('classId');
+        const studentName = urlParams.get('studentName');
+
+        let currentUser = (studentId && studentName) ? { id: studentId, name: studentName } : null;
+
+        // --- CORE FUNCTIONS ---
+
+        // 1. الدالة الرئيسية التي تستدعيها عند انتهاء اللعبة
+        window.saveAndFinishGame = function(points, metricValue) {
+            const finalPoints = parseFloat(points) || 0;
+            const finalMetric = parseFloat(metricValue) || 0;
+            const maxPoints = parseFloat(GAME_MAX_POINTS) || 1;
+            const finalGrade = (finalPoints / maxPoints) * PLATFORM_MAX_GRADE;
+
+            const resultDisplay = document.getElementById('final-result-display');
+            if (resultDisplay) {
+                resultDisplay.innerHTML = `
+                    <p class="text-gray-700">النقاط: <span class="font-bold text-xl">${finalPoints} / ${maxPoints}</span></p>
+                    <p class="text-blue-600">الدرجة في المنصة: <span class="font-bold text-2xl">${finalGrade.toFixed(1)} / ${PLATFORM_MAX_GRADE}</span></p>
+                `;
+            }
+
+            if (studentId && classId) {
+                const params = new URLSearchParams({
+                    action: 'saveGrade',
+                    studentId: studentId,
+                    classId: classId,
+                    itemId: GAME_ID,
+                    grade: finalGrade.toFixed(2),
+                    metricValue: Math.round(finalMetric).toString()
+                });
+                fetch(`${SCRIPT_URL}?${params.toString()}`)
+                    .then(res => res.json())
+                    .then(result => console.log('Save result:', result.status))
+                    .catch(err => console.error("Save Error:", err))
+                    .finally(fetchAndShowLeaderboard);
+            } else {
+                console.log(`Visitor finished. Score: ${finalPoints}, Metric: ${finalMetric}`);
+                fetchAndShowLeaderboard();
+            }
+        }
+
+        // 2. دالة جلب وعرض سجل الأبطال
+        function fetchAndShowLeaderboard() {
+            const loader = document.getElementById('leaderboard-loader');
+            const container = document.getElementById('leaderboard-container');
+            if (!loader || !container) return;
+            
+            if (!classId) {
+                console.log("No classId found, skipping leaderboard for visitor.");
+                container.innerHTML = `<p class="text-center text-gray-500 mt-4">سجل الأبطال متاح للطلاب المسجلين فقط.</p>`;
+                showFinishButton();
+                return;
+            }
+
+            loader.style.display = 'block';
+            container.innerHTML = '';
+
+            const params = new URLSearchParams({
+                action: 'getLeaderboard',
+                gameId: GAME_ID,
+                metricType: METRIC_TYPE,
+                classId: classId
+            });
+
+            fetch(`${SCRIPT_URL}?${params.toString()}`)
+                .then(res => res.json())
+                .then(response => {
+                    if (response.status === 'success' && response.data) {
+                        displayLeaderboard(response.data);
+                    } else {
+                        throw new Error(response.message || 'Failed to load leaderboard data.');
+                    }
+                })
+                .catch(err => {
+                    console.error("Leaderboard Error:", err);
+                    container.innerHTML = `<p class="text-center text-red-500">حدث خطأ في تحميل سجل الأبطال.</p>`;
+                })
+                .finally(() => {
+                    loader.style.display = 'none';
+                    showFinishButton();
+                });
+        }
+        
+        // 3. دالة بناء جدول سجل الأبطال
+        function displayLeaderboard(data) {
+            const container = document.getElementById('leaderboard-container');
+            if (!data || data.length === 0) {
+                container.innerHTML = `<p class="text-center text-gray-500 mt-4">لا توجد نتائج بعد. كن أول الأبطال!</p>`;
+                return;
+            }
+
+            let tableHTML = `
+                <div class="mt-6 border-t pt-4">
+                    <h3 class="text-2xl font-bold text-center text-gray-800 mb-4">🏆 سجل الأبطال 🏆</h3>
+                    <table class="min-w-full bg-white shadow-md rounded-lg">
+                        <thead class="bg-gray-800 text-white">
+                            <tr>
+                                <th class="text-center py-2 px-3">الترتيب</th>
+                                <th class="text-right py-2 px-3">اسم الطالب</th>
+                                <th class="text-center py-2 px-3">الدرجة</th>
+                                <th class="text-center py-2 px-3">${METRIC_LABEL}</th>
+                            </tr>
+                        </thead>
+                        <tbody class="text-gray-700">`;
+
+            data.forEach((player, index) => {
+                const rank = index + 1;
+                let rankDisplay = rank;
+                if (rank === 1) rankDisplay = '🥇';
+                if (rank === 2) rankDisplay = '🥈';
+                if (rank === 3) rankDisplay = '🥉';
+
+                const isCurrentUser = (currentUser && player.name === currentUser.name);
+                const rowClass = isCurrentUser ? 'bg-blue-100 font-bold' : (index % 2 === 0 ? 'bg-gray-100' : '');
+
+                tableHTML += `
+                    <tr class="${rowClass}">
+                        <td class="text-center py-2 px-3 text-xl">${rankDisplay}</td>
+                        <td class="text-right py-2 px-3">${player.name}</td>
+                        <td class="text-center py-2 px-3">${player.grade.toFixed(1)}</td>
+                        <td class="text-center py-2 px-3">${player.metricValue}</td>
+                    </tr>`;
+            });
+
+            tableHTML += `</tbody></table></div>`;
+            container.innerHTML = tableHTML;
+        }
+
+        // 4. إظهار زر الإنهاء
+        function showFinishButton() {
+            const finishWrapper = document.getElementById('finish-game-wrapper');
+            if (finishWrapper) {
+                finishWrapper.style.display = 'block';
+            }
+        }
+
+        // 5. التعامل مع زر الإنهاء وتخصيص رسالة الترحيب
+        document.addEventListener('DOMContentLoaded', () => {
+            // Personalize welcome message
+            const welcomeMessage = document.getElementById('welcomeMessage');
+            if (studentName && welcomeMessage) {
+                // (تم تعديل الرسالة لتناسب لعبة المتباينات)
+                welcomeMessage.innerHTML = `أهلاً بك يا <span class="font-bold text-yellow-300">${studentName}</span>! ركز جيداً في حل المتباينات، وتذكر القاعدة الذهبية عند التعامل مع الأعداد السالبة!`;
+            }
+
+            const finishBtn = document.getElementById('finish-game-btn');
+            if (finishBtn) {
+                finishBtn.addEventListener('click', () => {
+                    window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*');
+                });
+            }
+        });
+    })();
+    // --- END OF CONNECTION & LEADERBOARD ENGINE ---
+    </script>
+
+</body>
+</html>
+
+

@@ -1,0 +1,1064 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <!-- تعديل: تغيير اسم اللعبة -->
+    <title>لعبة "ترجم العبارة"</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Tajawal', sans-serif;
+            touch-action: manipulation;
+            overscroll-behavior-y: contain;
+            position: relative;
+            /* --- الخلفية الجديدة: رموز ترجمة --- */
+            background-color: #e0f2fe; /* لون احتياطي أزرق فاتح */
+            background-image: linear-gradient(135deg, #e0f2fe 0%, #fdf4d1 100%); /* أزرق فاتح إلى أصفر فاتح */
+            overflow: hidden; /* منع ظهور شرائط التمرير بسبب الرموز */
+        }
+        
+        /* --- إضافة: حاوية خلفية الرموز --- */
+        #symbol-background {
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            overflow: hidden;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        #symbol-background > span {
+            position: absolute;
+            color: #000000;
+            opacity: 0.1; /* الشفافية (زادت قليلاً) */
+            font-weight: 300;
+            user-select: none;
+            -webkit-user-select: none;
+            white-space: nowrap;
+        }
+
+        .card-enter { animation: card-enter 0.5s ease-out forwards; }
+        @keyframes card-enter {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        .feedback-correct {
+            animation: feedback-pop 0.3s ease-in-out;
+            background-color: #10B981;
+            color: white;
+        }
+        .feedback-incorrect {
+            animation: feedback-shake 0.5s ease-in-out;
+            background-color: #EF4444;
+            color: white;
+        }
+        @keyframes feedback-pop {
+            0% { transform: scale(0.8); }
+            80% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        @keyframes feedback-shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-5px); }
+            40%, 80% { transform: translateX(5px); }
+        }
+        .modal-content { 
+            animation: modal-pop 0.3s ease-out;
+            background-color: rgb(255 255 255 / 0.95); /* شبه شفاف */
+            backdrop-filter: blur(4px); /* تأثير ضبابي */
+        }
+        @keyframes modal-pop {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        .transition-screen {
+            animation: fadeIn 0.5s ease-out;
+            position: relative;
+            overflow: hidden;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .transition-screen > * {
+            position: relative;
+            z-index: 2;
+        }
+        #game-content {
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Custom Scrollbar for Leaderboard */
+        .leaderboard-scroll {
+            max-height: 180px;
+            overflow-y: auto;
+            padding-right: 5px;
+        }
+        .leaderboard-scroll::-webkit-scrollbar { width: 8px; }
+        .leaderboard-scroll::-webkit-scrollbar-track { background: #e0f2fe; border-radius: 10px; }
+        .leaderboard-scroll::-webkit-scrollbar-thumb { background-color: #0ea5e9; border-radius: 10px; border: 2px solid #e0f2fe; }
+    
+        /* ألوان شاشة البداية لتناسب الخلفية الفاتحة الجديدة */
+        #start-screen h1 {
+             color: #92400e; /* text-amber-800 */
+        }
+        #start-screen .welcome-text {
+            color: #374151; /* text-gray-700 */
+        }
+        .credits-text {
+             color: #78350f; /* text-amber-900 */
+             font-weight: 500;
+             text-shadow: none;
+        }
+        @keyframes pulse-text {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        .pulse-animation {
+            animation: pulse-text 2s infinite ease-in-out;
+            display: inline-block;
+        }
+        
+        /* --- تنسيق الكسور --- */
+        .frac {
+            display: inline-block;
+            vertical-align: -0.5em; /* لضبط المحاذاة العمودية */
+            margin: 0 0.2em;
+            text-align: center;
+            font-size: 0.9em; /* تصغير الخط قليلاً ليلائم السطر */
+        }
+        .frac > sup {
+            display: block;
+            border-bottom: 2px solid currentColor; /* خط أفقي */
+            padding: 0 0.2em;
+            line-height: 1.2em;
+        }
+        .frac > sub {
+            display: block;
+            padding: 0 0.2em;
+            line-height: 1.2em;
+        }
+        /* تنسيق خاص للكسور داخل صندوق الكود */
+        code .frac {
+             vertical-align: -0.3em;
+             font-size: 1em;
+             border: none;
+             padding: 0;
+             background-color: transparent;
+        }
+        code .frac > sup {
+            border-bottom: 1px solid black;
+        }
+
+        /* تنسيقات للشرح المفصل */
+        #explanation-content ul, #explanation-content ol {
+            padding-right: 1.5rem; /* إزاحة للداخل */
+        }
+        #explanation-content ul { list-style-type: disc; }
+        #explanation-content ol { list-style-type: decimal; }
+        #explanation-content code {
+            font-family: 'Tajawal', monospace;
+            background-color: #e5e7eb; /* bg-gray-200 */
+            padding: 0.1rem 0.4rem;
+            border-radius: 0.25rem;
+            font-size: 0.9em;
+            direction: ltr; /* لضمان عرض الرموز الإنجليزية والعربية بشكل صحيح */
+            display: inline-block;
+        }
+        #explanation-content .explanation-step {
+            background-color: #f3f4f6; /* bg-gray-100 */
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            margin-top: 2px;
+            margin-bottom: 2px;
+            direction: ltr; /* لضمان عرض الخطوات بشكل صحيح */
+            text-align: right;
+        }
+        #explanation-content .explanation-final {
+            background-color: #d1fae5; /* bg-green-100 */
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-weight: bold;
+            direction: ltr; /* لضمان عرض الحل بشكل صحيح */
+            text-align: center;
+        }
+         #explanation-content .explanation-warning {
+            color: #dc2626; /* text-red-600 */
+            font-weight: bold;
+        }
+
+        /* تنسيق للأيقونات */
+        .icon-svg {
+            display: inline-block;
+            width: 1.2em;
+            height: 1.2em;
+            margin-left: 0.3em;
+            vertical-align: -0.2em;
+        }
+        .btn-icon-svg {
+            display: inline-block;
+            width: 1.1em;
+            height: 1.1em;
+            margin-left: 0.4em;
+            vertical-align: -0.15em;
+        }
+
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-2 sm:p-4">
+
+    <!-- --- إضافة: حاوية خلفية الرموز --- -->
+    <div id="symbol-background"></div>
+
+    <!-- شاشة التحميل -->
+    <div id="loading-screen" class="fixed inset-0 bg-gray-900 flex flex-col items-center justify-center z-[100]">
+        <div class="text-white text-2xl font-bold animate-pulse">... جاري تحميل اللعبة ...</div>
+        <div class="text-gray-400 text-sm mt-2">الرجاء الانتظار</div>
+    </div>
+
+    <!-- Start Screen -->
+    <div id="start-screen" class="w-full max-w-sm mx-auto bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl p-4 text-center card-enter flex flex-col justify-center items-center h-full py-6 hidden">
+        <!-- تعديل: تغيير اسم اللعبة -->
+        <h1 class="text-4xl font-bold text-amber-800">لعبة "ترجم العبارة"</h1>
+        
+        <div id="welcomeMessage" class="text-base text-gray-700 mt-6 mb-8 bg-black/5 backdrop-blur-sm p-4 rounded-xl shadow-inner">
+            <!-- تعديل: تحديث النص ليعكس المرحلة الواحدة -->
+            <p class="welcome-text">مرحباً بك! ستواجه 5 تحديات متنوعة في المتباينات. أجب عن المتباينة وحلها.</p>
+        </div>
+        
+        <button onclick="startGame()" class="w-full bg-amber-600 text-white font-bold py-3 px-6 rounded-lg shadow-md hover:bg-amber-700 focus:outline-none transition-all ring-2 ring-amber-300 backdrop-blur-sm">
+            <span class="pulse-animation text-xl">ابدأ اللعبة</span>
+        </button>
+        <p class="credits-text text-xs text-amber-900 font-semibold mt-8 p-2 rounded-lg">إعداد وتقديم: الأستاذ عبدالعزيز خالد العبلان</p>
+    </div>
+
+    <!-- Game Container -->
+    <div id="game-container" class="w-full max-w-sm mx-auto bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl p-4 space-y-3 hidden">
+        <div id="game-screen"></div>
+    </div>
+
+    <!-- Explanation Modal -->
+    <div id="explanation-modal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
+        <div class="rounded-lg p-5 w-full max-w-sm modal-content">
+            <div class="flex justify-between items-center mb-2">
+                <h3 class="text-lg font-bold text-amber-700 flex items-center">
+                    <svg class="icon-svg" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18v-5.25m0 0a6.01 6.01 0 0 0 1.5-.189m-1.5.189a6.01 6.01 0 0 1-1.5-.189m3.75 7.478a12.06 12.06 0 0 1-4.5 0m3.75 2.31m0 0a3.75 3.75 0 1 1-3.75-3.75 3.75 3.75 0 0 1 3.75 3.75Zm0 0a3.75 3.75 0 1 1-3.75-3.75 3.75 3.75 0 0 1 3.75 3.75M12 15.75m0 0v.01" /></svg>
+                    شرح الإجابة الصحيحة
+                </h3>
+                <button onclick="hideExplanation()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+            </div>
+            <div id="explanation-content" class="space-y-3 text-base text-gray-800 max-h-[75vh] overflow-y-auto pr-2"></div>
+            <button onclick="hideExplanation()" class="mt-4 w-full bg-gray-500 text-white font-bold py-2 rounded-lg hover:bg-gray-600">إغلاق</button>
+        </div>
+    </div>
+
+    <script>
+        // --- GAME LOGIC ---
+        
+        // --- بنك الأسئلة الجديد بنظام المجموعات ---
+        // --- تم إزالة (س) من نصوص الأسئلة ---
+        const questionPools = [
+            // المجموعة 1: حالات المجموعة الخالية (∅) - (يتم اختيار 1)
+            [
+              { 
+                caseTitle: "تحدي الحالة الخاصة (∅)", 
+                part1: { 
+                    question: "خمسة أمثال عدد ناقص ٧، أقل من خمسة أمثال نفس العدد ناقص ١٠. ما المتباينة؟", 
+                    answer: "٥س - ٧ < ٥س - ١٠",
+                    options: ["٥س - ٧ < ٥س - ١٠", "٥س - ٧ > ٥س - ١٠", "٥س + ٧ < ٥س + ١٠", "٧ - ٥س < ١٠ - ٥س"],
+                    explanation: `<p><strong>تحليل السؤال:</strong></p><ul class="list-disc pr-4 space-y-1"><li><strong>"خمسة أمثال عدد":</strong> نترجمها إلى <code class="font-mono">٥س</code>.</li><li><strong>"ناقص ٧":</strong> نكتب <code>- ٧</code>.</li><li><strong>"أقل من":</strong> نترجمها إلى الرمز <code><</code>.</li><li><strong>"خمسة أمثال نفس العدد ناقص ١٠":</strong> نترجمها إلى <code>٥س - ١٠</code>.</li></ul><p class="font-bold mt-2">المتباينة الكاملة: ٥س - ٧ < ٥س - ١٠</p>`
+                }, 
+                part2: { 
+                    question: "المتباينة هي: <strong>٥س - ٧ < ٥س - ١٠</strong>. ما هو حل المتباينة؟", 
+                    answer: "المجموعة الخالية (∅)",
+                    options: ["المجموعة الخالية (∅)", "مجموعة الأعداد الحقيقية", "س < -٣", "س > -٣"],
+                    explanation: `<p><strong>خطوات الحل:</strong></p><ol class="list-decimal pr-4 space-y-1"><li><strong>المتباينة الأصلية:</strong> <code>٥س - ٧ < ٥س - ١٠</code></li><li><strong>نقل المتغيرات (س) لطرف:</strong> نطرح <code>٥س</code> من الطرفين.</li><li class="explanation-step">(٥س - ٥س) - ٧ < -١٠</li><li class="explanation-step">-٧ < -١٠</li><li><strong>تحليل النتيجة:</strong> العبارة <code>-٧ < -١٠</code> هي عبارة <strong>خاطئة دائماً</strong> (لأن -٧ أكبر من -١٠).</li><li><strong>الاستنتاج:</strong> بما أن المتباينة تؤدي إلى عبارة خاطئة دائماً، فلا يوجد أي عدد حقيقي (س) يجعلها صحيحة.</li><li class="font-bold mt-2 explanation-final" style="text-align: center;">الحل: المجموعة الخالية (∅)</li></ol>`
+                } 
+              },
+              { 
+                caseTitle: "تحدي الحالة الخاصة (∅) - بديل", 
+                part1: { 
+                    question: "ناتج جمع عدد مع ٥، أكبر من ناتج جمع نفس العدد مع ١٠. ما المتباينة؟", 
+                    answer: "س + ٥ > س + ١٠",
+                    options: ["س + ٥ > س + ١٠", "س + ٥ < س + ١٠", "٥س > ١٠س", "س - ٥ > س - ١٠"],
+                     explanation: `<p><strong>تحليل السؤال:</strong></p><ul class="list-disc pr-4 space-y-1"><li><strong>"ناتج جمع عدد مع ٥":</strong> نترجمها إلى <code>س + ٥</code>.</li><li><strong>"أكبر من":</strong> نترجمها إلى الرمز <code>></code>.</li><li><strong>"ناتج جمع نفس العدد مع ١٠":</strong> نترجمها إلى <code>س + ١٠</code>.</li></ul><p class="font-bold mt-2">المتباينة الكاملة: س + ٥ > س + ١٠</p>`
+                }, 
+                part2: { 
+                    question: "المتباينة هي: <strong>س + ٥ > س + ١٠</strong>. ما هو حل المتباينة؟", 
+                    answer: "المجموعة الخالية (∅)",
+                    options: ["المجموعة الخالية (∅)", "مجموعة الأعداد الحقيقية", "س > ٥", "س < ٥"],
+                    explanation: `<p><strong>خطوات الحل:</strong></p><ol class="list-decimal pr-4 space-y-1"><li><strong>المتباينة الأصلية:</strong> <code>س + ٥ > س + ١٠</code></li><li><strong>نقل المتغيرات (س) لطرف:</strong> نطرح <code>س</code> من الطرفين.</li><li class="explanation-step">(س - س) + ٥ > ١٠</li><li class="explanation-step">٥ > ١٠</li><li><strong>تحليل النتيجة:</strong> العبارة <code>٥ > ١٠</code> هي عبارة <strong>خاطئة دائماً</strong>.</li><li><strong>الاستنتاج:</strong> لا يوجد أي عدد حقيقي (س) يجعل هذه المتباينة صحيحة.</li><li class="font-bold mt-2 explanation-final" style="text-align: center;">الحل: المجموعة الخالية (∅)</li></ol>`
+                } 
+              },
+              { 
+                caseTitle: "تحدي الحالة الخاصة (∅) - بديل ٢", 
+                part1: { 
+                    question: "ناتج ضرب ٤ في (عدد زائد ٢)، أصغر من ناتج ضرب ٤ في (نفس العدد ناقص ١). ما المتباينة؟", 
+                    answer: "٤(س + ٢) < ٤(س - ١)",
+                    options: ["٤(س + ٢) < ٤(س - ١)", "٤(س + ٢) > ٤(س - ١)", "٤س + ٢ < ٤س - ١", "٤س + ٨ > ٤س - ٤"], // <-- تم تعديل الخيار الأخير
+                    explanation: `<p><strong>تحليل السؤال:</strong></p><ul class="list-disc pr-4 space-y-1"><li><strong>"ناتج ضرب ٤ في (عدد زائد ٢)":</strong> نترجمها إلى <code>٤(س + ٢)</code>.</li><li><strong>"أصغر من":</strong> نترجمها إلى الرمز <code><</code>.</li><li><strong>"ناتج ضرب ٤ في (نفس العدد ناقص ١)":</strong> نترجمها إلى <code>٤(س - ١)</code>.</li></ul><p class="font-bold mt-2">المتباينة الكاملة: ٤(س + ٢) < ٤(س - ١)</p>`
+                }, 
+                part2: { 
+                    question: "المتباينة هي: <strong>٤(س + ٢) < ٤(س - ١)</strong>. ما هو حل المتباينة؟", 
+                    answer: "المجموعة الخالية (∅)",
+                    options: ["المجموعة الخالية (∅)", "مجموعة الأعداد الحقيقية", "س < -١٢", "س < ٣"],
+                    explanation: `<p><strong>خطوات الحل:</strong></p><ol class="list-decimal pr-4 space-y-1"><li><strong>المتباينة الأصلية:</strong> <code>٤(س + ٢) < ٤(س - ١)</code></li><li><strong>خاصية التوزيع:</strong> نوزع ٤ على القوسين.</li><li class="explanation-step">٤س + ٨ < ٤س - ٤</li><li><strong>نقل المتغيرات (س) لطرف:</strong> نطرح <code>٤س</code> من الطرفين.</li><li class="explanation-step">(٤س - ٤س) + ٨ < -٤</li><li class="explanation-step">٨ < -٤</li><li><strong>تحليل النتيجة:</strong> العبارة <code>٨ < -٤</code> هي عبارة <strong>خاطئة دائماً</strong>.</li><li class="font-bold mt-2 explanation-final" style="text-align: center;">الحل: المجموعة الخالية (∅)</li></ol>`
+                } 
+              }
+            ],
+            // المجموعة 2: حالات الأعداد الحقيقية (R) - (يتم اختيار 1)
+            [
+              { 
+                caseTitle: "تحدي الحالة الخاصة (R)", 
+                part1: { 
+                    question: "مجموع ثلاثة أمثال عدد و ١٨، <strong>لا يقل عن</strong> مجموع ثلاثة أمثال نفس العدد و ٨. ما المتباينة؟", 
+                    answer: "٣س + ١٨ ≥ ٣س + ٨",
+                    options: ["٣س + ١٨ ≥ ٣س + ٨", "٣س + ١٨ ≤ ٣س + ٨", "١٨ - ٣س ≥ ٨ + ٣س", "٣س - ١٨ > ٣س - ٨"],
+                    explanation: `<p><strong>تحليل السؤال:</strong></p><ul class="list-disc pr-4 space-y-1"><li><strong>"مجموع ثلاثة أمثال عدد و ١٨":</strong> نترجمها إلى <code>٣س + ١٨</code>.</li><li><strong>"لا يقل عن":</strong> نترجمها إلى الرمز <code>≥</code>.</li><li><strong>"مجموع ثلاثة أمثال نفس العدد و ٨":</strong> نترجمها إلى <code>٣س + ٨</code>.</li></ul><p class="font-bold mt-2">المتباينة الكاملة: ٣س + ١٨ ≥ ٣س + ٨</p>`
+                }, 
+                part2: { 
+                    question: "المتباينة هي: <strong>٣س + ١٨ ≥ ٣س + ٨</strong>. ما هو حل المتباينة؟", 
+                    answer: "مجموعة الأعداد الحقيقية",
+                    options: ["مجموعة الأعداد الحقيقية", "المجموعة الخالية (∅)", "س ≥ ١٠", "س ≤ -١٠"],
+                    explanation: `<p><strong>خطوات الحل:</strong></p><ol class="list-decimal pr-4 space-y-1"><li><strong>المتباينة الأصلية:</strong> <code>٣س + ١٨ ≥ ٣س + ٨</code></li><li><strong>نقل المتغيرات (س) لطرف:</strong> نطرح <code>٣س</code> من الطرفين.</li><li class="explanation-step">(٣س - ٣س) + ١٨ ≥ ٨</li><li class="explanation-step">١٨ ≥ ٨</li><li><strong>تحليل النتيجة:</strong> العبارة <code>١٨ ≥ ٨</code> هي عبارة <strong>صحيحة دائماً</strong>.</li><li><strong>الاستنتاج:</strong> بما أن المتباينة تؤدي إلى عبارة صحيحة دائماً، فإن أي عدد حقيقي (س) ستضعه سيجعلها صحيحة.</li><li class="font-bold mt-2 explanation-final" style="text-align: center;">الحل: مجموعة الأعداد الحقيقية</li></ol>`
+                } 
+              },
+              { 
+                caseTitle: "تحدي الحالة الخاصة (R) - بديل", 
+                part1: { 
+                    question: "ناتج طرح ٨ من عدد، <strong>لا يزيد عن</strong> ناتج طرح ٣ من نفس العدد. ما المتباينة؟", 
+                    answer: "س - ٨ ≤ س - ٣",
+                    options: ["س - ٨ ≤ س - ٣", "س - ٨ ≥ س - ٣", "٨ - س ≤ ٣ - س", "س + ٨ ≤ س + ٣"],
+                     explanation: `<p><strong>تحليل السؤال:</strong></p><ul class="list-disc pr-4 space-y-1"><li><strong>"ناتج طرح ٨ من عدد":</strong> نترجمها إلى <code>س - ٨</code>.</li><li><strong>"لا يزيد عن":</strong> نترجمها إلى الرمز <code>≤</code>.</li><li><strong>"ناتج طرح ٣ من نفس العدد":</strong> نترجمها إلى <code>س - ٣</code>.</li></ul><p class="font-bold mt-2">المتباينة الكاملة: س - ٨ ≤ س - ٣</p>`
+                }, 
+                part2: { 
+                    question: "المتباينة هي: <strong>س - ٨ ≤ س - ٣</strong>. ما هو حل المتباينة؟", 
+                    answer: "مجموعة الأعداد الحقيقية",
+                    options: ["مجموعة الأعداد الحقيقية", "المجموعة الخالية (∅)", "س ≤ ٥", "س ≤ -٥"],
+                    explanation: `<p><strong>خطوات الحل:</strong></p><ol class="list-decimal pr-4 space-y-1"><li><strong>المتباينة الأصلية:</strong> <code>س - ٨ ≤ س - ٣</code></li><li><strong>نقل المتغيرات (س) لطرف:</strong> نطرح <code>س</code> من الطرفين.</li><li class="explanation-step">(س - س) - ٨ ≤ -٣</li><li class="explanation-step">-٨ ≤ -٣</li><li><strong>تحليل النتيجة:</strong> العبارة <code>-٨ ≤ -٣</code> هي عبارة <strong>صحيحة دائماً</strong>.</li><li><strong>الاستنتاج:</strong> أي عدد حقيقي (س) ستضعه سيجعل المتباينة صحيحة.</li><li class="font-bold mt-2 explanation-final" style="text-align: center;">الحل: مجموعة الأعداد الحقيقية</li></ol>`
+                } 
+              },
+              { 
+                caseTitle: "تحدي الحالة الخاصة (R) - بديل ٢", 
+                part1: { 
+                    question: "ضعف عدد زائد ٥، أكبر من ضعف العدد ناقص ٢. ما المتباينة؟", 
+                    answer: "٢س + ٥ > ٢س - ٢",
+                    options: ["٢س + ٥ > ٢س - ٢", "٢س + ٥ < ٢س - ٢", "٥ - ٢س > -٢ - ٢س", "٢س - ٥ > ٢س + ٢"],
+                     explanation: `<p><strong>تحليل السؤال:</strong></p><ul class="list-disc pr-4 space-y-1"><li><strong>"ضعف عدد زائد ٥":</strong> نترجمها إلى <code>٢س + ٥</code>.</li><li><strong>"أكبر من":</strong> نترجمها إلى الرمز <code>></code>.</li><li><strong>"ضعف العدد ناقص ٢":</strong> نترجمها إلى <code>٢س - ٢</code>.</li></ul><p class="font-bold mt-2">المتباينة الكاملة: ٢س + ٥ > ٢س - ٢</p>`
+                }, 
+                part2: { 
+                    question: "المتباينة هي: <strong>٢س + ٥ > ٢س - ٢</strong>. ما هو حل المتباينة؟", 
+                    answer: "مجموعة الأعداد الحقيقية",
+                    options: ["مجموعة الأعداد الحقيقية", "المجموعة الخالية (∅)", "س > -٧", "س > ٣.٥"],
+                    explanation: `<p><strong>خطوات الحل:</strong></p><ol class="list-decimal pr-4 space-y-1"><li><strong>المتباينة الأصلية:</strong> <code>٢س + ٥ > ٢س - ٢</code></li><li><strong>نقل المتغيرات (س) لطرف:</strong> نطرح <code>٢س</code> من الطرفين.</li><li class="explanation-step">(٢س - ٢س) + ٥ > -٢</li><li class="explanation-step">٥ > -٢</li><li><strong>تحليل النتيجة:</strong> العبارة <code>٥ > -٢</code> هي عبارة <strong>صحيحة دائماً</strong>.</li><li><strong>الاستنتاج:</strong> أي عدد حقيقي (س) ستضعه سيجعل المتباينة صحيحة.</li><li class="font-bold mt-2 explanation-final" style="text-align: center;">الحل: مجموعة الأعداد الحقيقية</li></ol>`
+                } 
+              }
+            ],
+            // المجموعة 3: متباينات بسيطة (جمع/طرح/ضرب موجب) - (يتم اختيار 1)
+            [
+              { 
+                caseTitle: "تحدي الأعداد (ضرب)", 
+                part1: { 
+                    question: "أربعة أمثال عدد <strong>لا يزيد عن</strong> ٢٨. ما المتباينة؟", 
+                    answer: "٤س ≤ ٢٨",
+                    options: ["٤س ≤ ٢٨", "٤س ≥ ٢٨", "٤س < ٢٨", "س + ٤ ≤ ٢٨"],
+                    explanation: `<p><strong>تحليل السؤال:</strong></p><ul class="list-disc pr-4 space-y-1"><li><strong>"أربعة أمثال عدد":</strong> نترجمها إلى <code>٤س</code>.</li><li><strong>"لا يزيد عن":</strong> هذا يعني "أقل من أو يساوي"، نترجمها إلى <code>≤</code>.</li><li><strong>"٢٨":</strong> نكتب <code>٢٨</code>.</li></ul><p class="font-bold mt-2">المتباينة الكاملة: ٤س ≤ ٢٨</p>`
+                }, 
+                part2: { 
+                    question: "المتباينة هي: <strong>٤س ≤ ٢٨</strong>. ما هو حل المتباينة؟", 
+                    answer: "س ≤ ٧",
+                    options: ["س ≥ ٧", "س ≤ ٧", "س < ٧", "س ≤ ٢٤"],
+                    explanation: `<p><strong>خطوات الحل:</strong></p><ol class="list-decimal pr-4 space-y-1"><li><strong>المتباينة الأصلية:</strong> <code>٤س ≤ ٢٨</code></li><li><strong>القسمة على معامل (س):</strong> نقسم الطرفين على <code>٤</code> (عدد موجب، لا نعكس الإشارة).</li><li class="explanation-step"><code><span class="frac"><sup>٤س</sup><sub>٤</sub></span> ≤ <span class="frac"><sup>٢٨</sup><sub>٤</sub></span></code></li><li class="explanation-final">س ≤ ٧</li></ol>`
+                } 
+              },
+              { 
+                caseTitle: "تحدي الأعداد (جمع)", 
+                part1: { 
+                    question: "عدد مضافاً إليه ٨، أصغر من ١٥. ما المتباينة؟", 
+                    answer: "س + ٨ < ١٥",
+                    options: ["س + ٨ < ١٥", "س + ٨ > ١5", "س - ٨ < ١٥", "٨س < ١٥"],
+                    explanation: `<p><strong>تحليل السؤال:</strong></p><ul class="list-disc pr-4 space-y-1"><li><strong>"عدد مضافاً إليه ٨":</strong> نترجمها إلى <code>س + ٨</code>.</li><li><strong>"أصغر من":</strong> نترجمها إلى الرمز <code><</code>.</li><li><strong>"١٥":</strong> نكتب <code>١٥</code>.</li></ul><p class="font-bold mt-2">المتباينة الكاملة: س + ٨ < ١٥</p>`
+                }, 
+                part2: { 
+                    question: "المتباينة هي: <strong>س + ٨ < ١٥</strong>. ما هو حل المتباينة؟", 
+                    answer: "س < ٧",
+                    options: ["س < ٧", "س > ٧", "س < ٢٣", "س > ٢٣"],
+                    explanation: `<p><strong>خطوات الحل:</strong></p><ol class="list-decimal pr-4 space-y-1"><li><strong>المتباينة الأصلية:</strong> <code>س + ٨ < ١٥</code></li><li><strong>نقل الأعداد الثابتة:</strong> نطرح <code>٨</code> من الطرفين.</li><li class="explanation-step">س < ١٥ - ٨</li><li class="explanation-final">س < ٧</li></ol>`
+                } 
+              },
+              { 
+                caseTitle: "تحدي الأعداد (طرح)", 
+                part1: { 
+                    question: "ناتج طرح ٩ من عدد، هو ١٢ <strong>على الأقل</strong>. ما المتباينة؟", 
+                    answer: "س - ٩ ≥ ١٢",
+                    options: ["س - ٩ ≥ ١٢", "س - ٩ ≤ ١٢", "٩ - س ≥ ١٢", "س + ٩ ≥ ١٢"],
+                    explanation: `<p><strong>تحليل السؤال:</strong></p><ul class="list-disc pr-4 space-y-1"><li><strong>"ناتج طرح ٩ من عدد":</strong> نترجمها إلى <code>س - ٩</code>.</li><li><strong>"هو ١٢ على الأقل":</strong> هذا يعني "أكبر من أو يساوي ١٢"، نترجمها إلى <code>≥</code>.</li></ul><p class="font-bold mt-2">المتباينة الكاملة: س - ٩ ≥ ١٢</p>`
+                }, 
+                part2: { 
+                    question: "المتباينة هي: <strong>س - ٩ ≥ ١٢</strong>. ما هو حل المتباينة؟", 
+                    answer: "س ≥ ٢١",
+                    options: ["س ≥ ٢١", "س ≤ ٢١", "س ≥ ٣", "س ≤ ٣"],
+                    explanation: `<p><strong>خطوات الحل:</strong></p><ol class="list-decimal pr-4 space-y-1"><li><strong>المتباينة الأصلية:</strong> <code>س - ٩ ≥ ١٢</code></li><li><strong>نقل الأعداد الثابتة:</strong> نجمع <code>٩</code> للطرفين.</li><li class="explanation-step">س ≥ ١٢ + ٩</li><li class="explanation-final">س ≥ ٢١</li></ol>`
+                } 
+              }
+            ],
+            // المجموعة 4: متباينات مركبة (ضرب/قسمة سالب) - (يتم اختيار 1)
+            [
+              { 
+                caseTitle: "تحدي الأعداد (صورة ١)", 
+                part1: { 
+                    question: "خمسة ناقص ستة أمثال عدد أكبر من أربعة أمثال ذلك العدد زائد ٤٥. ما هي المتباينة التي تمثل هذا الموقف؟", 
+                    answer: "٥ - ٦س > ٤س + ٤٥",
+                    options: ["٥ - ٦س > ٤س + ٤٥", "٥ - ٦س < ٤س + ٤٥", "٦س - ٥ > ٤س + ٤٥", "٥ + 6س > ٤س + ٤٥"],
+                    explanation: `<p><strong>تحليل السؤال:</strong></p><ul class="list-disc pr-4 space-y-1"><li><strong>"خمسة":</strong> نكتب <code>٥</code>.</li><li><strong>"ناقص":</strong> نكتب <code>-</code>.</li><li><strong>"ستة أمثال عدد":</strong> نكتب <code>٦س</code>.</li><li><strong>"أكبر من":</strong> نكتب <code>></code>.</li><li><strong>"أربعة أمثال ذلك العدد":</strong> نكتب <code>٤س</code>.</li><li><strong>"زائد ٤٥":</strong> نكتب <code>+ ٤٥</code>.</li></ul><p class="font-bold mt-2">المتباينة الكاملة: ٥ - ٦س > ٤س + ٤٥</p>`
+                }, 
+                part2: { 
+                    question: "المتباينة هي: <strong>٥ - ٦س > ٤س + ٤٥</strong>. ما هو حل هذه المتباينة؟", 
+                    answer: "س < -٤",
+                    options: ["س < -٤", "س > -٤", "س < ٤", "س > ٥"],
+                    explanation: `<p><strong>خطوات الحل:</strong></p><ol class="list-decimal pr-4 space-y-1"><li><strong>المتباينة الأصلية:</strong> <code>٥ - ٦س > ٤س + ٤٥</code></li><li><strong>نقل المتغيرات (س) لطرف:</strong> نطرح <code>٤س</code> من الطرفين لنجمع (س) في اليمين.</li><li class="explanation-step">٥ - ٦س - ٤س > ٤٥</li><li class="explanation-step">٥ - ١٠س > ٤٥</li><li><strong>نقل الأعداد الثابتة لطرف:</strong> نطرح <code>٥</code> من الطرفين.</li><li class="explanation-step">-١٠س > ٤٥ - ٥</li><li class="explanation-step">-١٠س > ٤٠</li><li><strong>القسمة على معامل (س):</strong> نقسم الطرفين على <code>-١٠</code>.</li><li><strong class="explanation-warning">!! انتبه:</strong> عند القسمة أو الضرب في عدد سالب، <strong>نعكس</strong> إشارة المتباينة من (>) إلى (<).</li><li class="explanation-final">س < -٤</li></ol>`
+                } 
+              },
+              { 
+                caseTitle: "تحدي الأعداد (سالب)", 
+                part1: { 
+                    question: "ناتج ضرب عدد في سالب ٣، مضافاً إليه ٥، هو ٨ <strong>على الأقل</strong>. ما المتباينة؟", 
+                    answer: "-٣س + ٥ ≥ ٨",
+                    options: ["-٣س + ٥ ≥ ٨", "-٣س + ٥ ≤ ٨", "٥ - ٣س < ٨", "٣س + ٥ ≥ ٨"],
+                    explanation: `<p><strong>تحليل السؤال:</strong></p><ul class="list-disc pr-4 space-y-1"><li><strong>"ناتج ضرب عدد في سالب ٣":</strong> نترجمها إلى <code>-٣س</code>.</li><li><strong>"مضافاً إليه ٥":</strong> نكتب <code>+ ٥</code>.</li><li><strong>"هو ٨ على الأقل":</strong> هذا يعني "أكبر من أو يساوي ٨"، نترجمها إلى <code>≥ ٨</code>.</li></ul><p class="font-bold mt-2">المتباينة الكاملة: -٣س + ٥ ≥ ٨</p>`
+                }, 
+                part2: { 
+                    question: "المتباينة هي: <strong>-٣س + ٥ ≥ ٨</strong>. ما هو حل المتباينة؟", 
+                    answer: "س ≤ -١",
+                    options: ["س ≥ -١", "س ≤ -١", "س ≤ ١", "س ≥ ١"],
+                    explanation: `<p><strong>خطوات الحل:</strong></p><ol class="list-decimal pr-4 space-y-1"><li><strong>المتباينة الأصلية:</strong> <code>-٣س + ٥ ≥ ٨</code></li><li><strong>نقل الأعداد الثابتة:</strong> نطرح <code>٥</code> من الطرفين.</li><li class="explanation-step">-٣س ≥ ٨ - ٥</li><li class="explanation-step">-٣س ≥ ٣</li><li><strong>القسمة على معامل (س):</strong> نقسم الطرفين على <code>-٣</code>.</li><li><strong class="explanation-warning">!! انتبه:</strong> عند القسمة أو الضرب في عدد سالب، <strong>نعكس</strong> إشارة المتباينة من (≥) إلى (≤).</li><li class="explanation-final">س ≤ -١</li></ol>`
+                } 
+              },
+              { 
+                caseTitle: "تحدي الأعداد (مركب)", 
+                part1: { 
+                    question: "سبعة زائد مِثليْ عدد <strong>لا يزيد عن</strong> ١٥. ما المتباينة؟", 
+                    answer: "٧ + ٢س ≤ ١٥",
+                    options: ["٧ + ٢س ≥ ١٥", "٧ - ٢س ≤ ١٥", "٧ + ٢س ≤ ١٥", "٢(س + ٧) ≤ ١٥"],
+                    explanation: `<p><strong>تحليل السؤال:</strong></p><ul class="list-disc pr-4 space-y-1"><li><strong>"سبعة زائد":</strong> نكتب <code>٧ +</code>.</li><li><strong>"مِثليْ عدد":</strong> نترجمها إلى <code>٢س</code>.</li><li><strong>"لا يزيد عن ١٥":</strong> نكتب <code>≤ ١٥</code>.</li></ul><p class="font-bold mt-2">المتباينة الكاملة: ٧ + ٢س ≤ ١٥</p>`
+                }, 
+                part2: { 
+                    question: "المتباينة هي: <strong>٧ + ٢س ≤ ١٥</strong>. ما هو حل المتباينة؟", 
+                    answer: "س ≤ ٤",
+                    options: ["س ≥ ٤", "س ≤ ٤", "س ≤ ٨", "س ≤ ١١"],
+                    explanation: `<p><strong>خطوات الحل:</strong></p><ol class="list-decimal pr-4 space-y-1"><li><strong>المتباينة الأصلية:</strong> <code>٧ + ٢س ≤ ١٥</code></li><li><strong>نقل الأعداد الثابتة:</strong> نطرح <code>٧</code> من الطرفين.</li><li class="explanation-step">٢س ≤ ١5 - ٧</li><li class="explanation-step">٢س ≤ ٨</li><li><strong>القسمة على معامل (س):</strong> نقسم الطرفين على <code>٢</code> (عدد موجب، لا نعكس الإشارة).</li><li class="explanation-step"><code><span class="frac"><sup>٢س</sup><sub>٢</sub></span> ≤ <span class="frac"><sup>٨</sup><sub>٢</sub></span></code></li><li class="explanation-final">س ≤ ٤</li></ol>`
+                } 
+              }
+            ],
+            // المجموعة 5: متباينات الكسور (ثلاثة أرباع، ثلثين..) - (يتم اختيار 1)
+            [
+              { 
+                caseTitle: "تحدي الأعداد (ثلاثة أرباع)", 
+                part1: { 
+                    question: "ثلاثة أرباع عدد ناقص ٥، <strong>لا يزيد عن</strong> نصف ذلك العدد زائد ١. ما المتباينة؟", 
+                    answer: "<span class='frac'><sup>٣</sup><sub>٤</sub></span>س - ٥ ≤ <span class='frac'><sup>١</sup><sub>٢</sub></span>س + ١",
+                    options: [
+                        "<span class='frac'><sup>٣</sup><sub>٤</sub></span>س - ٥ ≤ <span class='frac'><sup>١</sup><sub>٢</sub></span>س + ١", // صحيح
+                        "<span class='frac'><sup>٣</sup><sub>٤</sub></span>س - ٥ ≥ <span class='frac'><sup>١</sup><sub>٢</sub></span>س + ١", // خطأ في الرمز
+                        "٥ - <span class='frac'><sup>٣</sup><sub>٤</sub></span>س ≤ <span class='frac'><sup>١</sup><sub>٢</sub></span>س + ١", // خطأ في الترتيب
+                        "<span class='frac'><sup>٤</sup><sub>٣</sub></span>س - ٥ ≤ <span class='frac'><sup>١</sup><sub>٢</sub></span>س + ١"  // كسر مقلوب
+                    ],
+                    explanation: `<p><strong>تحليل السؤال:</strong></p><ul class="list-disc pr-4 space-y-1"><li><strong>"ثلاثة أرباع عدد":</strong> نترجمها إلى <code><span class="frac"><sup>٣</sup><sub>٤</sub></span>س</code>.</li><li><strong>"ناقص ٥":</strong> نكتب <code>- ٥</code>.</li><li><strong>"لا يزيد عن":</strong> نترجمها إلى <code>≤</code>.</li><li><strong>"نصف ذلك العدد":</strong> نترجمها إلى <code><span class="frac"><sup>١</sup><sub>٢</sub></span>س</code>.</li><li><strong>"زائد ١":</strong> نكتب <code>+ ١</code>.</li></ul><p class="font-bold mt-2">المتباينة الكاملة: <span class="frac"><sup>٣</sup><sub>٤</sub></span>س - ٥ ≤ <span class="frac"><sup>١</sup><sub>٢</sub></span>س + ١</p>`
+                }, 
+                part2: { 
+                    question: "المتباينة هي: <strong><span class='frac'><sup>٣</sup><sub>٤</sub></span>س - ٥ ≤ <span class='frac'><sup>١</sup><sub>٢</sub></span>س + ١</strong>. ما هو حل المتباينة؟", 
+                    answer: "س ≤ ٢٤",
+                    options: ["س ≤ ٢٤", "س ≥ ٢٤", "س ≤ ٦", "س ≥ ٦"],
+                    explanation: `<p><strong>خطوات الحل:</strong></p><ol class="list-decimal pr-4 space-y-1"><li><strong>المتباينة الأصلية:</strong> <code><span class="frac"><sup>٣</sup><sub>٤</sub></span>س - ٥ ≤ <span class="frac"><sup>١</sup><sub>٢</sub></span>س + ١</code></li><li><strong>التخلص من الكسور:</strong> نضرب كل المتباينة في <code>٤</code> (المضاعف المشترك لـ ٤ و ٢).</li><li class="explanation-step"><code>٤ * (<span class="frac"><sup>٣</sup><sub>٤</sub></span>س) - ٤ * ٥ ≤ ٤ * (<span class="frac"><sup>١</sup><sub>٢</sub></span>س) + ٤ * ١</code></li><li class="explanation-step"><code>٣س - ٢٠ ≤ ٢س + ٤</code></li><li><strong>نقل المتغيرات (س):</strong> نطرح <code>٢س</code> من الطرفين.</li><li class="explanation-step"><code>س - ٢٠ ≤ ٤</code></li><li><strong>نقل الأعداد الثابتة:</strong> نجمع <code>٢٠</code> للطرفين.</li><li class="explanation-step"><code>س ≤ ٤ + ٢٠</code></li><li class="explanation-final">س ≤ ٢٤</li></ol>`
+                } 
+              },
+              { 
+                caseTitle: "تحدي الأعداد (ثلثين)", 
+                part1: { 
+                    question: "ثلثا عدد مضافاً إليه ١٠، أكبر من ثلث ذلك العدد زائد ٨. ما المتباينة؟", 
+                    answer: "<span class='frac'><sup>٢</sup><sub>٣</sub></span>س + ١٠ > <span class='frac'><sup>١</sup><sub>٣</sub></span>س + ٨",
+                    options: [
+                        "<span class='frac'><sup>٢</sup><sub>٣</sub></span>س + ١٠ > <span class='frac'><sup>١</sup><sub>٣</sub></span>س + ٨", // صحيح
+                        "<span class='frac'><sup>٢</sup><sub>٣</sub></span>س + ١٠ < <span class='frac'><sup>١</sup><sub>٣</sub></span>س + ٨", // خطأ في الرمز
+                        // --- !!!!!! --- إصلاح الخطأ هنا --- !!!!!! ---
+                        "<span class='frac'><sup>٣</sup><sub>٢</sub></span>س + ١٠ > <span class='frac'><sup>١</sup><sub>٣</sub></span>س + ٨", // كسر مقلوب (كان يحتوي على "class="...)
+                        "١٠ - <span class='frac'><sup>٢</sup><sub>٣</sub></span>س > <span class='frac'><sup>١</sup><sub>٣</sub></span>س + ٨" // خطأ في الترتيب
+                    ],
+                    explanation: `<p><strong>تحليل السؤال:</strong></p><ul class="list-disc pr-4 space-y-1"><li><strong>"ثلثا عدد":</strong> نترجمها إلى <code><span class="frac"><sup>٢</sup><sub>٣</sub></span>س</code>.</li><li><strong>"مضافاً إليه ١٠":</strong> نكتب <code>+ ١٠</code>.</li><li><strong>"أكبر من":</strong> نترجمها إلى <code>></code>.</li><li><strong>"ثلث ذلك العدد":</strong> نترجمها إلى <code><span class="frac"><sup>١</sup><sub>٣</sub></span>س</code>.</li><li><strong>"زائد ٨":</strong> نكتب <code>+ ٨</code>.</li></ul><p class="font-bold mt-2">المتباينة الكاملة: <span class="frac"><sup>٢</sup><sub>٣</sub></span>س + ١٠ > <span class="frac"><sup>١</sup><sub>٣</sub></span>س + ٨</p>`
+                }, 
+                part2: { 
+                    question: "المتباينة هي: <strong><span class='frac'><sup>٢</sup><sub>٣</sub></span>س + ١٠ > <span class='frac'><sup>١</sup><sub>٣</sub></span>س + ٨</strong>. ما هو حل المتباينة؟", 
+                    answer: "س > -٦",
+                    options: ["س > -٦", "س < -٦", "س > ٦", "س > -٢"],
+                    explanation: `<p><strong>خطوات الحل:</strong></p><ol class="list-decimal pr-4 space-y-1"><li><strong>المتباينة الأصلية:</strong> <code><span class."frac"><sup>٢</sup><sub>٣</sub></span>س + ١٠ > <span class="frac"><sup>١</sup><sub>٣</sub></span>س + ٨</code></li><li><strong>التخلص من الكسور:</strong> نضرب كل المتباينة في <code>٣</code>.</li><li class="explanation-step"><code>٣ * (<span class="frac"><sup>٢</sup><sub>٣</sub></span>س) + ٣ * ١٠ > ٣ * (<span class="frac"><sup>١</sup><sub>٣</sub></span>س) + ٣ * ٨</code></li><li class="explanation-step"><code>٢س + ٣٠ > ١س + ٢٤</code></li><li><strong>نقل المتغيرات (س):</strong> نطرح <code>١س</code> من الطرفين.</li><li class="explanation-step"><code>س + ٣٠ > ٢٤</code></li><li><strong>نقل الأعداد الثابتة:</strong> نطرح <code>٣٠</code> من الطرفين.</li><li class="explanation-step"><code>س > ٢٤ - ٣٠</code></li><li class="explanation-final">س > -٦</li></ol>`
+                } 
+              },
+              { 
+                caseTitle: "تحدي الأعداد (خمسين)", 
+                part1: { 
+                    question: "خُمسا عدد ناقص ٤، <strong>لا يقل عن</strong> ٦. ما المتباينة؟", 
+                    answer: "<span class='frac'><sup>٢</sup><sub>٥</sub></span>س - ٤ ≥ ٦",
+                    options: [
+                        "<span class='frac'><sup>٢</sup><sub>٥</sub></span>س - ٤ ≥ ٦", // صحيح
+                        "<span class='frac'><sup>٢</sup><sub>٥</sub></span>س - ٤ ≤ ٦", // خطأ في الرمز
+                        "<span class='frac'><sup>٥</sup><sub>٢</sub></span>س - ٤ ≥ ٦", // كسر مقلوب
+                        "٤ - <span class='frac'><sup>٢</sup><sub>٥</sub></span>س ≥ ٦" // خطأ في الترتيب
+                    ],
+                    explanation: `<p><strong>تحليل السؤال:</strong></p><ul class="list-disc pr-4 space-y-1"><li><strong>"خُمسا عدد":</strong> نترجمها إلى <code><span class="frac"><sup>٢</sup><sub>٥</sub></span>س</code>.</li><li><strong>"ناقص ٤":</strong> نكتب <code>- ٤</code>.</li><li><strong>"لا يقل عن ٦":</strong> نترجمها إلى <code>≥ ٦</code>.</li></ul><p class="font-bold mt-2">المتباينة الكاملة: <span class="frac"><sup>٢</sup><sub>٥</sub></span>س - ٤ ≥ ٦</p>`
+                }, 
+                part2: { 
+                    question: "المتباينة هي: <strong><span class='frac'><sup>٢</sup><sub>٥</sub></span>س - ٤ ≥ ٦</strong>. ما هو حل المتباينة؟", 
+                    answer: "س ≥ ٢٥",
+                    options: ["س ≥ ٢٥", "س ≤ ٢٥", "س ≥ ١٠", "س ≥ ٥"],
+                    explanation: `<p><strong>خطوات الحل:</strong></p><ol class="list-decimal pr-4 space-y-1"><li><strong>المتباينة الأصلية:</strong> <code><span class="frac"><sup>٢</sup><sub>٥</sub></span>س - ٤ ≥ ٦</code></li><li><strong>نقل الأعداد الثابتة:</strong> نجمع <code>٤</code> للطرفين.</li><li class="explanation-step"><code><span class="frac"><sup>٢</sup><sub>٥</sub></span>س ≥ ٦ + ٤</code></li><li class="explanation-step"><code><span class="frac"><sup>٢</sup><sub>٥</sub></span>س ≥ ١٠</code></li><li><strong>التخلص من الكسر:</strong> نضرب الطرفين في مقلوب الكسر <code><span class="frac"><sup>٥</sup><sub>٢</sub></span></code> (وهو عدد موجب).</li><li class="explanation-step"><code>(<span class="frac"><sup>٥</sup><sub>٢</sub></span>) * (<span class="frac"><sup>٢</sup><sub>٥</sub></span>س) ≥ ١٠ * (<span class="frac"><sup>٥</sup><sub>٢</sub></span>)</code></li><li class="explanation-step"><code>س ≥ <span class="frac"><sup>٥٠</sup><sub>٢</sub></span></code></li><li class="explanation-final">س ≥ ٢٥</li></ol>`
+                } 
+              }
+            ]
+        ];
+
+        // --- نهاية بنك الأسئلة ---
+
+
+        const startScreenEl = document.getElementById('start-screen');
+        const gameContainerEl = document.getElementById('game-container');
+        const gameScreenEl = document.getElementById('game-screen');
+        const explanationModalEl = document.getElementById('explanation-modal');
+        const explanationContentEl = document.getElementById('explanation-content');
+        
+        let gameQuestions = [];
+        let currentQuestionIndex = 0;
+        let currentStage = 1;
+        let score = 0;
+        let answered = false;
+        
+        let timerInterval = null;
+        let questionStartTime = 0;
+        let totalElapsedTime = 0;
+
+        // دالة لخلط ترتيب الخيارات
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        function toArabicNumerals(numStr) {
+            const arabicNumerals = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+            return String(numStr).replace(/[0-9.-]/g, (char) => {
+                if (char === '.') return '٫';
+                if (char === '-') return '-';
+                return arabicNumerals[parseInt(char)];
+            });
+        }
+        
+        function startTimer() {
+            clearInterval(timerInterval);
+            questionStartTime = Date.now();
+            const timerDisplayEl = document.getElementById('timer-display');
+            
+            const updateTimerDisplay = () => {
+                const timerEl = document.getElementById('timer-display');
+                if (timerEl) {
+                    const currentSessionTime = Date.now() - questionStartTime;
+                    const displayTimeInSeconds = Math.floor((totalElapsedTime + currentSessionTime) / 1000);
+                    timerEl.textContent = toArabicNumerals(displayTimeInSeconds);
+                }
+            };
+            
+            updateTimerDisplay();
+            timerInterval = setInterval(updateTimerDisplay, 1000);
+        }
+
+        function stopTimer() {
+            clearInterval(timerInterval);
+            if (questionStartTime > 0) {
+                totalElapsedTime += Date.now() - questionStartTime;
+                questionStartTime = 0;
+            }
+            const timerEl = document.getElementById('timer-display');
+            if (timerEl) {
+                const displayTimeInSeconds = Math.floor(totalElapsedTime / 1000);
+                 timerEl.textContent = toArabicNumerals(displayTimeInSeconds);
+            }
+        }
+        
+        function startGame() {
+            document.body.classList.add('game-started');
+            
+            score = 0;
+            totalElapsedTime = 0;
+            startScreenEl.classList.add('hidden');
+            gameContainerEl.classList.remove('hidden');
+            
+            loadLevel(); // <!-- تغيير: نبدأ بتحميل المرحلة
+        }
+        
+        // --- تعديل: دالة جديدة لتحميل المرحلة (بنظام المجموعات) ---
+        function loadLevel() {
+            // 1. إفراغ مصفوفة الأسئلة
+            gameQuestions = [];
+            
+            // 2. اختيار سؤال واحد عشوائي من كل مجموعة (Pool)
+            questionPools.forEach(pool => {
+                const randomIndex = Math.floor(Math.random() * pool.length);
+                gameQuestions.push(pool[randomIndex]);
+            });
+            
+            // 3. خلط ترتيب الأسئلة الخمسة المختارة
+            gameQuestions = shuffleArray(gameQuestions);
+            
+            currentQuestionIndex = 0;
+            currentStage = 1;
+            
+            // --- تعديل: الانتقال مباشرة للسؤال الأول ---
+            loadQuestion();
+        }
+
+        function loadQuestion() {
+            answered = false;
+            const question = gameQuestions[currentQuestionIndex];
+            
+            gameScreenEl.innerHTML = `<div id="game-content" class="space-y-2 card-enter"></div>`;
+            const gameContentEl = document.getElementById('game-content');
+
+            gameContentEl.innerHTML = `
+                <div id="game-header" class="flex justify-between items-center text-base font-bold p-2 bg-sky-100 rounded-lg shadow-inner z-10 relative">
+                    <div class="text-cyan-700">النقاط: <span id="score-display">٠</span></div>
+                    <div class="text-red-600">الوقت: <span id="timer-display">٠</span> ث</div>
+                </div>
+                
+                <div id="question-header" class="flex justify-end items-center mt-1 mb-2">
+                    <!-- تم حذف اسم المرحلة من هنا -->
+                    <div class="text-gray-600 text-sm font-bold bg-gray-200 px-3 py-1 rounded-full shadow-inner">
+                        السؤال ${toArabicNumerals(currentQuestionIndex + 1)} / ${toArabicNumerals(gameQuestions.length)}
+                    </div>
+                </div>
+                
+                 <div id="question-area" class="bg-sky-50/70 border border-sky-200 rounded-lg p-3 text-center z-10 relative min-h-[100px] flex flex-col justify-center">
+                      <p class="font-bold text-cyan-800">الجزء ${toArabicNumerals(currentStage)} من ٢</p>
+                      <p class="text-lg font-semibold text-gray-900 mt-1" id="question-text"></p>
+                 </div>
+                
+                <div id="options-container" class="grid grid-cols-2 gap-2 z-10 relative"></div>
+                <div id="feedback" class="text-center font-bold p-2 rounded-lg text-sm hidden my-1 z-10 relative"></div>
+                <div id="action-buttons" class="hidden flex justify-center items-center gap-2 z-10 relative"></div>`;
+            
+            document.getElementById('score-display').textContent = toArabicNumerals(score);
+            const timerEl = document.getElementById('timer-display');
+            if (timerEl) {
+                 timerEl.textContent = toArabicNumerals(Math.floor(totalElapsedTime / 1000));
+            }
+
+            const questionTextEl = document.getElementById('question-text');
+            const optionsContainerEl = document.getElementById('options-container');
+
+            let part;
+            if (currentStage === 1) {
+                part = question.part1;
+            } else {
+                part = question.part2;
+            }
+
+            questionTextEl.innerHTML = part.question;
+            
+            // خلط الخيارات قبل عرضها
+            const options = shuffleArray(part.options.slice());
+            
+            options.forEach(option => {
+                const button = document.createElement('button');
+                button.className = "w-full bg-amber-600 text-white font-bold p-2 rounded-lg shadow-md hover:bg-amber-700 focus:outline-none flex items-center justify-center min-h-[50px] text-base text-center";
+                // استخدام innerHTML للسماح بعرض الكسور
+                button.innerHTML = option;
+                button.onclick = () => checkAnswer(option);
+                optionsContainerEl.appendChild(button);
+            });
+
+            startTimer();
+        }
+
+        function checkAnswer(selectedValue) {
+            if (answered) return;
+            stopTimer();
+            answered = true;
+            
+            const question = gameQuestions[currentQuestionIndex];
+            const feedbackEl = document.getElementById('feedback');
+            const actionButtonsEl = document.getElementById('action-buttons');
+            let isCorrect = false;
+
+            document.getElementById('options-container').style.display = 'none';
+            feedbackEl.classList.remove('hidden');
+            actionButtonsEl.classList.remove('hidden');
+
+            let correctAnswer;
+            if (currentStage === 1) {
+                correctAnswer = question.part1.answer;
+                // تعديل: استخدام innerHTML للمقارنة للسماح بالكسور
+                isCorrect = (selectedValue.replace(/\s+/g, '') === correctAnswer.replace(/\s+/g, ''));
+                if (isCorrect) {
+                    feedbackEl.textContent = "أحسنت! المتباينة صحيحة.";
+                } else {
+                    feedbackEl.innerHTML = `إجابة خاطئة! الإجابة الصحيحة هي: ${correctAnswer}`;
+                }
+                actionButtonsEl.innerHTML = `<button onclick="goToNextStage()" class="w-1/2 bg-amber-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-amber-700 text-sm flex items-center justify-center">
+                    <span>التالي</span>
+                    <svg class="btn-icon-svg" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
+                </button>
+                <button onclick="showExplanation()" class="w-1/2 bg-green-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-green-700 text-sm flex items-center justify-center">
+                    <svg class="btn-icon-svg" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" /></svg>
+                    <span>اعرف لماذا؟</span>
+                </button>`;
+
+            } else {
+                correctAnswer = question.part2.answer;
+                isCorrect = (selectedValue.replace(/\s+/g, '') == correctAnswer.replace(/\s+/g, ''));
+                if (isCorrect) {
+                    feedbackEl.textContent = "إجابة ممتازة! الحل دقيق.";
+                } else {
+                    feedbackEl.innerHTML = `إجابة خاطئة! الإجابة الصحيحة هي: ${correctAnswer}`;
+                }
+                
+                const isLastQuestionInLevel = (currentQuestionIndex === gameQuestions.length - 1);
+                
+                let buttonText = "السؤال التالي";
+                if (isLastQuestionInLevel) {
+                    buttonText = "النتيجة النهائية";
+                }
+
+                actionButtonsEl.innerHTML = `<button onclick="nextQuestion()" class="w-1/2 bg-amber-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-amber-700 text-sm flex items-center justify-center">
+                    <span>${buttonText}</span>
+                    <svg class="btn-icon-svg" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
+                </button>
+                <button onclick="showExplanation()" class="w-1/2 bg-green-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-green-700 text-sm flex items-center justify-center">
+                     <svg class="btn-icon-svg" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" /></svg>
+                    <span>اعرف لماذا؟</span>
+                </button>`;
+            }
+
+            if(isCorrect) {
+                score++;
+                document.getElementById('score-display').textContent = toArabicNumerals(score);
+                feedbackEl.classList.add('feedback-correct');
+            } else {
+                feedbackEl.classList.add('feedback-incorrect');
+            }
+        }
+        
+        function goToNextStage() {
+            currentStage = 2;
+            loadQuestion();
+        }
+
+        function nextQuestion() {
+            hideExplanation();
+            currentQuestionIndex++;
+            
+            if (currentQuestionIndex < gameQuestions.length) {
+                currentStage = 1;
+                loadQuestion();
+            } else {
+                endGame();
+            }
+        }
+
+        function endGame() {
+            const finalTimeInSeconds = Math.round(totalElapsedTime / 1000);
+             gameScreenEl.innerHTML = `
+                 <div class="text-center space-y-3 card-enter p-4">
+                 <h1 class="text-2xl font-bold text-amber-700">اكتملت اللعبة!</h1>
+                 <p class="text-base">لقد أنهيت جميع التحديات.</p>
+                 
+                 <div id="final-result-display" class="bg-gray-100/80 p-3 my-2 rounded-lg shadow-inner">
+                 </div>
+
+                 <div id="leaderboard-loader" style="display: none;"></div>
+                 <div id="leaderboard-container"></div>
+                 
+                 <div id="finish-game-wrapper" style="display: none;" class="space-y-2">
+                       <button id="finish-game-btn" class="w-full bg-amber-600 text-white font-bold py-3 px-6 rounded-lg shadow-md hover:bg-amber-700">
+                         العودة للمنصة
+                       </button>
+                 </div>
+                 <button onclick="window.location.reload()" class="w-full bg-gray-500 text-white font-bold py-2 px-6 rounded-lg shadow-md hover:bg-gray-600 mt-2">
+                   إعادة اللعبة
+                 </button>
+                 </div>`;
+            if(window.saveAndFinishGame) {
+                // استدعاء دالة الحفظ مع النقاط (5 أسئلة * مرحلتين = 10 نقاط قصوى)
+                window.saveAndFinishGame(score * 2, finalTimeInSeconds);
+            }
+        }
+        
+        function showExplanation() {
+            const q = gameQuestions[currentQuestionIndex];
+            
+            // --- تعديل: إضافة الشرح المفصل من البنك ---
+            if (currentStage === 1) {
+                 explanationContentEl.innerHTML = `
+                    <div class="border-r-4 border-amber-500 pr-3 mb-3 space-y-1">
+                        <p><span class="font-bold">السؤال:</span> ${q.part1.question}</p>
+                    </div>
+                    ${q.part1.explanation || '<p>لا يوجد شرح إضافي لهذا الجزء.</p>'}
+                    <div class="border-r-4 border-green-500 pr-3 mt-3">
+                        <p class="font-bold">الإجابة الصحيحة (المتباينة):</p>
+                        <p class="text-center text-lg font-bold bg-green-100 p-2 rounded" style="direction: ltr;">${q.part1.answer}</p>
+                    </div>`;
+            } else {
+                 explanationContentEl.innerHTML = `
+                    <div class="border-r-4 border-amber-500 pr-3 mb-3 space-y-1">
+                        <p><span class="font-bold">المتباينة:</span> <code style="font-size: 1.1em;">${q.part1.answer}</code></p>
+                        <p><span class="font-bold">المطلوب:</span> ${q.part2.question.replace(/<[^>]*>/g, '')}</p>
+                    </div>
+                     ${q.part2.explanation || '<p>لا يوجد شرح إضافي لهذا الجزء.</p>'}
+                    <div class="border-r-4 border-green-500 pr-3 mt-3">
+                        <p class="font-bold">الإجابة الصحيحة (الحل):</p>
+                        <p class="text-center text-lg font-bold bg-green-100 p-2 rounded" style="direction: ltr;">${q.part2.answer}</p>
+                    </div>`;
+            }
+            
+            explanationModalEl.classList.remove('hidden');
+        }
+
+        function hideExplanation() {
+            explanationModalEl.classList.add('hidden');
+        }
+    </script>
+
+    <script>
+    // --- START OF CONNECTION & LEADERBOARD ENGINE ---
+    (function() {
+        
+        // --- إصلاح: تم نقل الدالة إلى هنا ليتم تعريفها قبل استدعائها ---
+        // --- إضافة: دالة إنشاء الخلفية العشوائية ---
+        function createRandomBackground() {
+            const container = document.getElementById('symbol-background');
+            if (!container) return;
+            
+            const symbols = ['α', 'β', 'γ', 'δ', 'ε', 'μ', 'π', 'Σ', 'Ω', '∫', '≈', '≠', '∞', 
+                           'א', 'ב', 'ג', 'ד', 'س', 'ص', 'ع', 'م', 'ن', 
+                           'A', 'B', 'C', 'X', 'Y', 'Z', 'f(x)',
+                           '文', '字', '言', '語', '€', '¥', '£', '$',
+                           '𓂀', '𓁈', '𓃾', '𓆇', '𓅓', '𓇋'];
+            
+            let symbolHtml = '';
+            
+            // --- تعديل: إنشاء 120 رمزاً ---
+            for (let i = 0; i < 120; i++) {
+                const char = symbols[Math.floor(Math.random() * symbols.length)];
+                const top = Math.random() * 110 - 5; // (من -5% إلى 105%)
+                const left = Math.random() * 110 - 5; // (من -5% إلى 105%)
+                
+                let fontSize, rotation;
+                
+                // أول 60 رمز (عشوائية كاملة وصغيرة)
+                if (i < 60) {
+                    fontSize = Math.random() * 40 + 20; // 20px to 60px
+                    rotation = Math.random() * 360; // 0 to 360 degrees
+                } 
+                // الـ 60 رمزاً الإضافية (كبيرة ومائلة قليلاً)
+                else {
+                    fontSize = Math.random() * 50 + 60; // 60px to 110px
+                    rotation = Math.random() * 90 - 45; // -45 to +45 degrees
+                }
+                
+                symbolHtml += `<span style="top: ${top}%; left: ${left}%; font-size: ${fontSize}px; transform: rotate(${rotation}deg);">${char}</span>`;
+            }
+            
+            container.innerHTML = symbolHtml;
+        }
+
+        // --- CONFIGURATION (عدّل هذه الإعدادات لكل لعبة) ---
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
+        // --- تعديل: GAME_ID الجديد ---
+        const GAME_ID = 'g4_3_2'; 
+        const GAME_MAX_POINTS = 10; // 5 أسئلة * مرحلتين = 10 نقاط
+        const PLATFORM_MAX_GRADE = 5;
+        const METRIC_TYPE = 'time';
+        const METRIC_LABEL = 'الوقت (ثواني)';
+
+        // --- Read URL Parameters ---
+        const urlParams = new URLSearchParams(window.location.search);
+        const studentId = urlParams.get('studentId');
+        const classId = urlParams.get('classId');
+        const studentName = urlParams.get('studentName');
+
+        let currentUser = (studentId && studentName) ? { id: studentId, name: studentName } : null;
+
+        // --- CORE FUNCTIONS ---
+
+        // 1. الدالة الرئيسية التي تستدعيها عند انتهاء اللعبة
+        window.saveAndFinishGame = function(points, metricValue) {
+            const finalPoints = parseFloat(points) || 0;
+            const finalMetric = parseFloat(metricValue) || 0;
+            const maxPoints = parseFloat(GAME_MAX_POINTS) || 1;
+            const finalGrade = (finalPoints / maxPoints) * PLATFORM_MAX_GRADE;
+
+            const resultDisplay = document.getElementById('final-result-display');
+            if (resultDisplay) {
+                resultDisplay.innerHTML = `
+                    <div class="flex justify-around text-center">
+                        <div>
+                            <p class="text-sm">النقاط:</p>
+                            <p class="text-2xl font-bold text-amber-600 my-1">${toArabicNumerals(finalPoints)}<span class="text-lg text-gray-600">/${toArabicNumerals(maxPoints)}</span></p>
+                        </div>
+                        <div>
+                            <p class="text-sm">إجمالي الوقت:</p>
+                            <p class="text-2xl font-bold text-red-600 my-1">${toArabicNumerals(finalMetric)} <span class="text-sm">ث</span></p>
+                        </div>
+                    </div>
+                    <p class="text-blue-600 mt-3 text-center border-t pt-2">الدرجة في المنصة: <span class="font-bold text-xl">${finalGrade.toFixed(1)} / ${PLATFORM_MAX_GRADE}</span></p>
+                `;
+            }
+
+            if (studentId && classId) {
+                const params = new URLSearchParams({
+                    action: 'saveGrade',
+                    studentId: studentId,
+                    classId: classId,
+                    itemId: GAME_ID,
+                    grade: finalGrade.toFixed(2),
+                    metricValue: Math.round(finalMetric).toString()
+                });
+                fetch(`${SCRIPT_URL}?${params.toString()}`)
+                    .then(res => res.json())
+                    .then(result => console.log('Save result:', result.status))
+                    .catch(err => console.error("Save Error:", err))
+                    .finally(fetchAndShowLeaderboard);
+            } else {
+                console.log(`Visitor finished. Score: ${finalPoints}, Metric: ${finalMetric}`);
+                fetchAndShowLeaderboard();
+            }
+        }
+
+        // 2. دالة جلب وعرض سجل الأبطال
+        function fetchAndShowLeaderboard() {
+            const loader = document.getElementById('leaderboard-loader');
+            const container = document.getElementById('leaderboard-container');
+            if (!loader || !container) return;
+            
+            if (!classId) {
+                console.log("No classId found, skipping leaderboard for visitor.");
+                container.innerHTML = `<p class="text-center text-gray-500 mt-4 text-sm">سجل الأبطال متاح للطلاب المسجلين فقط.</p>`;
+                showFinishButton();
+                return;
+            }
+
+            loader.style.display = 'block';
+            container.innerHTML = '';
+
+            const params = new URLSearchParams({
+                action: 'getLeaderboard',
+                gameId: GAME_ID,
+                metricType: METRIC_TYPE,
+                classId: classId
+            });
+
+            fetch(`${SCRIPT_URL}?${params.toString()}`)
+                .then(res => res.json())
+                .then(response => {
+                    if (response.status === 'success' && response.data) {
+                        displayLeaderboard(response.data);
+                    } else {
+                        throw new Error(response.message || 'Failed to load leaderboard data.');
+                    }
+                })
+                .catch(err => {
+                    console.error("Leaderboard Error:", err);
+                    container.innerHTML = `<p class="text-center text-red-500 text-sm">حدث خطأ في تحميل سجل الأبطال.</p>`;
+                })
+                .finally(() => {
+                    loader.style.display = 'none';
+                    showFinishButton();
+                });
+        }
+        
+        // 3. دالة بناء جدول سجل الأبطال
+        function displayLeaderboard(data) {
+            const container = document.getElementById('leaderboard-container');
+            if (!data || data.length === 0) {
+                container.innerHTML = `<p class="text-center text-gray-500 mt-4 text-sm">لا توجد نتائج بعد. كن أول الأبطال!</p>`;
+                return;
+            }
+
+            let tableHTML = `
+                <div class="mt-4 border-t pt-2">
+                    <h3 class="text-xl font-bold text-center text-gray-800 mb-2">🏆 سجل الأبطال 🏆</h3>
+                    <div class="leaderboard-scroll">
+                        <table class="min-w-full bg-white shadow-md rounded-lg text-sm">
+                            <thead class="bg-gray-800 text-white sticky top-0">
+                                <tr>
+                                    <th class="text-center py-1 px-2">الترتيب</th>
+                                    <th class="text-right py-1 px-2">اسم الطالب</th>
+                                    <th class="text-center py-1 px-2">الدرجة</th>
+                                    <th class="text-center py-1 px-2">${METRIC_LABEL}</th>
+                                </tr>
+                            </thead>
+                            <tbody class="text-gray-700">`;
+
+            data.forEach((player, index) => {
+                const rank = index + 1;
+                let rankDisplay = rank;
+                if (rank === 1) rankDisplay = '🥇';
+                if (rank === 2) rankDisplay = '🥈';
+                if (rank === 3) rankDisplay = '🥉';
+
+                const isCurrentUser = (currentUser && player.name === currentUser.name);
+                const rowClass = isCurrentUser ? 'bg-blue-100 font-bold' : (index % 2 === 0 ? 'bg-gray-100' : '');
+
+                tableHTML += `
+                    <tr class="${rowClass}">
+                        <td class="text-center py-1 px-2 text-lg">${rankDisplay}</td>
+                        <td class="text-right py-1 px-2">${player.name}</td>
+                        <td class="text-center py-1 px-2">${player.grade.toFixed(1)}</td>
+                        <td class="text-center py-1 px-2">${player.metricValue}</td>
+                    </tr>`;
+            });
+
+            tableHTML += `</tbody></table></div></div>`;
+            container.innerHTML = tableHTML;
+        }
+
+        // 4. إظهار زر الإنهاء
+        function showFinishButton() {
+            const finishWrapper = document.getElementById('finish-game-wrapper');
+            if (finishWrapper) {
+                finishWrapper.style.display = 'block';
+            }
+        }
+
+        // 5. التعامل مع زر الإنهاء وتخصيص رسالة الترحيب
+        document.addEventListener('DOMContentLoaded', () => {
+            
+            // --- NEW PRELOADER LOGIC (Simplified) ---
+            const loadingScreen = document.getElementById('loading-screen');
+            const startScreen = document.getElementById('start-screen');
+            
+            // --- تعديل: استدعاء دالة الخلفية ---
+            createRandomBackground();
+
+            // إظهار شاشة البداية مباشرة بعد تحميل DOM
+            if (loadingScreen) loadingScreen.style.display = 'none';
+            if (startScreen) startScreen.classList.remove('hidden');
+            // --- END PRELOADER LOGIC ---
+
+            const welcomeMessageEl = document.getElementById('welcomeMessage');
+            if (studentName && welcomeMessageEl) {
+                // تعديل: تحديث النص ليعكس المرحلة الواحدة
+                welcomeMessageEl.innerHTML = `<p class="welcome-text">أهلاً بك <span class="font-bold text-amber-700">${studentName}</span>! لديك 5 تحديات متنوعة. بالتوفيق!</p>`;
+            }
+            document.body.addEventListener('click', function(event) {
+                if (event.target && event.target.id === 'finish-game-btn') {
+                    window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*');
+                }
+            });
+        });
+    })();
+    </script>
+</body>
+</html>

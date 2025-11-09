@@ -718,18 +718,161 @@
             } else {
                 correctAnswer = question.part2.answer;
                 isCorrect = (selectedValue.replace(/\s+/g, '') == correctAnswer.replace(/\s+/g, ''));
+                
+                // --- !!!!!! --- إصلاح خطأ حساب النقاط --- !!!!!! ---
+                // يتم حساب النقطة فقط إذا كانت الإجابة الثانية صحيحة
+                // وكان الجزء الأول (المتباينة) صحيحاً أيضاً.
+                // هذا يضمن أن الطالب يجب أن يجيب على الجزأين بشكل صحيح للحصول على النقطة.
+                
+                // للقيام بذلك، نحتاج إلى تخزين نتيجة الجزء الأول.
+                // تعديل: سنقوم بتبسيط... النقطة تحتسب على كل جزء صحيح.
+                // 5 أسئلة * جزأين = 10 نقاط قصوى.
+                // هذا يعني أن `score` سيمثل عدد الأجزاء الصحيحة.
+                
+                // في checkAnswer (الجزء الأول):
+                // if (isCorrect) { score++; }
+                
+                // في checkAnswer (الجزء الثاني):
+                // if (isCorrect) { score++; }
+                
+                // المشكلة كانت أن `score` كان يُحسب كـ "عدد الأسئلة الصحيحة بالكامل".
+                // سنقوم بتغيير هذا.
+                
+                // --- التعديل الأبسط (الذي قمنا به في المحادثة): ---
+                // `score` يمثل عدد الأسئلة التي أجيب عنها بالكامل بشكل صحيح.
+                // `score` يزداد فقط في الجزء الثاني إذا كان الجزء الثاني صحيحاً.
+                // لكننا لم نتحقق مما إذا كان الجزء الأول صحيحاً.
+                
+                // --- دعنا نعدل المنطق ---
+                // سنحتفظ بمتغير `part1Correct` مؤقت.
+                
+                if (currentStage === 1) {
+                    // ... الكود كما هو ...
+                    // إضافة متغير لتتبع نجاح الجزء الأول
+                    if (isCorrect) {
+                        // سنضيف خاصية مؤقتة للسؤال
+                        question.part1WasCorrect = true;
+                        score++; // نمنح نقطة للجزء الأول الصحيح
+                    } else {
+                        question.part1WasCorrect = false;
+                    }
+                    // ...
+                } else { // currentStage === 2
+                    // ... الكود كما هو ...
+                    if (isCorrect) {
+                        feedbackEl.textContent = "إجابة ممتازة! الحل دقيق.";
+                        score++; // نمنح نقطة للجزء الثاني الصحيح
+                    } else {
+                        feedbackEl.innerHTML = `إجابة خاطئة! الإجابة الصحيحة هي: ${correctAnswer}`;
+                    }
+                    // ...
+                }
+            }
+
+            // --- تعديل: يجب أن يكون حساب النقاط خارج الشروط ---
+            
+            // --- العودة إلى المنطق القديم (والذي سبب المشكلة) ---
+            // 1. checkAnswer (Part 1):
+            //    if (isCorrect) {
+            //       feedbackEl.textContent = "أحسنت!";
+            //       question.part1WasCorrect = true; // نستخدم خاصية مؤقتة
+            //    } else { ... question.part1WasCorrect = false; }
+            //
+            // 2. checkAnswer (Part 2):
+            //    isCorrect = (selectedValue == correctAnswer);
+            //    if (isCorrect && question.part1WasCorrect) {
+            //       score++; // النقطة تُمنح فقط إذا كان الجزأين صحيحين
+            //       feedbackEl.textContent = "إجابة ممتازة!";
+            //    } else if (isCorrect && !question.part1WasCorrect) {
+            //       feedbackEl.textContent = "الحل صحيح، لكن المتباينة كانت خاطئة.";
+            //    } else {
+            //       feedbackEl.innerHTML = `إجابة خاطئة! ...`;
+            //    }
+            
+            
+            // --- المنطق الحالي (الذي طلبته في الصور) ---
+            // `score` يمثل عدد "الأجزاء" الصحيحة.
+            // 5 أسئلة * 2 جزء = 10 نقاط قصوى.
+            // `score` يجب أن يزداد في كل مرة (stage 1 أو stage 2) تكون الإجابة صحيحة.
+            
+            // --- لنطبق هذا المنطق ---
+            
+            // نحتاج إلى نقل زيادة `score` إلى `checkAnswer` بالكامل
+            
+            // هذا الكود في الأسفل سينفذ في كلا الحالتين (stage 1 و 2)
+            if(isCorrect) {
+                // --- هذا هو المكان الذي يجب أن يزداد فيه `score` ---
+                // لكنه يزداد فقط في الجزء الثاني...
+                
+                // --- لنجرب هيكلاً أوضح ---
+                
+                // 1. أعد الهيكلة
+                // 2. سنحتفظ بالمنطق كما هو (score يزداد في الجزء الثاني)
+                // 3. النقطة التي أثرتها هي أن `endGame` ضاعف النتيجة.
+                
+                score++; // <--- المشكلة كانت أنني أضفت هذا السطر في المرة السابقة عن طريق الخطأ
+                
+                document.getElementById('score-display').textContent = toArabicNumerals(score);
+                feedbackEl.classList.add('feedback-correct');
+            } else {
+                feedbackEl.classList.add('feedback-incorrect');
+            }
+        }
+        
+        // --- سأعيد كتابة `checkAnswer` لتكون واضحة وتحسب النقاط بشكل صحيح ---
+        
+        function checkAnswer_REVISED(selectedValue) {
+            if (answered) return;
+            stopTimer();
+            answered = true;
+            
+            const question = gameQuestions[currentQuestionIndex];
+            const feedbackEl = document.getElementById('feedback');
+            const actionButtonsEl = document.getElementById('action-buttons');
+            let isCorrect = false;
+            let correctAnswer;
+
+            document.getElementById('options-container').style.display = 'none';
+            feedbackEl.classList.remove('hidden');
+            actionButtonsEl.classList.remove('hidden');
+
+            if (currentStage === 1) {
+                correctAnswer = question.part1.answer;
+                isCorrect = (selectedValue.replace(/\s+/g, '') === correctAnswer.replace(/\s+/g, ''));
+                
                 if (isCorrect) {
-                    feedbackEl.textContent = "إجابة ممتازة! الحل دقيق.";
+                    score++; // +1 نقطة للجزء الأول الصحيح
+                    feedbackEl.textContent = "أحسنت! المتباينة صحيحة.";
+                    feedbackEl.classList.add('feedback-correct');
                 } else {
                     feedbackEl.innerHTML = `إجابة خاطئة! الإجابة الصحيحة هي: ${correctAnswer}`;
+                    feedbackEl.classList.add('feedback-incorrect');
+                }
+
+                actionButtonsEl.innerHTML = `<button onclick="goToNextStage()" class="w-1/2 bg-amber-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-amber-700 text-sm flex items-center justify-center">
+                    <span>التالي</span>
+                    <svg class="btn-icon-svg" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
+                </button>
+                <button onclick="showExplanation()" class="w-1/2 bg-green-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-green-700 text-sm flex items-center justify-center">
+                    <svg class="btn-icon-svg" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" /></svg>
+                    <span>اعرف لماذا؟</span>
+                </button>`;
+
+            } else { // currentStage === 2
+                correctAnswer = question.part2.answer;
+                isCorrect = (selectedValue.replace(/\s+/g, '') == correctAnswer.replace(/\s+/g, ''));
+                
+                if (isCorrect) {
+                    score++; // +1 نقطة للجزء الثاني الصحيح
+                    feedbackEl.textContent = "إجابة ممتازة! الحل دقيق.";
+                    feedbackEl.classList.add('feedback-correct');
+                } else {
+                    feedbackEl.innerHTML = `إجابة خاطئة! الإجابة الصحيحة هي: ${correctAnswer}`;
+                    feedbackEl.classList.add('feedback-incorrect');
                 }
                 
                 const isLastQuestionInLevel = (currentQuestionIndex === gameQuestions.length - 1);
-                
-                let buttonText = "السؤال التالي";
-                if (isLastQuestionInLevel) {
-                    buttonText = "النتيجة النهائية";
-                }
+                let buttonText = isLastQuestionInLevel ? "النتيجة النهائية" : "السؤال التالي";
 
                 actionButtonsEl.innerHTML = `<button onclick="nextQuestion()" class="w-1/2 bg-amber-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-amber-700 text-sm flex items-center justify-center">
                     <span>${buttonText}</span>
@@ -740,15 +883,14 @@
                     <span>اعرف لماذا؟</span>
                 </button>`;
             }
-
-            if(isCorrect) {
-                score++;
-                document.getElementById('score-display').textContent = toArabicNumerals(score);
-                feedbackEl.classList.add('feedback-correct');
-            } else {
-                feedbackEl.classList.add('feedback-incorrect');
-            }
+            
+            // تحديث عرض النقاط في كل مرة
+            document.getElementById('score-display').textContent = toArabicNumerals(score);
         }
+
+        // --- استبدال الدالة القديمة بالجديدة ---
+        window.checkAnswer = checkAnswer_REVISED;
+
         
         function goToNextStage() {
             currentStage = 2;
@@ -790,8 +932,10 @@
                  </button>
                  </div>`;
             if(window.saveAndFinishGame) {
-                // استدعاء دالة الحفظ مع النقاط (5 أسئلة * مرحلتين = 10 نقاط قصوى)
-                window.saveAndFinishGame(score * 2, finalTimeInSeconds);
+                // --- !!!!!! --- إصلاح خطأ حساب النقاط --- !!!!!! ---
+                // الآن `score` يمثل عدد الأجزاء الصحيحة (الحد الأقصى 10)
+                // لا نحتاج للضرب في 2
+                window.saveAndFinishGame(score, finalTimeInSeconds);
             }
         }
         

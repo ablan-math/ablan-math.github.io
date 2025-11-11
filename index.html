@@ -132,6 +132,7 @@
             color: #312e81;
             transition: all 0.2s ease;
             margin-bottom: 1rem;
+            position: relative; /* Added for badge positioning */
         }
         .lesson-test-card:hover {
             background-color: #e0e7ff;
@@ -185,6 +186,16 @@
         .action-btn:hover { transform: scale(1.05); }
         .dismiss-btn { background: transparent; border: none; color: #6b7280; font-size: 0.9rem; font-weight: 600; cursor: pointer; margin-top: 1rem; transition: color 0.2s; }
         .dismiss-btn:hover { color: #1f2937; text-decoration: underline; }
+        /* NEW: Secondary button style */
+        .secondary-action-btn {
+            background: transparent;
+            border: none;
+            color: #4f46e5;
+            font-size: 0.9rem;
+            font-weight: 700;
+            cursor: pointer;
+            text-decoration: underline;
+        }
         
         .recall-musaid-btn {
             background-color: #eef2ff; color: #4f46e5; border-radius: 50%;
@@ -195,6 +206,19 @@
             animation: pulse-glow 2s infinite;
         }
         .recall-musaid-btn:hover { transform: scale(1.1); background-color: #e0e7ff; }
+
+        /* NEW STYLE FOR DISMISSED STATE */
+        .recall-musaid-btn.musaid-dismissed {
+            background-color: #e5e7eb; /* Grey background */
+            color: #9ca3af; /* Grey icon */
+            animation: none; /* Turn off animation */
+            opacity: 0.8;
+        }
+        .recall-musaid-btn.musaid-dismissed:hover {
+             background-color: #d1d5db; /* Slightly darker grey on hover */
+             transform: scale(1.1); /* Keep the hover effect */
+        }
+        
         @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
         @keyframes pulse-glow {
             0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.7); }
@@ -620,16 +644,20 @@
             
             // --- END OF CORRECTED LOGIC ---
 
-            const nextTask = findNextTask(studentData);
+            // --- START OF NEW MUSAID LOGIC ---
+            const musaidTasks = determineMusaidTasks(studentData);
+            const nextTaskForSpotlight = musaidTasks.primaryTask; // This will be used for highlighting
             const stats = calculateRemainingTasks(studentData);
-            buildLearningPath(studentData, nextTask);
+            
+            buildLearningPath(studentData, nextTaskForSpotlight); // Pass the primary task for spotlighting
             
             const dismissUntil = localStorage.getItem('dismissMusaidUntil');
             const musaidIsDismissed = dismissUntil && new Date().getTime() < parseInt(dismissUntil);
 
-            if (nextTask && !musaidIsDismissed) {
-                showMusaidModal(nextTask, stats);
+            if (musaidTasks.primaryTask && !musaidIsDismissed) {
+                showMusaidModal(musaidTasks, stats);
             }
+            // --- END OF NEW MUSAID LOGIC ---
         }
 
         // --- Leaderboard Functions ---
@@ -715,14 +743,17 @@
             
             document.getElementById('recall-musaid-btn').addEventListener('click', () => {
                 localStorage.removeItem('dismissMusaidUntil');
+                updateMusaidIconState(); // <-- تحديث حالة الأيقونة
                 const student = getStudentFromStorage();
-                const nextTask = findNextTask(student);
+                const musaidTasks = determineMusaidTasks(student);
                 const stats = calculateRemainingTasks(student);
-                if (nextTask) {
-                    showMusaidModal(nextTask, stats);
+                if (musaidTasks.primaryTask) {
+                    showMusaidModal(musaidTasks, stats);
                 }
             });
             
+            updateMusaidIconState(); // <-- تعيين الحالة الأولية للأيقونة عند التحميل
+
             Object.keys(curriculumIndex).forEach((chapterKey) => {
                 const chapter = curriculumIndex[chapterKey];
                 let lessonSummariesHtml = '';
@@ -767,9 +798,12 @@
                     
                     const lessonLink = studentData.id ? `lessons/${lesson.id}.html?studentId=${studentData.id}&classId=${studentData.classIdentifier}` : `lessons/${lesson.id}.html`;
                     
+                    // Logic for initial spotlight (primary task only)
                     const isLessonSpotlight = nextTask && nextTask.type === 'lesson' && nextTask.details.id === lesson.id;
-                    const lessonTestHtml = `<a href="${lessonLink}" target="_top" class="lesson-test-card ${isLessonSpotlight ? 'spotlight' : ''}" style="position: relative;">
-                        ${isLessonSpotlight ? '<div class="start-here-badge">ابدأ هنا</div>' : ''}
+                    const lessonSpotlightText = isLessonSpotlight ? "ابدأ هنا" : "";
+                    
+                    const lessonTestHtml = `<a id="lesson-card-${lesson.id}" href="${lessonLink}" target="_top" class="lesson-test-card ${isLessonSpotlight ? 'spotlight' : ''}">
+                        ${isLessonSpotlight ? `<div class="start-here-badge">${lessonSpotlightText}</div>` : ''}
                         <span class="text-3xl ml-4">📖</span>
                         <span class="lesson-title flex-grow">${lesson.title}</span>
                         ${gradeHtml}
@@ -777,11 +811,13 @@
 
                     const gamesHtml = (lesson.games || []).map(game => {
                         const gameGrade = robustParseFloat(studentGames[game.id]?.grade);
+                        
+                        // Logic for initial spotlight (primary task only)
                         const isGameSpotlight = nextTask && nextTask.type === 'game' && nextTask.details.id === game.id;
-                        const gameSpotlightClass = isGameSpotlight ? 'spotlight' : '';
-                        const gameStartBadge = isGameSpotlight ? '<div class="start-here-badge" style="font-size: 0.7rem; top: -10px; right: -10px; left: auto;">ابدأ هنا</div>' : '';
+                        const gameSpotlightText = isGameSpotlight ? "ابدأ هنا" : "";
+                        const gameStartBadge = isGameSpotlight ? `<div class="start-here-badge" style="font-size: 0.7rem; top: -10px; right: -10px; left: auto;">${gameSpotlightText}</div>` : '';
 
-                        return `<div id="game-${game.id}" onclick="openGameModal('${game.id}')" class="game-card ${gameSpotlightClass}">
+                        return `<div id="game-${game.id}" onclick="openGameModal('${game.id}')" class="game-card ${isGameSpotlight ? 'spotlight' : ''}">
                                     ${gameStartBadge}
                                     <div class="game-icon-badge">🎮</div>
                                     <div class="game-title">${game.title}</div>
@@ -844,19 +880,78 @@
         }
 
 
-        // --- Musaid (Assistant) Logic ---
-        function findNextTask(studentData) {
-            const diagnostics = studentData.diagnostics || {};
-            if (!diagnostics.d_best_weighted && !diagnostics.d_test_overall) {
-                return { type: 'diagnostic', details: { title: 'الاختبار التشخيصي', id: 'diagnostic' } };
-            }
+        // --- START OF NEW MUSAID LOGIC (HELPER FUNCTIONS) ---
 
-            const studentLessons = studentData.lessons || {};
-            const studentGames = studentData.games || {};
-            const lessonRules = studentData.lessonRules || {};
+        /**
+         * NEW: Updates the visual state of the Musaid icon based on dismissed status.
+         */
+        function updateMusaidIconState() {
+            const recallBtn = document.getElementById('recall-musaid-btn');
+            if (!recallBtn) return;
+
+            const dismissUntil = localStorage.getItem('dismissMusaidUntil');
+            const isDismissed = dismissUntil && new Date().getTime() < parseInt(dismissUntil);
+
+            if (isDismissed) {
+                recallBtn.classList.add('musaid-dismissed');
+                recallBtn.title = "المساعد الشخصي (متوقف مؤقتاً)";
+            } else {
+                recallBtn.classList.remove('musaid-dismissed');
+                recallBtn.title = "إظهار المساعد الشخصي";
+            }
+        }
+
+        /**
+         * Checks if a complete task set (lesson + games) is fully completed.
+         */
+        function isTaskSetComplete(lesson, studentData) {
+            if (!lesson) return true; // If no lesson is provided, consider it complete
+            const { lessons = {}, games = {} } = studentData;
+
+            // 1. Check lesson test
+            if (robustParseFloat(lessons[lesson.id]?.grade) === null) {
+                return false;
+            }
+            // 2. Check games
+            for (const game of (lesson.games || [])) {
+                if (robustParseFloat(games[game.id]?.grade) === null) {
+                    return false;
+                }
+            }
+            // If all checks passed, the set is complete
+            return true;
+        }
+
+        /**
+         * Finds the specific first incomplete item within a task set (lesson or game).
+         */
+        function findFirstIncompleteInSet(lesson, studentData) {
+             if (!lesson) return null;
+             const { lessons = {}, games = {} } = studentData;
+             
+             // Check lesson first
+             if (robustParseFloat(lessons[lesson.id]?.grade) === null) {
+                 return { type: 'lesson', details: lesson };
+             }
+             
+             // Then check games
+             for (const game of (lesson.games || [])) {
+                 if (robustParseFloat(games[game.id]?.grade) === null) {
+                     return { type: 'game', details: game, parentLessonId: lesson.id };
+                 }
+             }
+             return null; // Should be complete
+        }
+
+        /**
+         * Finds the *very first* uncompleted task in the entire curriculum (old logic).
+         */
+        function findOldestUncompletedTask(studentData) {
+            const { lessons: studentLessons = {}, games: studentGames = {}, lessonRules = {} } = studentData;
 
             for (const chapterKey of Object.keys(curriculumIndex)) {
                 for (const lesson of curriculumIndex[chapterKey].lessons) {
+                    // Check if lesson is locked
                     const rule = lessonRules[lesson.id];
                     let isLocked = true;
                     if (rule) {
@@ -871,6 +966,7 @@
                     if (studentData && studentData.role === 'teacher') { isLocked = false; }
 
                     if (!isLocked) {
+                        // If unlocked, check for completion
                         if (robustParseFloat(studentLessons[lesson.id]?.grade) === null) {
                             return { type: 'lesson', details: lesson };
                         }
@@ -882,8 +978,94 @@
                     }
                 }
             }
-            return null;
+            return null; // All tasks are completed
         }
+
+        /**
+         * NEW MAIN LOGIC: Determines the primary and secondary tasks for the Musaid modal.
+         */
+        function determineMusaidTasks(studentData) {
+            if (!studentData) return { primaryTask: null, secondaryTask: null, messageType: 'none' };
+
+            const { diagnostics = {}, lessonRules = {}, role } = studentData;
+
+            // Priority 0: Diagnostic Test
+            if (!diagnostics.d_best_weighted && !diagnostics.d_test_overall) {
+                return {
+                    primaryTask: { type: 'diagnostic', details: { title: 'الاختبار التشخيصي', id: 'diagnostic' } },
+                    secondaryTask: null,
+                    messageType: 'diagnostic'
+                };
+            }
+
+            // Find the "Oldest Uncompleted Task" (Priority 3)
+            // We find this first, as it might be needed for the secondary notification.
+            const oldestUncompletedTask = findOldestUncompletedTask(studentData);
+
+            // Find "Newest" and "Previous" unlocked lessons
+            const unlockedLessons = [];
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            Object.values(curriculumIndex).forEach(chapter => {
+                chapter.lessons.forEach(lesson => {
+                    const rule = lessonRules[lesson.id];
+                    let isLocked = true;
+                    if (rule) {
+                        if (rule.method === 'يدوي' && rule.value === 'مفتوح') { isLocked = false; }
+                        else if (rule.method === 'تاريخ') {
+                            const openDate = parseDateAsLocal(rule.value);
+                            if (today >= openDate) { isLocked = false; }
+                        }
+                    } else { isLocked = false; }
+                    if (role === 'teacher') { isLocked = false; }
+
+                    if (!isLocked) {
+                        unlockedLessons.push(lesson);
+                    }
+                });
+            });
+
+            const newestLesson = unlockedLessons.length > 0 ? unlockedLessons[unlockedLessons.length - 1] : null;
+            const previousLesson = unlockedLessons.length > 1 ? unlockedLessons[unlockedLessons.length - 2] : null;
+
+            // Check completion status of the recent lessons
+            const isPreviousComplete = isTaskSetComplete(previousLesson, studentData);
+            const isNewestComplete = isTaskSetComplete(newestLesson, studentData);
+
+            // --- Apply Priority Logic ---
+
+            // Priority 1: (Lesson Before New) is incomplete
+            if (previousLesson && !isPreviousComplete) {
+                return {
+                    primaryTask: findFirstIncompleteInSet(previousLesson, studentData),
+                    secondaryTask: oldestUncompletedTask, // Pass oldest task for secondary button
+                    messageType: 'complete-previous'
+                };
+            }
+
+            // Priority 2: (Newest Lesson) is incomplete
+            if (newestLesson && !isNewestComplete) {
+                return {
+                    primaryTask: findFirstIncompleteInSet(newestLesson, studentData),
+                    secondaryTask: oldestUncompletedTask, // Pass oldest task for secondary button
+                    messageType: 'do-new'
+                };
+            }
+
+            // Priority 3: (Oldest Uncompleted) - This triggers if 1 and 2 are complete
+            if (oldestUncompletedTask) {
+                return {
+                    primaryTask: oldestUncompletedTask,
+                    secondaryTask: null, // No secondary task needed
+                    messageType: 'complete-oldest'
+                };
+            }
+
+            // All tasks are done
+            return { primaryTask: null, secondaryTask: null, messageType: 'all-done' };
+        }
+
 
         function calculateRemainingTasks(studentData) {
             let remainingLessons = 0;
@@ -894,7 +1076,7 @@
 
              for (const chapterKey of Object.keys(curriculumIndex)) {
                  for (const lesson of curriculumIndex[chapterKey].lessons) {
-                      const rule = lessonRules[lesson.id];
+                        const rule = lessonRules[lesson.id];
                     let isLocked = true;
                     if (rule) {
                         if (rule.method === 'يدوي' && rule.value === 'مفتوح') { isLocked = false; }
@@ -917,35 +1099,52 @@
                             }
                         }
                     }
-                }
-            }
+                 }
+             }
             return { remainingLessons, remainingGames };
         }
 
-        function showMusaidModal(nextTask, stats) {
-            if (!nextTask) return;
-            let taskTypeMessage = '';
-            let taskTitle = nextTask.details.title;
+        /**
+         * UPDATED: Shows the Musaid modal based on the new priority tasks.
+         */
+        function showMusaidModal(musaidTasks, stats) {
+            const { primaryTask, secondaryTask, messageType } = musaidTasks;
+            if (!primaryTask) return; // No task, do nothing
+
+            let taskTitle = primaryTask.details.title;
             let icon = '🎯';
-            
-            if (nextTask.type === 'diagnostic') {
-                taskTypeMessage = 'مرحباً بك! مهمتك الأولى هي إكمال الاختبار التشخيصي:';
-                icon = '🚀';
-            } else if (nextTask.type === 'lesson') {
-                taskTypeMessage = 'مهمتك التالية هي إكمال اختبار الدرس:';
-            } else if (nextTask.type === 'game') {
-                taskTypeMessage = 'لديك لعبة جديدة بانتظارك:';
-                icon = '🎮';
+            let taskTypeMessage = '';
+            let actionButtonText = '🚀 لنبدأ الآن';
+
+            // Set message and icon based on the priority type
+            switch (messageType) {
+                case 'diagnostic':
+                    taskTypeMessage = 'مرحباً بك! مهمتك الأولى هي إكمال الاختبار التشخيصي:';
+                    icon = '🚀';
+                    actionButtonText = '🚀 ابدأ الاختبار الآن';
+                    break;
+                case 'complete-previous':
+                    taskTypeMessage = 'انتبه! لديك مهام سابقة لم تكتملها. مهمتك ذات الأولوية الآن هي:';
+                    icon = '⚠️';
+                    break;
+                case 'do-new':
+                    taskTypeMessage = 'أحسنت! مهمتك التالية بانتظارك:';
+                    icon = '✨';
+                    break;
+                case 'complete-oldest':
+                    taskTypeMessage = 'رائع! أنت متقدم في الدروس الأخيرة. لاحظنا أن لديك مهمة قديمة لم تنهها:';
+                    icon = '🧐';
+                    break;
+                default: // Fallback
+                    taskTypeMessage = 'مهمتك التالية هي:';
             }
 
             const musaidBody = musaidModal.querySelector('#musaid-modal-body');
             const musaidFooter = musaidModal.querySelector('#musaid-modal-footer');
             const musaidHeader = musaidModal.querySelector('#musaid-modal-header');
-            const actionButtonText = nextTask.type === 'diagnostic' ? '🚀 ابدأ الاختبار الآن' : '🚀 لنبدأ الآن';
-
 
             musaidHeader.querySelector('.emoji-icon').textContent = icon;
-            musaidBody.innerHTML = `<p>مرحباً بك! ${taskTypeMessage}</p>
+            musaidBody.innerHTML = `<p>${taskTypeMessage}</p>
                 <p class="task-name">${taskTitle}</p>
                 <div class="stats-grid">
                     <div class="stat-item">
@@ -958,16 +1157,38 @@
                     </div>
                 </div>`;
             
-            musaidFooter.innerHTML = `<button id="musaid-action-btn" class="action-btn">${actionButtonText}</button>
-                                          <button id="musaid-dismiss-btn" class="dismiss-btn">👍 حسنًا، لا تظهر اليوم</button>`;
+            // Check if we need to show the secondary "old task" button
+            let secondaryTaskHtml = '';
+            if (secondaryTask && secondaryTask.details.id !== primaryTask.details.id) {
+                // Only show if the oldest task is different from the primary task
+                secondaryTaskHtml = `<button id="musaid-secondary-btn" class="secondary-action-btn">لديك مهام قديمة.. اذهب لأولها</button>`;
+            }
             
-            document.getElementById('musaid-action-btn').onclick = () => goToTaskAndCloseModal(nextTask);
+            musaidFooter.innerHTML = `
+                <button id="musaid-action-btn" class="action-btn">${actionButtonText}</button>
+                <div class="mt-3">${secondaryTaskHtml}</div>
+                <button id="musaid-dismiss-btn" class="dismiss-btn">👍 حسنًا، لا تظهر اليوم</button>`;
+            
+            // Add click listener for the primary task
+            document.getElementById('musaid-action-btn').onclick = () => goToTaskAndCloseModal(primaryTask, "ابدأ هنا");
+            
+            // Add click listener for the secondary task, if it exists
+            if (secondaryTaskHtml) {
+                document.getElementById('musaid-secondary-btn').onclick = () => goToTaskAndCloseModal(secondaryTask, "أكمل هنا");
+            }
+
             document.getElementById('musaid-dismiss-btn').onclick = dismissMusaidForToday;
 
             musaidModal.classList.remove('hidden');
         }
 
-        function goToTaskAndCloseModal(task) {
+        // --- END OF NEW MUSAID LOGIC ---
+
+
+        /**
+         * UPDATED: Handles navigation and dynamic spotlighting.
+         */
+        function goToTaskAndCloseModal(task, badgeText) {
             musaidModal.classList.add('hidden');
             let url;
             if (task.type === 'diagnostic') {
@@ -979,17 +1200,38 @@
                 return;
             }
 
-            let elementId = task.type === 'lesson' ? `lesson-${task.details.id}` : `game-${task.details.id}`;
+            // 1. Remove all existing spotlights and badges
+            document.querySelectorAll('.spotlight').forEach(el => el.classList.remove('spotlight'));
+            document.querySelectorAll('.start-here-badge').forEach(badge => badge.remove());
+
+            // 2. Find the target element
+            let elementId = task.type === 'lesson' ? `lesson-card-${task.details.id}` : `game-${task.details.id}`;
             const element = document.getElementById(elementId);
+
             if (element) {
+                // 3. Scroll to the element
+                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                
+                // 4. Apply new spotlight
+                element.classList.add('spotlight');
+                
+                // 5. Create and append the new badge
+                const badge = document.createElement('div');
+                badge.className = 'start-here-badge';
+                badge.textContent = badgeText;
+                
+                if (task.type === 'game') {
+                    // Apply specific style for game card badges
+                    badge.style.cssText = 'font-size: 0.7rem; top: -10px; right: -10px; left: auto;';
+                }
+                
+                element.appendChild(badge);
+
+                // 6. Ensure the chapter is expanded
                 const chapterCard = element.closest('.chapter-card');
                 if (chapterCard && !chapterCard.classList.contains('expanded')) {
                     chapterCard.classList.add('expanded');
                 }
-                
-                setTimeout(() => {
-                    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }, 300);
             }
         }
 
@@ -998,6 +1240,7 @@
             const expiry = now.getTime() + 24 * 60 * 60 * 1000;
             localStorage.setItem('dismissMusaidUntil', expiry);
             musaidModal.classList.add('hidden');
+            updateMusaidIconState(); // <-- تحديث حالة الأيقونة
         }
         
         function buildSummaryBox(lesson, index, grades, studentData, isLocked) {
@@ -1111,16 +1354,3 @@
     </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-

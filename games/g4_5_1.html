@@ -1,0 +1,1591 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لعبة بناء المتباينة (6 فئات)</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary-color: #007bff;
+            --primary-dark: #0056b3;
+            --correct-color: #28a745;
+            --correct-border: #208637;
+            --incorrect-color: #dc3545;
+            --incorrect-border: #b02a37;
+            --light-gray: #f0f4f8;
+            --dark-gray: #333;
+            --border-color: #ccc;
+            --secondary-color: #6c757d;
+            --golden-color: #ffc107;
+            --golden-dark: #e0a800;
+            --golden-bg: #fff8e1;
+            --golden-border: #ffc107;
+        }
+
+        /* --- أنيميشن للوميض --- */
+        @keyframes flash-green {
+            0%, 100% {
+                background-color: var(--correct-color);
+                color: #fff;
+                transform: scale(1.05);
+            }
+            50% {
+                background-color: #fff;
+                color: var(--correct-color);
+                transform: scale(1);
+            }
+        }
+        
+        /* أنيميشن الوميض للقفل النشط */
+        @keyframes pulse-lock {
+            0%, 100% {
+                transform: scale(1);
+                box-shadow: 0 0 8px rgba(0, 123, 255, 0.3);
+            }
+            50% {
+                transform: scale(1.05);
+                box-shadow: 0 0 15px rgba(0, 123, 255, 0.7);
+            }
+        }
+        @keyframes pulse-lock-golden {
+            0%, 100% {
+                transform: scale(1);
+                box-shadow: 0 0 8px rgba(255, 193, 7, 0.3);
+            }
+            50% {
+                transform: scale(1.05);
+                box-shadow: 0 0 15px rgba(255, 193, 7, 0.7);
+            }
+        }
+
+
+        body {
+            font-family: 'Cairo', sans-serif;
+            background-color: var(--light-gray);
+            color: var(--dark-gray);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            user-select: none;
+        }
+
+        /* شاشة البداية المنبثقة */
+        #splash-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            padding: 15px;
+            box-sizing: border-box;
+        }
+        #splash-content {
+            background-color: #ffffff;
+            border-radius: 12px;
+            padding: 25px;
+            text-align: center;
+            width: 95%;
+            max-width: 400px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+            border: 3px solid var(--primary-color);
+        }
+        #splash-content h2 {
+            color: var(--primary-dark);
+            margin-top: 0;
+            font-size: 1.5rem;
+        }
+        #splash-welcome {
+            font-size: 1.1rem;
+            line-height: 1.7;
+            margin-bottom: 15px;
+        }
+        #splash-author {
+            font-size: 1.0rem;
+            font-weight: 700;
+            color: var(--secondary-color);
+            margin-bottom: 25px;
+            display: block;
+        }
+        #start-game-btn {
+            padding: 12px 30px;
+            font-size: 1.2rem;
+            font-weight: 700;
+            background: linear-gradient(145deg, #007bff, #0056b3);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.1s, box-shadow 0.2s;
+        }
+        #start-game-btn:active { transform: scale(0.98); }
+
+        /* (تعديل) شاشة خريطة الأقفال (تم تصغيرها وإعادة ترتيبها) */
+        #locks-hub-screen {
+            width: 95%;
+            max-width: 360px; /* (تعديل) تم تكبيره قليلاً ليناسب 3 أعمدة */
+            background-color: #ffffff;
+            border-radius: 12px;
+            padding: 15px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            text-align: center;
+            border: 2px solid #ddd;
+            z-index: 1000;
+        }
+        #locks-hub-screen h2 {
+            color: var(--primary-dark);
+            margin-top: 0;
+            margin-bottom: 10px;
+            font-size: 1.4rem;
+        }
+        #locks-hub-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr); /* (تعديل) 3x2 */
+            gap: 10px; /* (تعديل) تصغير المسافة */
+            margin: 15px 0;
+        }
+        .lock-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background-color: var(--light-gray);
+            border-radius: 8px;
+            padding: 10px 5px; 
+            border: 2px solid var(--border-color);
+            transition: all 0.3s ease;
+            cursor: not-allowed; 
+            opacity: 0.6; 
+        }
+        .lock-item .lock-icon {
+            font-size: 2.0rem; 
+            color: var(--secondary-color);
+        }
+        .lock-item .lock-label {
+            font-size: 0.8rem; 
+            font-weight: 700;
+            margin-top: 5px;
+            color: var(--dark-gray);
+            min-height: 2.4em; 
+        }
+        .lock-item .lock-score {
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: var(--secondary-color);
+            min-height: 1.2em;
+        }
+        /* القفل الذهبي */
+        .lock-item.golden {
+            /* (تعديل) تم إزالة span 2 */
+            background-color: var(--golden-bg);
+            border-color: var(--golden-color);
+        }
+        .lock-item.golden .lock-icon {
+            color: var(--golden-dark);
+            font-size: 2.0rem; /* (تعديل) توحيد حجم الأيقونة */
+        }
+        /* القفل المكتمل (قابل للإعادة) */
+        .lock-item.completed, .lock-item.failed {
+            opacity: 1;
+            cursor: pointer; 
+        }
+        .lock-item.completed {
+            border-color: var(--correct-border);
+            background-color: #eaf6ec;
+        }
+        .lock-item.completed .lock-icon {
+            color: var(--correct-color);
+        }
+        .lock-item.completed .lock-score {
+            color: var(--correct-color);
+        }
+        .lock-item.failed {
+            border-color: var(--incorrect-border);
+            background-color: #fbebee;
+        }
+        .lock-item.failed .lock-icon {
+            color: var(--incorrect-color);
+        }
+        .lock-item.failed .lock-score {
+            color: var(--incorrect-color);
+        }
+        /* القفل المعطل (بسبب النقاط) */
+        .lock-item.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            background-color: #eee;
+        }
+        .lock-item.disabled .lock-icon {
+            color: #999;
+        }
+
+        /* القفل النشط (يومض وقابل للضغط) */
+        .lock-item.active {
+            animation: pulse-lock 1.5s infinite;
+            border-color: var(--primary-color);
+            cursor: pointer; 
+            opacity: 1; 
+        }
+        .lock-item.golden.active {
+            animation: pulse-lock-golden 1.5s infinite;
+            border-color: var(--golden-dark);
+        }
+        #hub-status-message {
+            font-size: 1.0rem; 
+            font-weight: 700;
+            color: var(--primary-dark);
+            min-height: 1.5em;
+        }
+
+
+        /* (تعديل) تم تصغير حاوية اللعبة */
+        .game-container {
+            width: 95%;
+            max-width: 340px; 
+            background-color: #ffffff;
+            border-radius: 12px;
+            padding: 15px; 
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            text-align: center;
+            border: 2px solid #ddd;
+            position: relative; 
+            overflow: hidden; 
+        }
+
+        /* تنسيق السؤال الذهبي */
+        .game-container.golden {
+            border-color: var(--golden-border);
+            box-shadow: 0 4px 15px rgba(255, 193, 7, 0.3);
+        }
+        .game-container.golden #lock-icon { color: var(--golden-dark); }
+        .game-container.golden #background-lock { color: var(--golden-dark); opacity: 0.4; }
+
+
+        #background-lock {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scaleX(-1) rotate(-5deg);
+            font-size: 250px; 
+            color: var(--primary-color);
+            opacity: 0.4; 
+            z-index: 1; 
+            transition: transform 0.3s ease; 
+        }
+
+        .game-content {
+            position: relative;
+            z-index: 2; 
+        }
+
+        #lock-icon {
+            font-size: 30px; 
+            color: var(--primary-color);
+            margin-bottom: 10px;
+            transform: rotate(5deg);
+            transition: transform 0.3s ease; 
+        }
+
+        #welcomeMessage {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--primary-dark);
+            margin-bottom: 10px;
+            min-height: 25px; 
+        }
+        .game-container.golden #welcomeMessage {
+            color: var(--golden-dark);
+        }
+        
+        #problem {
+            font-size: 1.4rem; 
+            font-weight: 700;
+            color: var(--primary-dark);
+            margin-bottom: 15px;
+            min-height: 50px; 
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap; 
+        }
+        
+        /* تنسيق الكسور */
+        .frac {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            vertical-align: middle;
+            margin: 0 4px;
+            padding: 0 2px;
+        }
+        .frac-num {
+            padding: 0 4px;
+        }
+        .frac-den {
+            border-top: 2px solid var(--dark-gray);
+            padding: 0 4px;
+        }
+
+        #stage1-logic {
+            margin-bottom: 15px;
+            min-height: 160px; 
+        }
+        
+        #stage1-logic p {
+            font-size: 1.0rem; 
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .logic-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .logic-btn {
+            padding: 10px 0; 
+            font-size: 1.1rem; 
+            font-weight: 700;
+            border: 2px solid var(--primary-color);
+            background-color: #fff;
+            color: var(--primary-color);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            width: 100px; 
+        }
+        /* تنسيق الزر الذهبي */
+        .game-container.golden .logic-btn {
+            border-color: var(--golden-color);
+            color: var(--golden-dark);
+        }
+        .game-container.golden .logic-btn.correct {
+            background-color: var(--correct-color);
+            border-color: var(--correct-border);
+            color: #fff;
+        }
+        .game-container.golden .logic-btn.incorrect {
+            background-color: var(--incorrect-color);
+            border-color: var(--incorrect-border);
+            color: #fff;
+        }
+
+
+        .logic-btn:disabled { cursor: not-allowed; opacity: 0.8; }
+        .logic-btn.correct { background-color: var(--correct-color); border-color: var(--correct-border); color: #fff; }
+        .logic-btn.incorrect { background-color: var(--incorrect-color); border-color: var(--incorrect-border); color: #fff; }
+        .logic-btn.flash-correct { animation: flash-green 0.7s 2; }
+
+        #stage1-hint {
+            font-size: 0.9rem; 
+            font-weight: 600;
+            padding: 8px;
+            border-radius: 6px;
+        }
+        #stage1-hint.correct { color: var(--correct-color); background-color: #eaf6ec; }
+        #stage1-hint.incorrect { color: var(--incorrect-border); background-color: #fbebee; }
+        /* تنسيق التلميح الذهبي */
+        .game-container.golden #stage1-hint.correct { background-color: #f3f9e9; }
+        .game-container.golden #stage1-hint.incorrect { background-color: #fbebee; }
+
+
+        #stage1-next-btn {
+            width: 100%;
+            padding: 10px;
+            font-size: 1.0rem;
+            font-weight: 700;
+            background: linear-gradient(145deg, #007bff, #0056b3);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.1s, box-shadow 0.2s;
+            box-shadow: 0 4px 8px rgba(0, 123, 255, 0.2);
+            margin-top: 10px;
+        }
+        #stage1-next-btn:active { transform: scale(0.98); }
+        /* تنسيق الزر الذهبي */
+        .game-container.golden #stage1-next-btn {
+            background: linear-gradient(145deg, var(--golden-color), var(--golden-dark));
+            box-shadow: 0 4px 8px rgba(255, 193, 7, 0.3);
+        }
+
+
+        #stage2-values {
+            display: flex;
+            flex-wrap: nowrap;
+            justify-content: center;
+            align-items: center;
+            gap: 5px;
+            margin-bottom: 15px;
+            width: 100%;
+            overflow-x: auto;
+            padding-bottom: 5px;
+        }
+
+        .variable, .static-operator {
+            font-size: 1.1rem; 
+            font-weight: 700;
+            color: #000;
+        }
+        .static-operator { color: var(--primary-dark); width: 20px; text-align: center; } 
+        #logic-display {
+            font-size: 1.0rem; 
+            font-weight: 700;
+            color: #000;
+            width: 50px; 
+            text-align: center;
+            padding: 8px 4px;
+            border: 2px solid transparent;
+        }
+
+        .value-input {
+            width: 40px;
+            padding: 8px 4px;
+            font-size: 1.1rem;
+            text-align: center;
+            border: 2px solid var(--border-color);
+            border-radius: 6px;
+            box-sizing: border-box;
+            appearance: none; 
+            font-family: 'Cairo', sans-serif;
+            direction: ltr; 
+        }
+        /* تنسيق الإدخال الذهبي */
+        .game-container.golden .value-input {
+             border-color: var(--golden-color);
+        }
+        .game-container.golden .value-input:focus {
+             outline: 2px solid var(--golden-dark);
+             border-color: var(--golden-dark);
+        }
+
+        /* (تعديل) تم إصلاح الخطأ بنقل الزر إلى هنا */
+        #unlock-btn {
+            width: 100%;
+            padding: 10px; 
+            font-size: 1.0rem; 
+            font-weight: 700;
+            background: linear-gradient(145deg, #007bff, #0056b3);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.1s, box-shadow 0.2s;
+            box-shadow: 0 4px 8px rgba(0, 123, 255, 0.2);
+        }
+        #unlock-btn:active { transform: scale(0.98); box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3); }
+        /* تنسيق الزر الذهبي */
+        .game-container.golden #unlock-btn {
+            background: linear-gradient(145deg, var(--golden-color), var(--golden-dark));
+            box-shadow: 0 4px 8px rgba(255, 193, 7, 0.3);
+        }
+
+
+        #post-answer-controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .post-btn {
+            flex: 1; 
+            padding: 10px; 
+            font-size: 0.9rem; 
+            font-weight: 700;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .post-btn.next { background-color: var(--primary-color); color: white; }
+        .post-btn.why { background-color: var(--secondary-color); color: white; }
+        .post-btn:active { transform: scale(0.98); }
+        /* تنسيق الزر الذهبي */
+        .game-container.golden .post-btn.next {
+             background-color: var(--golden-dark);
+        }
+
+
+        #feedback {
+            margin-top: 10px;
+            font-size: 0.95rem; 
+            font-weight: 700;
+            min-height: 30px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .correct { color: var(--correct-color); }
+        .incorrect { color: var(--incorrect-color); }
+        .partial { color: #ffc107; }
+
+        .hidden { display: none !important; }
+
+        /* --- شاشة الشرح المنبثقة --- */
+        #modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        #modal-content {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 500px;
+            position: relative;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            text-align: right; 
+        }
+        #modal-close-btn {
+            position: absolute;
+            top: 10px;
+            left: 15px; 
+            background: transparent;
+            border: none;
+            font-size: 2rem;
+            color: #aaa;
+            cursor: pointer;
+        }
+        #modal-title {
+            color: var(--primary-dark);
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+        }
+        #modal-body {
+            font-size: 1.0rem; 
+            line-height: 1.6;
+        }
+        #modal-body b { color: var(--primary-dark); }
+        
+        .solution-columns {
+            display: flex;
+            flex-direction: row;
+            justify-content: space-around;
+            gap: 15px;
+            border-top: 1px solid #eee;
+            padding-top: 10px;
+        }
+        .solution-column {
+            flex: 1;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border-radius: 6px;
+        }
+        .solution-column h4 {
+            margin-top: 0;
+            margin-bottom: 5px;
+            color: var(--primary-color);
+            border-bottom: 2px solid var(--primary-color);
+            padding-bottom: 5px;
+        }
+        /* تنسيق تحذير القسمة على سالب */
+        .warning-text {
+            color: var(--incorrect-border);
+            font-weight: 700;
+            background-color: var(--golden-bg);
+            padding: 2px 4px;
+            border-radius: 4px;
+            display: inline-block;
+        }
+        
+        /* شاشة النهاية */
+        #final-screen {
+            text-align: center;
+            padding: 20px;
+            width: 95%;
+            max-width: 380px; 
+            background-color: #ffffff;
+            border-radius: 12px;
+            padding: 20px; 
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            text-align: center;
+            border: 2px solid #ddd;
+        }
+        #final-screen h2 {
+            color: var(--primary-dark);
+            font-size: 1.8rem;
+        }
+        /* تنسيقات لسجل الأبطال (بدون Tailwind) */
+        #final-result-display p {
+            font-size: 1.1rem;
+            margin: 5px 0;
+        }
+        #final-result-display span {
+            font-weight: bold;
+            font-size: 1.3rem;
+        }
+        #leaderboard-loader {
+            font-size: 1.1rem;
+            color: var(--secondary-color);
+            padding: 20px;
+        }
+        #leaderboard-container {
+            margin-top: 20px;
+        }
+        #leaderboard-container h3 {
+            font-size: 1.5rem;
+            color: var(--dark-gray);
+            margin-bottom: 15px;
+        }
+        #leaderboard-container table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        #leaderboard-container th, #leaderboard-container td {
+            padding: 10px;
+            border: 1px solid #ddd;
+        }
+        #leaderboard-container th {
+            background-color: var(--dark-gray);
+            color: white;
+            font-size: 0.9rem;
+        }
+        #leaderboard-container td {
+            font-size: 1rem;
+        }
+        #leaderboard-container tr.current-user {
+            background-color: var(--golden-bg);
+            font-weight: bold;
+        }
+        #finish-game-wrapper {
+            margin-top: 30px;
+        }
+        #finish-game-btn {
+            padding: 12px 30px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            background-color: var(--secondary-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        #finish-game-btn:hover {
+            background-color: #5a6268;
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- شاشة البداية المنبثقة -->
+    <div id="splash-screen">
+        <div id="splash-content">
+            <h2>🔒 لعبة بناء المتباينة 🔒</h2>
+            <p id="splash-welcome">
+                أهلاً بك! انطلق في رحلة لفتح الأقفال الستة، بدءاً من الأقفال البسيطة ووصولاً إلى القفل الذهبي المنيع.
+                <br>
+                كل قفل يتطلب منك خطوتين: <b>اختيار الأداة</b> الصحيحة (و/أو) ثم <b>إيجاد الأرقام</b> الصحيحة.
+            </p>
+            <span id="splash-author">إعداد وتصميم: أ. عبدالعزيز خالد العبلان</span>
+            <button id="start-game-btn">ابدأ اللعبة!</button>
+        </div>
+    </div>
+
+    <!-- شاشة خريطة الأقفال (مخفية) -->
+    <div id="locks-hub-screen" class="hidden">
+        <h2>خريطة الأقفال</h2>
+        <div id="locks-hub-grid">
+            <!-- سيتم ملء الأقفال هنا بواسطة JS -->
+        </div>
+        <p id="hub-status-message">اضغط على القفل المتاح للمتابعة</p>
+        <!-- (جديد) زر إنهاء اللعبة -->
+        <button id="force-end-game-btn" class="post-btn why" style="width: 100%; margin-top: 15px; background-color: var(--secondary-color);">إنهاء اللعبة (تسجيل الدرجة)</button>
+    </div>
+
+
+    <!-- حاوية اللعبة (مخفية) -->
+    <div class="game-container hidden">
+        
+        <div id="background-lock">🔒</div>
+
+        <div id="game-content" class="game-content">
+            <div id="lock-icon">🔒</div>
+
+            <p id="welcomeMessage"></p>
+            
+            <h2 id="problem">...</h2>
+
+            <div id="stage1-logic">
+                <p>اختر الأداة الصحيحة لحل هذه المتباينة:</p>
+                <div class="logic-buttons">
+                    <button id="btn-logic-wa" class="logic-btn">و (تقاطع)</button>
+                    <button id="btn-logic-aw" class="logic-btn">أو (اتحاد)</button>
+                </div>
+                <div id="stage1-hint" class="hidden"></div>
+                <button id="stage1-next-btn" class="hidden">التالي</button>
+            </div>
+
+            <div id="stage2-values" class="input-area hidden">
+                <span class="variable">س</span>
+                <span id="op1" class="static-operator">≥</span>
+                <input type="text" class="value-input" id="val1" inputmode="numeric">
+                <span id="logic-display">...</span> 
+                <span class="variable">س</span>
+                <span id="op2" class="static-operator">≤</span>
+                <input type="text" class="value-input" id="val2" inputmode="numeric">
+            </div>
+
+            <!-- (تعديل) تم نقل الزر إلى هنا -->
+            <button id="unlock-btn" class="hidden">افتح القفل</button>
+
+            <div id="post-answer-controls" class="hidden">
+                <button id="btn-next" class="post-btn next">التالي (8)</button>
+                <button id="btn-why" class="post-btn why">اعرف لماذا؟</button>
+            </div>
+
+            <div id="feedback"></div>
+        </div> 
+    </div>
+    
+    <!-- شاشة النهاية (مخفية) -->
+    <div id="final-screen" class="hidden">
+        <h2>🎉 اكتمل التحدي! 🎉</h2>
+        <div id="final-result-display">
+            <!-- يتم ملؤها بواسطة JS -->
+        </div>
+        <div id="leaderboard-loader" style="display: none;">
+            جاري تحميل سجل الأبطال...
+        </div>
+        <div id="leaderboard-container">
+            <!-- يتم ملؤها بواسطة JS -->
+        </div>
+        <div id="finish-game-wrapper" style="display: none;">
+            <button id="finish-game-btn">العودة إلى المنصة</button>
+        </div>
+    </div>
+
+
+    <!-- شاشة الشرح المنبثقة -->
+    <div id="modal-overlay" class="hidden">
+        <div id="modal-content">
+            <button id="modal-close-btn">&times;</button>
+            <h3 id="modal-title">شرح الحل</h3>
+            <div id="modal-body">
+                <!-- الشرح سيتم ملؤه هنا -->
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        // --- وظائف تحويل الأرقام ---
+        function toArabicNumerals(str) {
+            const arabicNumerals = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+            if (str === null || str === undefined) return str;
+            return String(str).replace(/[0-9]/g, d => arabicNumerals[parseInt(d)]);
+        }
+
+        function toWesternNumerals(str) {
+            const arabicNumerals = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+            if (str === null || str === undefined) return str;
+            return String(str).replace(/[٠-٩]/g, d => arabicNumerals.indexOf(d));
+        }
+
+        // 1. الوصول لعناصر الواجهة (DOM)
+        const gameContainer = document.querySelector('.game-container');
+        const splashScreen = document.getElementById('splash-screen');
+        const startGameBtn = document.getElementById('start-game-btn');
+        const splashWelcomeEl = document.getElementById('splash-welcome');
+        
+        const locksHubScreen = document.getElementById('locks-hub-screen');
+        const locksHubGrid = document.getElementById('locks-hub-grid');
+        const hubStatusMessage = document.getElementById('hub-status-message');
+        const forceEndGameBtn = document.getElementById('force-end-game-btn'); // (جديد)
+
+        const gameContentEl = document.getElementById('game-content');
+        const finalScreenEl = document.getElementById('final-screen');
+        
+        const lockIconEl = document.getElementById('lock-icon');
+        const backgroundLockEl = document.getElementById('background-lock'); 
+        const welcomeMessageEl = document.getElementById('welcomeMessage'); 
+        const problemEl = document.getElementById('problem');
+        const feedbackEl = document.getElementById('feedback');
+        const unlockBtn = document.getElementById('unlock-btn');
+        // المرحلة 1
+        const stage1El = document.getElementById('stage1-logic');
+        const btnWa = document.getElementById('btn-logic-wa');
+        const btnAw = document.getElementById('btn-logic-aw');
+        const stage1HintEl = document.getElementById('stage1-hint');
+        const stage1NextBtn = document.getElementById('stage1-next-btn'); 
+        // المرحلة 2
+        const stage2El = document.getElementById('stage2-values');
+        const val1Input = document.getElementById('val1');
+        const val2Input = document.getElementById('val2');
+        const op1El = document.getElementById('op1');
+        const op2El = document.getElementById('op2');
+        const logicDisplayEl = document.getElementById('logic-display');
+        
+        const postAnswerControlsEl = document.getElementById('post-answer-controls');
+        const nextBtn = document.getElementById('btn-next');
+        const whyBtn = document.getElementById('btn-why');
+        const modalOverlay = document.getElementById('modal-overlay');
+        const modalCloseBtn = document.getElementById('modal-close-btn');
+        const modalBody = document.getElementById('modal-body');
+
+        // 2. بنك الأسئلة (محدث بالكامل - مطابق لـ question_list_review.md)
+        const problemCategories = [
+            // الفئة 1: أساسية
+            [
+                { 
+                    problem: "|س| < 3", op1: "<", val1: 3, op2: ">", val2: -3, logic: "و", hint: "تلميح: (أصغر من <) تعني 'تقاطع' (و).",
+                    explanation: "<b>المسألة:</b> |س| < 3<br><b>1. النوع:</b> بما أن العلامة (< أصغر من)، نستخدم 'و' (تقاطع).<br><b>2. الحل (مدمج):</b><br>" +
+                                 " -3 < س < 3 <br>(وهي نفسها: س > -3 <b>و</b> س < 3)<br>" +
+                                 "<b>الأرقام هي:</b> 3 و -3"
+                },
+                { 
+                    problem: "|س| ≥ 5", op1: "≥", val1: 5, op2: "≤", val2: -5, logic: "أو", hint: "تلميح: (أكبر من ≥) تعني 'اتحاد' (أو).",
+                    explanation: "<b>المسألة:</b> |س| ≥ 5<br><b>1. النوع:</b> بما أن العلامة (≥ أكبر من)، نستخدم 'أو' (اتحاد).<br><b>2. الحل:</b><br>" +
+                                 "<div class='solution-columns'>" +
+                                   "<div class='solution-column'><h4>الحل الأول (أ)</h4><b>س ≥ 5</b></div>" +
+                                   "<div class='solution-column'><h4>الحل الثاني (ب)</h4><b>س ≤ -5</b><br>(نعكس الإشارة والرقم)</div>" +
+                                 "</div>" +
+                                 "<b>الأرقام هي:</b> 5 و -5"
+                },
+                { 
+                    problem: "|س| < 1", op1: "<", val1: 1, op2: ">", val2: -1, logic: "و", hint: "تلميح: (أصغر من <) تعني 'تقاطع' (و).",
+                    explanation: "<b>المسألة:</b> |س| < 1<br><b>1. النوع:</b> بما أن العلامة (< أصغر من)، نستخدم 'و' (تقاطع).<br><b>2. الحل (مدمج):</b><br>" +
+                                 " -1 < س < 1 <br>(وهي نفسها: س > -1 <b>و</b> س < 1)<br>" +
+                                 "<b>الأرقام هي:</b> 1 و -1"
+                }
+            ],
+            // الفئة 2: إزاحة بسيطة
+            [
+                { 
+                    problem: "|س - 1| < 2", op1: "<", val1: 3, op2: ">", val2: -1, logic: "و", hint: "تلميح: (أصغر من <) تعني 'تقاطع' (و).",
+                    explanation: "<b>المسألة:</b> |س - 1| < 2<br><b>1. النوع:</b> بما أن العلامة (< أصغر من)، نستخدم 'و' (تقاطع).<br><b>2. الحل (مدمج):</b><br>" +
+                                 " -2 < س - 1 < 2 <br>(نضيف 1 لكل الأطراف)<br> -2 + 1 < س < 2 + 1<br>" +
+                                 "<b>-1 < س < 3</b> (وهي نفسها: س > -1 <b>و</b> س < 3)<br>" +
+                                 "<b>الأرقام هي:</b> 3 و -1"
+                },
+                { 
+                    problem: "|س + 3| ≥ 4", op1: "≥", val1: 1, op2: "≤", val2: -7, logic: "أو", hint: "تلميح: (أكبر من ≥) تعني 'اتحاد' (أو).",
+                    explanation: "<b>المسألة:</b> |س + 3| ≥ 4<br><b>1. النوع:</b> بما أن العلامة (≥ أكبر من)، نستخدم 'أو' (اتحاد).<br><b>2. الحل:</b><br>" +
+                                 "<div class='solution-columns'>" +
+                                   "<div class='solution-column'><h4>الحل الأول (أ)</h4>س + 3 ≥ 4<br>(نطرح 3 من الطرفين)<br><b>س ≥ 1</b></div>" +
+                                   "<div class='solution-column'><h4>الحل الثاني (ب)</h4>س + 3 ≤ -4<br>(نعكس الإشارة والرقم)<br>(نطرح 3 من الطرفين)<br><b>س ≤ -7</b></div>" +
+                                 "</div>" +
+                                 "<b>الأرقام هي:</b> 1 و -7"
+                },
+                { 
+                    problem: "|س - 5| > 1", op1: ">", val1: 6, op2: "<", val2: 4, logic: "أو", hint: "تلميح: (أكبر من >) تعني 'اتحاد' (أو).",
+                    explanation: "<b>المسألة:</b> |س - 5| > 1<br><b>1. النوع:</b> بما أن العلامة (> أكبر من)، نستخدم 'أو' (اتحاد).<br><b>2. الحل:</b><br>" +
+                                 "<div class='solution-columns'>" +
+                                   "<div class='solution-column'><h4>الحل الأول (أ)</h4>س - 5 > 1<br>(نضيف 5 للطرفين)<br><b>س > 6</b></div>" +
+                                   "<div class='solution-column'><h4>الحل الثاني (ب)</h4>س - 5 < -1<br>(نعكس الإشارة والرقم)<br>(نضيف 5 للطرفين)<br><b>س < 4</b></div>" +
+                                 "</div>" +
+                                 "<b>الأرقام هي:</b> 6 و 4"
+                }
+            ],
+            // الفئة 3: معامل للمتغير
+            [
+                { 
+                    problem: "|2س| ≤ 6", op1: "≤", val1: 3, op2: "≥", val2: -3, logic: "و", hint: "تلميح: (أصغر من ≤) تعني 'تقاطع' (و).",
+                    explanation: "<b>المسألة:</b> |2س| ≤ 6<br><b>1. النوع:</b> 'و' (تقاطع).<br><b>2. الحل (مدمج):</b><br>" +
+                                 " -6 ≤ 2س ≤ 6 <br>(نقسم كل الأطراف على 2)<br>" +
+                                 "<b>-3 ≤ س ≤ 3</b> (وهي نفسها: س ≥ -3 <b>و</b> س ≤ 3)<br>" +
+                                 "<b>الأرقام هي:</b> 3 و -3"
+                },
+                { 
+                    problem: "|3س| > 9", op1: ">", val1: 3, op2: "<", val2: -3, logic: "أو", hint: "تلميح: (أكبر من >) تعني 'اتحاد' (أو).",
+                    explanation: "<b>المسألة:</b> |3س| > 9<br><b>1. النوع:</b> 'أو' (اتحاد).<br><b>2. الحل:</b><br>" +
+                                 "<div class='solution-columns'>" +
+                                   "<div class='solution-column'><h4>الحل الأول (أ)</h4>3س > 9<br>(نقسم على 3)<br><b>س > 3</b></div>" +
+                                   "<div class='solution-column'><h4>الحل الثاني (ب)</h4>3س < -9<br>(نعكس ونقسم على 3)<br><b>س < -3</b></div>" +
+                                 "</div>" +
+                                 "<b>الأرقام هي:</b> 3 و -3"
+                },
+                { 
+                    problem: "|5س| ≤ 20", op1: "≤", val1: 4, op2: "≥", val2: -4, logic: "و", hint: "تلميح: (أصغر من ≤) تعني 'تقاطع' (و).",
+                    explanation: "<b>المسألة:</b> |5س| ≤ 20<br><b>1. النوع:</b> 'و' (تقاطع).<br><b>2. الحل (مدمج):</b><br>" +
+                                 " -20 ≤ 5س ≤ 20 <br>(نقسم كل الأطراف على 5)<br>" +
+                                 "<b>-4 ≤ س ≤ 4</b> (وهي نفسها: س ≥ -4 <b>و</b> س ≤ 4)<br>" +
+                                 "<b>الأرقام هي:</b> 4 و -4"
+                }
+            ],
+            // الفئة 4: تتطلب العزل
+            [
+                { 
+                    problem: "|س| + 2 < 7", op1: "<", val1: 5, op2: ">", val2: -5, logic: "و", hint: "تلميح: (أصغر من <) تعني 'تقاطع' (و).",
+                    explanation: "<b>المسألة:</b> |س| + 2 < 7<br><b>1. العزل:</b> أولاً، نطرح 2 من الطرفين.<br> |س| < 7 - 2  =>  <b>|س| < 5</b><br>" +
+                                 "<b>2. النوع:</b> 'و' (تقاطع).<br><b>3. الحل (مدمج):</b><br>" +
+                                 "<b>-5 < س < 5</b> (وهي نفسها: س > -5 <b>و</b> س < 5)<br>" +
+                                 "<b>الأرقام هي:</b> 5 و -5"
+                },
+                { 
+                    problem: "3|س| ≥ 12", op1: "≥", val1: 4, op2: "≤", val2: -4, logic: "أو", hint: "تلميح: (أكبر من ≥) تعني 'اتحاد' (أو).",
+                    explanation: "<b>المسألة:</b> 3|س| ≥ 12<br><b>1. العزل:</b> أولاً، نقسم الطرفين على 3.<br> |س| ≥ 12 / 3  =>  <b>|س| ≥ 4</b><br>" +
+                                 "<b>2. النوع:</b> 'أو' (اتحاد).<br><b>3. الحل:</b><br>" +
+                                 "<div class='solution-columns'>" +
+                                   "<div class='solution-column'><h4>الحل الأول (أ)</h4><b>س ≥ 4</b></div>" +
+                                   "<div class='solution-column'><h4>الحل الثاني (ب)</h4><b>س ≤ -4</b></div>" +
+                                 "</div>" +
+                                 "<b>الأرقام هي:</b> 4 و -4"
+                },
+                { 
+                    problem: "|س - 1| - 4 ≤ 2", op1: "≤", val1: 7, op2: "≥", val2: -5, logic: "و", hint: "تلميح: (أصغر من ≤) تعني 'تقاطع' (و).",
+                    explanation: "<b>المسألة:</b> |س - 1| - 4 ≤ 2<br><b>1. العزل:</b> أولاً، نضيف 4 للطرفين.<br> |س - 1| ≤ 2 + 4  =>  <b>|س - 1| ≤ 6</b><br>" +
+                                 "<b>2. النوع:</b> 'و' (تقاطع).<br><b>3. الحل (مدمج):</b><br>" +
+                                 " -6 ≤ س - 1 ≤ 6 <br>(نضيف 1 لكل الأطراف)<br>" +
+                                 "<b>-5 ≤ س ≤ 7</b> (وهي نفسها: س ≥ -5 <b>و</b> س ≤ 7)<br>" +
+                                 "<b>الأرقام هي:</b> 7 و -5"
+                }
+            ],
+            // الفئة 5: مركبة
+            [
+                { 
+                    problem: "|2س - 1| < 5", op1: "<", val1: 3, op2: ">", val2: -2, logic: "و", hint: "تلميح: (أصغر من <) تعني 'تقاطع' (و).",
+                    explanation: "<b>المسألة:</b> |2س - 1| < 5<br><b>1. النوع:</b> 'و' (تقاطع).<br><b>2. الحل (مدمج):</b><br>" +
+                                 " -5 < 2س - 1 < 5 <br>(نضيف 1 لكل الأطراف)<br> -4 < 2س < 6 <br>(نقسم كل الأطراف على 2)<br>" +
+                                 "<b>-2 < س < 3</b> (وهي نفسها: س > -2 <b>و</b> س < 3)<br>" +
+                                 "<b>الأرقام هي:</b> 3 و -2"
+                },
+                { 
+                    problem: "5|س + 1| ≥ 10", op1: "≥", val1: 1, op2: "≤", val2: -3, logic: "أو", hint: "تلميح: (أكبر من ≥) تعني 'اتحاد' (أو).",
+                    explanation: "<b>المسألة:</b> 5|س + 1| ≥ 10<br><b>1. العزل:</b> نقسم الطرفين على 5.<br> |س + 1| ≥ 2<br>" +
+                                 "<b>2. النوع:</b> 'أو' (اتحاد).<br><b>3. الحل:</b><br>" +
+                                 "<div class='solution-columns'>" +
+                                   "<div class='solution-column'><h4>الحل الأول (أ)</h4>س + 1 ≥ 2<br>(نطرح 1)<br><b>س ≥ 1</b></div>" +
+                                   "<div class='solution-column'><h4>الحل الثاني (ب)</h4>س + 1 ≤ -2<br>(نطرح 1)<br><b>س ≤ -3</b></div>" +
+                                 "</div>" +
+                                 "<b>الأرقام هي:</b> 1 و -3"
+                },
+                { 
+                    problem: "|<span class='frac'><span class='frac-num'>١س</span><span class='frac-den'>٢</span></span> + ١| - ٥ > ٢", 
+                    op1: ">", val1: 12, op2: "<", val2: -16, logic: "أو", hint: "تلميح: (أكبر من >) تعني 'اتحاد' (أو).",
+                    explanation: "<b>المسألة (مركبة):</b> |(1/2)س + 1| - 5 > 2<br><b>1. العزل:</b> أولاً، نضيف 5 للطرفين.<br> |(1/2)س + 1| > 7<br>" +
+                                 "<b>2. النوع:</b> 'أو' (اتحاد).<br><b>3. الحل:</b><br>" +
+                                 "<div class='solution-columns'>" +
+                                   "<div class='solution-column'><h4>الحل الأول (أ)</h4>(1/2)س + 1 > 7<br>(1/2)س > 6<br>(نضرب في 2)<br><b>س > 12</b></div>" +
+                                   "<div class='solution-column'><h4>الحل الثاني (ب)</h4>(1/2)س + 1 < -7<br>(1/2)س < -8<br>(نضرب في 2)<br><b>س < -16</b></div>" +
+                                 "</div>" +
+                                 "<b>الأرقام هي:</b> 12 و -16"
+                }
+            ],
+            // الفئة 6: الذهبية (تحدي)
+            [
+                { 
+                    problem: "|٣ - <span class='frac'><span class='frac-num'>١س</span><span class='frac-den'>٣</span></span>| - ١ ≤ ٨", 
+                    op1: "≤", val1: 36, op2: "≥", val2: -18, logic: "و", hint: "تلميح: (أصغر من ≤) تعني 'تقاطع' (و).",
+                    explanation: "<b>المسألة (ذهبية):</b> |3 - (1/3)س| - 1 ≤ 8<br><b>1. العزل:</b> أولاً، نضيف 1 للطرفين.<br> |3 - (1/3)س| ≤ 9<br>" +
+                                 "<b>2. النوع:</b> 'و' (تقاطع).<br><b>3. الحل (مدمج):</b><br>" +
+                                 " -9 ≤ 3 - (1/3)س ≤ 9 <br>(نطرح 3 من كل الأطراف)<br> -12 ≤ -(1/3)س ≤ 6 <br>" +
+                                 "<span class='warning-text'>(نضرب في -3 ونعكس كل الإشارات)</span><br>" +
+                                 " (-12) * (-3) ≥ س ≥ (6) * (-3) <br> 36 ≥ س ≥ -18 <br>" +
+                                 "<b>-18 ≤ س ≤ 36</b> (وهي نفسها: س ≥ -18 <b>و</b> س ≤ 36)<br>" +
+                                 "<b>الأرقام هي:</b> 36 و -18"
+                },
+                { 
+                    // سؤالك المحدث
+                    problem: "|١ - <span class='frac'><span class='frac-num'>٢س</span><span class='frac-den'>٣</span></span>| - ٥ > ٢", 
+                    op1: ">", val1: 12, op2: "<", val2: -9, logic: "أو", hint: "تلميح: (أكبر من >) تعني 'اتحاد' (أو).",
+                    explanation: "<b>المسألة (ذهبية):</b> |1 - (2/3)س| - 5 > 2<br><b>1. العزل:</b> أولاً، نضيف 5 للطرفين.<br> |1 - (2/3)س| > 7<br>" +
+                                 "<b>2. النوع:</b> 'أو' (اتحاد).<br><b>3. الحل:</b><br>" +
+                                 "<div class='solution-columns'>" +
+                                   "<div class='solution-column'><h4>الحل الأول (أ)</h4>1 - (2/3)س > 7<br>-(2/3)س > 6<br><span class='warning-text'>(2/3)س < -6</span><br>(نضرب في -1 ونعكس)<br>(نضرب في 3/2)<br><b>س < -9</b></div>" +
+                                   "<div class='solution-column'><h4>الحل الثاني (ب)</h4>1 - (2/3)س < -7<br>-(2/3)س < -8<br><span class='warning-text'>(2/3)س > 8</span><br>(نضرب في -1 ونعكس)<br>(نضرب في 3/2)<br><b>س > 12</b></div>" +
+                                 "</div>" +
+                                 "<b>الأرقام هي:</b> 12 و -9"
+                },
+                { 
+                    problem: "|5 - 2س| ≥ 3", op1: "≤", val1: 1, op2: "≥", val2: 4, logic: "أو", hint: "تلميح: (أكبر من ≥) تعني 'اتحاد' (أو).",
+                    explanation: "<b>المسألة (ذهبية):</b> |5 - 2س| ≥ 3<br><b>1. النوع:</b> 'أو' (اتحاد).<br><b>2. الحل:</b><br>" +
+                                 "<div class='solution-columns'>" +
+                                   "<div class='solution-column'><h4>الحل الأول (أ)</h4>5 - 2س ≥ 3<br>-2س ≥ 3 - 5<br>-2س ≥ -2<br><span class='warning-text'>س ≤ 1</span><br>(انتبه: عند القسمة على -2، نعكس اتجاه المتباينة!)</div>" +
+                                   "<div class='solution-column'><h4>الحل الثاني (ب)</h4>5 - 2س ≤ -3<br>-2س ≤ -3 - 5<br>-2س ≤ -8<br><span class='warning-text'>س ≥ 4</span><br>(انتبه: عند القسمة على -2، نعكس اتجاه المتباينة!)</div>" +
+                                 "</div>" +
+                                 "<b>الأرقام هي:</b> 1 و 4"
+                }
+            ]
+        ];
+        
+        let availableProblems = []; 
+        let currentCategoryIndex = 0;
+        let currentProblem;
+        let userLogicScore = 0; 
+        
+        let totalGameScore = 0; 
+        let gameStartTime = 0; 
+        
+        let categoryScores = new Array(6).fill(null); 
+        let nextUnlockableCategory = 0; 
+        let isRetry = false; 
+
+        let autoAdvanceTimer = null;
+        let countdownInterval = null;
+        let secondsLeft = 8;
+
+        // --- وظائف بدء وإعادة اللعبة ---
+        function startGame() {
+            splashScreen.classList.add('hidden');
+            
+            gameStartTime = Date.now(); 
+            totalGameScore = 0;
+            currentCategoryIndex = 0;
+            nextUnlockableCategory = 0;
+            categoryScores = new Array(6).fill(null);
+            
+            availableProblems = problemCategories.map(category => [...category]);
+            
+            showLocksHub();
+        }
+        
+        // (تعديل) تم تحديث منطق العرض بالكامل
+        function showLocksHub() {
+            gameContainer.classList.add('hidden');
+            finalScreenEl.classList.add('hidden');
+            locksHubScreen.classList.remove('hidden');
+            
+            locksHubGrid.innerHTML = '';
+            
+            let totalScoreSoFar = categoryScores.slice(0, 5).reduce((a, b) => a + (b || 0), 0);
+            let allCategoriesDone = true;
+
+            for (let i = 0; i < 6; i++) {
+                const lockItem = document.createElement('div');
+                lockItem.className = 'lock-item';
+                lockItem.id = `lock-item-${i}`;
+                
+                const isGolden = (i === 5);
+                const categoryNum = i + 1;
+                
+                let icon = '🔒';
+                let label = `القفل ${toArabicNumerals(categoryNum)}`;
+                let scoreText = '- / -';
+                
+                if (isGolden) {
+                    lockItem.classList.add('golden');
+                    icon = '🔑';
+                    label = 'القفل الذهبي';
+                }
+
+                if (categoryScores[i] !== null) {
+                    const score = categoryScores[i];
+                    const maxScore = isGolden ? 4 : 2;
+                    scoreText = `${toArabicNumerals(score)}/${toArabicNumerals(maxScore)}`;
+                    
+                    if (score === maxScore) {
+                        lockItem.classList.add('completed');
+                        icon = '🔓';
+                        if (isGolden) icon = '🗝️';
+                    } else {
+                        lockItem.classList.add('failed');
+                    }
+                } else {
+                    allCategoriesDone = false;
+                }
+                
+                // منطق تحديد القفل النشط أو القابل للإعادة
+                // 1. القفل الذهبي
+                if (isGolden) {
+                    if (nextUnlockableCategory < 5) { 
+                        lockItem.classList.add('disabled');
+                    } else if (totalScoreSoFar < 8 && categoryScores[i] === null) { 
+                        lockItem.classList.add('disabled');
+                        icon = '⛔️';
+                        label = 'مغلق (تحتاج 8 نقاط)';
+                    } else if (categoryScores[i] === null) { 
+                        lockItem.classList.add('active');
+                    }
+                
+                // 2. الأقفال العادية (1-5)
+                } else {
+                    if (i === nextUnlockableCategory) { 
+                        lockItem.classList.add('active');
+                    } else if (i > nextUnlockableCategory) { 
+                        lockItem.classList.add('disabled');
+                    }
+                }
+
+
+                lockItem.innerHTML = `
+                    <div class="lock-icon">${icon}</div>
+                    <div class="lock-label">${label}</div>
+                    <div class="lock-score">${scoreText}</div>
+                `;
+                
+                if (!lockItem.classList.contains('disabled')) {
+                    lockItem.addEventListener('click', () => {
+                        const retry = (categoryScores[i] !== null);
+                        loadProblem(i, retry);
+                    }, { once: true });
+                }
+                
+                locksHubGrid.appendChild(lockItem);
+            }
+            
+            // (تعديل) التحقق من انتهاء اللعبة (فقط إذا اكتملت كلها)
+            if (allCategoriesDone) {
+                 hubStatusMessage.textContent = '🎉 اكتمل التحدي! 🎉';
+                 // إخفاء زر الإنهاء الإجباري
+                 forceEndGameBtn.classList.add('hidden');
+                 setTimeout(showFinalScreen, 2000); 
+                 return;
+            }
+            
+            // (تعديل) إظهار زر الإنهاء الإجباري
+            forceEndGameBtn.classList.remove('hidden');
+            hubStatusMessage.textContent = toArabicNumerals(`اضغط على القفل المتاح للمتابعة`);
+        }
+
+
+        // 3. (تعديل) وظيفة تحميل مسألة جديدة
+        function loadProblem(categoryIndex, retry = false) {
+            locksHubScreen.classList.add('hidden');
+            gameContainer.classList.remove('hidden');
+            
+            clearInterval(countdownInterval);
+            clearTimeout(autoAdvanceTimer);
+            
+            currentCategoryIndex = categoryIndex; 
+            isRetry = retry; 
+
+            if (isRetry) {
+                totalGameScore -= (categoryScores[currentCategoryIndex] || 0);
+            }
+
+            const currentCategoryPool = availableProblems[currentCategoryIndex];
+            if (currentCategoryPool.length === 0) {
+                availableProblems[currentCategoryIndex] = [...problemCategories[currentCategoryIndex]];
+            }
+            
+            const problemIndex = Math.floor(Math.random() * availableProblems[currentCategoryIndex].length);
+            currentProblem = availableProblems[currentCategoryIndex][problemIndex];
+            availableProblems[currentCategoryIndex].splice(problemIndex, 1);
+            
+            
+            const categoryNum = currentCategoryIndex + 1;
+            const isGolden = (currentCategoryIndex === 5);
+            let categoryLabel = isGolden ? `🔑 السؤال الذهبي!` : `الفئة ${categoryNum} من 6`;
+            
+            if (isRetry) {
+                categoryLabel += " (إعادة)";
+            }
+
+            if (isGolden) {
+                welcomeMessageEl.textContent = toArabicNumerals(categoryLabel);
+                gameContainer.classList.add('golden');
+                lockIconEl.textContent = '🔑';
+                backgroundLockEl.textContent = '🗝️';
+            } else {
+                welcomeMessageEl.textContent = toArabicNumerals(categoryLabel);
+                gameContainer.classList.remove('golden');
+                lockIconEl.textContent = '🔒';
+                backgroundLockEl.textContent = '🔒';
+            }
+
+            problemEl.innerHTML = toArabicNumerals(currentProblem.problem);
+            op1El.textContent = toArabicNumerals(currentProblem.op1);
+            op2El.textContent = toArabicNumerals(currentProblem.op2);
+            
+            feedbackEl.textContent = '';
+            feedbackEl.className = '';
+            val1Input.value = '';
+            val2Input.value = '';
+            userLogicScore = 0;
+            
+            stage1El.classList.remove('hidden');
+            stage1HintEl.classList.add('hidden');
+            stage1NextBtn.classList.add('hidden'); 
+            stage2El.classList.add('hidden');
+            postAnswerControlsEl.classList.add('hidden');
+            
+            unlockBtn.classList.add('hidden');
+
+            btnWa.disabled = false;
+            btnAw.disabled = false;
+            btnWa.className = 'logic-btn';
+            btnAw.className = 'logic-btn';
+            
+            lockIconEl.style.transform = 'rotate(5deg)'; 
+            backgroundLockEl.style.transform = 'translate(-50%, -50%) scaleX(-1) rotate(-5deg)';
+        }
+
+        // 4. وظيفة اختيار الأداة (المرحلة 1) 
+        function selectLogic(choice) {
+            btnWa.disabled = true;
+            btnAw.disabled = true;
+
+            const correctLogic = currentProblem.logic;
+            const clickedBtn = (choice === 'و') ? btnWa : btnAw;
+            const correctBtn = (correctLogic === 'و') ? btnWa : btnAw;
+
+            if (choice === correctLogic) {
+                userLogicScore = 1; 
+                clickedBtn.classList.add('correct');
+                stage1HintEl.textContent = toArabicNumerals("أحسنت! " + currentProblem.hint);
+                stage1HintEl.className = 'correct';
+            } else {
+                userLogicScore = 0;
+                clickedBtn.classList.add('incorrect');
+                correctBtn.classList.add('flash-correct'); 
+                stage1HintEl.textContent = toArabicNumerals("إجابة خاطئة. " + currentProblem.hint);
+                stage1HintEl.className = 'incorrect';
+            }
+            stage1HintEl.classList.remove('hidden');
+            stage1NextBtn.classList.remove('hidden'); 
+        }
+
+        // 5. وظيفة الانتقال للمرحلة 2 
+        function transitionToStage2() {
+            stage1El.classList.add('hidden');
+            stage2El.classList.remove('hidden');
+            unlockBtn.classList.remove('hidden'); 
+            logicDisplayEl.textContent = toArabicNumerals(currentProblem.logic);
+            feedbackEl.textContent = 'الآن، أدخل الأرقام الصحيحة.';
+            feedbackEl.className = '';
+        }
+
+        // 6. وظيفة التحقق من الإجابة (المرحلة 2)
+        function checkAnswer() {
+            const userVal1 = parseFloat(toWesternNumerals(val1Input.value));
+            const userVal2 = parseFloat(toWesternNumerals(val2Input.value));
+
+            if (isNaN(userVal1) || isNaN(userVal2)) {
+                feedbackEl.textContent = 'الرجاء إدخال الرقمين';
+                feedbackEl.className = 'incorrect';
+                return;
+            }
+            let valuesCorrect = false;
+            const correctValues = [currentProblem.val1, currentProblem.val2].sort((a,b) => a - b);
+            const userValues = [userVal1, userVal2].sort((a,b) => a - b);
+            
+            if (userValues[0] === correctValues[0] && userValues[1] === correctValues[1]) {
+                valuesCorrect = true;
+            }
+            
+            const isGolden = (currentCategoryIndex === 5);
+            const pointsPerPart = isGolden ? 2 : 1; 
+            
+            let logicPoints = userLogicScore * pointsPerPart;
+            let valuePoints = (valuesCorrect ? 1 : 0) * pointsPerPart;
+            let totalPointsForThisQ = logicPoints + valuePoints;
+            
+            totalGameScore += totalPointsForThisQ; 
+            categoryScores[currentCategoryIndex] = totalPointsForThisQ; 
+            
+            if (!isRetry && currentCategoryIndex === nextUnlockableCategory) {
+                nextUnlockableCategory++;
+            }
+
+            let feedbackMessage = "";
+            let totalParts = isGolden ? 4 : 2; 
+
+            if (totalPointsForThisQ === totalParts) { 
+                feedbackMessage = `ممتاز! (${toArabicNumerals(totalPointsForThisQ)}/${toArabicNumerals(totalParts)}) القفل فُتح!`;
+                feedbackEl.className = 'correct';
+                lockIconEl.textContent = (isGolden) ? '🗝️' : '🔓';
+                backgroundLockEl.textContent = (isGolden) ? '🗝️' : '🔓';
+                lockIconEl.style.transform = 'rotate(15deg)'; 
+            } else if (totalPointsForThisQ > 0) { 
+                feedbackMessage = (userLogicScore === 1 && !valuesCorrect) ? 
+                    `الأداة كانت صحيحة، لكن الأرقام خاطئة. (${toArabicNumerals(totalPointsForThisQ)}/${toArabicNumerals(totalParts)})` : 
+                    `الأداة كانت خاطئة، لكن الأرقام صحيحة. (${toArabicNumerals(totalPointsForThisQ)}/${toArabicNumerals(totalParts)})`;
+                feedbackEl.className = 'partial';
+                lockIconEl.style.transform = 'scale(1.1) rotate(-5deg)';
+                setTimeout(() => { lockIconEl.style.transform = 'scale(1) rotate(5deg)'; }, 200); 
+            } else { 
+                feedbackMessage = `للأسف، الأداة والأرقام خاطئة. (${toArabicNumerals(totalPointsForThisQ)}/${toArabicNumerals(totalParts)})`;
+                feedbackEl.className = 'incorrect';
+                lockIconEl.style.transform = 'scale(1.1) rotate(-5deg)';
+                setTimeout(() => { lockIconEl.style.transform = 'scale(1) rotate(5deg)'; }, 200); 
+            }
+            feedbackEl.textContent = toArabicNumerals(feedbackMessage);
+
+            unlockBtn.classList.add('hidden');
+            postAnswerControlsEl.classList.remove('hidden');
+            
+            nextBtn.textContent = toArabicNumerals(`العودة للخريطة (8)`);
+            
+            startNextQuestionTimer();
+        }
+        
+        function returnToLocksHub() {
+            clearInterval(countdownInterval);
+            clearTimeout(autoAdvanceTimer);
+            showLocksHub(); 
+        }
+
+        // 7. وظائف المؤقت والشرح
+        function startNextQuestionTimer() {
+            clearInterval(countdownInterval);
+            clearTimeout(autoAdvanceTimer);
+
+            secondsLeft = 8;
+            nextBtn.textContent = toArabicNumerals(`العودة للخريطة (${secondsLeft})`);
+            
+            autoAdvanceTimer = setTimeout(returnToLocksHub, 8000); 
+
+            countdownInterval = setInterval(() => { 
+                secondsLeft--;
+                nextBtn.textContent = toArabicNumerals(`العودة للخريطة (${secondsLeft})`);
+
+                if (secondsLeft <= 0) {
+                    clearInterval(countdownInterval);
+                }
+            }, 1000);
+        }
+
+        function showExplanation() {
+            clearInterval(countdownInterval);
+            clearTimeout(autoAdvanceTimer);
+            nextBtn.textContent = "العودة للخريطة";
+
+            modalBody.innerHTML = toArabicNumerals(currentProblem.explanation);
+            modalOverlay.classList.remove('hidden');
+        }
+
+        function hideModal() {
+            modalOverlay.classList.add('hidden');
+        }
+        
+        // إظهار شاشة النهاية
+        function showFinalScreen() {
+            locksHubScreen.classList.add('hidden');
+            gameContainer.classList.add('hidden'); 
+            finalScreenEl.classList.remove('hidden'); 
+            gameContainer.classList.remove('golden'); 
+
+            const totalTimeInSeconds = Math.round((Date.now() - gameStartTime) / 1000);
+            
+            if (window.saveAndFinishGame) {
+                window.saveAndFinishGame(totalGameScore, totalTimeInSeconds);
+            } else {
+                console.error("Save function not found!");
+                const resultDisplay = document.getElementById('final-result-display');
+                if (resultDisplay) {
+                    resultDisplay.innerHTML = `<p style="color: red;">خطأ في الاتصال بالمنصة.</p><p>النقاط: <span>${toArabicNumerals(totalGameScore)} / ${toArabicNumerals(14)}</span></p>`;
+                }
+            }
+        }
+
+
+        // 8. ربط الأحداث
+        startGameBtn.addEventListener('click', startGame); 
+
+        btnWa.addEventListener('click', () => selectLogic('و'));
+        btnAw.addEventListener('click', () => selectLogic('أو'));
+        stage1NextBtn.addEventListener('click', transitionToStage2); 
+        unlockBtn.addEventListener('click', checkAnswer);
+        
+        nextBtn.addEventListener('click', returnToLocksHub); 
+        whyBtn.addEventListener('click', showExplanation);
+        modalCloseBtn.addEventListener('click', hideModal);
+        modalOverlay.addEventListener('click', function(e) {
+            if (e.target === modalOverlay) {
+                hideModal();
+            }
+        });
+        
+        // (جديد) ربط زر الإنهاء الإجباري
+        forceEndGameBtn.addEventListener('click', showFinalScreen);
+
+
+    </script>
+
+    <!-- 
+    ======================================================
+    محرك الربط وسجل الأبطال
+    ======================================================
+    -->
+    <script>
+    // --- START OF CONNECTION & LEADERBOARD ENGINE ---
+    (function() {
+        // --- CONFIGURATION ---
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
+        const GAME_ID = 'g4_5_1';                       
+        const GAME_MAX_POINTS = 14;                     
+        const PLATFORM_MAX_GRADE = 5;                   
+        const METRIC_TYPE = 'time';                     
+        const METRIC_LABEL = 'الوقت (ثواني)';           
+
+        // --- Read URL Parameters ---
+        const urlParams = new URLSearchParams(window.location.search);
+        const studentId = urlParams.get('studentId');
+        const classId = urlParams.get('classId');
+        const studentName = urlParams.get('studentName');
+
+        let currentUser = (studentId && studentName) ? { id: studentId, name: studentName } : null;
+
+        // --- CORE FUNCTIONS ---
+
+        // 1. الدالة الرئيسية
+        window.saveAndFinishGame = function(points, metricValue) {
+            const finalPoints = parseFloat(points) || 0;
+            const finalMetric = parseFloat(metricValue) || 0;
+            const maxPoints = parseFloat(GAME_MAX_POINTS) || 1;
+            const finalGrade = (finalPoints / maxPoints) * PLATFORM_MAX_GRADE;
+
+            const resultDisplay = document.getElementById('final-result-display');
+            if (resultDisplay) {
+                resultDisplay.innerHTML = `
+                    <p style="color: #333;">النقاط: <span style="font-weight: bold; font-size: 1.3rem; color: #000;">${toArabicNumerals(finalPoints)} / ${toArabicNumerals(maxPoints)}</span></p>
+                    <p style="color: var(--primary-dark);">الدرجة في المنصة: <span style="font-weight: bold; font-size: 1.5rem;">${toArabicNumerals(finalGrade.toFixed(1))} / ${toArabicNumerals(PLATFORM_MAX_GRADE)}</span></p>
+                `;
+            }
+
+            if (studentId && classId) {
+                const params = new URLSearchParams({
+                    action: 'saveGrade',
+                    studentId: studentId,
+                    classId: classId,
+                    itemId: GAME_ID,
+                    grade: finalGrade.toFixed(2),
+                    metricValue: Math.round(finalMetric).toString()
+                });
+                fetch(`${SCRIPT_URL}?${params.toString()}`)
+                    .then(res => res.json())
+                    .then(result => console.log('Save result:', result.status))
+                    .catch(err => console.error("Save Error:", err))
+                    .finally(fetchAndShowLeaderboard);
+            } else {
+                console.log(`Visitor finished. Score: ${finalPoints}, Metric: ${finalMetric}`);
+                fetchAndShowLeaderboard();
+            }
+        }
+
+        // 2. جلب وعرض سجل الأبطال
+        function fetchAndShowLeaderboard() {
+            const loader = document.getElementById('leaderboard-loader');
+            const container = document.getElementById('leaderboard-container');
+            if (!loader || !container) return;
+            
+            if (!classId) {
+                console.log("No classId found, skipping leaderboard for visitor.");
+                container.innerHTML = `<p style="text-align: center; color: #555; margin-top: 15px;">سجل الأبطال متاح للطلاب المسجلين فقط.</p>`;
+                showFinishButton();
+                return;
+            }
+
+            loader.style.display = 'block';
+            container.innerHTML = '';
+
+            const params = new URLSearchParams({
+                action: 'getLeaderboard',
+                gameId: GAME_ID,
+                metricType: METRIC_TYPE,
+                classId: classId
+            });
+
+            fetch(`${SCRIPT_URL}?${params.toString()}`)
+                .then(res => res.json())
+                .then(response => {
+                    if (response.status === 'success' && response.data) {
+                        displayLeaderboard(response.data);
+                    } else {
+                        throw new Error(response.message || 'Failed to load leaderboard data.');
+                    }
+                })
+                .catch(err => {
+                    console.error("Leaderboard Error:", err);
+                    container.innerHTML = `<p style="text-align: center; color: red;">حدث خطأ في تحميل سجل الأبطال.</p>`;
+                })
+                .finally(() => {
+                    loader.style.display = 'none';
+                    showFinishButton();
+                });
+        }
+        
+        // 3. بناء جدول سجل الأبطال
+        function displayLeaderboard(data) {
+            const container = document.getElementById('leaderboard-container');
+            if (!data || data.length === 0) {
+                container.innerHTML = `<p style="text-align: center; color: #555; margin-top: 15px;">لا توجد نتائج بعد. كن أول الأبطال!</p>`;
+                return;
+            }
+
+            let tableHTML = `
+                <div style="margin-top: 25px; border-top: 1px solid #eee; padding-top: 15px;">
+                    <h3 style="text-align: center;">🏆 سجل الأبطال 🏆</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>الترتيب</th>
+                                <th style="text-align: right;">اسم الطالب</th>
+                                <th>الدرجة</th>
+                                <th>${METRIC_LABEL}</th>
+                            </tr>
+                        </thead>
+                        <tbody>`;
+
+            data.forEach((player, index) => {
+                const rank = index + 1;
+                let rankDisplay = toArabicNumerals(rank);
+                if (rank === 1) rankDisplay = '🥇';
+                if (rank === 2) rankDisplay = '🥈';
+                if (rank === 3) rankDisplay = '🥉';
+
+                const isCurrentUser = (currentUser && player.name === currentUser.name);
+                const rowClass = isCurrentUser ? 'class="current-user"' : (index % 2 === 0 ? 'style="background-color: #f9f9f9;"' : '');
+
+                tableHTML += `
+                    <tr ${rowClass}>
+                        <td style="text-align: center; font-size: 1.2rem;">${rankDisplay}</td>
+                        <td style="text-align: right;">${player.name}</td>
+                        <td style="text-align: center;">${toArabicNumerals(player.grade.toFixed(1))}</td>
+                        <td style="text-align: center;">${toArabicNumerals(player.metricValue)}</td>
+                    </tr>`;
+            });
+
+            tableHTML += `</tbody></table></div>`;
+            container.innerHTML = tableHTML;
+        }
+
+        // 4. إظهار زر الإنهاء
+        function showFinishButton() {
+            const finishWrapper = document.getElementById('finish-game-wrapper');
+            if (finishWrapper) {
+                finishWrapper.style.display = 'block';
+            }
+        }
+
+        // 5. تخصيص رسالة الترحيب
+        document.addEventListener('DOMContentLoaded', () => {
+            const welcomeMessage = document.getElementById('splash-welcome');
+            if (studentName && welcomeMessage) {
+                welcomeMessage.innerHTML = `
+                    أهلاً بك يا <span style="font-weight: bold; color: var(--primary-dark);">${studentName}</span>! 
+                    <br>
+                    انطلق في رحلة لفتح الأقفال الستة، بدءاً من الأقفال البسيطة ووصولاً إلى القفل الذهبي المنيع.
+                    كل قفل يتطلب منك خطوتين: <b>اختيار الأداة</b> الصحيحة (و/أو) ثم <b>إيجاد الأرقام</b> الصحيحة.
+                `;
+            }
+
+            const finishBtn = document.getElementById('finish-game-btn');
+            if (finishBtn) {
+                finishBtn.addEventListener('click', () => {
+                    window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*');
+                });
+            }
+        });
+    })();
+    // --- END OF CONNECTION & LEADERBOARD ENGINE ---
+    </script>
+</body>
+</html>

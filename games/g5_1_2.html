@@ -1,0 +1,1509 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لعبة أنظمة المعادلات الخطية</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Cairo', sans-serif;
+            touch-action: manipulation;
+        }
+        canvas {
+            border-radius: 0.5rem;
+            cursor: crosshair;
+            image-rendering: pixelated;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: crisp-edges;
+        }
+        /* Style for fraction display */
+        .fraction {
+            display: inline-block;
+            vertical-align: middle;
+            text-align: center;
+            margin: 0 0.2em;
+            line-height: 1;
+        }
+        .numerator {
+            display: block;
+            padding: 0 0.2em;
+            font-size: 0.9em;
+        }
+        .denominator {
+            display: block;
+            border-top: 1.5px solid currentColor;
+            padding: 0 0.2em;
+            font-size: 0.9em;
+        }
+        
+        /* Style for fraction input fields */
+        .fraction-input {
+            display: inline-flex;
+            flex-direction: column;
+            margin: 0 0.25rem; 
+            vertical-align: middle;
+            position: relative;
+            top: 4px; /* Align with 'م =' label */
+        }
+        .fraction-input input {
+            width: 4rem; 
+            text-align: center;
+            border: 1px solid #cbd5e1;
+            border-radius: 0.25rem;
+            padding: 0.15rem; 
+            font-size: 0.9rem; 
+            -moz-appearance: textfield; /* Remove arrows in Firefox */
+        }
+        /* Remove arrows in Chrome, Safari, Edge */
+        .fraction-input input::-webkit-outer-spin-button,
+        .fraction-input input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        .fraction-input .fraction-bar {
+            height: 2px;
+            background-color: #475569;
+            margin: 2px 0;
+            border-radius: 1px;
+        }
+        
+        /* Style for input error container */
+        .fraction-input.input-error input {
+            border-color: #ef4444; /* red-500 */
+            background-color: #fee2e2; /* red-50 */
+        }
+        .fraction-input.input-error .fraction-bar {
+            background-color: #ef4444; /* red-500 */
+        }
+
+        /* Style for intercept input */
+        .intercept-input {
+            width: 4rem; 
+            text-align: center;
+            border: 1px solid #cbd5e1;
+            border-radius: 0.25rem;
+            padding: 0.15rem; 
+            font-size: 0.9rem; 
+            -moz-appearance: textfield;
+            margin: 0 0.25rem; 
+        }
+
+        /* Box for each equation */
+        .equation-box {
+            background-color: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.5rem;
+            padding: 0.5rem; 
+            margin-bottom: 0.5rem; 
+        }
+
+        /* Label for inputs (m=, b=) */
+        .input-label {
+            font-size: 1rem; 
+            font-weight: 700;
+            color: #334155;
+            margin: 0 0.15rem; 
+        }
+        
+        /* Stage 2 info boxes */
+        .info-box {
+            border: 3px solid transparent; 
+            padding: 0.5rem;
+            border-radius: 0.5rem;
+            background-color: #f8fafc; /* bg-slate-50 */
+            transition: all 0.3s ease-in-out;
+            margin: 0.25rem 0;
+        }
+
+        /* Animation for active equation */
+        @keyframes pulse-border {
+            0% { border-color: #0ea5e9; box-shadow: 0 0 0px rgba(14, 165, 233, 0.5); }
+            50% { border-color: #0ea5e9; box-shadow: 0 0 10px rgba(14, 165, 233, 0.7); }
+            100% { border-color: #0ea5e9; box-shadow: 0 0 0px rgba(14, 165, 233, 0.5); }
+        }
+
+        .active-equation-highlight {
+            animation: pulse-border 1.5s infinite;
+        }
+
+        /* Tooltip styles */
+        .tooltip {
+            position: relative;
+            display: inline-block;
+        }
+        .tooltip .tooltiptext {
+            visibility: hidden;
+            width: 120px;
+            background-color: #334155;
+            color: #fff;
+            text-align: center;
+            border-radius: 0.375rem;
+            padding: 5px 0;
+            position: absolute;
+            z-index: 10;
+            bottom: 125%; /* Position above the button */
+            left: 50%;
+            margin-left: -60px; /* Center the tooltip */
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-size: 0.75rem;
+        }
+        .tooltip:hover .tooltiptext {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        /* Pulsing point animation */
+        @keyframes pulse-point {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.8); opacity: 0.7; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .pulsing-point {
+            animation: pulse-point 1.5s infinite;
+        }
+
+        /* --- *** NEW: Leaderboard Scrollbar Styles *** --- */
+        #leaderboard-container {
+            max-height: 300px; /* Set a max height */
+            overflow-y: auto;   /* Add vertical scroll if needed */
+            padding-right: 6px; /* Space for scrollbar */
+            padding-left: 2px;
+        }
+        /* Simple scrollbar styling */
+        #leaderboard-container::-webkit-scrollbar {
+            width: 8px;
+        }
+        #leaderboard-container::-webkit-scrollbar-track {
+            background: #f1f5f9; /* slate-100 */
+            border-radius: 4px;
+        }
+        #leaderboard-container::-webkit-scrollbar-thumb {
+            background: #94a3b8; /* slate-400 */
+            border-radius: 4px;
+        }
+        #leaderboard-container::-webkit-scrollbar-thumb:hover {
+            background: #64748b; /* slate-500 */
+        }
+        /* --- *** END NEW STYLES *** --- */
+
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 flex items-center justify-center min-h-screen p-2">
+
+    <!-- Start Screen -->
+    <div id="start-screen" class="w-full max-w-md mx-auto p-4 flex flex-col items-center justify-center text-center">
+        <div class="bg-white p-6 rounded-xl shadow-lg w-full">
+            <h1 id="start-title" class="text-3xl md:text-4xl font-bold text-sky-700">لعبة أنظمة المعادلات الخطية</h1>
+            
+            <p id="welcomeMessage" class="text-slate-500 mt-2 text-lg">تعلم حل نظام من معادلتين خطيتين بيانياً</p>
+
+            <div id="final-result-display" class="my-4 text-center"></div>
+
+            <div id="author-info" class="my-6">
+                <p class="text-slate-600">إعداد وبرمجة</p>
+                <p class="text-xl font-bold text-slate-800">أ. عبدالعزيز خالد العبلان</p>
+                <!-- *** REMOVED: (تم التطوير بواسطة Gemini) *** -->
+            </div>
+
+            <button id="start-btn" class="w-full bg-sky-600 text-white font-bold py-3 px-10 rounded-lg shadow-md hover:bg-sky-700">
+                ابدأ اللعبة
+            </button>
+
+            <!-- Leaderboard and Finish button -->
+            <div id="leaderboard-loader" style="display: none;" class="mt-4"><p>جاري تحميل سجل الأبطال...</p></div>
+            <div id="leaderboard-container"></div>
+            <div id="finish-game-wrapper" style="display: none;" class="mt-6">
+                <button id="finish-game-btn" class="w-full bg-gray-500 text-white font-bold py-3 px-10 rounded-lg shadow-md hover:bg-gray-600">
+                    العودة إلى المنصة
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Container -->
+    <div id="game-container" class="w-full max-w-md mx-auto flex flex-col items-center justify-center space-y-2 hidden">
+        <main class="w-full bg-white p-3 rounded-xl shadow-lg flex flex-col items-center space-y-2">
+            
+            <div class="w-full flex justify-between items-center px-2">
+                <div id="score-display" class="font-bold text-sky-700 text-base">الدرجة: ٠ / ١٣٥</div>
+                <div id="timer-display" class="font-bold text-red-600 text-base">٠٠:٠٠</div>
+                <div id="question-counter" class="text-slate-500 text-sm">السؤال ١ / ٣</div>
+            </div>
+
+            <div class="text-center w-full">
+                <h2 id="stage-title" class="text-lg font-bold text-sky-600">المرحلة 1: تحليل المعادلات</h2>
+                <p id="instruction" class="text-sm">أوجد الميل (م) والمقطع (ب) لكل معادلة:</p>
+            </div>
+
+            <!-- Stage 1: Input Fields -->
+            <div id="stage1-inputs" class="w-full max-w-sm">
+                <!-- Equation 1 Inputs -->
+                <div class="equation-box">
+                    <div id="eq1-display" class="text-lg font-bold my-2 text-center text-blue-700"></div>
+                    <div class="flex items-center justify-center gap-1 flex-wrap">
+                        <label class="input-label">م =</label>
+                        <div class="fraction-input">
+                            <input type="text" inputmode="decimal" id="eq1-m-num" placeholder="بسط">
+                            <span class="fraction-bar"></span>
+                            <input type="text" inputmode="decimal" id="eq1-m-den" placeholder="مقام">
+                        </div>
+                        <label class="input-label ml-2">ب =</label>
+                        <input type="text" inputmode="decimal" id="eq1-b" class="intercept-input">
+                    </div>
+                </div>
+                <!-- Equation 2 Inputs -->
+                <div class="equation-box">
+                    <div id="eq2-display" class="text-lg font-bold my-2 text-center text-green-700"></div>
+                    <div class="flex items-center justify-center gap-1 flex-wrap">
+                        <label class="input-label">م =</label>
+                        <div class="fraction-input">
+                            <input type="text" inputmode="decimal" id="eq2-m-num" placeholder="بسط">
+                            <span class="fraction-bar"></span>
+                            <input type="text" inputmode="decimal" id="eq2-m-den" placeholder="مقام">
+                        </div>
+                        <label class="input-label ml-2">ب =</label>
+                        <input type="text" inputmode="decimal" id="eq2-b" class="intercept-input">
+                    </div>
+                </div>
+                <button id="check-inputs-btn" class="w-full mt-1 bg-sky-600 text-white font-bold py-2 px-6 rounded-lg shadow-md hover:bg-sky-700">
+                    تحقق من التحليل
+                </button>
+            </div>
+
+            <!-- Stage 2: Info Container -->
+            <div id="stage2-info-container" class="hidden w-full max-w-sm grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div id="eq1-info-box" class="info-box text-blue-700">
+                    <p id="eq1-info-text" class="font-bold text-center text-lg"></p>
+                    <p id="eq1-info-stats" class="text-center text-sm"></p>
+                </div>
+                <div id="eq2-info-box" class="info-box text-green-700">
+                    <p id="eq2-info-text" class="font-bold text-center text-lg"></p>
+                    <p id="eq2-info-stats" class="text-center text-sm"></p>
+                </div>
+            </div>
+
+            <!-- Stage 2: Canvas -->
+            <div id="stage2-canvas" class="hidden w-full aspect-square max-w-sm relative">
+                <!-- Explanation popup panel -->
+                <div id="explanation-panel" class="hidden absolute top-0 left-1/2 -translate-x-1/2 z-10 w-11/12 p-2 my-1 bg-sky-50 border-2 border-sky-200 rounded-lg text-sm text-center font-bold text-sky-800 shadow-lg">
+                    شرح...
+                </div>
+                <canvas id="graph-canvas"></canvas>
+                <!-- Pulsing point (Stage 3) will be appended here -->
+            </div>
+
+            <!-- Feedback message area -->
+            <div id="feedback" class="h-5 text-center text-sm font-bold"></div>
+            
+            <!-- Action Buttons Container -->
+            <div id="action-buttons" class="w-full flex justify-center pt-1 gap-2 flex-wrap">
+                <!-- Button: Reset Drawing (Try Again) -->
+                <button id="draw-reset-btn" class="hidden bg-amber-500 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-amber-600 text-sm">
+                    مسح (حاول بنفسك)
+                </button>
+                <!-- Button: Check Line -->
+                <button id="check-line-btn" class="hidden bg-indigo-500 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-indigo-600 text-sm">
+                    تحقق
+                </button>
+                <!-- Button: Replay Animation -->
+                <button id="replay-btn" class="hidden bg-sky-500 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-sky-600 text-sm">
+                    إعادة الشرح
+                </button>
+                <!-- Button: Skip (to next line or intersection) -->
+                <button id="skip-btn" class="hidden bg-slate-500 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-slate-600 text-sm">
+                    الانتقال للتالي
+                </button>
+                <!-- Button: Continue (from Stage 1 to 2) -->
+                <button id="continue-btn" class="hidden bg-sky-500 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-sky-600 text-sm">
+                    متابعة للرسم
+                </button>
+                <!-- Button: Next Question -->
+                <button id="next-btn" class="hidden bg-emerald-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-emerald-700 text-sm">
+                    السؤال التالي
+                </button>
+            </div>
+        </main>
+    </div>
+
+<script>
+    // --- DOM Elements ---
+    const startScreen = document.getElementById('start-screen'), startBtn = document.getElementById('start-btn'), startTitle = document.getElementById('start-title');
+    const authorInfo = document.getElementById('author-info');
+    const gameContainer = document.getElementById('game-container');
+    const scoreDisplay = document.getElementById('score-display'), questionCounter = document.getElementById('question-counter'), timerDisplay = document.getElementById('timer-display');
+    const stageTitle = document.getElementById('stage-title'), instruction = document.getElementById('instruction');
+    
+    const stage1Inputs = document.getElementById('stage1-inputs');
+    const eq1Display = document.getElementById('eq1-display'), eq2Display = document.getElementById('eq2-display');
+    const checkInputsBtn = document.getElementById('check-inputs-btn');
+    
+    const stage2InfoContainer = document.getElementById('stage2-info-container');
+    const eq1InfoBox = document.getElementById('eq1-info-box'), eq2InfoBox = document.getElementById('eq2-info-box');
+    const eq1InfoText = document.getElementById('eq1-info-text'), eq1InfoStats = document.getElementById('eq1-info-stats');
+    const eq2InfoText = document.getElementById('eq2-info-text'), eq2InfoStats = document.getElementById('eq2-info-stats');
+
+    const stage2CanvasContainer = document.getElementById('stage2-canvas'), canvas = document.getElementById('graph-canvas'), ctx = canvas.getContext('2d');
+    const feedback = document.getElementById('feedback'), explanationPanel = document.getElementById('explanation-panel');
+    
+    // Action Buttons
+    const actionButtons = document.getElementById('action-buttons');
+    const drawResetBtn = document.getElementById('draw-reset-btn');
+    const checkLineBtn = document.getElementById('check-line-btn'); 
+    const continueBtn = document.getElementById('continue-btn');
+    const nextBtn = document.getElementById('next-btn');
+    const replayBtn = document.getElementById('replay-btn');
+    const skipBtn = document.getElementById('skip-btn');
+
+
+    // --- Game State & Config ---
+    const TOTAL_QUESTIONS = 3;
+    const LINE1_COLOR = '#1d4ed8'; // Blue
+    const LINE2_COLOR = '#15803d'; // Green
+    const INTERSECTION_COLOR = '#10b981'; // Emerald
+    const ERROR_COLOR = '#ef4444'; // Red
+    const RUN_COLOR = '#dc2626'; // Red-600 for Maqam (Run)
+
+    // Scoring
+    const STAGE1_POINTS = 20; // 5(m1)+5(b1) + 5(m2)+5(b2)
+    const STAGE2_LINE_POINTS = 10; // 10 for Line 1, 10 for Line 2
+    const STAGE3_INTERSECTION_POINTS = 5;
+    const TOTAL_POINTS_PER_QUESTION = STAGE1_POINTS + (STAGE2_LINE_POINTS * 2) + STAGE3_INTERSECTION_POINTS; // 45
+    const GAME_MAX_RAW_SCORE = TOTAL_POINTS_PER_QUESTION * TOTAL_QUESTIONS; // 135
+
+
+    let gameState = {
+        stage: 1, // 1: Analysis, 2.1: Draw Line 1, 2.2: Draw Line 2, 3: Intersection
+        score: 0,
+        currentProblem: null,
+        line1Points: [], // User's points for line 1
+        line2Points: [], // User's points for line 2
+        correctLine1Points: [], // Correct points (from animation/success)
+        correctLine2Points: [], // Correct points (from animation/success)
+        questionsCompleted: 0,
+        stage1Attempts: 0, 
+        totalSeconds: 0,
+        timerInterval: null,
+        isTimerRunning: false,
+        isAnimating: false,
+        isDrawingLocked: false // Locks canvas click
+    };
+
+    // Question Bank (9 questions)
+    const systemsBank = [
+        {
+            eq1: { m: 1, b: 1, displayM: { n: 1, d: 1 }, text: 'ص = س + ١' },
+            eq2: { m: -1, b: 3, displayM: { n: -1, d: 1 }, text: 'ص = -س + ٣' },
+            solution: { x: 1, y: 2 }
+        },
+        {
+            eq1: { m: 2, b: -3, displayM: { n: 2, d: 1 }, text: 'ص = ٢س - ٣' },
+            eq2: { m: -0.5, b: 2, displayM: { n: -1, d: 2 }, text: 'ص = -٠.٥س + ٢' },
+            solution: { x: 2, y: 1 }
+        },
+        {
+            eq1: { m: 1, b: -2, displayM: { n: 1, d: 1 }, text: 'ص = س - ٢' },
+            eq2: { m: 3, b: 0, displayM: { n: 3, d: 1 }, text: 'ص = ٣س' },
+            solution: { x: -1, y: -3 }
+        },
+        {
+            eq1: { m: 0.5, b: 1, displayM: { n: 1, d: 2 }, text: 'ص = ٠.٥س + ١' },
+            eq2: { m: -1, b: 4, displayM: { n: -1, d: 1 }, text: 'ص = -س + ٤' },
+            solution: { x: 2, y: 2 }
+        },
+        {
+            eq1: { m: -2, b: 0, displayM: { n: -2, d: 1 }, text: 'ص = -٢س' },
+            eq2: { m: 1, b: 3, displayM: { n: 1, d: 1 }, text: 'ص = س + ٣' },
+            solution: { x: -1, y: 2 }
+        },
+        {
+            eq1: { m: 0.6, b: 2, displayM: { n: 3, d: 5 }, text: 'ص = ٠.٦س + ٢' },
+            eq2: { m: -1, b: 10, displayM: { n: -1, d: 1 }, text: 'ص = -س + ١٠' },
+            solution: { x: 5, y: 5 }
+        },
+        {
+            eq1: { m: (2/3), b: -1, displayM: { n: 2, d: 3 }, text: 'ص = (٢/٣)س - ١' },
+            eq2: { m: (-1/3), b: 2, displayM: { n: -1, d: 3 }, text: 'ص = (-١/٣)س + ٢' },
+            solution: { x: 3, y: 1 }
+        },
+        {
+            eq1: { m: 1, b: 4, displayM: { n: 1, d: 1 }, text: 'ص = س + ٤' },
+            eq2: { m: -2, b: -2, displayM: { n: -2, d: 1 }, text: 'ص = -٢س - ٢' },
+            solution: { x: -2, y: 2 }
+        },
+        {
+            eq1: { m: -1, b: 1, displayM: { n: -1, d: 1 }, text: 'ص = -س + ١' },
+            eq2: { m: 2, b: -5, displayM: { n: 2, d: 1 }, text: 'ص = ٢س - ٥' },
+            solution: { x: 2, y: -1 }
+        }
+    ];
+    let gameQuestions = []; // This will be a shuffled list
+
+    // --- Utility & Setup ---
+    const toArabicNumerals = (numStr) => String(numStr).replace(/[0-9-.]/g, d => '٠١٢٣٤٥٦٧٨٩.'[d === '.' ? 10 : (d === '-' ? 11 : parseInt(d))] || d);
+    let canvasSize, gridSize, unit, maxGridValue = 10;
+    
+    // Canvas Setup
+    const setupCanvas = () => { 
+        // Use Math.round to avoid fractional pixels for canvas size
+        canvas.width = Math.round(stage2CanvasContainer.clientWidth); 
+        canvas.height = canvas.width; 
+        canvasSize = canvas.width; 
+        gridSize = canvasSize; 
+        unit = gridSize / (2 * maxGridValue); 
+        drawGrid(); 
+    };
+    window.addEventListener('resize', setupCanvas);
+
+    // --- Timer Functions ---
+    const formatTime = (totalSeconds) => { const minutes = Math.floor(totalSeconds / 60); const seconds = totalSeconds % 60; const paddedSeconds = String(seconds).padStart(2, '0'); const paddedMinutes = String(minutes).padStart(2, '0'); return `${toArabicNumerals(paddedMinutes)}:${toArabicNumerals(paddedSeconds)}`; };
+    const startTimer = () => { if (!gameState.isTimerRunning) { gameState.isTimerRunning = true; gameState.timerInterval = setInterval(() => { gameState.totalSeconds++; timerDisplay.textContent = formatTime(gameState.totalSeconds); }, 1000); } };
+    const stopTimer = () => { gameState.isTimerRunning = false; clearInterval(gameState.timerInterval); timerDisplay.textContent = formatTime(gameState.totalSeconds); };
+
+    // --- Drawing functions (Pixel-Perfect) ---
+
+    // Utility to get pixel-perfect integer coordinates
+    const toPixel = (coord) => Math.round(coord);
+
+    // Main grid drawing function
+    function drawGrid() {
+        maxGridValue = 10;
+        unit = gridSize / (2 * maxGridValue); // Recalculate unit
+        ctx.clearRect(0, 0, canvasSize, canvasSize);
+        ctx.strokeStyle = '#e2e8f0'; // Light grid
+        ctx.lineWidth = 1;
+        const origin = toCanvasCoord(0, 0);
+        
+        // Draw grid lines at pixel-perfect positions
+        for (let i = -maxGridValue; i <= maxGridValue; i++) {
+            let pos_x = toPixel(toCanvasCoord(i, 0).x);
+            ctx.beginPath(); ctx.moveTo(pos_x, 0); ctx.lineTo(pos_x, gridSize); ctx.stroke();
+            let pos_y = toPixel(toCanvasCoord(0, i).y);
+            ctx.beginPath(); ctx.moveTo(0, pos_y); ctx.lineTo(gridSize, pos_y); ctx.stroke();
+        }
+        
+        // Draw axes at pixel-perfect positions
+        const origin_x = toPixel(origin.x);
+        const origin_y = toPixel(origin.y);
+        ctx.strokeStyle = '#475569'; // Axes
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(0, origin_y); ctx.lineTo(gridSize, origin_y); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(origin_x, 0); ctx.lineTo(origin_x, gridSize); ctx.stroke();
+
+        // Draw numbers
+        ctx.fillStyle = '#64748b';
+        ctx.font = `${Math.max(10, canvasSize/40)}px Cairo`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const step = 2;
+        for (let i = -maxGridValue; i <= maxGridValue; i++) {
+            if (i !== 0 && i % step === 0) {
+                // Numbers are placed relative to the pixel-perfect axes
+                ctx.fillText(toArabicNumerals(i), toPixel(toCanvasCoord(i, 0).x), origin_y + 15);
+                ctx.fillText(toArabicNumerals(i), origin_x - 15, toPixel(toCanvasCoord(0, i).y));
+            }
+        }
+
+        // --- Redraw persistent lines/points based on state ---
+        if (gameState.isAnimating) return; // Don't draw user points during animation
+
+        // Redraw correct line 1 if it's confirmed (in stage 2.2 or 3)
+        if (gameState.stage === 2.2 || gameState.stage === 3) {
+            if (gameState.correctLine1Points.length === 2) {
+                const { eq1 } = gameState.currentProblem;
+                drawFinalLine(eq1.m, eq1.b, LINE1_COLOR, 2.5);
+                gameState.correctLine1Points.forEach(p => drawPoint(p, LINE1_COLOR, 8)); // Show points
+            }
+        }
+        // Redraw correct line 2 if it's confirmed (in stage 3)
+        if (gameState.stage === 3) {
+            if (gameState.correctLine2Points.length === 2) {
+                const { eq2 } = gameState.currentProblem;
+                drawFinalLine(eq2.m, eq2.b, LINE2_COLOR, 2.5);
+                gameState.correctLine2Points.forEach(p => drawPoint(p, LINE2_COLOR, 8)); // Show points
+            }
+            return; // In stage 3, only show correct lines
+        }
+
+        // Draw user's current attempt (if not locked)
+        if (!gameState.isDrawingLocked) {
+            if (gameState.stage === 2.1) {
+                // Draw user points for line 1
+                gameState.line1Points.forEach(p => drawPoint(p, LINE1_COLOR));
+                if (gameState.line1Points.length === 2) {
+                    drawUserLine(gameState.line1Points[0], gameState.line1Points[1], LINE1_COLOR);
+                }
+            } else if (gameState.stage === 2.2) {
+                // Draw user points for line 2
+                gameState.line2Points.forEach(p => drawPoint(p, LINE2_COLOR));
+                if (gameState.line2Points.length === 2) {
+                    drawUserLine(gameState.line2Points[0], gameState.line2Points[1], LINE2_COLOR);
+                }
+            }
+        }
+    }
+
+    // Convert (x, y) to canvas (px, px)
+    const toCanvasCoord = (x, y) => ({ x: (x * unit) + (gridSize / 2), y: (-y * unit) + (gridSize / 2) });
+    // Convert canvas (px, px) to (x, y)
+    const fromCanvasCoord = (canvX, canvY) => ({ x: Math.round((canvX - gridSize / 2) / unit), y: Math.round(-(canvY - gridSize / 2) / unit) });
+    
+    // Draw a point at a pixel-perfect position
+    function drawPoint(point, color = '#0284c7', size = 6) {
+        const { x, y } = toCanvasCoord(point.x, point.y);
+        ctx.beginPath();
+        ctx.fillStyle = color;
+        // Draw at pixel-perfect position
+        ctx.arc(toPixel(x), toPixel(y), size, 0, 2 * Math.PI);
+        ctx.fill();
+    }
+    // Draw an 'X' at a pixel-perfect position
+    function drawErrorX(point, color = ERROR_COLOR, size = 8) {
+        const { x, y } = toCanvasCoord(point.x, point.y);
+        const pX = toPixel(x); // Pixel-perfect center x
+        const pY = toPixel(y); // Pixel-perfect center y
+        ctx.beginPath();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 3;
+        ctx.moveTo(pX - size, pY - size);
+        ctx.lineTo(pX + size, pY + size);
+        ctx.moveTo(pX + size, pY - size);
+        ctx.lineTo(pX - size, pY + size);
+        ctx.stroke();
+    }
+    
+    // Draw a line based on m and b, pixel-perfect
+    function drawFinalLine(m, b, color = '#0ea5e9', width = 3) {
+        // Find two points at the edges
+        const { x: sx, y: sy } = toCanvasCoord(-maxGridValue, m * -maxGridValue + b);
+        const { x: ex, y: ey } = toCanvasCoord(maxGridValue, m * maxGridValue + b);
+        ctx.beginPath();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = width;
+        // Draw at pixel-perfect positions
+        ctx.moveTo(toPixel(sx), toPixel(sy));
+        ctx.lineTo(toPixel(ex), toPixel(ey));
+        ctx.stroke();
+    }
+
+    // Draw a line based on two user points
+    function drawUserLine(p1, p2, color = '#0ea5e9', width = 2) {
+        let m, b;
+        if (p2.x === p1.x) { // Vertical line
+            m = Infinity;
+            b = Infinity; 
+        } else {
+            m = (p2.y - p1.y) / (p2.x - p1.x);
+            b = p1.y - m * p1.x;
+        }
+        drawFinalLine(m, b, color, width);
+    }
+    
+    // --- Game Logic ---
+    function updateScoreDisplay() {
+        scoreDisplay.textContent = `الدرجة: ${toArabicNumerals(gameState.score)} / ${toArabicNumerals(GAME_MAX_RAW_SCORE)}`;
+    }
+
+    // *** MODIFIED: Force fraction display for non-integer slopes ***
+    function formatEquationText(eq) {
+        let text = "ص = ";
+        if (eq.m !== 0) {
+            if (eq.m === 1) text += "س";
+            else if (eq.m === -1) text += "-س";
+            else if (eq.displayM.d !== 1) { // Always show fraction if denominator is not 1
+                 text += `<span class="fraction"><span class="numerator">${toArabicNumerals(eq.displayM.n)}</span><span class="denominator">${toArabicNumerals(eq.displayM.d)}</span></span>س`;
+            } else { // It's an integer
+                text += `${toArabicNumerals(eq.displayM.n)}س`;
+            }
+        }
+        // Intercept
+        if (eq.b !== 0) {
+            if (eq.m !== 0) text += eq.b > 0 ? " + " : " - ";
+            else if (eq.b < 0) text += "-"; // Handle case like y = -3
+            text += toArabicNumerals(Math.abs(eq.b));
+        }
+        // Handle y = 0
+        if (eq.m === 0 && eq.b === 0) text = "ص = ٠";
+        return text;
+    }
+    
+    // Populate Stage 2 info boxes
+    function populateStage2Info() {
+        const { eq1, eq2 } = gameState.currentProblem;
+
+        eq1InfoText.innerHTML = formatEquationText(eq1); // Use HTML for fraction
+        eq1InfoStats.innerHTML = `م = <span class="fraction"><span class="numerator">${toArabicNumerals(eq1.displayM.n)}</span><span class="denominator">${toArabicNumerals(eq1.displayM.d)}</span></span> ، ب = <span class="font-bold">${toArabicNumerals(eq1.b)}</span>`;
+        
+        eq2InfoText.innerHTML = formatEquationText(eq2); // Use HTML for fraction
+        eq2InfoStats.innerHTML = `م = <span class="fraction"><span class="numerator">${toArabicNumerals(eq2.displayM.n)}</span><span class="denominator">${toArabicNumerals(eq2.displayM.d)}</span></span> ، ب = <span class="font-bold">${toArabicNumerals(eq2.b)}</span>`;
+
+        stage2InfoContainer.classList.remove('hidden');
+    }
+
+    // Populate Stage 1 inputs
+    function populateStage1Inputs() {
+        const { eq1, eq2 } = gameState.currentProblem;
+        
+        eq1Display.innerHTML = formatEquationText(eq1);
+        eq2Display.innerHTML = formatEquationText(eq2);
+
+        // Clear all input fields
+        const inputs = stage1Inputs.querySelectorAll('input');
+        inputs.forEach(input => {
+            input.value = '';
+            input.disabled = false;
+            input.classList.remove('border-red-500', 'border-emerald-500');
+        });
+        
+        // Clear error class from containers
+        stage1Inputs.querySelectorAll('.fraction-input').forEach(container => {
+            container.classList.remove('input-error');
+        });
+
+        checkInputsBtn.classList.remove('hidden');
+    }
+
+    // Check Stage 1 inputs
+    function checkStage1Inputs() {
+        const { eq1, eq2 } = gameState.currentProblem;
+
+        // Get raw values (strings)
+        const m1_n_val = document.getElementById('eq1-m-num').value;
+        const m1_d_val = document.getElementById('eq1-m-den').value;
+        const b1_val = document.getElementById('eq1-b').value;
+        const m2_n_val = document.getElementById('eq2-m-num').value;
+        const m2_d_val = document.getElementById('eq2-m-den').value;
+        const b2_val = document.getElementById('eq2-b').value;
+
+        // --- Check for '0' in denominator ---
+        const isM1DenZero = m1_d_val.trim() === '0';
+        const isM2DenZero = m2_d_val.trim() === '0';
+
+        // Get values
+        const m1_n = parseFloat(m1_n_val);
+        const m2_n = parseFloat(m2_n_val);
+        const b1_user = parseFloat(b1_val);
+        const b2_user = parseFloat(b2_val);
+        
+        // Default to 1 only if empty, not if '0'
+        const m1_d = m1_d_val.trim() === '' ? 1 : parseFloat(m1_d_val); 
+        const m2_d = m2_d_val.trim() === '' ? 1 : parseFloat(m2_d_val);
+
+        const m1_user = m1_n / m1_d;
+        const m2_user = m2_n / m2_d;
+        
+        // Check correctness (and ensure denominator wasn't 0)
+        const isM1Correct = Math.abs(m1_user - eq1.m) < 0.01 && !isM1DenZero;
+        const isB1Correct = b1_user === eq1.b;
+        const isM2Correct = Math.abs(m2_user - eq2.m) < 0.01 && !isM2DenZero;
+        const isB2Correct = b2_user === eq2.b;
+
+        // Visual Feedback
+        const inputs = stage1Inputs.querySelectorAll('input');
+        inputs.forEach(input => input.classList.remove('border-red-500', 'border-emerald-500'));
+        stage1Inputs.querySelectorAll('.fraction-input').forEach(container => container.classList.remove('input-error'));
+        
+        // Green for correct
+        document.getElementById('eq1-m-num').classList.toggle('border-emerald-500', isM1Correct);
+        document.getElementById('eq1-m-den').classList.toggle('border-emerald-500', isM1Correct);
+        document.getElementById('eq1-b').classList.toggle('border-emerald-500', isB1Correct);
+        document.getElementById('eq2-m-num').classList.toggle('border-emerald-500', isM2Correct);
+        document.getElementById('eq2-m-den').classList.toggle('border-emerald-500', isM2Correct);
+        document.getElementById('eq2-b').classList.toggle('border-emerald-500', isB2Correct);
+
+        // Red for incorrect
+        const eq1_m_container = document.getElementById('eq1-m-num').closest('.fraction-input');
+        const eq2_m_container = document.getElementById('eq2-m-num').closest('.fraction-input');
+
+        // Show error if not correct AND not empty, OR if denominator is zero
+        eq1_m_container.classList.toggle('input-error', (!isM1Correct && (m1_n_val.trim() !== '' || m1_d_val.trim() !== '')) || isM1DenZero);
+        document.getElementById('eq1-b').classList.toggle('border-red-500', !isB1Correct && b1_val.trim() !== '');
+        eq2_m_container.classList.toggle('input-error', (!isM2Correct && (m2_n_val.trim() !== '' || m2_d_val.trim() !== '')) || isM2DenZero);
+        document.getElementById('eq2-b').classList.toggle('border-red-500', !isB2Correct && b2_val.trim() !== '');
+
+        if (isM1Correct && isB1Correct && isM2Correct && isB2Correct) {
+            // All correct
+            stopTimer();
+            const pointsToAdd = (gameState.stage1Attempts === 0) ? STAGE1_POINTS : (STAGE1_POINTS / 2);
+            gameState.score += pointsToAdd;
+            showFeedback(`أحسنت! +${toArabicNumerals(pointsToAdd)} درجة`, 'success');
+            
+            updateScoreDisplay();
+            continueBtn.classList.remove('hidden');
+            checkInputsBtn.classList.add('hidden');
+            stage1Inputs.querySelectorAll('input').forEach(input => input.disabled = true);
+        } else {
+            // Incorrect
+            gameState.stage1Attempts++;
+            if (gameState.stage1Attempts >= 2) {
+                // Failed 2nd attempt
+                stopTimer();
+                showFeedback(`انتهت المحاولات. (+0 درجة). لننتقل للرسم.`, 'info');
+                continueBtn.classList.remove('hidden');
+                checkInputsBtn.classList.add('hidden');
+                stage1Inputs.querySelectorAll('input').forEach(input => input.disabled = true);
+            } else {
+                // Failed 1st attempt
+                if (isM1DenZero || isM2DenZero) {
+                     showFeedback('لا يمكن القسمة على صفر! لديك محاولة أخرى (نصف الدرجة).', 'error');
+                } else {
+                     showFeedback('إجابة خاطئة، لديك محاولة أخرى (نصف الدرجة).', 'error');
+                }
+            }
+        }
+    }
+
+    // Check if user's line (2 points) matches the equation
+    function checkLine(eq, points) {
+        if (!points || points.length < 2) return false;
+        const [p1, p2] = points;
+        const { m, b } = eq;
+        
+        // Check if both points are on the line (with tolerance)
+        const p1OnLine = Math.abs(p1.y - (m * p1.x + b)) < 0.01;
+        const p2OnLine = Math.abs(p2.y - (m * p2.x + b)) < 0.01;
+        
+        // Check if the points are distinct
+        const distinctPoints = p1.x !== p2.x || p1.y !== p2.y;
+        
+        return p1OnLine && p2OnLine && distinctPoints;
+    }
+    
+    // Promise-based delay
+    const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+    // Show animation of how to draw a line
+    async function showCorrectLineAnimation(eq, color, riseColor, runColor) {
+        if (gameState.isAnimating) return;
+        gameState.isAnimating = true;
+        
+        // Clear user's points
+        gameState.line1Points = [];
+        gameState.line2Points = [];
+
+        const { displayM, b } = eq;
+        const rise = displayM.n; // البسط
+        const run = displayM.d;  // المقام
+
+        const p1 = { x: 0, y: b }; // Start at intercept
+        const p2 = { x: p1.x + run, y: p1.y + rise }; // End point
+
+        drawGrid(); // Clear grid
+        // Redraw other line if it exists
+        if (gameState.stage === 2.2) {
+             drawFinalLine(gameState.currentProblem.eq1.m, gameState.currentProblem.eq1.b, LINE1_COLOR, 2.5);
+             if (gameState.correctLine1Points.length === 2) {
+                 gameState.correctLine1Points.forEach(p => drawPoint(p, LINE1_COLOR, 8));
+             }
+        }
+
+        // 1. Show Intercept (b)
+        explanationPanel.textContent = `1. نبدأ من المقطع (ب = ${toArabicNumerals(b)})`;
+        explanationPanel.classList.remove('hidden');
+        await wait(500);
+        drawPoint(p1, color, 8); // Draw intercept
+        await wait(1500); // Pause on intercept
+
+        // 2. Show Rise (Bust)
+        explanationPanel.textContent = `2. نطبق البسط (${toArabicNumerals(rise)}): حركة رأسية`;
+        const p1_canvas = toCanvasCoord(p1.x, p1.y);
+        const p_mid_canvas = toCanvasCoord(p1.x, p1.y + rise);
+        
+        await animateLine(p1_canvas, p_mid_canvas, riseColor, true); // Animate rise
+        await wait(1500); // Pause on rise
+
+        // 3. Show Run (Maqam)
+        explanationPanel.textContent = `3. نطبق المقام (${toArabicNumerals(run)}): حركة أفقية`;
+        const p_end_canvas = toCanvasCoord(p2.x, p2.y);
+        
+        await animateLine(p_mid_canvas, p_end_canvas, runColor, true); // Animate run
+        drawPoint(p2, color, 8); // Draw end point
+        await wait(1500); // Pause on run
+
+        // 4. Draw Final Line
+        explanationPanel.textContent = `4. نرسم الخط المستقيم`;
+        drawFinalLine(eq.m, eq.b, color, 3);
+        
+        // Redraw points on top of line
+        drawPoint(p1, color, 8);
+        drawPoint(p2, color, 8);
+        
+        // Save the correct points
+        if (color === LINE1_COLOR) {
+            gameState.correctLine1Points = [p1, p2];
+        } else {
+            gameState.correctLine2Points = [p1, p2];
+        }
+
+        await wait(2000); // Show final line
+        
+        explanationPanel.classList.add('hidden');
+        gameState.isAnimating = false;
+    }
+
+    // Helper for dashed line animation
+    async function animateLine(startCanvas, endCanvas, color, dashed) {
+        const frames = 30; // Animation frames
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 3;
+        if (dashed) ctx.setLineDash([5, 5]);
+
+        // Use pixel-perfect start/end
+        const startX = toPixel(startCanvas.x);
+        const startY = toPixel(startCanvas.y);
+        const endX = toPixel(endCanvas.x);
+        const endY = toPixel(endCanvas.y);
+
+        for (let i = 0; i <= frames; i++) {
+            const t = i / frames;
+            const x = startX + (endX - startX) * t;
+            const y = startY + (endY - startY) * t;
+
+            ctx.beginPath();
+            ctx.moveTo(startX, startY);
+            ctx.lineTo(toPixel(x), toPixel(y)); // Animate to pixel-perfect pos
+            ctx.stroke();
+            await wait(20); // Frame delay
+        }
+        if (dashed) ctx.setLineDash([]);
+    }
+
+
+    // Check Line 1
+    async function checkLine1() {
+        const { eq1 } = gameState.currentProblem;
+        const line1Correct = checkLine(eq1, gameState.line1Points);
+
+        if (line1Correct) {
+            // Correct
+            gameState.score += STAGE2_LINE_POINTS;
+            showFeedback(`المستقيم الأول صحيح! +${toArabicNumerals(STAGE2_LINE_POINTS)} درجة`, 'success');
+            updateScoreDisplay();
+            gameState.correctLine1Points = [...gameState.line1Points]; // Save points
+            gameState.stage = 2.2; // Move to next stage
+            updateUIForStage();
+        } else {
+            // Incorrect
+            showFeedback(`نقاطك غير صحيحة. (+0 درجة). شاهد كيف نرسمه...`, 'error');
+            actionButtons.classList.add('hidden'); // Hide buttons
+            gameState.line1Points.forEach(p => drawErrorX(p)); // Show X on wrong points
+            await wait(1500); // Pause
+            await showCorrectLineAnimation(eq1, LINE1_COLOR, LINE1_COLOR, RUN_COLOR);
+            setupRetryUI(2.1); // Show "Replay" and "Skip" buttons
+        }
+    }
+
+    // Check Line 2
+    async function checkLine2() {
+        const { eq2 } = gameState.currentProblem;
+        const line2Correct = checkLine(eq2, gameState.line2Points);
+
+        if (line2Correct) {
+            // Correct
+            stopTimer(); // Stop timer only on full success
+            gameState.score += STAGE2_LINE_POINTS;
+            const feedbackMsg = `رائع! (+${toArabicNumerals(STAGE2_LINE_POINTS)} درجة). حدد الآن نقطة التقاطع.`;
+            showFeedback(feedbackMsg, 'success');
+            updateScoreDisplay();
+            gameState.correctLine2Points = [...gameState.line2Points]; // Save points
+            gameState.stage = 3; // Move to intersection stage
+            instruction.textContent = 'رائع! حدد الآن نقطة التقاطع بالنقر عليها.';
+            updateUIForStage();
+        } else {
+            // Incorrect
+            stopTimer(); // Stop timer even on fail
+            showFeedback(`نقاطك غير صحيحة. (+0 درجة). شاهد كيف نرسمه...`, 'error');
+            actionButtons.classList.add('hidden'); // Hide buttons
+            gameState.line2Points.forEach(p => drawErrorX(p)); // Show X on wrong points
+            await wait(1500); // Pause
+            await showCorrectLineAnimation(eq2, LINE2_COLOR, LINE2_COLOR, RUN_COLOR);
+            setupRetryUI(2.2); // Show "Replay" and "Skip" buttons
+        }
+    }
+
+    
+    // Show buttons after failed drawing attempt
+    function setupRetryUI(stage) {
+        gameState.isDrawingLocked = true; // Lock canvas clicking
+        canvas.style.cursor = 'default';
+
+        feedback.textContent = 'شاهد الشرح، أو انتقل للتالي.';
+        instruction.textContent = 'شاهد الشرح، أو انتقل للتالي.';
+        actionButtons.classList.remove('hidden'); // Show button container
+        replayBtn.classList.remove('hidden'); // Show Replay
+        skipBtn.classList.remove('hidden'); // Show Skip
+        drawResetBtn.classList.add('hidden'); // Hide Reset
+        checkLineBtn.classList.add('hidden'); // Hide Check
+
+
+        // Customize skip button text
+        if (stage === 2.1) {
+            skipBtn.textContent = 'الانتقال لرسم المستقيم الثاني';
+        } else if (stage === 2.2) {
+            skipBtn.textContent = 'الانتقال لتحديد التقاطع';
+        }
+    }
+
+    
+    // Check intersection click
+    function checkIntersection(point) {
+        if (gameState.isAnimating || gameState.isDrawingLocked) return; // Don't check if locked
+        const { solution } = gameState.currentProblem;
+        
+        if (point.x === solution.x && point.y === solution.y) {
+            // Correct
+            stopTimer();
+            gameState.score += STAGE3_INTERSECTION_POINTS;
+            showFeedback(`ممتاز! +${toArabicNumerals(STAGE3_INTERSECTION_POINTS)} درجة`, 'success');
+            updateScoreDisplay();
+            
+            drawPoint(solution, INTERSECTION_COLOR, 10); // Highlight intersection
+            nextBtn.classList.remove('hidden');
+            actionButtons.classList.remove('hidden'); // Show button container
+            gameState.isDrawingLocked = true; // Lock canvas
+            canvas.style.cursor = 'default';
+        } else {
+            // Incorrect (One attempt only)
+            stopTimer(); 
+            showFeedback('إجابة خاطئة. (+0 درجة). هذه هي الإجابة الصحيحة.', 'error');
+            drawErrorX(point); // Show X on wrong click
+            
+            gameState.isDrawingLocked = true; // Lock canvas
+            canvas.style.cursor = 'default';
+
+            // Show pulsing correct answer
+            showPulsingSolution(solution, INTERSECTION_COLOR, 8000); 
+
+            actionButtons.classList.remove('hidden'); // Show button container
+            nextBtn.classList.remove('hidden'); // Show Next button
+        }
+    }
+
+    // Show pulsing dot (as a DIV)
+    function showPulsingSolution(point, color, duration) {
+        const { x, y } = toCanvasCoord(point.x, point.y);
+        
+        const pulseEl = document.createElement('div');
+        const pulseSize = 16; // Diameter of the dot
+
+        pulseEl.className = 'pulsing-point';
+        pulseEl.style.position = 'absolute';
+        
+        // --- MODIFIED: Pixel-perfect calculation for top-left corner ---
+        pulseEl.style.left = `${toPixel(x) - (pulseSize / 2)}px`;
+        pulseEl.style.top = `${toPixel(y) - (pulseSize / 2)}px`;
+        // --- END MODIFICATION ---
+
+        pulseEl.style.width = `${pulseSize}px`;
+        pulseEl.style.height = `${pulseSize}px`;
+        pulseEl.style.backgroundColor = color;
+        pulseEl.style.borderRadius = '50%';
+        pulseEl.style.zIndex = '20';
+        
+        stage2CanvasContainer.appendChild(pulseEl);
+
+        // Remove after duration
+        setTimeout(() => {
+            if (pulseEl.parentElement) {
+                stage2CanvasContainer.removeChild(pulseEl);
+            }
+        }, duration);
+    }
+
+
+    // Shuffle and pick questions
+    function generateGameQuestions() {
+        gameQuestions = [...systemsBank].sort(() => 0.5 - Math.random()).slice(0, TOTAL_QUESTIONS);
+    }
+
+    // Reset game for a new problem
+    function resetForNewProblem() {
+        if (gameState.questionsCompleted >= TOTAL_QUESTIONS) {
+            endGame();
+            return;
+        }
+        // Remove old pulse dot if it exists
+        const existingPulse = stage2CanvasContainer.querySelector('.pulsing-point');
+        if (existingPulse) {
+            existingPulse.parentElement.removeChild(existingPulse);
+        }
+
+        // Reset game state
+        gameState.currentProblem = gameQuestions[gameState.questionsCompleted];
+        gameState.stage = 1;
+        gameState.line1Points = [];
+        gameState.line2Points = [];
+        gameState.correctLine1Points = [];
+        gameState.correctLine2Points = []; 
+        gameState.stage1Attempts = 0; 
+        feedback.textContent = '';
+        questionCounter.textContent = `السؤال ${toArabicNumerals(gameState.questionsCompleted + 1)} / ${toArabicNumerals(TOTAL_QUESTIONS)}`;
+        
+        populateStage1Inputs();
+        updateUIForStage();
+        startTimer();
+    }
+    
+    // Update UI based on the current stage
+    function updateUIForStage() {
+        // Reset all buttons
+        actionButtons.classList.remove('hidden');
+        nextBtn.classList.add('hidden');
+        drawResetBtn.classList.add('hidden');
+        checkLineBtn.classList.add('hidden');
+        continueBtn.classList.add('hidden');
+        replayBtn.classList.add('hidden'); 
+        skipBtn.classList.add('hidden'); 
+
+        // Reset state
+        explanationPanel.classList.add('hidden');
+        gameState.isDrawingLocked = false;
+        canvas.style.cursor = 'crosshair';
+        stage2InfoContainer.classList.add('hidden'); 
+        eq1InfoBox.classList.remove('active-equation-highlight');
+        eq2InfoBox.classList.remove('active-equation-highlight');
+        gameState.isAnimating = false; 
+
+        // Remove old pulse dot
+        const existingPulse = stage2CanvasContainer.querySelector('.pulsing-point');
+        if (existingPulse) {
+            existingPulse.parentElement.removeChild(existingPulse);
+        }
+
+        if (gameState.stage === 1) {
+            // Stage 1: Analysis
+            stageTitle.textContent = 'المرحلة 1: تحليل المعادلات';
+            instruction.textContent = 'أوجد الميل (م) والمقطع (ب) لكل معادلة:';
+            stage1Inputs.classList.remove('hidden');
+            stage2CanvasContainer.classList.add('hidden');
+            checkInputsBtn.classList.remove('hidden');
+        } else if (gameState.stage === 2.1) { 
+            // Stage 2: Draw Line 1
+            stageTitle.textContent = 'المرحلة 2: الرسم البياني';
+            instruction.textContent = 'ارسم المستقيم الأول (م 1) بنقطتين.';
+            stage1Inputs.classList.add('hidden');
+            stage2InfoContainer.classList.remove('hidden');
+            eq1InfoBox.classList.add('active-equation-highlight');
+            stage2CanvasContainer.classList.remove('hidden');
+            drawResetBtn.classList.remove('hidden'); // Show reset
+            setupCanvas();
+            startTimer();
+        } else if (gameState.stage === 2.2) { 
+            // Stage 2: Draw Line 2
+            stageTitle.textContent = 'المرحلة 2: الرسم البياني';
+            instruction.textContent = 'ارسم المستقيم الثاني (م 2) بنقطتين.';
+            stage1Inputs.classList.add('hidden');
+            stage2InfoContainer.classList.remove('hidden');
+            eq2InfoBox.classList.add('active-equation-highlight');
+            stage2CanvasContainer.classList.remove('hidden');
+            drawResetBtn.classList.remove('hidden'); // Show reset
+            drawGrid(); // Redraw with line 1 fixed
+        } else if (gameState.stage === 3) {
+            // Stage 3: Intersection
+            stageTitle.textContent = 'المرحلة 3: إيجاد نقطة التقاطع';
+            // Keep instruction text if it was set by checkLine2
+            if (!instruction.textContent.includes('رائع!')) {
+                instruction.textContent = 'اكتمل الرسم. حدد نقطة التقاطع بالنقر عليها.';
+            }
+            stage1Inputs.classList.add('hidden');
+            stage2InfoContainer.classList.add('hidden'); 
+            stage2CanvasContainer.classList.remove('hidden');
+            actionButtons.classList.add('hidden'); // Hide all buttons (only Next appears on success/fail)
+            drawGrid(); // Redraws grid with correct lines
+        }
+    }
+    
+    // End game
+    function endGame() {
+        stopTimer();
+        gameContainer.classList.add('hidden');
+        startScreen.classList.remove('hidden');
+        startTitle.textContent = 'انتهت اللعبة!';
+        document.getElementById('welcomeMessage').classList.add('hidden');
+        authorInfo.classList.add('hidden');
+        startBtn.textContent = 'العب مرة أخرى';
+        
+        // Clean up pulse dot
+        const existingPulse = stage2CanvasContainer.querySelector('.pulsing-point');
+        if (existingPulse) {
+            existingPulse.parentElement.removeChild(existingPulse);
+        }
+
+        // Send score
+        if (window.saveAndFinishGame) {
+            window.saveAndFinishGame(gameState.score, gameState.totalSeconds);
+        } else {
+            // Fallback for local testing
+            document.getElementById('final-result-display').innerHTML = `
+                <p class="text-gray-700">النقاط: <span class="font-bold text-xl">${toArabicNumerals(gameState.score)} / ${toArabicNumerals(GAME_MAX_RAW_SCORE)}</span></p>
+                <p class="text-blue-600">الوقت: <span class="font-bold text-2xl">${formatTime(gameState.totalSeconds)}</span></p>
+            `;
+        }
+    }
+
+    
+    // Show feedback message
+    const showFeedback = (msg, type) => {
+        feedback.textContent = msg;
+        feedback.className = `h-5 text-center text-sm font-bold ${type === 'success' ? 'text-emerald-600' : (type === 'error' ? 'text-red-500' : 'text-sky-600')}`;
+    };
+    
+    // Reset drawing for the current stage
+    const resetDrawing = () => {
+        if (gameState.isAnimating) return;
+
+        // Unlock drawing
+        gameState.isDrawingLocked = false;
+        canvas.style.cursor = 'crosshair';
+        
+        // Remove pulse dot if it exists
+        const existingPulse = stage2CanvasContainer.querySelector('.pulsing-point');
+        if (existingPulse) {
+            existingPulse.parentElement.removeChild(existingPulse);
+        }
+
+        // Hide retry buttons
+        replayBtn.classList.add('hidden');
+        skipBtn.classList.add('hidden');
+
+        if (gameState.stage === 2.1) {
+            gameState.line1Points = [];
+            instruction.textContent = 'ارسم المستقيم الأول (م 1) بنقطتين.';
+            checkLineBtn.classList.add('hidden'); // Hide check
+            drawResetBtn.classList.remove('hidden'); // Show reset
+            drawGrid();
+            feedback.textContent = '';
+        } else if (gameState.stage === 2.2) {
+            gameState.line2Points = [];
+            instruction.textContent = 'ارسم المستقيم الثاني (م 2) بنقطتين.';
+            checkLineBtn.classList.add('hidden'); // Hide check
+            drawResetBtn.classList.remove('hidden'); // Show reset
+            drawGrid();
+            feedback.textContent = '';
+        }
+    };
+
+    // --- Event Listeners ---
+
+    // Start Button
+    startBtn.addEventListener('click', () => {
+        const startQuestion = 0;
+        // Reset full game state
+        gameState = {
+            stage: 1, score: 0, currentProblem: null,
+            line1Points: [], line2Points: [],
+            correctLine1Points: [], correctLine2Points: [], 
+            questionsCompleted: startQuestion,
+            stage1Attempts: 0, 
+            totalSeconds: 0, timerInterval: null, isTimerRunning: false,
+            isAnimating: false,
+            isDrawingLocked: false 
+        };
+        generateGameQuestions();
+        updateScoreDisplay();
+        timerDisplay.textContent = formatTime(0);
+        
+        // Reset start screen UI
+        document.getElementById('welcomeMessage').classList.remove('hidden');
+        authorInfo.classList.remove('hidden');
+        document.getElementById('final-result-display').innerHTML = '';
+        document.getElementById('leaderboard-container').innerHTML = '';
+        document.getElementById('finish-game-wrapper').style.display = 'none';
+        startBtn.textContent = 'ابدأ اللعبة';
+        
+        const existingPulse = stage2CanvasContainer.querySelector('.pulsing-point');
+        if (existingPulse) {
+            existingPulse.parentElement.removeChild(existingPulse);
+        }
+        
+        startScreen.classList.add('hidden');
+        gameContainer.classList.remove('hidden');
+        resetForNewProblem();
+    });
+    
+    // Next Question Button
+    nextBtn.addEventListener('click', () => {
+        gameState.questionsCompleted++;
+        resetForNewProblem();
+    });
+    
+    // Continue (from Stage 1) Button
+    continueBtn.addEventListener('click', () => {
+        feedback.textContent = '';
+        gameState.stage = 2.1; // Start with drawing line 1
+        populateStage2Info(); // Populate the info boxes
+        updateUIForStage();
+    });
+    
+    // Reset Drawing Button
+    drawResetBtn.addEventListener('click', resetDrawing);
+    
+    // Check Stage 1 Inputs Button
+    checkInputsBtn.addEventListener('click', checkStage1Inputs);
+    
+    // Check Line (Stage 2) Button
+    checkLineBtn.addEventListener('click', () => {
+        if (gameState.isAnimating || gameState.isDrawingLocked) return;
+        if (gameState.stage === 2.1) {
+            checkLine1();
+        } else if (gameState.stage === 2.2) {
+            checkLine2();
+        }
+    });
+
+    // Replay Animation Button
+    replayBtn.addEventListener('click', async () => {
+        if (gameState.isAnimating) return;
+        
+        const eq = (gameState.stage === 2.1) ? gameState.currentProblem.eq1 : gameState.currentProblem.eq2;
+        const color = (gameState.stage === 2.1) ? LINE1_COLOR : LINE2_COLOR;
+        
+        actionButtons.classList.add('hidden'); // Hide buttons during animation
+        await showCorrectLineAnimation(eq, color, color, RUN_COLOR);
+        setupRetryUI(gameState.stage); // Show buttons again
+    });
+
+    // Skip Drawing Button
+    skipBtn.addEventListener('click', () => {
+        if (gameState.isAnimating) return;
+
+        if (gameState.stage === 2.1) {
+            gameState.stage = 2.2; // Skip to line 2
+        } else if (gameState.stage === 2.2) {
+            gameState.stage = 3; // Skip to intersection
+            instruction.textContent = 'اكتمل الرسم. حدد نقطة التقاطع بالنقر عليها.';
+        }
+        feedback.textContent = '';
+        updateUIForStage(); // Update UI for new stage
+    });
+
+
+    // Canvas Click Handler
+    canvas.addEventListener('click', (event) => {
+        if (gameState.isAnimating || gameState.isDrawingLocked) return; // Ignore clicks if locked
+        
+        const rect = canvas.getBoundingClientRect();
+        // Get pixel-perfect click coordinates
+        const clickX = toPixel(event.clientX - rect.left);
+        const clickY = toPixel(event.clientY - rect.top);
+        // Convert to grid coordinates
+        const point = fromCanvasCoord(clickX, clickY);
+
+        if (gameState.stage === 2.1) {
+            // Drawing line 1
+            if (gameState.line1Points.length < 2) {
+                gameState.line1Points.push(point);
+                drawGrid(); // Redraws grid and new point
+                if (gameState.line1Points.length === 2) {
+                    instruction.textContent = 'اضغط "تحقق" أو "مسح" للتعديل';
+                    checkLineBtn.classList.remove('hidden');
+                    drawResetBtn.classList.remove('hidden'); // Show reset
+                }
+            }
+        } else if (gameState.stage === 2.2) {
+            // Drawing line 2
+            if (gameState.line2Points.length < 2) {
+                gameState.line2Points.push(point);
+                drawGrid(); // Redraws grid and new point
+                if (gameState.line2Points.length === 2) {
+                    instruction.textContent = 'اضغط "تحقق" أو "مسح" للتعديل';
+                    checkLineBtn.classList.remove('hidden');
+                    drawResetBtn.classList.remove('hidden'); // Show reset
+                }
+            }
+        } else if (gameState.stage === 3) {
+            // Stage 3: Checking for intersection
+            checkIntersection(point);
+        }
+    });
+
+</script>
+
+<!-- The Connection & Leaderboard Engine script -->
+<script>
+// --- START OF CONNECTION & LEADERBOARD ENGINE ---
+(function() {
+    // --- CONFIGURATION ---
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
+    const GAME_ID = 'g5_1_2'; // Game ID (Systems of Equations)
+    const TOTAL_QUESTIONS = 3; // Total questions in the game
+    
+    // --- MODIFIED: Use new RAW score total ---
+    // (3 Qs * 45 points/Q) = 135
+    const GAME_MAX_POINTS = 135; 
+    // --- END MODIFICATION --- ---
+
+    const PLATFORM_MAX_GRADE = 5; // Max grade in the platform
+    const METRIC_TYPE = 'time';
+    const METRIC_LABEL = 'الوقت (ثواني)';
+
+    // --- Read URL Parameters ---
+    const urlParams = new URLSearchParams(window.location.search);
+    const studentId = urlParams.get('studentId');
+    const classId = urlParams.get('classId');
+    const studentName = urlParams.get('studentName');
+    let currentUser = (studentId && studentName) ? { id: studentId, name: studentName } : null;
+
+    // --- CORE FUNCTIONS ---
+
+    // 1. Function called by the game on completion
+    window.saveAndFinishGame = function(points, metricValue) {
+        const finalPoints = parseFloat(points) || 0; // This is the raw score (e.g., 100)
+        const finalMetric = parseFloat(metricValue) || 0;
+        const maxPoints = parseFloat(GAME_MAX_POINTS) || 1; // This is now 135
+        
+        // Calculate the grade for the platform (out of 5)
+        const finalGrade = (finalPoints / maxPoints) * PLATFORM_MAX_GRADE; 
+
+        // Display final result
+        const resultDisplay = document.getElementById('final-result-display');
+        if (resultDisplay) {
+            resultDisplay.innerHTML = `
+                <p class="text-gray-700">النقاط: <span class="font-bold text-xl">${toArabicNumerals(finalPoints)} / ${toArabicNumerals(maxPoints)}</span></p>
+                <p class="text-blue-600">الدرجة في المنصة: <span class="font-bold text-2xl">${toArabicNumerals(finalGrade.toFixed(1))} / ${toArabicNumerals(PLATFORM_MAX_GRADE)}</span></p>
+            `;
+        }
+
+        // Save to Google Sheet if student
+        if (studentId && classId) {
+            const params = new URLSearchParams({
+                action: 'saveGrade',
+                studentId: studentId,
+                classId: classId,
+                itemId: GAME_ID,
+                grade: finalGrade.toFixed(2), // Send the grade (out of 5)
+                metricValue: Math.round(finalMetric).toString()
+            });
+            fetch(`${SCRIPT_URL}?${params.toString()}`)
+                .then(res => res.json())
+                .then(result => console.log('Save result:', result.status))
+                .catch(err => console.error("Save Error:", err))
+                .finally(fetchAndShowLeaderboard);
+        } else {
+            // Visitor
+            console.log(`Visitor finished. Score: ${finalPoints}, Metric: ${finalMetric}`);
+            fetchAndShowLeaderboard();
+        }
+    }
+
+    // 2. Fetch and display leaderboard
+    function fetchAndShowLeaderboard() {
+        const loader = document.getElementById('leaderboard-loader');
+        const container = document.getElementById('leaderboard-container');
+        if (!loader || !container) return;
+        
+        if (!classId) {
+            console.log("No classId found, skipping leaderboard for visitor.");
+            container.innerHTML = `<p class="text-center text-gray-500 mt-4">سجل الأبطال متاح للطلاب المسجلين فقط.</p>`;
+            showFinishButton();
+            return;
+        }
+
+        loader.style.display = 'block';
+        container.innerHTML = '';
+
+        const params = new URLSearchParams({
+            action: 'getLeaderboard',
+            gameId: GAME_ID,
+            metricType: METRIC_TYPE,
+            classId: classId
+        });
+
+        fetch(`${SCRIPT_URL}?${params.toString()}`)
+            .then(res => res.json())
+            .then(response => {
+                if (response.status === 'success' && response.data) {
+                    displayLeaderboard(response.data);
+                } else {
+                    throw new Error(response.message || 'Failed to load leaderboard data.');
+                }
+            })
+            .catch(err => {
+                console.error("Leaderboard Error:", err);
+                container.innerHTML = `<p class="text-center text-red-500">حدث خطأ في تحميل سجل الأبطال.</p>`;
+            })
+            .finally(() => {
+                loader.style.display = 'none';
+                showFinishButton();
+            });
+    }
+    
+    // 3. Build leaderboard table
+    function displayLeaderboard(data) {
+        const container = document.getElementById('leaderboard-container');
+        if (!data || data.length === 0) {
+            container.innerHTML = `<p class="text-center text-gray-500 mt-4">لا توجد نتائج بعد. كن أول الأبطال!</p>`;
+            return;
+        }
+
+        let tableHTML = `
+            <div class="mt-6 border-t pt-4">
+                <h3 class="text-2xl font-bold text-center text-gray-800 mb-4">🏆 سجل الأبطال 🏆</h3>
+                <table class="min-w-full bg-white shadow-md rounded-lg">
+                    <thead class="bg-gray-800 text-white">
+                        <tr>
+                            <th class="text-center py-2 px-3">الترتيب</th>
+                            <th class="text-right py-2 px-3">اسم الطالب</th>
+                            <th class="text-center py-2 px-3">الدرجة</th>
+                            <th class="text-center py-2 px-3">${METRIC_LABEL}</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-gray-700">`;
+
+        data.forEach((player, index) => {
+            const rank = index + 1;
+            let rankDisplay = rank;
+            if (rank === 1) rankDisplay = '🥇';
+            if (rank === 2) rankDisplay = '🥈';
+            if (rank === 3) rankDisplay = '🥉';
+
+            const isCurrentUser = (currentUser && player.name === currentUser.name);
+            const rowClass = isCurrentUser ? 'bg-blue-100 font-bold' : (index % 2 === 0 ? 'bg-gray-100' : '');
+
+            tableHTML += `
+                <tr class="${rowClass}">
+                    <td class="text-center py-2 px-3 text-xl">${rankDisplay}</td>
+                    <td class="text-right py-2 px-3">${player.name}</td>
+                    <td class="text-center py-2 px-3">${toArabicNumerals(player.grade.toFixed(1))}</td>
+                    <td class="text-center py-2 px-3">${toArabicNumerals(player.metricValue)}</td>
+                </tr>`;
+        });
+
+        tableHTML += `</tbody></table></div>`;
+        container.innerHTML = tableHTML;
+    }
+
+    // 4. Show "Finish" button
+    function showFinishButton() {
+        const finishWrapper = document.getElementById('finish-game-wrapper');
+        if (finishWrapper) {
+            finishWrapper.style.display = 'block';
+        }
+    }
+
+    // 5. DOMContentLoaded listener
+    document.addEventListener('DOMContentLoaded', () => {
+        // Personalize welcome message
+        const welcomeMessage = document.getElementById('welcomeMessage');
+        if (studentName && welcomeMessage) {
+            welcomeMessage.innerHTML = `أهلاً بك يا <span class="font-bold text-sky-600">${studentName}</span>! استعد لتكون محققاً بيانياً. قم بتحليل ورسم نظام المعادلات لتكشف نقطة التقاطع السرية.`;
+        }
+
+        // Add event to Finish button
+        const finishBtn = document.getElementById('finish-game-btn');
+        if (finishBtn) {
+            finishBtn.addEventListener('click', () => {
+                // Post message to parent window (the platform)
+                window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*');
+            });
+        }
+    });
+})();
+// --- END OF CONNECTION & LEADERBOARD ENGINE ---
+</script>
+</body>
+</html>

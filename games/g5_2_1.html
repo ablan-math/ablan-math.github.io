@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>الحل بالتعويض 1</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Cairo', sans-serif;
+            direction: rtl;
+            overscroll-behavior: none;
+            background-color: #f3f4f6;
+            height: 100dvh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+
+        /* تنسيق المعادلات: إجبار الاتجاه LTR */
+        .equation-font {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 1.1rem; 
+            font-weight: 700;
+            text-align: center;
+            direction: ltr; 
+            unicode-bidi: isolate;
+            display: inline-block;
+            white-space: nowrap;
+        }
+
+        /* حاوية اللعبة */
+        .game-card {
+            background: white;
+            border-radius: 1rem;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 500px;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            max-height: 100%;
+            overflow-y: auto;
+        }
+
+        /* منطقة السؤال والتاريخ */
+        .problem-area {
+            background-color: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.75rem;
+            padding: 0.5rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.3s ease;
+        }
+
+        /* المعادلات الأصلية */
+        .main-equations {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 0.5rem;
+            width: 100%;
+            border-bottom: 2px dashed #cbd5e1;
+            padding-bottom: 0.5rem;
+            margin-bottom: 0.25rem;
+            transition: all 0.5s ease;
+        }
+        
+        .main-equations.faded {
+            opacity: 0.4;
+            filter: grayscale(100%);
+        }
+
+        .eq-badge {
+            background: white;
+            border: 1px solid #94a3b8;
+            padding: 0.25rem 0.6rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            color: #1e40af;
+            font-size: 1rem;
+        }
+
+        /* خطوات الحل المنجزة */
+        .history-step {
+            background-color: #dcfce7;
+            border: 1px solid #86efac;
+            color: #166534;
+            padding: 0.4rem 0.8rem;
+            border-radius: 0.5rem;
+            width: 100%;
+            text-align: center;
+            animation: fadeIn 0.5s ease-out;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.25rem;
+        }
+        
+        .history-step.modification-step {
+            background-color: #ecfdf5;
+            border: 2px solid #10b981;
+            flex-direction: column;
+            gap: 0.25rem;
+            padding: 0.5rem;
+        }
+        
+        .history-step.modification-step .equations-wrapper {
+            display: flex;
+            gap: 0.5rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .history-label {
+            font-size: 0.75rem;
+            color: #15803d;
+            font-weight: bold;
+            min-width: 70px;
+            text-align: right;
+        }
+        
+        .history-step.modification-step .history-label {
+            width: 100%;
+            text-align: center;
+            border-bottom: 1px solid #a7f3d0;
+            padding-bottom: 0.25rem;
+            margin-bottom: 0.25rem;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* منطقة التفاعل */
+        #interaction-area {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            width: 100%;
+        }
+
+        /* منطقة الخيارات */
+        .choices-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+            width: 100%;
+        }
+
+        .choice-button {
+            width: 100%;
+            padding: 0.5rem;
+            background-color: #ffffff;
+            border: 2px solid #e5e7eb;
+            border-radius: 0.5rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            transition: all 0.2s;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 700;
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            direction: ltr; 
+            unicode-bidi: isolate;
+            min-height: 3rem;
+            word-break: break-word;
+            line-height: 1.2;
+        }
+        
+        .choice-button.text-choice {
+            font-family: 'Cairo', sans-serif;
+            direction: rtl;
+            unicode-bidi: normal;
+            font-size: 0.85rem;
+        }
+
+        .choice-button:hover:not(:disabled) {
+            border-color: #3b82f6;
+            background-color: #f0f9ff;
+        }
+        .choice-button:disabled {
+            cursor: default;
+            opacity: 0.7;
+        }
+        .choice-button.correct {
+            border-color: #16a34a !important;
+            background-color: #dcfce7 !important;
+            color: #15803d;
+            box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.3);
+        }
+        .choice-button.incorrect {
+            border-color: #dc2626 !important;
+            background-color: #fee2e2 !important;
+            color: #991b1b;
+            box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.3);
+        }
+
+        /* أزرار التحكم */
+        .action-btn {
+            width: 100%;
+            padding: 0.6rem;
+            border-radius: 0.5rem;
+            font-weight: bold;
+            font-size: 0.95rem;
+            transition: 0.2s;
+            text-align: center;
+            color: white;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .btn-blue { background-color: #2563eb; }
+        .btn-blue:hover { background-color: #1d4ed8; }
+        .btn-green { background-color: #16a34a; }
+        .btn-green:hover { background-color: #15803d; }
+        .btn-gray { background-color: #9ca3af; color: #1f2937; }
+
+        /* النوافذ */
+        .modal-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 50; opacity: 0; visibility: hidden; transition: 0.3s;
+            padding: 1rem;
+        }
+        .modal-overlay.show { opacity: 1; visibility: visible; }
+        .modal-box {
+            background: white; padding: 1.5rem; border-radius: 1rem;
+            width: 100%; max-width: 400px; text-align: center;
+            transform: scale(0.9); transition: 0.3s;
+        }
+        .modal-overlay.show .modal-box { transform: scale(1); }
+
+        /* منطقة التعليق */
+        #feedback-container {
+            min-height: 1.5rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            margin-top: 0.25rem;
+        }
+        #feedback-text {
+            font-size: 0.9rem; font-weight: bold; text-align: center;
+        }
+        
+        /* شارة النقاط */
+        .score-badge {
+            background: #fef3c7;
+            color: #d97706;
+            padding: 0.2rem 0.6rem;
+            border-radius: 1rem;
+            font-size: 0.8rem;
+            font-weight: bold;
+            margin-right: auto;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- شاشة البداية -->
+    <div id="welcome-screen" class="modal-overlay show">
+        <div class="modal-box">
+            <h1 class="text-2xl font-bold text-blue-700 mb-2">الحل بالتعويض 1</h1>
+            <p class="text-gray-600 mb-4">حل أنظمة المعادلات خطوة بخطوة.<br>لديك ٣ مسائل مختلفة في كل محاولة.</p>
+            <div class="bg-blue-50 p-3 rounded-lg text-sm text-blue-800 mb-6">
+                <p><strong>طريقة احتساب الدرجات:</strong></p>
+                <p>كل خطوة صحيحة = <span class="font-bold">١ نقطة</span></p>
+                <p>الدرجة النهائية ستحسب من <span class="font-bold">٥</span></p>
+            </div>
+            <button onclick="startGame()" class="action-btn btn-blue">
+                ابدأ الحل
+            </button>
+            <p class="text-xs text-gray-500 mt-6 font-semibold">
+                تصميم وتطوير: الأستاذ عبد العزيز خالد العبلان
+            </p>
+        </div>
+    </div>
+
+    <!-- شاشة اللعبة -->
+    <div id="game-ui" class="game-card hidden">
+        <div class="flex items-center mb-2 px-1 w-full">
+            <h2 id="question-counter" class="text-lg font-bold text-gray-700">المسألة ١ من ٣</h2>
+            <div id="current-score-display" class="score-badge">النقاط: ٠</div>
+            <button onclick="location.reload()" class="text-red-500 font-bold text-xl mr-2">✕</button>
+        </div>
+
+        <!-- منطقة عرض المسألة وتاريخ الحل -->
+        <div class="problem-area" id="problem-area">
+            <!-- المعادلتان الرئيسيتان -->
+            <div class="main-equations" id="main-equations">
+                <div id="eq1" class="equation-font eq-badge"></div>
+                <div id="eq2" class="equation-font eq-badge"></div>
+            </div>
+            
+            <!-- سجل الخطوات -->
+            <div id="steps-history" class="w-full flex flex-col"></div>
+        </div>
+
+        <!-- منطقة التفاعل -->
+        <div id="interaction-area">
+            <p id="prompt-text" class="text-center text-blue-600 font-bold text-sm my-2">المطلوب: اختر الخطوة الصحيحة</p>
+            <div id="options-grid" class="choices-grid"></div>
+        </div>
+
+        <!-- منطقة التغذية الراجعة -->
+        <div id="feedback-container">
+            <span id="feedback-text"></span>
+            <button id="explain-btn" class="hidden px-3 py-1 bg-yellow-100 text-yellow-800 border border-yellow-300 rounded-full text-xs hover:bg-yellow-200 transition" onclick="showStepExplanation()">
+                اعرف لماذا؟ 💡
+            </button>
+        </div>
+
+        <div class="flex gap-2 mt-2">
+            <button id="next-btn" onclick="nextStep()" class="action-btn btn-green hidden">الخطوة التالية</button>
+        </div>
+    </div>
+
+    <!-- شاشة النهاية -->
+    <div id="end-screen" class="modal-overlay">
+        <div class="modal-box">
+            <h2 class="text-3xl font-bold text-green-600 mb-2">🎉 تم الحل!</h2>
+            <p class="text-gray-700 mb-4">لقد أتممت جميع المسائل.</p>
+            
+            <div class="bg-gray-50 p-4 rounded-lg mb-6">
+                <p class="text-gray-600 text-sm mb-1">مجموع النقاط:</p>
+                <p id="points-display" class="text-xl font-bold text-gray-800 mb-3"></p>
+                
+                <div class="border-t border-gray-300 my-2"></div>
+                
+                <p class="text-blue-700 font-bold text-lg mb-1">الدرجة النهائية:</p>
+                <p id="final-grade-display" class="text-4xl font-bold text-blue-600"></p>
+            </div>
+
+            <div id="save-status" class="text-sm text-gray-500 mb-4 h-6"></div>
+
+            <button onclick="location.reload()" class="action-btn btn-gray text-white mb-4">
+                حل مرة أخرى
+            </button>
+            
+            <p class="text-xs text-gray-400 font-semibold">
+                تصميم وتطوير: الأستاذ عبد العزيز خالد العبلان
+            </p>
+        </div>
+    </div>
+
+    <!-- نافذة الشرح -->
+    <div id="explanation-modal" class="modal-overlay">
+        <div class="modal-box relative">
+            <button onclick="hideExplanation()" class="absolute top-4 right-4 text-gray-500 hover:text-gray-800 font-bold">✕</button>
+            <h3 class="text-xl font-bold text-blue-700 mb-4">تفسير الخطوة</h3>
+            <div id="explanation-content" class="text-right text-gray-700 text-base leading-relaxed bg-blue-50 p-4 rounded-lg border border-blue-100"></div>
+            <button onclick="hideExplanation()" class="mt-6 w-full action-btn btn-blue">فهمت</button>
+        </div>
+    </div>
+
+    <script>
+        // --- أدوات التنسيق ---
+        function toArabicNum(str) {
+            return str.toString()
+                .replace(/\d/g, d => "٠١٢٣٤٥٦٧٨٩"[d])
+                .replace(/-/g, '−');
+        }
+
+        function formatEq(eq) {
+            return eq.replace(/x/gi, 'س')
+                     .replace(/y/gi, 'ص')
+                     .replace(/\d+/g, d => toArabicNum(d));
+        }
+
+        function formatOpt(opt) {
+            if(opt.includes('لا') || opt.includes('عدد') || opt.includes('جاهزة') || opt.includes('نعدل') || opt.includes('متسق') || opt.includes('غير')) return opt;
+            return formatEq(opt).replace(',', '،');
+        }
+
+        // --- بنك الأسئلة (3 مجموعات) ---
+        const questionPools = [
+            // المجموعة 1: معادلة جاهزة بصيغة (س = ...)
+            [
+                // البديل 1
+                {
+                    eq1: "2x - y = 3", eq2: "x = y + 1",
+                    steps: [
+                        { label: "التمهيد", prompt: "هل المعادلات جاهزة للتعويض؟", correct: "جاهزة، نعوض مباشرة", options: ["جاهزة، نعوض مباشرة", "نعدل إحدى المعادلتين"], type: "text", explanation: "نعم، المعادلة الثانية (س = ص + ١) جاهزة." },
+                        { label: "الخطوة ١", prompt: "عوض بقيمة س في المعادلة الأولى", correct: "2(y + 1) - y = 3", options: ["2(y + 1) - y = 3", "2y + 1 - y = 3"], explanation: "نضع (ص + ١) مكان س بين قوسين." },
+                        { label: "الخطوة ٢", prompt: "فك الأقواس", correct: "2y + 2 - y = 3", options: ["2y + 2 - y = 3", "2y + 1 - y = 3"], explanation: "٢ × ص = ٢ص، و ٢ × ١ = ٢." },
+                        { label: "الخطوة ٣", prompt: "بسط المعادلة", correct: "y + 2 = 3", options: ["y + 2 = 3", "3y + 2 = 3"], explanation: "٢ص - ص = ص." },
+                        { label: "الخطوة ٤", prompt: "الحل النهائي", correct: "(2 , 1)", options: ["(2 , 1)", "(1 , 2)"], type: "point", explanation: "ص=١، س=١+١=٢." },
+                        { label: "التصنيف", prompt: "ما هو نوع النظام؟", correct: "متسق ومستقل", options: ["متسق ومستقل", "غير متسق", "متسق وغير مستقل"], type: "text", explanation: "يوجد حل وحيد." }
+                    ]
+                },
+                // البديل 2
+                {
+                    eq1: "x = 3y", eq2: "x - 2y = 5",
+                    steps: [
+                        { label: "التمهيد", prompt: "هل المعادلات جاهزة للتعويض؟", correct: "جاهزة، نعوض مباشرة", options: ["جاهزة، نعوض مباشرة", "نعدل إحدى المعادلتين"], type: "text", explanation: "نعم، المعادلة الأولى (س = ٣ص) جاهزة." },
+                        { label: "الخطوة ١", prompt: "عوض بقيمة س في المعادلة الثانية", correct: "3y - 2y = 5", options: ["3y - 2y = 5", "3y - y = 5"], explanation: "نضع (٣ص) مكان س." },
+                        { label: "الخطوة ٢", prompt: "بسط المعادلة", correct: "y = 5", options: ["y = 5", "5y = 5"], explanation: "٣ص - ٢ص = ص." },
+                        { label: "الخطوة ٣", prompt: "الحل النهائي", correct: "(15 , 5)", options: ["(15 , 5)", "(5 , 15)"], type: "point", explanation: "ص=٥. نعوض في س=٣ص (س = ٣ × ٥ = ١٥)." },
+                        { label: "التصنيف", prompt: "ما هو نوع النظام؟", correct: "متسق ومستقل", options: ["متسق ومستقل", "غير متسق", "متسق وغير مستقل"], type: "text", explanation: "يوجد حل وحيد." }
+                    ]
+                },
+                // البديل 3
+                {
+                    eq1: "x = y + 2", eq2: "2x + y = 10",
+                    steps: [
+                        { label: "التمهيد", prompt: "هل المعادلات جاهزة للتعويض؟", correct: "جاهزة، نعوض مباشرة", options: ["جاهزة، نعوض مباشرة", "نعدل إحدى المعادلتين"], type: "text", explanation: "نعم، المعادلة الأولى (س = ...) جاهزة." },
+                        { label: "الخطوة ١", prompt: "عوض بقيمة س في المعادلة الثانية", correct: "2(y + 2) + y = 10", options: ["2(y + 2) + y = 10", "2y + 2 + y = 10"], explanation: "نضع (ص + ٢) مكان س بين قوسين." },
+                        { label: "الخطوة ٢", prompt: "فك الأقواس", correct: "2y + 4 + y = 10", options: ["2y + 4 + y = 10", "2y + 2 + y = 10"], explanation: "٢ × ص = ٢ص، و ٢ × ٢ = ٤." },
+                        { label: "الخطوة ٣", prompt: "بسط المعادلة", correct: "3y = 6", options: ["3y = 6", "3y = 14"], explanation: "٢ص + ص = ٣ص، و ١٠ - ٤ = ٦." },
+                        { label: "الخطوة ٤", prompt: "الحل النهائي", correct: "(4 , 2)", options: ["(4 , 2)", "(2 , 4)"], type: "point", explanation: "ص=٢. س=٢+٢=٤." },
+                        { label: "التصنيف", prompt: "ما هو نوع النظام؟", correct: "متسق ومستقل", options: ["متسق ومستقل", "غير متسق", "متسق وغير مستقل"], type: "text", explanation: "يوجد حل وحيد." }
+                    ]
+                }
+            ],
+
+            // المجموعة 2: معادلة جاهزة بصيغة (ص = ...)
+            [
+                // البديل 1
+                {
+                    eq1: "y = 2x - 1", eq2: "x + 2y = 8",
+                    steps: [
+                        { label: "التمهيد", prompt: "هل المعادلات جاهزة؟", correct: "جاهزة، نعوض مباشرة", options: ["جاهزة", "نعدل"], type: "text", explanation: "الأولى جاهزة." },
+                        { label: "الخطوة ١", prompt: "عوض عن ص في الثانية", correct: "x + 2(2x - 1) = 8", options: ["x + 2(2x - 1) = 8", "x + 2x - 1 = 8"], explanation: "نستخدم الأقواس." },
+                        { label: "الخطوة ٢", prompt: "فك الأقواس", correct: "x + 4x - 2 = 8", options: ["x + 4x - 2 = 8", "x + 4x - 1 = 8"], explanation: "٢ في ٢س = ٤س، ٢ في -١ = -٢." },
+                        { label: "الخطوة ٣", prompt: "بسط", correct: "5x = 10", options: ["5x = 10", "5x = 6"], explanation: "س+٤س=٥س. ٨+٢=١٠." },
+                        { label: "الخطوة ٤", prompt: "الحل النهائي", correct: "(2 , 3)", options: ["(2 , 3)", "(3 , 2)"], type: "point", explanation: "س=٢. ص=٢(٢)-١=٣." },
+                        { label: "التصنيف", prompt: "ما هو نوع النظام؟", correct: "متسق ومستقل", options: ["متسق ومستقل", "غير متسق", "متسق وغير مستقل"], type: "text", explanation: "يوجد حل وحيد." }
+                    ]
+                },
+                // البديل 2
+                {
+                    eq1: "3x + y = 7", eq2: "y = x - 1",
+                    steps: [
+                        { label: "التمهيد", prompt: "هل المعادلات جاهزة؟", correct: "جاهزة، نعوض مباشرة", options: ["جاهزة", "نعدل"], type: "text", explanation: "الثانية جاهزة." },
+                        { label: "الخطوة ١", prompt: "عوض عن ص في الأولى", correct: "3x + (x - 1) = 7", options: ["3x + (x - 1) = 7", "3x + x + 1 = 7"], explanation: "ص = س - ١." },
+                        { label: "الخطوة ٢", prompt: "بسط", correct: "4x = 8", options: ["4x = 8", "4x = 6"], explanation: "٣س+س=٤س. ٧+١=٨." },
+                        { label: "الخطوة ٣", prompt: "الحل النهائي", correct: "(2 , 1)", options: ["(2 , 1)", "(1 , 2)"], type: "point", explanation: "س=٢. ص=٢-١=١." },
+                        { label: "التصنيف", prompt: "ما هو نوع النظام؟", correct: "متسق ومستقل", options: ["متسق ومستقل", "غير متسق", "متسق وغير مستقل"], type: "text", explanation: "يوجد حل وحيد." }
+                    ]
+                },
+                // البديل 3
+                {
+                    eq1: "y = 4x", eq2: "2x - y = -4",
+                    steps: [
+                        { label: "التمهيد", prompt: "هل المعادلات جاهزة؟", correct: "جاهزة، نعوض مباشرة", options: ["جاهزة", "نعدل"], type: "text", explanation: "الأولى جاهزة." },
+                        { label: "الخطوة ١", prompt: "عوض عن ص في الثانية", correct: "2x - 4x = -4", options: ["2x - 4x = -4", "2x - (4x) = 4"], explanation: "نضع ٤س مكان ص." },
+                        { label: "الخطوة ٢", prompt: "بسط", correct: "-2x = -4", options: ["-2x = -4", "2x = -4"], explanation: "٢س - ٤س = -٢س." },
+                        { label: "الخطوة ٣", prompt: "الحل النهائي", correct: "(2 , 8)", options: ["(2 , 8)", "(8 , 2)"], type: "point", explanation: "س=٢. ص=٤(٢)=٨." },
+                        { label: "التصنيف", prompt: "ما هو نوع النظام؟", correct: "متسق ومستقل", options: ["متسق ومستقل", "غير متسق", "متسق وغير مستقل"], type: "text", explanation: "يوجد حل وحيد." }
+                    ]
+                }
+            ],
+
+            // المجموعة 3: تحتاج تعديل (غير جاهزة)
+            [
+                {
+                    eq1: "x + y = 5", eq2: "2x - y = 4",
+                    steps: [
+                        { label: "التمهيد", prompt: "هل المعادلات جاهزة للتعويض؟", correct: "نعدل إحدى المعادلتين", options: ["جاهزة، نعوض مباشرة", "نعدل إحدى المعادلتين"], type: "text", explanation: "لا يوجد متغير معزول." },
+                        { label: "التعديل", prompt: "اختر التعديل الصحيح للمعادلة الأولى (عزل ص)", correct: "y = 5 - x", options: ["y = 5 - x", "y = x - 5"], explanation: "ننقل س وتصبح (-س). ص = ٥ - س.", updateEquations: ["y = 5 - x", "2x - y = 4"] },
+                        { label: "الخطوة ١", prompt: "عوض بقيمة ص (٥ - س) في الثانية", correct: "2x - (5 - x) = 4", options: ["2x - (5 - x) = 4", "2x - 5 - x = 4"], explanation: "نضع القيمة بين قوسين لوجود السالب." },
+                        { label: "الخطوة ٢", prompt: "فك الأقواس", correct: "2x - 5 + x = 4", options: ["2x - 5 + x = 4", "2x - 5 - x = 4"], explanation: "سالب في ٥ = -٥، سالب في -س = +س." },
+                        { label: "الخطوة ٣", prompt: "بسط المعادلة", correct: "3x = 9", options: ["3x = 9", "x = 9"], explanation: "٢س + س = ٣س. ٤ + ٥ = ٩." },
+                        { label: "الخطوة ٤", prompt: "الحل النهائي", correct: "(3 , 2)", options: ["(3 , 2)", "(3 , 5)"], type: "point", explanation: "س=٣. ص=٥-٣=٢." },
+                        { label: "التصنيف", prompt: "ما هو نوع النظام؟", correct: "متسق ومستقل", options: ["متسق ومستقل", "غير متسق", "متسق وغير مستقل"], type: "text", explanation: "يوجد حل وحيد." }
+                    ]
+                },
+                {
+                    eq1: "x - y = 2", eq2: "3x + y = 10",
+                    steps: [
+                        { label: "التمهيد", prompt: "هل المعادلات جاهزة؟", correct: "نعدل إحدى المعادلتين", options: ["جاهزة، نعوض مباشرة", "نعدل إحدى المعادلتين"], type: "text", explanation: "نحتاج لعزل س." },
+                        { label: "التعديل", prompt: "اختر التعديل الصحيح للأولى (عزل س)", correct: "x = y + 2", options: ["x = y + 2", "x = 2 - y"], explanation: "س = ص + ٢.", updateEquations: ["x = y + 2", "3x + y = 10"] },
+                        { label: "الخطوة ١", prompt: "عوض عن س في الثانية", correct: "3(y + 2) + y = 10", options: ["3(y + 2) + y = 10", "3y + 2 + y = 10"], explanation: "٣(ص+٢)." },
+                        { label: "الخطوة ٢", prompt: "فك الأقواس", correct: "3y + 6 + y = 10", options: ["3y + 6 + y = 10", "3y + 2 + y = 10"], explanation: "٣ص + ٦." },
+                        { label: "الخطوة ٣", prompt: "بسط", correct: "4y = 4", options: ["4y = 4", "4y = 16"], explanation: "٤ص = ٤." },
+                        { label: "الخطوة ٤", prompt: "الحل النهائي", correct: "(3 , 1)", options: ["(3 , 1)", "(1 , 3)"], type: "point", explanation: "ص=١. س=١+٢=٣." },
+                        { label: "التصنيف", prompt: "ما هو نوع النظام؟", correct: "متسق ومستقل", options: ["متسق ومستقل", "غير متسق", "متسق وغير مستقل"], type: "text", explanation: "يوجد حل وحيد." }
+                    ]
+                },
+                {
+                    eq1: "y + 2x = 7", eq2: "y - x = 1",
+                    steps: [
+                        { label: "التمهيد", prompt: "هل المعادلات جاهزة؟", correct: "نعدل إحدى المعادلتين", options: ["جاهزة، نعوض مباشرة", "نعدل إحدى المعادلتين"], type: "text", explanation: "نعدل الثانية أسهل." },
+                        { label: "التعديل", prompt: "اختر التعديل الصحيح للثانية (عزل ص)", correct: "y = 1 + x", options: ["y = 1 + x", "y = 1 - x"], explanation: "ص = ١ + س.", updateEquations: ["y + 2x = 7", "y = 1 + x"] },
+                        { label: "الخطوة ١", prompt: "عوض عن ص في الأولى", correct: "(1 + x) + 2x = 7", options: ["(1 + x) + 2x = 7", "1 + x + 2x = 7"], explanation: "استبدل ص بـ (١+س)." },
+                        { label: "الخطوة ٢", prompt: "بسط", correct: "3x = 6", options: ["3x = 6", "x = 6"], explanation: "٣س = ٦." },
+                        { label: "الخطوة ٣", prompt: "الحل النهائي", correct: "(2 , 3)", options: ["(2 , 3)", "(3 , 2)"], type: "point", explanation: "س=٢. ص=١+٢=٣." },
+                        { label: "التصنيف", prompt: "ما هو نوع النظام؟", correct: "متسق ومستقل", options: ["متسق ومستقل", "غير متسق", "متسق وغير مستقل"], type: "text", explanation: "يوجد حل وحيد." }
+                    ]
+                }
+            ]
+        ];
+
+        // --- متغيرات اللعبة ---
+        let currentQuestionsList = [];
+        let currentQIndex = 0;
+        let currentStepIndex = 0;
+        let score = 0;
+        let maxScore = 0;
+
+        function startGame() {
+            // اختيار سؤال عشوائي واحد من كل مجموعة
+            currentQuestionsList = questionPools.map(pool => {
+                const randomIndex = Math.floor(Math.random() * pool.length);
+                return pool[randomIndex];
+            });
+
+            maxScore = currentQuestionsList.reduce((acc, q) => acc + q.steps.length, 0);
+            currentQIndex = 0;
+            currentStepIndex = 0;
+            score = 0;
+            
+            document.getElementById('welcome-screen').classList.remove('show');
+            document.getElementById('game-ui').classList.remove('hidden');
+            updateScoreDisplay();
+            loadQuestion();
+        }
+
+        function updateScoreDisplay() {
+            document.getElementById('current-score-display').innerText = `النقاط: ${toArabicNum(score)}`;
+        }
+
+        function loadQuestion() {
+            const q = currentQuestionsList[currentQIndex];
+            currentStepIndex = 0;
+            
+            document.getElementById('question-counter').innerText = `المسألة ${toArabicNum(currentQIndex + 1)} من ${toArabicNum(currentQuestionsList.length)}`;
+            
+            const mainEqDiv = document.getElementById('main-equations');
+            mainEqDiv.classList.remove('faded');
+            document.getElementById('eq1').innerText = formatEq(q.eq1);
+            document.getElementById('eq2').innerText = formatEq(q.eq2);
+            
+            document.getElementById('steps-history').innerHTML = '';
+            document.getElementById('interaction-area').classList.remove('hidden');
+            
+            renderStep();
+        }
+
+        function updateDisplayedEquations(eq1, eq2, highlight = false) {
+            const el1 = document.getElementById('eq1');
+            const el2 = document.getElementById('eq2');
+            el1.innerText = formatEq(eq1);
+            el2.innerText = formatEq(eq2);
+            if (highlight) {
+                el1.classList.add('eq-modified');
+                setTimeout(() => el1.classList.remove('eq-modified'), 1000);
+            } else {
+                el1.classList.remove('eq-modified');
+            }
+        }
+
+        function renderStep() {
+            const q = currentQuestionsList[currentQIndex];
+            const step = q.steps[currentStepIndex];
+            
+            document.getElementById('prompt-text').innerText = step.prompt;
+            const grid = document.getElementById('options-grid');
+            grid.innerHTML = '';
+            // دائماً عمودين حسب طلب المستخدم
+            grid.className = 'choices-grid';
+
+            const opts = [...step.options].sort(() => Math.random() - 0.5);
+            opts.forEach(opt => {
+                const btn = document.createElement('button');
+                const isText = opt.includes('جاهزة') || opt.includes('نعدل') || opt.includes('لا') || opt.includes('عدد') || opt.includes('متسق') || opt.includes('غير');
+                btn.className = `choice-button ${isText ? 'text-choice' : ''}`;
+                btn.innerText = formatOpt(opt);
+                btn.onclick = () => submitChoice(btn, opt);
+                grid.appendChild(btn);
+            });
+
+            document.getElementById('feedback-text').innerText = "";
+            document.getElementById('explain-btn').classList.add('hidden');
+            document.getElementById('next-btn').classList.add('hidden');
+            document.getElementById('interaction-area').classList.remove('hidden');
+        }
+
+        function submitChoice(btn, selectedValue) {
+            const buttons = document.querySelectorAll('.choice-button');
+            buttons.forEach(b => b.disabled = true);
+
+            const q = currentQuestionsList[currentQIndex];
+            const step = q.steps[currentStepIndex];
+            const isCorrect = selectedValue === step.correct;
+            const feedbackText = document.getElementById('feedback-text');
+            const nextBtn = document.getElementById('next-btn');
+            const explainBtn = document.getElementById('explain-btn');
+
+            if (isCorrect) {
+                btn.classList.add('correct');
+                score++;
+                updateScoreDisplay();
+                feedbackText.innerText = "أحسنت! إجابة صحيحة ✅";
+                feedbackText.className = "text-green-600";
+                
+                if (step.updateEquations) {
+                    document.getElementById('main-equations').classList.add('faded');
+                    addModifiedSystemToHistory(step.label, step.updateEquations);
+                } else {
+                    addToHistory(step.correct, step.label);
+                }
+                
+                document.getElementById('interaction-area').classList.add('hidden');
+                nextBtn.classList.remove('hidden');
+                updateNextButtonLabel(q);
+            } else {
+                btn.classList.add('incorrect');
+                feedbackText.innerText = "إجابة خاطئة، انظر للشرح ❌";
+                feedbackText.className = "text-red-600";
+                
+                if (step.updateEquations) {
+                    document.getElementById('main-equations').classList.add('faded');
+                    addModifiedSystemToHistory(step.label, step.updateEquations);
+                } else {
+                    addToHistory(step.correct, step.label);
+                }
+                explainBtn.classList.remove('hidden');
+                nextBtn.classList.remove('hidden');
+                updateNextButtonLabel(q);
+            }
+        }
+
+        function updateNextButtonLabel(q) {
+            const nextBtn = document.getElementById('next-btn');
+            nextBtn.innerText = (currentStepIndex < q.steps.length - 1) ? "الخطوة التالية ⬅️" : "المسألة التالية ⬅️";
+        }
+
+        function showStepExplanation() {
+            const q = currentQuestionsList[currentQIndex];
+            const step = q.steps[currentStepIndex];
+            document.getElementById('explanation-content').innerHTML = `
+                <p class="font-bold mb-2 text-blue-800">الإجابة الصحيحة: <span class="equation-font text-lg">${formatOpt(step.correct)}</span></p>
+                <p>${step.explanation}</p>
+            `;
+            document.getElementById('explanation-modal').classList.add('show');
+        }
+
+        function hideExplanation() {
+            document.getElementById('explanation-modal').classList.remove('show');
+        }
+
+        function addToHistory(text, label) {
+            const div = document.createElement('div');
+            div.className = 'history-step';
+            const isText = text.includes('جاهزة') || text.includes('نعدل') || text.includes('لا') || text.includes('عدد') || text.includes('متسق') || text.includes('غير');
+            div.innerHTML = `<span class="history-label">${label}</span><span class="equation-font" style="${isText ? 'direction:rtl; unicode-bidi:normal;' : ''}">${formatOpt(text)}</span>`;
+            document.getElementById('steps-history').appendChild(div);
+            scrollToBottom();
+        }
+
+        function addModifiedSystemToHistory(label, equations) {
+            const div = document.createElement('div');
+            div.className = 'history-step modification-step';
+            div.innerHTML = `<div class="history-label">${label}</div><div class="equations-wrapper"><span class="equation-font eq-badge">${formatEq(equations[0])}</span><span class="equation-font eq-badge">${formatEq(equations[1])}</span></div>`;
+            document.getElementById('steps-history').appendChild(div);
+            scrollToBottom();
+        }
+
+        function scrollToBottom() {
+            const container = document.getElementById('problem-area');
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function nextStep() {
+            const q = currentQuestionsList[currentQIndex];
+            currentStepIndex++;
+            if (currentStepIndex < q.steps.length) {
+                renderStep();
+            } else {
+                currentQIndex++;
+                if (currentQIndex < currentQuestionsList.length) loadQuestion(); else endGame();
+            }
+        }
+
+        function endGame() {
+            document.getElementById('game-ui').classList.add('hidden');
+            document.getElementById('end-screen').classList.add('show');
+            
+            let finalGrade = (score / maxScore) * 5;
+            finalGrade = Math.round(finalGrade * 10) / 10; 
+            if (finalGrade > 5) finalGrade = 5;
+
+            document.getElementById('points-display').innerText = `${toArabicNum(score)} / ${toArabicNum(maxScore)}`;
+            document.getElementById('final-grade-display').innerText = `${toArabicNum(finalGrade)} / ٥`;
+
+            if (window.saveAndFinishGame) {
+                window.saveAndFinishGame(score, maxScore - score);
+            }
+        }
+    </script>
+
+    <!-- محرك الاتصال بالمنصة -->
+    <script>
+    (function() {
+        let SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
+        let GAME_ID = 'g5_2_1'; 
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const studentId = urlParams.get('studentId');
+        const classId = urlParams.get('classId');
+
+        window.saveAndFinishGame = function(points, errors) {
+            const saveStatus = document.getElementById('save-status');
+            
+            let grade = (points / maxScore) * 5;
+            grade = Math.min(5, Math.max(0, grade)).toFixed(2);
+
+            if(studentId && classId) {
+                saveStatus.innerText = "جاري حفظ الدرجة...";
+                const params = new URLSearchParams({
+                    action: 'saveGrade',
+                    studentId: studentId,
+                    classId: classId,
+                    itemId: GAME_ID,
+                    grade: grade,
+                    metricValue: errors
+                });
+
+                fetch(`${SCRIPT_URL}?${params.toString()}`)
+                    .then(r => r.json())
+                    .then(data => {
+                        if(data.status === 'success') {
+                            saveStatus.innerText = "تم حفظ الدرجة بنجاح ✅";
+                            saveStatus.className = "text-sm text-green-600 mb-4 h-6 font-bold";
+                        } else {
+                            saveStatus.innerText = "لم يتم الحفظ (خطأ في الخادم)";
+                            saveStatus.className = "text-sm text-red-500 mb-4 h-6";
+                        }
+                    })
+                    .catch(e => {
+                        saveStatus.innerText = "خطأ في الاتصال ⚠️";
+                        saveStatus.className = "text-sm text-red-500 mb-4 h-6";
+                    });
+            } else {
+                saveStatus.innerText = "وضع الزائر: لم يتم حفظ الدرجة";
+            }
+        };
+    })();
+    </script>
+</body>
+</html>

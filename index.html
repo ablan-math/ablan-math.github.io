@@ -235,7 +235,7 @@
 </head>
 <body class="bg-gray-100">
 
-    <!-- NEW: Preloader to prevent flash of unstyled content -->
+    <!-- Preloader -->
     <div id="preloader" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: #f0f4f8; z-index: 9999; display: flex; align-items: center; justify-content: center;">
         <div class="loader" style="width: 50px; height: 50px; border-top-color: #3b82f6;"></div>
     </div>
@@ -289,7 +289,7 @@
                                 <div id="student-info-card"></div>
                                 <div id="diagnostic-card"></div>
                             </div>
-                            <!-- Progress Circle -->
+                            <!-- Progress Circle & Achievement Bar -->
                             <div class="card flex flex-col items-center justify-center border border-gray-200">
                                 <h3 class="text-2xl font-bold text-blue-800 mb-4">مستوى التقدم والإتقان</h3>
                                 <div id="overall-progress-circle" class="progress-circle bg-gray-200">
@@ -298,8 +298,10 @@
                                         <span class="text-sm text-black font-bold mt-1">الاتقان للمتاح</span>
                                     </div>
                                 </div>
-                                <div class="w-full mt-4 border-t pt-4 text-center">
-                                    <h4 class="text-sm font-bold text-gray-700 mb-3">تفصيل المحتوى المتاح</h4>
+                                
+                                <!-- Legend moved up, separator removed from here, text removed -->
+                                <div class="w-full mt-4 text-center">
+                                    <!-- Removed h4 title -->
                                     <div id="progress-legend" class="flex flex-wrap justify-center items-center gap-x-4 gap-y-2 w-full">
                                         <div class="flex items-center gap-2">
                                             <span class="w-3 h-3 rounded-full bg-red-500"></span>
@@ -311,6 +313,10 @@
                                         </div>
                                     </div>
                                 </div>
+                                
+                                <!-- Achievement Bar Container (Separator added in JS) -->
+                                <div id="certificate-progress-container" class="w-full"></div>
+
                             </div>
                         </div>
                     </div>
@@ -336,7 +342,7 @@
     <div id="game-modal" class="modal-overlay hidden"><div class="modal-content"><div class="modal-header"><button id="modal-close-btn" class="modal-close-btn">&times;</button></div><div class="modal-body"><iframe id="game-iframe"></iframe></div></div></div>
     <div id="diagnostic-modal" class="modal-overlay hidden"><div class="diagnostic-modal-content"><button id="close-diagnostic-modal" title="إغلاق">&times;</button><i class="fas fa-rocket text-5xl text-blue-600 mb-4"></i><h2 class="text-2xl font-bold mb-2">ابدأ رحلتك في الرياضيات!</h2><p class="mb-6">سيساعدنا هذا الاختبار في فهم نقاط قوتك وتحديد المهارات التي تحتاج إلى تركيز أكبر.</p><a id="start-diagnostic-btn" href="#" class="inline-block bg-green-500 text-white font-bold py-3 px-6 rounded-full hover:bg-green-600 transition-transform hover:scale-105"><i class="fas fa-play-circle mr-2"></i>ابدأ الاختبار التشخيصي</a></div></div>
     
-    <!-- NEW: Musaid (Assistant) Modal -->
+    <!-- Musaid Modal -->
     <div id="musaid-modal" class="modal-overlay hidden">
         <div class="musaid-modal-content">
             <div id="musaid-modal-header" class="musaid-modal-header">
@@ -350,11 +356,9 @@
 
     <script>
     (function() {
-        // This URL must match your deployed Google Apps Script URL.
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
         const VISITOR_MAX_ATTEMPTS = 3;
 
-        // --- RESTORED: Full Curriculum Index ---
         const curriculumIndex = {
             'c1': { 
                 title: "الفصل ١: المعادلات الخطية",
@@ -408,7 +412,6 @@
             }
         };
 
-        // --- DOM Elements ---
         const preloader = document.getElementById('preloader');
         const loginView = document.getElementById('login-view');
         const appContainer = document.getElementById('app-container');
@@ -424,18 +427,15 @@
         const leaderboardView = document.getElementById('leaderboard-view');
         const musaidModal = document.getElementById('musaid-modal');
 
-        // --- Utility Functions ---
         function getClassIdentifier(fullClassName) { if (!fullClassName) return null; const classMap = { "ثالث / أول": "3-1", "ثالث / ثاني": "3-2", "ثالث / ثالث": "3-3" }; return classMap[fullClassName.trim()] || null; }
         function robustParseFloat(value) { if (value === null || value === undefined || value === "") return null; const stringValue = String(value); const sanitizedValue = stringValue.replace(',', '.').trim(); const parsed = parseFloat(sanitizedValue); return isNaN(parsed) ? null : parsed; }
         
         function parseDateAsLocal(dateString) {
             if (!dateString || !/^\d{4}-\d{2}-\d{2}$/.test(dateString)) return new Date('9999-12-31');
             const parts = dateString.split('-');
-            // Month is 0-indexed in JavaScript Date
             return new Date(parts[0], parts[1] - 1, parts[2]);
         }
         
-        // --- View Switching ---
         function switchView(viewName) {
             loginView.style.display = viewName === 'login' ? 'flex' : 'none';
             appContainer.style.display = viewName === 'app' ? 'block' : 'none';
@@ -448,7 +448,6 @@
             leaderboardView.classList.toggle('hidden', tabName !== 'leaderboard');
         }
 
-        // --- Main Rendering Functions ---
         function renderAppContent(studentData) {
             buildHeader(studentData);
             buildFooter();
@@ -568,7 +567,6 @@
 
             renderTestCard(studentData);
 
-            // --- CORRECTED PROGRESS CALCULATION LOGIC ---
             let totalUnlockedPossibleScore = 0;
             let totalUnlockedGainedScore = 0;
             let totalUnlockedLostScore = 0;
@@ -618,38 +616,71 @@
             
             totalUnlockedLostScore = totalUnlockedAttemptedPossibleScore - totalUnlockedGainedScore;
 
-            // Percentage for the circle center (Mastery of AVAILABLE content, including unattempted as 0)
             const masteryPercentage = totalUnlockedPossibleScore > 0 ? Math.round(totalUnlockedGainedScore / totalUnlockedPossibleScore * 100) : 0;
-
-            // Percentages for the legend (breakdown of available content)
             const needsImprovementPercent = totalUnlockedPossibleScore > 0 ? Math.round(totalUnlockedLostScore / totalUnlockedPossibleScore * 100) : 0;
             const pendingPercent = 100 - masteryPercentage - needsImprovementPercent;
 
-            // Get elements
             const progressCircle = document.getElementById('overall-progress-circle');
             const masteryText = document.getElementById('mastery-percentage-text');
             const needsImprovementLegendText = document.getElementById('needs-improvement-legend-text');
             const pendingLegendText = document.getElementById('pending-legend-text');
 
-            // Update elements
             masteryText.textContent = `${masteryPercentage}%`;
             needsImprovementLegendText.textContent = `تحتاج تحسين ${needsImprovementPercent}%`;
             pendingLegendText.textContent = `بانتظارك ${Math.max(0, pendingPercent)}%`;
 
-            // Update circle graphic using raw values to be precise
             const gainedDegrees = totalUnlockedPossibleScore > 0 ? (totalUnlockedGainedScore / totalUnlockedPossibleScore) * 360 : 0;
             const needsImprovementDegrees = totalUnlockedPossibleScore > 0 ? (totalUnlockedLostScore / totalUnlockedPossibleScore) * 360 : 0;
             
             progressCircle.style.background = `conic-gradient(#22c55e 0deg ${gainedDegrees}deg, #ef4444 ${gainedDegrees}deg ${gainedDegrees + needsImprovementDegrees}deg, #a5b4fc ${gainedDegrees + needsImprovementDegrees}deg 360deg)`;
-            
-            // --- END OF CORRECTED LOGIC ---
 
-            // --- START OF NEW MUSAID LOGIC ---
+            // --- START OF NEW ACHIEVEMENT BAR LOGIC ---
+            const achievementContainer = document.getElementById('certificate-progress-container');
+            if (achievementContainer) {
+                const isParticipant = masteryPercentage >= 55;
+                const isExcellent = masteryPercentage >= 85;
+
+                // *** UPDATED: Removed title, added top border here to separate from legend above ***
+                achievementContainer.innerHTML = `
+                <div class="w-full mt-6 pt-6 border-t border-gray-200 px-2">
+                    <div class="text-center mb-6">
+                        <!-- Title Removed -->
+                        <p class="text-[11px] text-gray-500 mt-1">
+                            <span class="inline-block bg-gray-100 rounded px-2 py-0.5 border border-gray-200">شهادة مشارك</span>
+                            <span class="inline-block bg-yellow-50 rounded px-2 py-0.5 border border-yellow-100 mr-1">شهادة تميز</span>
+                        </p>
+                    </div>
+
+                    <div class="relative h-4 bg-gray-200 rounded-full w-full mb-10">
+                        <!-- Progress Fill (Right to Left in RTL) -->
+                        <div class="absolute top-0 right-0 h-full bg-gradient-to-l from-blue-400 to-blue-600 rounded-full transition-all duration-1000 shadow-sm flex items-center justify-center overflow-hidden" style="width: ${masteryPercentage}%">
+                             <span class="text-[10px] font-bold text-white px-1 truncate">${masteryPercentage}%</span>
+                        </div>
+
+                        <!-- 55% Marker (Participant) -->
+                        <div class="absolute top-[-4px] right-[55%] w-0.5 h-6 bg-gray-400 z-10"></div>
+                        <div class="absolute top-7 right-[55%] transform translate-x-1/2 flex flex-col items-center w-24">
+                            <span class="text-xs font-bold ${isParticipant ? 'text-green-600' : 'text-gray-500'}">55% فأكثر</span>
+                            ${isParticipant ? '<i class="fas fa-check-circle text-green-500 text-xs mt-1"></i>' : ''}
+                        </div>
+
+                        <!-- 85% Marker (Excellence) -->
+                        <div class="absolute top-[-4px] right-[85%] w-0.5 h-6 bg-yellow-500 z-10"></div>
+                        <div class="absolute top-7 right-[85%] transform translate-x-1/2 flex flex-col items-center w-24">
+                            <span class="text-xs font-bold ${isExcellent ? 'text-yellow-600' : 'text-gray-500'}">85% فأكثر</span>
+                             ${isExcellent ? '<i class="fas fa-crown text-yellow-500 text-xs mt-1"></i>' : ''}
+                        </div>
+                    </div>
+                </div>
+                `;
+            }
+            // --- END OF NEW ACHIEVEMENT BAR LOGIC ---
+            
             const musaidTasks = determineMusaidTasks(studentData);
-            const nextTaskForSpotlight = musaidTasks.primaryTask; // This will be used for highlighting
+            const nextTaskForSpotlight = musaidTasks.primaryTask;
             const stats = calculateRemainingTasks(studentData);
             
-            buildLearningPath(studentData, nextTaskForSpotlight); // Pass the primary task for spotlighting
+            buildLearningPath(studentData, nextTaskForSpotlight);
             
             const dismissUntil = localStorage.getItem('dismissMusaidUntil');
             const musaidIsDismissed = dismissUntil && new Date().getTime() < parseInt(dismissUntil);
@@ -657,10 +688,8 @@
             if (musaidTasks.primaryTask && !musaidIsDismissed) {
                 showMusaidModal(musaidTasks, stats);
             }
-            // --- END OF NEW MUSAID LOGIC ---
         }
 
-        // --- Leaderboard Functions ---
         function fetchAndRenderLeaderboards(currentStudent) {
             const loader = document.getElementById('leaderboard-loader');
             const grid = document.getElementById('leaderboard-grid');
@@ -672,7 +701,7 @@
                 .then(response => {
                     if (response.status === 'success' && response.data) {
                         const data = response.data;
-                        grid.innerHTML = ''; // Clear previous leaderboards
+                        grid.innerHTML = ''; 
                         grid.appendChild(createLeaderboardCard('أوائل جميع الفصول', 'مجموع النقاط', data.overallTop10, currentStudent.id, data.ranks.overall));
                         grid.appendChild(createLeaderboardCard(`أوائل فصل ${currentStudent.class}`, 'مجموع النقاط', data.classTop10, currentStudent.id, data.ranks.class));
                         grid.appendChild(createLeaderboardCard('أوائل الاختبار التشخيصي', 'المعدل', data.diagnosticTop10, currentStudent.id, data.ranks.diagnostic, true));
@@ -720,7 +749,6 @@
             button.innerHTML = isHidden ? 'إخفاء <i class="fas fa-chevron-up ml-1"></i>' : 'توسيع الجدول <i class="fas fa-chevron-down ml-1"></i>';
         };
 
-        // --- Learning Path & Other UI Functions ---
         function buildLearningPath(studentData, nextTask = null) {
             const learningPathContainer = document.getElementById('learning-path-section');
             const studentLessons = studentData.lessons || {};
@@ -743,7 +771,7 @@
             
             document.getElementById('recall-musaid-btn').addEventListener('click', () => {
                 localStorage.removeItem('dismissMusaidUntil');
-                updateMusaidIconState(); // <-- تحديث حالة الأيقونة
+                updateMusaidIconState(); 
                 const student = getStudentFromStorage();
                 const musaidTasks = determineMusaidTasks(student);
                 const stats = calculateRemainingTasks(student);
@@ -752,7 +780,7 @@
                 }
             });
             
-            updateMusaidIconState(); // <-- تعيين الحالة الأولية للأيقونة عند التحميل
+            updateMusaidIconState();
 
             Object.keys(curriculumIndex).forEach((chapterKey) => {
                 const chapter = curriculumIndex[chapterKey];
@@ -798,7 +826,6 @@
                     
                     const lessonLink = studentData.id ? `lessons/${lesson.id}.html?studentId=${studentData.id}&classId=${studentData.classIdentifier}` : `lessons/${lesson.id}.html`;
                     
-                    // Logic for initial spotlight (primary task only)
                     const isLessonSpotlight = nextTask && nextTask.type === 'lesson' && nextTask.details.id === lesson.id;
                     const lessonSpotlightText = isLessonSpotlight ? "ابدأ هنا" : "";
                     
@@ -812,7 +839,6 @@
                     const gamesHtml = (lesson.games || []).map(game => {
                         const gameGrade = robustParseFloat(studentGames[game.id]?.grade);
                         
-                        // Logic for initial spotlight (primary task only)
                         const isGameSpotlight = nextTask && nextTask.type === 'game' && nextTask.details.id === game.id;
                         const gameSpotlightText = isGameSpotlight ? "ابدأ هنا" : "";
                         const gameStartBadge = isGameSpotlight ? `<div class="start-here-badge" style="font-size: 0.7rem; top: -10px; right: -10px; left: auto;">${gameSpotlightText}</div>` : '';
@@ -855,7 +881,6 @@
             });
         }
         
-        // --- NEW: Checkpoint Completion Logic ---
         function getCheckpointPerformance(grades) {
             if (grades.some(g => g.grade === null)) {
                 return { state: 'not-started', icon: 'fa-book-open' };
@@ -879,12 +904,6 @@
             return { state: 'good', icon: 'fa-check' };
         }
 
-
-        // --- START OF NEW MUSAID LOGIC (HELPER FUNCTIONS) ---
-
-        /**
-         * NEW: Updates the visual state of the Musaid icon based on dismissed status.
-         */
         function updateMusaidIconState() {
             const recallBtn = document.getElementById('recall-musaid-btn');
             if (!recallBtn) return;
@@ -901,57 +920,42 @@
             }
         }
 
-        /**
-         * Checks if a complete task set (lesson + games) is fully completed.
-         */
         function isTaskSetComplete(lesson, studentData) {
-            if (!lesson) return true; // If no lesson is provided, consider it complete
+            if (!lesson) return true;
             const { lessons = {}, games = {} } = studentData;
 
-            // 1. Check lesson test
             if (robustParseFloat(lessons[lesson.id]?.grade) === null) {
                 return false;
             }
-            // 2. Check games
             for (const game of (lesson.games || [])) {
                 if (robustParseFloat(games[game.id]?.grade) === null) {
                     return false;
                 }
             }
-            // If all checks passed, the set is complete
             return true;
         }
 
-        /**
-         * Finds the specific first incomplete item within a task set (lesson or game).
-         */
         function findFirstIncompleteInSet(lesson, studentData) {
              if (!lesson) return null;
              const { lessons = {}, games = {} } = studentData;
              
-             // Check lesson first
              if (robustParseFloat(lessons[lesson.id]?.grade) === null) {
                  return { type: 'lesson', details: lesson };
              }
              
-             // Then check games
              for (const game of (lesson.games || [])) {
                  if (robustParseFloat(games[game.id]?.grade) === null) {
-                     return { type: 'game', details: game, parentLessonId: lesson.id };
+                      return { type: 'game', details: game, parentLessonId: lesson.id };
                  }
              }
-             return null; // Should be complete
+             return null;
         }
 
-        /**
-         * Finds the *very first* uncompleted task in the entire curriculum (old logic).
-         */
         function findOldestUncompletedTask(studentData) {
             const { lessons: studentLessons = {}, games: studentGames = {}, lessonRules = {} } = studentData;
 
             for (const chapterKey of Object.keys(curriculumIndex)) {
                 for (const lesson of curriculumIndex[chapterKey].lessons) {
-                    // Check if lesson is locked
                     const rule = lessonRules[lesson.id];
                     let isLocked = true;
                     if (rule) {
@@ -966,7 +970,6 @@
                     if (studentData && studentData.role === 'teacher') { isLocked = false; }
 
                     if (!isLocked) {
-                        // If unlocked, check for completion
                         if (robustParseFloat(studentLessons[lesson.id]?.grade) === null) {
                             return { type: 'lesson', details: lesson };
                         }
@@ -978,18 +981,14 @@
                     }
                 }
             }
-            return null; // All tasks are completed
+            return null;
         }
 
-        /**
-         * NEW MAIN LOGIC: Determines the primary and secondary tasks for the Musaid modal.
-         */
         function determineMusaidTasks(studentData) {
             if (!studentData) return { primaryTask: null, secondaryTask: null, messageType: 'none' };
 
             const { diagnostics = {}, lessonRules = {}, role } = studentData;
 
-            // Priority 0: Diagnostic Test
             if (!diagnostics.d_best_weighted && !diagnostics.d_test_overall) {
                 return {
                     primaryTask: { type: 'diagnostic', details: { title: 'الاختبار التشخيصي', id: 'diagnostic' } },
@@ -998,11 +997,8 @@
                 };
             }
 
-            // Find the "Oldest Uncompleted Task" (Priority 3)
-            // We find this first, as it might be needed for the secondary notification.
             const oldestUncompletedTask = findOldestUncompletedTask(studentData);
 
-            // Find "Newest" and "Previous" unlocked lessons
             const unlockedLessons = [];
             const today = new Date();
             today.setHours(0, 0, 0, 0);
@@ -1029,43 +1025,35 @@
             const newestLesson = unlockedLessons.length > 0 ? unlockedLessons[unlockedLessons.length - 1] : null;
             const previousLesson = unlockedLessons.length > 1 ? unlockedLessons[unlockedLessons.length - 2] : null;
 
-            // Check completion status of the recent lessons
             const isPreviousComplete = isTaskSetComplete(previousLesson, studentData);
             const isNewestComplete = isTaskSetComplete(newestLesson, studentData);
 
-            // --- Apply Priority Logic ---
-
-            // Priority 1: (Lesson Before New) is incomplete
             if (previousLesson && !isPreviousComplete) {
                 return {
                     primaryTask: findFirstIncompleteInSet(previousLesson, studentData),
-                    secondaryTask: oldestUncompletedTask, // Pass oldest task for secondary button
+                    secondaryTask: oldestUncompletedTask,
                     messageType: 'complete-previous'
                 };
             }
 
-            // Priority 2: (Newest Lesson) is incomplete
             if (newestLesson && !isNewestComplete) {
                 return {
                     primaryTask: findFirstIncompleteInSet(newestLesson, studentData),
-                    secondaryTask: oldestUncompletedTask, // Pass oldest task for secondary button
+                    secondaryTask: oldestUncompletedTask,
                     messageType: 'do-new'
                 };
             }
 
-            // Priority 3: (Oldest Uncompleted) - This triggers if 1 and 2 are complete
             if (oldestUncompletedTask) {
                 return {
                     primaryTask: oldestUncompletedTask,
-                    secondaryTask: null, // No secondary task needed
+                    secondaryTask: null, 
                     messageType: 'complete-oldest'
                 };
             }
 
-            // All tasks are done
             return { primaryTask: null, secondaryTask: null, messageType: 'all-done' };
         }
-
 
         function calculateRemainingTasks(studentData) {
             let remainingLessons = 0;
@@ -1095,8 +1083,8 @@
                         }
                         for (const game of (lesson.games || [])) {
                              if (robustParseFloat(studentGames[game.id]?.grade) === null) {
-                                 remainingGames++;
-                            }
+                                  remainingGames++;
+                             }
                         }
                     }
                  }
@@ -1104,19 +1092,15 @@
             return { remainingLessons, remainingGames };
         }
 
-        /**
-         * UPDATED: Shows the Musaid modal based on the new priority tasks.
-         */
         function showMusaidModal(musaidTasks, stats) {
             const { primaryTask, secondaryTask, messageType } = musaidTasks;
-            if (!primaryTask) return; // No task, do nothing
+            if (!primaryTask) return;
 
             let taskTitle = primaryTask.details.title;
             let icon = '🎯';
             let taskTypeMessage = '';
             let actionButtonText = '🚀 لنبدأ الآن';
 
-            // Set message and icon based on the priority type
             switch (messageType) {
                 case 'diagnostic':
                     taskTypeMessage = 'مرحباً بك! مهمتك الأولى هي إكمال الاختبار التشخيصي:';
@@ -1135,7 +1119,7 @@
                     taskTypeMessage = 'رائع! أنت متقدم في الدروس الأخيرة. لاحظنا أن لديك مهمة قديمة لم تنهها:';
                     icon = '🧐';
                     break;
-                default: // Fallback
+                default: 
                     taskTypeMessage = 'مهمتك التالية هي:';
             }
 
@@ -1157,10 +1141,8 @@
                     </div>
                 </div>`;
             
-            // Check if we need to show the secondary "old task" button
             let secondaryTaskHtml = '';
             if (secondaryTask && secondaryTask.details.id !== primaryTask.details.id) {
-                // Only show if the oldest task is different from the primary task
                 secondaryTaskHtml = `<button id="musaid-secondary-btn" class="secondary-action-btn">لديك مهام قديمة.. اذهب لأولها</button>`;
             }
             
@@ -1169,10 +1151,8 @@
                 <div class="mt-3">${secondaryTaskHtml}</div>
                 <button id="musaid-dismiss-btn" class="dismiss-btn">👍 حسنًا، لا تظهر اليوم</button>`;
             
-            // Add click listener for the primary task
             document.getElementById('musaid-action-btn').onclick = () => goToTaskAndCloseModal(primaryTask, "ابدأ هنا");
             
-            // Add click listener for the secondary task, if it exists
             if (secondaryTaskHtml) {
                 document.getElementById('musaid-secondary-btn').onclick = () => goToTaskAndCloseModal(secondaryTask, "أكمل هنا");
             }
@@ -1182,12 +1162,6 @@
             musaidModal.classList.remove('hidden');
         }
 
-        // --- END OF NEW MUSAID LOGIC ---
-
-
-        /**
-         * UPDATED: Handles navigation and dynamic spotlighting.
-         */
         function goToTaskAndCloseModal(task, badgeText) {
             musaidModal.classList.add('hidden');
             let url;
@@ -1200,34 +1174,26 @@
                 return;
             }
 
-            // 1. Remove all existing spotlights and badges
             document.querySelectorAll('.spotlight').forEach(el => el.classList.remove('spotlight'));
             document.querySelectorAll('.start-here-badge').forEach(badge => badge.remove());
 
-            // 2. Find the target element
             let elementId = task.type === 'lesson' ? `lesson-card-${task.details.id}` : `game-${task.details.id}`;
             const element = document.getElementById(elementId);
 
             if (element) {
-                // 3. Scroll to the element
                 element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                
-                // 4. Apply new spotlight
                 element.classList.add('spotlight');
                 
-                // 5. Create and append the new badge
                 const badge = document.createElement('div');
                 badge.className = 'start-here-badge';
                 badge.textContent = badgeText;
                 
                 if (task.type === 'game') {
-                    // Apply specific style for game card badges
                     badge.style.cssText = 'font-size: 0.7rem; top: -10px; right: -10px; left: auto;';
                 }
                 
                 element.appendChild(badge);
 
-                // 6. Ensure the chapter is expanded
                 const chapterCard = element.closest('.chapter-card');
                 if (chapterCard && !chapterCard.classList.contains('expanded')) {
                     chapterCard.classList.add('expanded');
@@ -1240,7 +1206,7 @@
             const expiry = now.getTime() + 24 * 60 * 60 * 1000;
             localStorage.setItem('dismissMusaidUntil', expiry);
             musaidModal.classList.add('hidden');
-            updateMusaidIconState(); // <-- تحديث حالة الأيقونة
+            updateMusaidIconState();
         }
         
         function buildSummaryBox(lesson, index, grades, studentData, isLocked) {
@@ -1263,8 +1229,6 @@
             return 'fa-sync-alt'; 
         }
 
-        function getPerformanceDetails(grade, maxScore) { if (grade === null) return { state: 'not-started', icon: 'fa-book-open' }; const numericGrade = parseFloat(grade); if (numericGrade === maxScore) return { state: 'excellent', icon: 'fa-trophy' }; if (numericGrade >= maxScore / 2) return { state: 'good', icon: 'fa-check' }; return { state: 'improve', icon: 'fa-sync-alt' }; }
-        
         function renderTestCard(studentData) {
             const card = document.getElementById('diagnostic-card');
             const diagnostics = studentData.diagnostics || {};
@@ -1308,7 +1272,6 @@
             if (student) { refreshStudentData(student.id, student.classIdentifier); }
         }
 
-        // --- INITIALIZATION ---
         document.addEventListener('DOMContentLoaded', () => {
             const student = getStudentFromStorage();
 
@@ -1354,9 +1317,3 @@
     </script>
 </body>
 </html>
-
-
-
-
-
-

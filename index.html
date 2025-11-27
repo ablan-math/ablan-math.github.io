@@ -231,6 +231,77 @@
         .social-icon:hover {
             transform: scale(1.15);
         }
+        /* Star/Medal Badge Styles */
+        .star-badge {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transition: opacity 0.3s, transform 0.3s;
+            position: relative;
+        }
+        .star-badge.active {
+            opacity: 1;
+            transform: scale(1.1);
+        }
+        .star-badge .fa-star {
+            font-size: 2rem;
+            /* Default color for unknown state */
+            color: #e5e7eb; 
+            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .star-badge .fa-lock {
+            font-size: 1.8rem;
+            color: #9ca3af;
+        }
+        
+        /* Medal Colors and Effects */
+        .text-gold { color: #fbbf24; text-shadow: 0 0 8px rgba(251, 191, 36, 0.6); }
+        .text-silver { color: #94a3b8; text-shadow: 0 0 5px rgba(148, 163, 184, 0.5); }
+        .text-bronze { color: #d97706; text-shadow: 0 0 5px rgba(217, 119, 6, 0.5); }
+        
+        /* UPDATED: Improved Pulse for Gold */
+        @keyframes star-pulse-gold {
+            0% { transform: scale(1); text-shadow: 0 0 10px rgba(251, 191, 36, 0.7); }
+            50% { transform: scale(1.15); text-shadow: 0 0 25px rgba(251, 191, 36, 1), 0 0 10px #fff; }
+            100% { transform: scale(1); text-shadow: 0 0 10px rgba(251, 191, 36, 0.7); }
+        }
+        
+        .star-badge.active .text-gold {
+            animation: star-pulse-gold 2s infinite;
+            color: #ffd700 !important; /* Forced bright gold */
+        }
+        
+        .star-label {
+            font-size: 0.8rem;
+            font-weight: 700;
+            margin-top: 0.25rem;
+            color: #6b7280;
+        }
+        .star-badge.active .star-label {
+            color: #1e3a8a;
+        }
+        .star-sublabel {
+            font-size: 0.7rem;
+            color: #9ca3af;
+        }
+        .star-badge.active .star-sublabel {
+            color: #4b5563;
+            font-weight: bold;
+        }
+        
+        /* New Score Box Style */
+        .star-score-box {
+            margin-top: 4px;
+            border: 1px solid #3b82f6;
+            background-color: #fff;
+            color: #1e3a8a;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            direction: ltr; /* Ensure percentage looks right */
+        }
     </style>
 </head>
 <body class="bg-gray-100">
@@ -570,139 +641,326 @@
             document.getElementById('dashboard-container').classList.remove('hidden');
             
             const studentInfoCard = document.getElementById('student-info-card');
-            studentInfoCard.innerHTML = `<h4 class="text-xl font-bold text-blue-800 mb-4">بيانات الطالب</h4><div class="space-y-2 text-gray-800"><p><strong>الاسم:</strong> <span id="display-name">${studentData.name || '-'}</span></p><p><strong>الصف:</strong> <span id="display-class">${studentData.class || '-'}</span></p></div>`;
+            
+            // Updated User Info Layout
+            studentInfoCard.innerHTML = `
+                <h4 class="text-xl font-bold text-blue-800 mb-4">بيانات الطالب</h4>
+                <div class="flex items-center gap-2 text-gray-800 text-lg">
+                    <p><strong>الاسم:</strong> <span id="display-name">${studentData.name || '-'}</span></p>
+                    <span class="text-gray-400">|</span>
+                    <p><strong>الصف:</strong> <span id="display-class">${studentData.class || '-'}</span></p>
+                </div>
+            `;
 
             renderTestCard(studentData);
 
-            let totalUnlockedPossibleScore = 0;
-            let totalUnlockedGainedScore = 0;
-            let totalUnlockedLostScore = 0;
-            let totalUnlockedAttemptedPossibleScore = 0;
+            // --- 1. DYNAMIC CALCULATION ENGINE (Source of Truth for Circle & Bar) ---
+            // We ignore the sheet value because it might be static or based on full curriculum.
+            // We calculate interactionPct based ONLY on available lessons/games.
+            
+            let totalLessonsScore = 0;
+            let totalLessonsPossible = 0;
+            let totalGamesScore = 0;
+            let totalGamesPossible = 0;
+            
+            // For "Needs Improvement" breakdown (Attempted vs Gained)
+            let totalUnlockedAttemptedPossible = 0;
+            let totalUnlockedGained = 0;
+            // For "Pending" breakdown (Available but Unattempted)
+            let countAvailableItems = 0;
+            let countAttemptedItems = 0;
 
             const studentLessons = studentData.lessons || {};
             const studentGames = studentData.games || {};
             const lessonRules = studentData.lessonRules || {};
+            
+            // Normalize today's date for comparison
+            const todayForCalc = new Date();
+            todayForCalc.setHours(0, 0, 0, 0);
 
             Object.values(curriculumIndex).forEach(chapter => {
                 chapter.lessons.forEach(lesson => {
+                    // Determine Availability
                     const rule = lessonRules[lesson.id];
-                    let isLocked = true;
+                    let isLocked = false; 
                     if (rule) {
-                        if (rule.method === 'يدوي' && rule.value === 'مفتوح') { isLocked = false; }
-                        else if (rule.method === 'تاريخ') {
-                            const today = new Date();
-                            const openDate = parseDateAsLocal(rule.value);
-                            today.setHours(0, 0, 0, 0);
-                            if (today >= openDate) { isLocked = false; }
+                        isLocked = true; // Has rule -> assume locked until proven open
+                        if (rule.method === 'يدوي' && rule.value === 'مفتوح') {
+                             isLocked = false;
+                        } else if (rule.method === 'تاريخ') {
+                            const unlockDate = parseDateAsLocal(rule.value);
+                            if (todayForCalc >= unlockDate) {
+                                isLocked = false;
+                            }
                         }
-                    } else { isLocked = false; }
-                    if (studentData && studentData.role === 'teacher') { isLocked = false; }
+                    }
+                    
+                    // Teacher Override
+                    if (studentData.role === 'teacher') {
+                        isLocked = false;
+                    }
 
+                    // IF AVAILABLE (Dynamic Logic)
                     if (!isLocked) {
-                        const lessonMaxScore = lesson.maxScore || 10;
-                        totalUnlockedPossibleScore += lessonMaxScore;
-                        const lessonGrade = robustParseFloat(studentLessons[lesson.id]?.grade);
-
-                        if (lessonGrade !== null) {
-                            totalUnlockedGainedScore += lessonGrade;
-                            totalUnlockedAttemptedPossibleScore += lessonMaxScore;
+                        // Track counts for "Pending" calculation
+                        countAvailableItems++; // Lesson
+                        const lGradeVal = studentLessons[lesson.id]?.grade;
+                        const lGrade = robustParseFloat(lGradeVal);
+                        
+                        // --- Lesson Calculation ---
+                        const lMax = lesson.maxScore || 10;
+                        totalLessonsPossible += lMax; // Add to denominator if available
+                        
+                        if (lGrade !== null) {
+                            countAttemptedItems++;
+                            totalLessonsScore += lGrade;
+                            // Track attempted for "Needs Improvement"
+                            totalUnlockedAttemptedPossible += lMax;
+                            totalUnlockedGained += lGrade;
                         }
 
+                        // --- Games Calculation ---
                         (lesson.games || []).forEach(game => {
-                            const gameMaxScore = game.maxScore || 5;
-                            totalUnlockedPossibleScore += gameMaxScore;
-                            const gameGrade = robustParseFloat(studentGames[game.id]?.grade);
-                            if (gameGrade !== null) {
-                                totalUnlockedGainedScore += gameGrade;
-                                totalUnlockedAttemptedPossibleScore += gameMaxScore;
+                            countAvailableItems++; // Game
+                            const gMax = game.maxScore || 5;
+                            totalGamesPossible += gMax; // Add to denominator if available
+                            
+                            const gGradeVal = studentGames[game.id]?.grade;
+                            const gGrade = robustParseFloat(gGradeVal);
+                            
+                            if (gGrade !== null) {
+                                countAttemptedItems++;
+                                totalGamesScore += gGrade;
+                                // Track attempted
+                                totalUnlockedAttemptedPossible += gMax;
+                                totalUnlockedGained += gGrade;
                             }
                         });
                     }
                 });
             });
-            
-            totalUnlockedLostScore = totalUnlockedAttemptedPossibleScore - totalUnlockedGainedScore;
 
-            const masteryPercentage = totalUnlockedPossibleScore > 0 ? Math.round(totalUnlockedGainedScore / totalUnlockedPossibleScore * 100) : 0;
-            const needsImprovementPercent = totalUnlockedPossibleScore > 0 ? Math.round(totalUnlockedLostScore / totalUnlockedPossibleScore * 100) : 0;
-            const pendingPercent = 100 - masteryPercentage - needsImprovementPercent;
+            // 2. Calculate Percentages (Denominator is dynamic based on available items only)
+            const lessonPct = totalLessonsPossible > 0 ? (totalLessonsScore / totalLessonsPossible) * 100 : 0;
+            const gamePct = totalGamesPossible > 0 ? (totalGamesScore / totalGamesPossible) * 100 : 0;
+
+            // 3. Final Interaction Score (Average of the two percentages)
+            let interactionPct = 0;
+            if (totalLessonsPossible > 0 && totalGamesPossible > 0) {
+                interactionPct = (lessonPct + gamePct) / 2;
+            } else if (totalLessonsPossible > 0) {
+                interactionPct = lessonPct;
+            } else if (totalGamesPossible > 0) {
+                interactionPct = gamePct;
+            } else {
+                // If nothing is available yet, score is 0 or maybe 100? 0 is safer.
+                interactionPct = 0;
+            }
+            
+            // Round to 1 decimal for display
+            const finalScore = Math.round(interactionPct * 10) / 10;
+
+
+            // --- HELPER: Get Medal Config based on Score ---
+            function getMedalStatus(score, thresholds) {
+                // thresholds = { gold: 95, silver: 75, bronze: 50 }
+                if (score >= thresholds.gold) return { class: 'text-gold', icon: 'fa-star', label: 'ذهبية' }; 
+                if (score >= thresholds.silver) return { class: 'text-silver', icon: 'fa-star', label: 'فضية' };
+                if (score >= thresholds.bronze) return { class: 'text-bronze', icon: 'fa-star', label: 'برونزية' };
+                return null; // No medal
+            }
+
+            // --- STAR 1: DIAGNOSTIC ---
+            const diagnostics = studentData.diagnostics || {};
+            const diagnosticScore = diagnostics.d_best_weighted 
+                ? robustParseFloat(diagnostics.d_best_weighted.grade) 
+                : (studentData['الدرجة التشخيصية الموزونة'] ? robustParseFloat(studentData['الدرجة التشخيصية الموزونة']) : 0);
+            
+            const diagMedal = getMedalStatus(diagnosticScore, { gold: 95, silver: 75, bronze: 50 });
+            
+            let star1Html = '';
+            if (diagMedal) {
+                star1Html = `
+                <div class="star-badge active" title="درجة التشخيصي: ${formatDecimal(diagnosticScore)}%">
+                    <i class="fas ${diagMedal.icon} ${diagMedal.class}"></i>
+                    <span class="star-label">التشخيصي</span>
+                    <span class="star-sublabel">${diagMedal.label}</span>
+                    <div class="star-score-box" dir="ltr">${formatDecimal(diagnosticScore)}%</div>
+                </div>`;
+            } else {
+                // Gray/Locked state for low score
+                star1Html = `
+                <div class="star-badge" title="درجة التشخيصي منخفضة">
+                    <i class="fas fa-star text-gray-300"></i>
+                    <span class="star-label text-gray-400">التشخيصي</span>
+                    <span class="star-sublabel text-red-500 font-bold">لم يستحق</span>
+                    <div class="star-score-box" dir="ltr">${formatDecimal(diagnosticScore)}%</div>
+                </div>`;
+            }
+
+            // --- STAR 2: MASTERY (Check Date First) ---
+            const masteryDateStr = (studentData.lessonRules && studentData.lessonRules['star_mastery']) ? studentData.lessonRules['star_mastery'].value : null;
+            
+            let star2Html = '';
+            // Date Check
+            if (masteryDateStr) {
+                const masteryDate = parseDateAsLocal(masteryDateStr);
+                if (todayForCalc >= masteryDate) {
+                    // Date passed, check score (USING DYNAMIC finalScore)
+                    const masteryMedal = getMedalStatus(finalScore, { gold: 85, silver: 55, bronze: 999 }); 
+                    
+                    if (masteryMedal) {
+                        star2Html = `
+                        <div class="star-badge active" title="نسبة التفاعل: ${finalScore}%">
+                            <i class="fas ${masteryMedal.icon} ${masteryMedal.class}"></i>
+                            <span class="star-label">الإتقان</span>
+                            <span class="star-sublabel">${masteryMedal.label}</span>
+                            <div class="star-score-box" dir="ltr">${finalScore}%</div>
+                        </div>`;
+                    } else {
+                         // Score too low (< 55%)
+                         star2Html = `
+                         <div class="star-badge" style="opacity:0.8">
+                            <i class="fas fa-star text-gray-300"></i>
+                            <span class="star-label">الإتقان</span>
+                            <span class="star-sublabel text-red-600 font-bold">لم يستحق</span>
+                            <div class="star-score-box" dir="ltr">${finalScore}%</div>
+                         </div>`;
+                    }
+                } else {
+                    // Date not reached -> Lock
+                    star2Html = `
+                    <div class="star-badge" title="لم يحن الموعد بعد: ${masteryDateStr}">
+                        <i class="fas fa-lock"></i>
+                        <span class="star-label text-gray-400">الإتقان</span>
+                    </div>`;
+                }
+            } else {
+                 // No rule defined -> Default Lock
+                 star2Html = `<div class="star-badge"><i class="fas fa-lock"></i><span class="star-label text-gray-400">الإتقان</span></div>`;
+            }
+
+            // --- STAR 3: COMPLETION (Check Date First) ---
+            const completionDateStr = (studentData.lessonRules && studentData.lessonRules['star_completion']) ? studentData.lessonRules['star_completion'].value : null;
+            
+            let star3Html = '';
+            if (completionDateStr) {
+                const completionDate = parseDateAsLocal(completionDateStr);
+                if (todayForCalc >= completionDate) {
+                     const completionMedal = getMedalStatus(finalScore, { gold: 85, silver: 55, bronze: 999 });
+                     if (completionMedal) {
+                        star3Html = `
+                        <div class="star-badge active" title="نسبة التفاعل النهائي: ${finalScore}%">
+                            <i class="fas ${completionMedal.icon} ${completionMedal.class}"></i>
+                            <span class="star-label">الختام</span>
+                            <span class="star-sublabel">${completionMedal.label}</span>
+                            <div class="star-score-box" dir="ltr">${finalScore}%</div>
+                        </div>`;
+                     } else {
+                        star3Html = `
+                        <div class="star-badge" style="opacity:0.8">
+                            <i class="fas fa-star text-gray-300"></i>
+                            <span class="star-label">الختام</span>
+                            <span class="star-sublabel text-red-600 font-bold">لم يستحق</span>
+                             <div class="star-score-box" dir="ltr">${finalScore}%</div>
+                        </div>`;
+                     }
+                } else {
+                    star3Html = `
+                    <div class="star-badge" title="لم يحن الموعد بعد: ${completionDateStr}">
+                        <i class="fas fa-lock"></i>
+                        <span class="star-label text-gray-400">الختام</span>
+                        <span class="star-sublabel text-gray-400" style="font-size:0.65rem; direction: ltr;">${completionDateStr}</span>
+                    </div>`;
+                }
+            } else {
+                star3Html = `<div class="star-badge"><i class="fas fa-lock"></i><span class="star-label text-gray-400">الختام</span></div>`;
+            }
+
+            // Render Stars HTML Container
+            const starsContainer = document.createElement('div');
+            starsContainer.className = "flex justify-around mt-6 pt-4 border-t border-gray-200";
+            starsContainer.innerHTML = star1Html + star2Html + star3Html;
+            
+            const diagnosticCard = document.getElementById('diagnostic-card');
+            const existingStars = diagnosticCard.querySelector('.flex.justify-around.mt-6');
+            if(existingStars) existingStars.remove();
+            diagnosticCard.appendChild(starsContainer);
+
+
+            // ... PROGRESS CIRCLE LOGIC (Using UNIFIED finalScore) ...
+            
+            // Calculate Pending % based on counts
+            let pendingPct = 0;
+            if (countAvailableItems > 0) {
+                 pendingPct = ((countAvailableItems - countAttemptedItems) / countAvailableItems) * 100;
+            }
+            pendingPct = Math.round(pendingPct);
+            
+            // Calculate Improvement % as residual
+            let improvementPct = 100 - Math.round(finalScore) - pendingPct;
+            
+            if (improvementPct < 0) {
+                 improvementPct = 0;
+                 // Adjust pending if math is off due to rounding or weighting diffs
+                 pendingPct = 100 - Math.round(finalScore);
+            }
 
             const progressCircle = document.getElementById('overall-progress-circle');
             const masteryText = document.getElementById('mastery-percentage-text');
             const needsImprovementLegendText = document.getElementById('needs-improvement-legend-text');
             const pendingLegendText = document.getElementById('pending-legend-text');
 
-            masteryText.textContent = `${masteryPercentage}%`;
-            needsImprovementLegendText.textContent = `تحتاج تحسين ${needsImprovementPercent}%`;
-            pendingLegendText.textContent = `بانتظارك ${Math.max(0, pendingPercent)}%`;
+            masteryText.textContent = `${Math.round(finalScore)}%`;
+            needsImprovementLegendText.textContent = `تحتاج تحسين ${improvementPct}%`;
+            pendingLegendText.textContent = `بانتظارك ${pendingPct}%`;
 
-            const gainedDegrees = totalUnlockedPossibleScore > 0 ? (totalUnlockedGainedScore / totalUnlockedPossibleScore) * 360 : 0;
-            const needsImprovementDegrees = totalUnlockedPossibleScore > 0 ? (totalUnlockedLostScore / totalUnlockedPossibleScore) * 360 : 0;
+            // For the chart, use values out of 100
+            const gainedDegrees = (finalScore / 100) * 360;
+            const needsImprovementDegrees = (improvementPct / 100) * 360;
             
             progressCircle.style.background = `conic-gradient(#22c55e 0deg ${gainedDegrees}deg, #ef4444 ${gainedDegrees}deg ${gainedDegrees + needsImprovementDegrees}deg, #a5b4fc ${gainedDegrees + needsImprovementDegrees}deg 360deg)`;
 
-            // --- START OF NEW ACHIEVEMENT BAR LOGIC ---
+            // ... (Achievement Bar Logic using UNIFIED finalScore) ...
             const achievementContainer = document.getElementById('certificate-progress-container');
             if (achievementContainer) {
-                const isParticipant = masteryPercentage >= 55;
-                const isExcellent = masteryPercentage >= 85;
+                const isParticipant = finalScore >= 55;
+                const isExcellent = finalScore >= 85;
 
-                // *** UPDATED: Removed title, added top border here to separate from legend above ***
                 achievementContainer.innerHTML = `
                 <div class="w-full mt-6 pt-6 border-t border-gray-200 px-2">
-                    <div class="relative h-4 bg-gray-200 rounded-full w-full mt-12 mb-12"> <!-- Increased margins -->
-                        
-                        <!-- Progress Fill -->
-                        <div class="absolute top-0 right-0 h-full bg-gradient-to-l from-blue-400 to-blue-600 rounded-full transition-all duration-1000 shadow-sm flex items-center justify-center overflow-hidden" style="width: ${masteryPercentage}%">
-                             <span class="text-[10px] font-bold text-white px-1 truncate">${masteryPercentage}%</span>
+                    <div class="relative h-4 bg-gray-200 rounded-full w-full mt-12 mb-12">
+                        <div class="absolute top-0 right-0 h-full bg-gradient-to-l from-blue-400 to-blue-600 rounded-full transition-all duration-1000 shadow-sm flex items-center justify-center overflow-hidden" style="width: ${finalScore}%">
+                             <span class="text-[10px] font-bold text-white px-1 truncate">${finalScore}%</span>
                         </div>
-
-                        <!-- 55% Marker Group -->
-                        <!-- Line -->
                         <div class="absolute top-[-4px] right-[55%] w-0.5 h-6 bg-gray-400 z-10"></div>
-                        
-                        <!-- Top Label (Certificate Name) -->
                         <div class="absolute bottom-full mb-2 right-[55%] transform translate-x-1/2 flex flex-col items-center w-32">
                             <span class="text-xs font-bold bg-gray-100 border border-gray-200 px-2 py-1 rounded shadow-sm ${isParticipant ? 'text-green-600' : 'text-gray-500'}">شهادة مشارك</span>
                         </div>
-
-                        <!-- Bottom Label (Percentage) -->
                         <div class="absolute top-6 right-[55%] transform translate-x-1/2 flex flex-col items-center w-32">
                             <span class="text-xs font-bold text-gray-500">55% فأكثر</span>
                         </div>
-
-
-                        <!-- 85% Marker Group -->
-                        <!-- Line -->
                         <div class="absolute top-[-4px] right-[85%] w-0.5 h-6 bg-yellow-400 z-10"></div>
-
-                        <!-- Top Label (Certificate Name) -->
                         <div class="absolute bottom-full mb-2 right-[85%] transform translate-x-1/2 flex flex-col items-center w-32">
                             <span class="text-xs font-bold bg-yellow-50 border border-yellow-200 px-2 py-1 rounded shadow-sm ${isExcellent ? 'text-yellow-700' : 'text-gray-500'}">شهادة تميز</span>
                         </div>
-
-                        <!-- Bottom Label (Percentage) -->
                         <div class="absolute top-6 right-[85%] transform translate-x-1/2 flex flex-col items-center w-32">
                             <span class="text-xs font-bold text-gray-500">85% فأكثر</span>
                         </div>
-
                     </div>
                 </div>
                 `;
             }
-            // --- END OF NEW ACHIEVEMENT BAR LOGIC ---
             
-            const musaidTasks = determineMusaidTasks(studentData);
-            const nextTaskForSpotlight = musaidTasks.primaryTask;
-            const stats = calculateRemainingTasks(studentData);
+            const nextTaskForSpotlight = determineMusaidTasks(studentData).primaryTask;
             
             buildLearningPath(studentData, nextTaskForSpotlight);
             
             const dismissUntil = localStorage.getItem('dismissMusaidUntil');
             const musaidIsDismissed = dismissUntil && new Date().getTime() < parseInt(dismissUntil);
 
-            if (musaidTasks.primaryTask && !musaidIsDismissed) {
-                showMusaidModal(musaidTasks, stats);
+            if (determineMusaidTasks(studentData).primaryTask && !musaidIsDismissed) {
+                showMusaidModal(determineMusaidTasks(studentData), calculateRemainingTasks(studentData));
             }
         }
 

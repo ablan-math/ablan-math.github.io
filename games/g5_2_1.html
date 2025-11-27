@@ -267,6 +267,21 @@
             font-weight: bold;
             margin-right: auto;
         }
+
+        /* شارة الوقت */
+        .timer-badge {
+            background: #e0f2fe;
+            color: #0369a1;
+            padding: 0.2rem 0.6rem;
+            border-radius: 1rem;
+            font-size: 0.8rem;
+            font-weight: bold;
+            margin-left: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+        .timer-icon { width: 1rem; height: 1rem; }
     </style>
 </head>
 <body>
@@ -292,8 +307,15 @@
 
     <!-- شاشة اللعبة -->
     <div id="game-ui" class="game-card hidden">
+        <!-- الشريط العلوي -->
         <div class="flex items-center mb-2 px-1 w-full">
             <h2 id="question-counter" class="text-lg font-bold text-gray-700">المسألة ١ من ٣</h2>
+            <div id="timer-display" class="timer-badge">
+                <svg xmlns="http://www.w3.org/2000/svg" class="timer-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span id="timer-text">٠٠:٠٠</span>
+            </div>
             <div id="current-score-display" class="score-badge">النقاط: ٠</div>
             <button onclick="location.reload()" class="text-red-500 font-bold text-xl mr-2">✕</button>
         </div>
@@ -336,6 +358,9 @@
             <p class="text-gray-700 mb-4">لقد أتممت جميع المسائل.</p>
             
             <div class="bg-gray-50 p-4 rounded-lg mb-6">
+                <p class="text-gray-600 text-sm mb-1">الوقت المستغرق:</p>
+                <p id="final-time-display" class="text-xl font-bold text-blue-600 mb-3"></p>
+                
                 <p class="text-gray-600 text-sm mb-1">مجموع النقاط:</p>
                 <p id="points-display" class="text-xl font-bold text-gray-800 mb-3"></p>
                 
@@ -386,11 +411,10 @@
             return formatEq(opt).replace(',', '،');
         }
 
-        // --- بنك الأسئلة (3 مجموعات) - تم توحيد نصوص "جاهزة" و"نعدل" بدقة ---
+        // --- بنك الأسئلة ---
         const questionPools = [
             // المجموعة 1: معادلة جاهزة بصيغة (س = ...)
             [
-                // البديل 1
                 {
                     eq1: "2x - y = 3", eq2: "x = y + 1",
                     steps: [
@@ -402,7 +426,6 @@
                         { label: "التصنيف", prompt: "ما هو نوع النظام؟", correct: "متسق ومستقل", options: ["متسق ومستقل", "غير متسق", "متسق وغير مستقل"], type: "text", explanation: "يوجد حل وحيد." }
                     ]
                 },
-                // البديل 2
                 {
                     eq1: "x = 3y", eq2: "x - 2y = 5",
                     steps: [
@@ -413,7 +436,6 @@
                         { label: "التصنيف", prompt: "ما هو نوع النظام؟", correct: "متسق ومستقل", options: ["متسق ومستقل", "غير متسق", "متسق وغير مستقل"], type: "text", explanation: "يوجد حل وحيد." }
                     ]
                 },
-                // البديل 3
                 {
                     eq1: "x = y + 2", eq2: "2x + y = 10",
                     steps: [
@@ -429,7 +451,6 @@
 
             // المجموعة 2: معادلة جاهزة بصيغة (ص = ...)
             [
-                // البديل 1
                 {
                     eq1: "y = 2x - 1", eq2: "x + 2y = 8",
                     steps: [
@@ -441,7 +462,6 @@
                         { label: "التصنيف", prompt: "ما هو نوع النظام؟", correct: "متسق ومستقل", options: ["متسق ومستقل", "غير متسق", "متسق وغير مستقل"], type: "text", explanation: "يوجد حل وحيد." }
                     ]
                 },
-                // البديل 2
                 {
                     eq1: "3x + y = 7", eq2: "y = x - 1",
                     steps: [
@@ -452,7 +472,6 @@
                         { label: "التصنيف", prompt: "ما هو نوع النظام؟", correct: "متسق ومستقل", options: ["متسق ومستقل", "غير متسق", "متسق وغير مستقل"], type: "text", explanation: "يوجد حل وحيد." }
                     ]
                 },
-                // البديل 3 - (تم تصحيح خيار "جاهزة")
                 {
                     eq1: "y = 4x", eq2: "2x - y = -4",
                     steps: [
@@ -511,6 +530,54 @@
         let currentStepIndex = 0;
         let score = 0;
         let maxScore = 0;
+        
+        // متغيرات المؤقت
+        let timerSeconds = 0;
+        let timerInterval;
+        let isTimerPaused = false;
+
+        // --- دوال المؤقت ---
+        function startTimer() {
+            timerSeconds = 0;
+            updateTimerDisplay();
+            resumeTimer();
+        }
+
+        function resumeTimer() {
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                timerSeconds++;
+                updateTimerDisplay();
+            }, 1000);
+            isTimerPaused = false;
+        }
+
+        function pauseTimer() {
+            if (timerInterval) clearInterval(timerInterval);
+            isTimerPaused = true;
+        }
+
+        function stopTimer() {
+            if (timerInterval) clearInterval(timerInterval);
+        }
+
+        function updateTimerDisplay() {
+            const minutes = Math.floor(timerSeconds / 60);
+            const seconds = timerSeconds % 60;
+            const formattedTime = `${toArabicNum(minutes.toString().padStart(2, '0'))}:${toArabicNum(seconds.toString().padStart(2, '0'))}`;
+            document.getElementById('timer-text').innerText = formattedTime;
+        }
+        
+        function getFinalTimeFormatted() {
+            const minutes = Math.floor(timerSeconds / 60);
+            const seconds = timerSeconds % 60;
+            let timeString = "";
+            if (minutes > 0) timeString += `${toArabicNum(minutes)} دقيقة `;
+            if (seconds > 0) timeString += `و ${toArabicNum(seconds)} ثانية`;
+            if (timeString === "") timeString = "٠ ثانية";
+            return timeString;
+        }
+
 
         function startGame() {
             // اختيار سؤال عشوائي واحد من كل مجموعة
@@ -528,6 +595,7 @@
             document.getElementById('game-ui').classList.remove('hidden');
             updateScoreDisplay();
             loadQuestion();
+            startTimer(); // بدء المؤقت
         }
 
         function updateScoreDisplay() {
@@ -640,6 +708,7 @@
         }
 
         function showStepExplanation() {
+            pauseTimer();
             const q = currentQuestionsList[currentQIndex];
             const step = q.steps[currentStepIndex];
             document.getElementById('explanation-content').innerHTML = `
@@ -651,6 +720,7 @@
 
         function hideExplanation() {
             document.getElementById('explanation-modal').classList.remove('show');
+            resumeTimer();
         }
 
         function addToHistory(text, label) {
@@ -687,6 +757,7 @@
         }
 
         function endGame() {
+            stopTimer();
             document.getElementById('game-ui').classList.add('hidden');
             document.getElementById('end-screen').classList.add('show');
             
@@ -694,11 +765,12 @@
             finalGrade = Math.round(finalGrade * 10) / 10; 
             if (finalGrade > 5) finalGrade = 5;
 
+            document.getElementById('final-time-display').innerText = getFinalTimeFormatted();
             document.getElementById('points-display').innerText = `${toArabicNum(score)} / ${toArabicNum(maxScore)}`;
             document.getElementById('final-grade-display').innerText = `${toArabicNum(finalGrade)} / ٥`;
 
             if (window.saveAndFinishGame) {
-                window.saveAndFinishGame(score, maxScore - score);
+                window.saveAndFinishGame(score, timerSeconds); // نرسل الوقت بدلاً من الأخطاء
             }
         }
     </script>
@@ -713,7 +785,7 @@
         const studentId = urlParams.get('studentId');
         const classId = urlParams.get('classId');
 
-        window.saveAndFinishGame = function(points, errors) {
+        window.saveAndFinishGame = function(points, timeTaken) {
             const saveStatus = document.getElementById('save-status');
             
             let grade = (points / maxScore) * 5;
@@ -727,7 +799,7 @@
                     classId: classId,
                     itemId: GAME_ID,
                     grade: grade,
-                    metricValue: errors
+                    metricValue: timeTaken // نرسل الوقت بالثواني
                 });
 
                 fetch(`${SCRIPT_URL}?${params.toString()}`)

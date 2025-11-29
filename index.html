@@ -804,90 +804,132 @@
                 </div>`;
             }
 
-            // --- STAR 2: MASTERY (Check Date First) ---
+            // --- STAR 2: MASTERY ---
+            let star2Html = '';
             const today = new Date();
             today.setHours(0, 0, 0, 0);
+
+            // 1. Check Date First (Absolute Priority)
             const masteryDateStr = (studentData.lessonRules && studentData.lessonRules['star_mastery']) ? studentData.lessonRules['star_mastery'].value : null;
-            
-            let star2Html = '';
-            // Date Check
+            let isMasteryLocked = true; // Default locked unless we prove it's open
+
             if (masteryDateStr) {
                 const masteryDate = parseDateAsLocal(masteryDateStr);
-                if (today >= masteryDate) {
-                    // Date passed, check score (USING SHEET SCORE NOW)
-                    const masteryMedal = getMedalStatus(sheetInteractionScore, { gold: 85, silver: 55, bronze: 999 }); 
-                    
-                    if (masteryMedal) {
-                         // Active 3D Star
-                        star2Html = `
-                        <div class="star-badge active" title="نسبة التفاعل: ${formatDecimal(sheetInteractionScore)}%">
+                // Check if today is before the unlock date
+                if (today < masteryDate) {
+                    isMasteryLocked = true;
+                } else {
+                    isMasteryLocked = false;
+                }
+            } else {
+                // If no date rule, fallback to locked (or could be unlocked, depending on business rule. Usually locked if not set)
+                isMasteryLocked = true;
+            }
+
+            if (isMasteryLocked) {
+                // SHOW LOCK UI WITH DATE
+                const displayDate = masteryDateStr || "";
+                star2Html = `
+                <div class="star-badge" title="لم يحن الموعد بعد: ${displayDate}">
+                    <i class="fas fa-lock" style="font-size: 2.5rem;"></i>
+                    <span class="star-label text-gray-400">الإتقان</span>
+                    <span class="star-sublabel text-gray-400" style="font-size:0.65rem; direction: ltr;">${displayDate}</span>
+                </div>`;
+            } else {
+                // DATE IS OPEN - NOW CHECK SCORE
+                const masteryFrozenRaw = studentData.masteryFrozen;
+                const hasMasteryFrozen = (masteryFrozenRaw !== null && masteryFrozenRaw !== undefined && masteryFrozenRaw !== "");
+                
+                let finalMasteryScore = 0;
+                
+                if (hasMasteryFrozen) {
+                    // Use Frozen Score
+                    finalMasteryScore = parseFloat(masteryFrozenRaw) * 100;
+                } else {
+                    // Use Dynamic Calculation
+                    finalMasteryScore = sheetInteractionScore;
+                }
+
+                const masteryMedal = getMedalStatus(finalMasteryScore, { gold: 85, silver: 55, bronze: 999 });
+
+                if (masteryMedal) {
+                     star2Html = `
+                        <div class="star-badge active" title="${hasMasteryFrozen ? 'نسبة مثبتة' : 'نسبة تفاعل'}: ${formatDecimal(finalMasteryScore)}%">
                             ${getStarSVG(masteryMedal.type)}
                             <span class="star-label">الإتقان</span>
                             <span class="star-sublabel">${masteryMedal.label}</span>
-                            <div class="star-score-box" dir="ltr">${formatDecimal(sheetInteractionScore)}%</div>
+                            <div class="star-score-box" dir="ltr">${formatDecimal(finalMasteryScore)}%</div>
                         </div>`;
-                    } else {
-                         // Score too low -> Gray Star FA
-                         star2Html = `
-                         <div class="star-badge" style="opacity:0.8">
-                            <i class="fas fa-star text-gray-300" style="font-size: 2.5rem;"></i>
-                            <span class="star-label">الإتقان</span>
-                            <span class="star-sublabel text-red-600 font-bold">لم يستحق</span>
-                            <div class="star-score-box" dir="ltr">${formatDecimal(sheetInteractionScore)}%</div>
-                         </div>`;
-                    }
                 } else {
-                    // Date not reached -> Lock FA
-                    star2Html = `
-                    <div class="star-badge" title="لم يحن الموعد بعد: ${masteryDateStr}">
-                        <i class="fas fa-lock" style="font-size: 2.5rem;"></i>
-                        <span class="star-label text-gray-400">الإتقان</span>
-                    </div>`;
+                     star2Html = `
+                      <div class="star-badge" style="opacity:0.8">
+                         <i class="fas fa-star text-gray-300" style="font-size: 2.5rem;"></i>
+                         <span class="star-label">الإتقان</span>
+                         <span class="star-sublabel text-red-600 font-bold">لم يستحق</span>
+                         <div class="star-score-box" dir="ltr">${formatDecimal(finalMasteryScore)}%</div>
+                      </div>`;
                 }
-            } else {
-                 // No rule -> Default Lock FA
-                 star2Html = `<div class="star-badge"><i class="fas fa-lock" style="font-size: 2.5rem;"></i><span class="star-label text-gray-400">الإتقان</span></div>`;
             }
 
-            // --- STAR 3: COMPLETION (Check Date First) ---
-            const completionDateStr = (studentData.lessonRules && studentData.lessonRules['star_completion']) ? studentData.lessonRules['star_completion'].value : null;
-            
+            // --- STAR 3: COMPLETION ---
             let star3Html = '';
+            
+            // 1. Check Date First (Absolute Priority)
+            const completionDateStr = (studentData.lessonRules && studentData.lessonRules['star_completion']) ? studentData.lessonRules['star_completion'].value : null;
+            let isCompletionLocked = true;
+
             if (completionDateStr) {
                 const completionDate = parseDateAsLocal(completionDateStr);
-                if (today >= completionDate) {
-                     // Using Sheet Score for Completion as well
-                     const completionMedal = getMedalStatus(sheetInteractionScore, { gold: 85, silver: 55, bronze: 999 });
-                     if (completionMedal) {
-                        // Active 3D Star
-                        star3Html = `
-                        <div class="star-badge active" title="نسبة التفاعل النهائي: ${formatDecimal(sheetInteractionScore)}%">
+                if (today < completionDate) {
+                    isCompletionLocked = true;
+                } else {
+                    isCompletionLocked = false;
+                }
+            } else {
+                isCompletionLocked = true;
+            }
+
+            if (isCompletionLocked) {
+                // SHOW LOCK UI WITH DATE
+                const displayDate = completionDateStr || "";
+                star3Html = `
+                <div class="star-badge" title="لم يحن الموعد بعد: ${displayDate}">
+                    <i class="fas fa-lock" style="font-size: 2.5rem;"></i>
+                    <span class="star-label text-gray-400">الختام</span>
+                    <span class="star-sublabel text-gray-400" style="font-size:0.65rem; direction: ltr;">${displayDate}</span>
+                </div>`;
+            } else {
+                // DATE IS OPEN - NOW CHECK SCORE
+                const completionFrozenRaw = studentData.completionFrozen;
+                const hasCompletionFrozen = (completionFrozenRaw !== null && completionFrozenRaw !== undefined && completionFrozenRaw !== "");
+                
+                let finalCompletionScore = 0;
+
+                if (hasCompletionFrozen) {
+                    finalCompletionScore = parseFloat(completionFrozenRaw) * 100;
+                } else {
+                    finalCompletionScore = sheetInteractionScore; // Or different dynamic logic if applicable
+                }
+
+                const completionMedal = getMedalStatus(finalCompletionScore, { gold: 85, silver: 55, bronze: 999 });
+
+                if (completionMedal) {
+                     star3Html = `
+                        <div class="star-badge active" title="${hasCompletionFrozen ? 'نسبة مثبتة' : 'نسبة تفاعل'}: ${formatDecimal(finalCompletionScore)}%">
                             ${getStarSVG(completionMedal.type)}
                             <span class="star-label">الختام</span>
                             <span class="star-sublabel">${completionMedal.label}</span>
-                            <div class="star-score-box" dir="ltr">${formatDecimal(sheetInteractionScore)}%</div>
+                            <div class="star-score-box" dir="ltr">${formatDecimal(finalCompletionScore)}%</div>
                         </div>`;
-                     } else {
-                        // Gray FA Star
-                        star3Html = `
+                } else {
+                     star3Html = `
                         <div class="star-badge" style="opacity:0.8">
                             <i class="fas fa-star text-gray-300" style="font-size: 2.5rem;"></i>
                             <span class="star-label">الختام</span>
                             <span class="star-sublabel text-red-600 font-bold">لم يستحق</span>
-                             <div class="star-score-box" dir="ltr">${formatDecimal(sheetInteractionScore)}%</div>
+                             <div class="star-score-box" dir="ltr">${formatDecimal(finalCompletionScore)}%</div>
                         </div>`;
-                     }
-                } else {
-                    // Lock FA
-                    star3Html = `
-                    <div class="star-badge" title="لم يحن الموعد بعد: ${completionDateStr}">
-                        <i class="fas fa-lock" style="font-size: 2.5rem;"></i>
-                        <span class="star-label text-gray-400">الختام</span>
-                        <span class="star-sublabel text-gray-400" style="font-size:0.65rem; direction: ltr;">${completionDateStr}</span>
-                    </div>`;
                 }
-            } else {
-                star3Html = `<div class="star-badge"><i class="fas fa-lock" style="font-size: 2.5rem;"></i><span class="star-label text-gray-400">الختام</span></div>`;
             }
 
             // Render Stars HTML Container

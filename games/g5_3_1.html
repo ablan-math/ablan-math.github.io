@@ -883,9 +883,13 @@
                 msgEl.innerText = "يمكنك تحقيق نتيجة أفضل.";
             }
 
-            if (window.saveAndFinishGame) { window.saveAndFinishGame(score, timerSeconds); }
-            // Fetch Leaderboard for End Screen
-            showChampionsRecord('champions-content-end', true);
+            if (window.saveAndFinishGame) {
+                window.saveAndFinishGame(score, timerSeconds).then(() => {
+                     showChampionsRecord('champions-content-end', true);
+                });
+            } else {
+                 showChampionsRecord('champions-content-end', true);
+            }
         }
 
         function showStepExplanation() {
@@ -944,33 +948,38 @@
 
         (function() {
             window.saveAndFinishGame = function(points, timeTaken) {
-                const saveStatus = document.getElementById('save-status');
-                let grade = Math.min(5, Math.max(0, (points / maxScore) * 5)).toFixed(2);
-                const urlParams = new URLSearchParams(window.location.search);
-                const studentId = urlParams.get('studentId');
-                const classId = urlParams.get('classId');
+                return new Promise((resolve) => {
+                    const saveStatus = document.getElementById('save-status');
+                    let grade = Math.min(5, Math.max(0, (points / maxScore) * 5)).toFixed(2);
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const studentId = urlParams.get('studentId');
+                    const classId = urlParams.get('classId');
 
-                if(studentId && classId) {
-                    saveStatus.innerText = "جاري حفظ النتيجة...";
-                    const params = new URLSearchParams({
-                        action: 'saveGrade', studentId: studentId, classId: classId,
-                        itemId: GAME_ID, grade: grade, metricValue: timeTaken 
-                    });
-                    fetch(`${SCRIPT_URL}?${params.toString()}`)
-                        .then(r => r.json())
-                        .then(data => {
-                            if(data.status === 'success') {
-                                saveStatus.innerText = "تم حفظ الدرجة بنجاح ✅"; saveStatus.className = "text-xs text-green-600 mb-3 h-5 font-bold";
-                            } else {
-                                saveStatus.innerText = "لم يتم الحفظ (مشكلة في الخادم)"; saveStatus.className = "text-xs text-red-500 mb-3 h-5";
-                            }
-                        })
-                        .catch(e => {
-                            saveStatus.innerText = "تعذر الاتصال بالخادم ⚠️"; saveStatus.className = "text-xs text-red-500 mb-3 h-5";
+                    if(studentId && classId) {
+                        saveStatus.innerText = "جاري حفظ النتيجة...";
+                        const params = new URLSearchParams({
+                            action: 'saveGrade', studentId: studentId, classId: classId,
+                            itemId: GAME_ID, grade: grade, metricValue: timeTaken 
                         });
-                } else {
-                    saveStatus.innerText = "وضع التجربة (لم يتم الحفظ)";
-                }
+                        fetch(`${SCRIPT_URL}?${params.toString()}`)
+                            .then(r => r.json())
+                            .then(data => {
+                                if(data.status === 'success') {
+                                    saveStatus.innerText = "تم حفظ الدرجة بنجاح ✅"; saveStatus.className = "text-xs text-green-600 mb-3 h-5 font-bold";
+                                } else {
+                                    saveStatus.innerText = "لم يتم الحفظ (مشكلة في الخادم)"; saveStatus.className = "text-xs text-red-500 mb-3 h-5";
+                                }
+                                resolve();
+                            })
+                            .catch(e => {
+                                saveStatus.innerText = "تعذر الاتصال بالخادم ⚠️"; saveStatus.className = "text-xs text-red-500 mb-3 h-5";
+                                resolve();
+                            });
+                    } else {
+                        saveStatus.innerText = "وضع التجربة (لم يتم الحفظ)";
+                        resolve();
+                    }
+                });
             };
         })();
     </script>

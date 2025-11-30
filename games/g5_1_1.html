@@ -1344,14 +1344,16 @@
         // --- CONFIGURATION (عدّل هذه الإعدادات لكل لعبة) ---
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
         const GAME_ID = 'g5_1_1';         // تم التعديل إلى g5_1_1
-        const GAME_MAX_POINTS = 100;                     // أقصى نقاط في اللعبة
+        const GAME_MAX_POINTS = 100;                      // أقصى نقاط في اللعبة
         const PLATFORM_MAX_GRADE = 5;                   // الدرجة النهائية في المنصة
         const METRIC_TYPE = 'errors';                     // نوع المعيار
-        const METRIC_LABEL = 'عدد الأخطاء';           // اسم المعيار للعرض في الجدول
+        const METRIC_LABEL = 'عدد الأخطاء';            // اسم المعيار للعرض في الجدول
 
-        // --- Read URL Parameters ---
+        // --- Read URL Parameters & APPLY FIX ---
         const urlParams = new URLSearchParams(window.location.search);
-        const studentId = urlParams.get('studentId');
+        
+        // (تعديل) إزالة البيانات التجريبية ليكون جاهزاً للطلاب
+        const studentId = urlParams.get('studentId'); 
         const classId = urlParams.get('classId');
         const studentName = urlParams.get('studentName');
 
@@ -1378,6 +1380,7 @@
                 `;
             }
 
+            // (تعديل) التأكد من وجود classId قبل الإرسال لمنع الخطأ
             if (studentId && classId) {
                 const params = new URLSearchParams({
                     action: 'saveGrade',
@@ -1393,20 +1396,26 @@
                     .catch(err => console.error("Save Error:", err))
                     .finally(fetchAndShowLeaderboard);
             } else {
-                console.log(`Visitor finished. Score: ${finalPoints}, Metric: ${finalMetric}`);
+                console.log(`Visitor Mode (No Class ID). Score: ${finalPoints}, Metric: ${finalMetric}`);
+                // (تعديل) استدعاء الدالة لعرض رسالة الزائر بدلاً من محاولة جلب البيانات الفاشلة
                 fetchAndShowLeaderboard();
             }
         }
 
         // 2. دالة جلب وعرض سجل الأبطال
-        function fetchAndShowLeaderboard() {
+        window.fetchAndShowLeaderboard = function() {
             const loader = document.getElementById('leaderboard-loader');
             const container = document.getElementById('leaderboard-container');
             if (!loader || !container) return;
             
+            // (تعديل) التعامل الصحيح مع غياب classId
             if (!classId) {
-                console.log("No classId found, skipping leaderboard for visitor.");
-                container.innerHTML = `<p class="text-center text-gray-500 mt-4">سجل الأبطال متاح للطلاب المسجلين فقط.</p>`;
+                console.log("No classId found, skipping leaderboard fetch.");
+                container.innerHTML = `
+                    <div class="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded text-center">
+                        <p class="text-yellow-800 font-bold">وضع الزائر</p>
+                        <p class="text-sm text-yellow-700">لم يتم حفظ الدرجة في سجل الفصل لأن رابط اللعبة لا يحتوي على رمز المجموعة (Class ID).</p>
+                    </div>`;
                 showFinishButton();
                 return;
             }
@@ -1503,9 +1512,13 @@
         document.addEventListener('DOMContentLoaded', () => {
             // Personalize welcome message
             const welcomeMessage = document.getElementById('welcomeMessage');
-            if (studentName && welcomeMessage) {
-                // (تعديل) استخدام النص الخاص بالمعادلات
-                welcomeMessage.innerHTML = `أهلاً بك يا <span class="font-bold text-blue-600">${studentName}</span>! في هذه اللعبة ستتعلم كيف تميز بين أنواع أنظمة المعادلات الخطية الثلاثة.`;
+            if (welcomeMessage) {
+                if (studentName) {
+                    welcomeMessage.innerHTML = `أهلاً بك يا <span class="font-bold text-blue-600">${studentName}</span>! في هذه اللعبة ستتعلم كيف تميز بين أنواع أنظمة المعادلات الخطية الثلاثة.`;
+                } else {
+                    // رسالة افتراضية للزائر
+                    welcomeMessage.innerHTML = `أهلاً بك أيها البطل! في هذه اللعبة ستتعلم كيف تميز بين أنواع أنظمة المعادلات الخطية الثلاثة.`;
+                }
             }
 
             const finishBtn = document.getElementById('finish-game-btn');

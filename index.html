@@ -9,8 +9,6 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <!-- مكتبة SweetAlert للتنبيهات الجميلة -->
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         body {
             font-family: 'Cairo', sans-serif;
@@ -534,152 +532,6 @@
         const leaderboardView = document.getElementById('leaderboard-view');
         const musaidModal = document.getElementById('musaid-modal');
 
-        // ==== THE MAGIC INJECTOR: Overwrites saveGrade in iFrames ====
-        function injectEnhancedSaveGrade(iframeWindow) {
-            console.log("Injecting enhanced logic...");
-
-            // 1. Force Unlock the Button (The "Button Liberator")
-            // This timer checks every 500ms to see if the old code disabled the button
-            const unlockerInterval = setInterval(() => {
-                const doc = iframeWindow.document;
-                
-                // البحث عن أي عنصر يحتوي على نص "لا توجد محاولات"
-                // نحن نبحث في جميع العناصر القابلة للضغط أو التي قد تكون أزراراً وهمية
-                const allElements = doc.querySelectorAll('*');
-                
-                allElements.forEach(el => {
-                    // التحقق فقط للعناصر التي قد تكون أزراراً (button, input, div)
-                    if (el.tagName === 'BUTTON' || el.tagName === 'INPUT' || (el.tagName === 'DIV' && el.className.includes('bg-'))) {
-                        
-                        const text = el.textContent || el.value || "";
-                        
-                        // شرط "الصيد": إذا وجدنا النص الملعون "لا توجد محاولات"
-                        if (text.includes('لا توجد محاولات') || text.includes('المحاولات')) {
-                            
-                            // تحويل العنصر إلى زر أزرق نشيط
-                            el.disabled = false;
-                            
-                            // تغيير النص
-                            if (el.tagName === 'INPUT') {
-                                el.value = 'حاول مجدداً (تحسين درجة) 🌟';
-                            } else {
-                                el.textContent = 'حاول مجدداً (تحسين درجة) 🌟';
-                            }
-                            
-                            // إعادة التصميم للون الأزرق
-                            el.style.backgroundColor = '#2563eb'; 
-                            el.style.color = '#ffffff';
-                            el.style.cursor = 'pointer';
-                            el.style.pointerEvents = 'auto'; 
-                            
-                            // إزالة كلاسات القفل (الأخضر والأحمر)
-                            el.classList.remove('bg-green-600', 'bg-red-600', 'cursor-not-allowed', 'opacity-50');
-                            
-                            // إضافة كلاسات الزر النشيط (لضمان الشكل)
-                            el.classList.add('bg-blue-600', 'hover:bg-blue-700');
-                        }
-                    }
-                });
-            }, 500); 
-
-            // 2. Override the saveGrade function in the iframe context
-            iframeWindow.saveGrade = async function(studentId, classId, itemId, grade, maxScore) {
-                const submitBtn = iframeWindow.document.getElementById('submit-btn'); 
-                
-                // نحاول العثور على الزر حتى لو لم يكن ID الخاص به submit-btn (عن طريق البحث عن النص الجديد)
-                let actualBtn = submitBtn;
-                if (!actualBtn) {
-                     // البحث عن الزر الذي غيرنا نصه
-                     const allBtns = iframeWindow.document.querySelectorAll('*');
-                     for (let b of allBtns) {
-                         if ((b.textContent && b.textContent.includes('حاول مجدداً')) || (b.value && b.value.includes('حاول مجدداً'))) {
-                             actualBtn = b;
-                             break;
-                         }
-                     }
-                }
-
-                if (actualBtn) {
-                    actualBtn.disabled = true;
-                    if(actualBtn.tagName === 'INPUT') actualBtn.value = 'جاري التحقق...';
-                    else actualBtn.textContent = 'جاري التحقق...';
-                }
-
-                const url = `${SCRIPT_URL}?action=saveGrade&studentId=${studentId}&classId=${classId}&itemId=${itemId}&grade=${grade}&maxScore=${maxScore}`;
-
-                try {
-                    const response = await fetch(url, { redirect: 'follow' });
-                    const result = await response.json();
-
-                    // Check for error status
-                    if (result.status === 'error') {
-                        throw new Error(result.message);
-                    }
-
-                    // --- Success Scenario ---
-                    console.log('Grade saved successfully:', result);
-                    
-                    Swal.fire({
-                        title: 'أحسنت! 🌟',
-                        text: 'تم حفظ نتيجتك بنجاح',
-                        icon: 'success',
-                        confirmButtonText: 'ممتاز',
-                        confirmButtonColor: '#3085d6'
-                    }).then(() => {
-                        closeGameModal();
-                    });
-
-                } catch (error) {
-                    console.error("Save Grade Error:", error);
-
-                    // --- Check for Cooldown Error ---
-                    if (error.message && error.message.includes('COOLDOWN_ACTIVE')) {
-                        const parts = error.message.split(':');
-                        const hoursLeft = parts.length > 1 ? parts[1].trim() : '24';
-
-                        // Show friendly alert
-                        Swal.fire({
-                            title: 'عفواً يا بطل! 🛑',
-                            html: `
-                                <div style="text-align: right; direction: rtl; font-size: 1.1em; line-height: 1.6;">
-                                    <p>لقد استنفذت محاولاتك المسموحة لهذا الدرس حالياً.</p>
-                                    <p style="color: #d33; font-weight: bold; margin: 10px 0;">يمكنك المحاولة مجدداً بعد ${hoursLeft} ساعة.</p>
-                                    <p style="color: #555;">استغل هذا الوقت لمراجعة الدرس جيداً! 📚</p>
-                                </div>
-                            `,
-                            icon: 'warning',
-                            confirmButtonText: 'حسناً، سأراجع الدرس',
-                            confirmButtonColor: '#f39c12',
-                            allowOutsideClick: false
-                        });
-
-                        // 🔥 التحديث الجوهري: تغيير نص الزر ليصبح عداداً
-                        if (actualBtn) {
-                            const waitMsg = `⏱️ المحاولة متاحة بعد ${hoursLeft} ساعة`;
-                            if(actualBtn.tagName === 'INPUT') actualBtn.value = waitMsg;
-                            else actualBtn.textContent = waitMsg;
-                            
-                            // إبقاء الزر معطلاً الآن لأننا عرفنا الوقت
-                            actualBtn.disabled = true;
-                            actualBtn.style.backgroundColor = '#9ca3af'; // لون رمادي
-                            actualBtn.style.cursor = 'not-allowed';
-                        }
-                        return; // Stop execution
-                    }
-
-                    // --- Generic Error ---
-                    Swal.fire('تنبيه', `حدث خطأ غير متوقع: ${error.message}`, 'error');
-                    
-                    if (actualBtn) {
-                        actualBtn.disabled = false;
-                        if(actualBtn.tagName === 'INPUT') actualBtn.value = 'حاول مرة أخرى';
-                        else actualBtn.textContent = 'حاول مرة أخرى';
-                    }
-                }
-            };
-        }
-        // ==============================================================
-
         function getClassIdentifier(fullClassName) { if (!fullClassName) return null; const classMap = { "ثالث / أول": "3-1", "ثالث / ثاني": "3-2", "ثالث / ثالث": "3-3" }; return classMap[fullClassName.trim()] || null; }
         function robustParseFloat(value) { if (value === null || value === undefined || value === "") return null; const stringValue = String(value); const sanitizedValue = stringValue.replace(',', '.').trim(); const parsed = parseFloat(sanitizedValue); return isNaN(parsed) ? null : parsed; }
         
@@ -819,6 +671,937 @@
                 <span class="text-gray-600 text-sm">:شاركنا</span></div></div>`;
         }
         
+        function showStudentDashboard(studentData) {
+            document.getElementById('dashboard-container').classList.remove('hidden');
+            
+            const studentInfoCard = document.getElementById('student-info-card');
+            
+            // Updated User Info Layout
+            studentInfoCard.innerHTML = `
+                <h4 class="text-xl font-bold text-blue-800 mb-4">بيانات الطالب</h4>
+                <div class="flex items-center gap-2 text-gray-800 text-lg">
+                    <p><strong>الاسم:</strong> <span id="display-name">${studentData.name || '-'}</span></p>
+                    <span class="text-gray-400">|</span>
+                    <p><strong>الصف:</strong> <span id="display-class">${studentData.class || '-'}</span></p>
+                </div>
+            `;
+
+            renderTestCard(studentData);
+
+            // Define essential variables at the top scope of function to fix ReferenceError
+            const studentLessons = studentData.lessons || {};
+            const studentGames = studentData.games || {};
+            const lessonRules = studentData.lessonRules || {};
+
+            // --- CALCULATION: INTERACTION PERCENTAGE FROM SHEET (COLUMN "نسبة التفاعل %") ---
+            // This ensures consistency across the platform
+            // Also use a fallback calculation in case the sheet column is missing or empty, to avoid showing 0% incorrectly
+            let sheetInteractionScore = studentData['نسبة التفاعل %'] ? robustParseFloat(studentData['نسبة التفاعل %']) : 0;
+            
+            // Fallback calculation logic if sheet value is missing (DYNAMIC DENOMINATOR)
+            if (!sheetInteractionScore || sheetInteractionScore === 0) {
+                 let totalLessonsScore = 0;
+                 let totalLessonsPossible = 0;
+                 let totalGamesScore = 0;
+                 let totalGamesPossible = 0;
+                 
+                 // Get today's date for checking availability
+                 const today = new Date();
+                 today.setHours(0, 0, 0, 0);
+
+                 Object.values(curriculumIndex).forEach(chapter => {
+                    chapter.lessons.forEach(lesson => {
+                        // Check if lesson is unlocked based on date
+                        const rule = lessonRules[lesson.id];
+                        let isLocked = true;
+                        
+                        if (rule) {
+                            if (rule.method === 'يدوي' && rule.value === 'مفتوح') { isLocked = false; }
+                            else if (rule.method === 'تاريخ') {
+                                const d = parseDateAsLocal(rule.value);
+                                if (today >= d) { isLocked = false; }
+                            }
+                        } else { isLocked = false; } // Default to unlocked if no rule? (Adjust based on business logic)
+                        
+                        // Only include in denominator if unlocked
+                        if (!isLocked) {
+                            const lMax = lesson.maxScore || 10;
+                            totalLessonsPossible += lMax;
+                            const lGrade = robustParseFloat(studentLessons[lesson.id]?.grade);
+                            if (lGrade !== null) totalLessonsScore += lGrade;
+
+                            (lesson.games || []).forEach(game => {
+                                const gMax = game.maxScore || 5;
+                                totalGamesPossible += gMax;
+                                const gGrade = robustParseFloat(studentGames[game.id]?.grade);
+                                if (gGrade !== null) totalGamesScore += gGrade;
+                            });
+                        }
+                    });
+                });
+                const lessonPct = totalLessonsPossible > 0 ? (totalLessonsScore / totalLessonsPossible) * 100 : 0;
+                const gamePct = totalGamesPossible > 0 ? (totalGamesScore / totalGamesPossible) * 100 : 0;
+                // Fallback average
+                sheetInteractionScore = (lessonPct + gamePct) / 2;
+            }
+            
+            // Helper function to get the correct 3D star SVG string based on type
+            function getStarSVG(type) {
+                // Changed size from w-20 h-20 to w-10 h-10 (~2.5rem)
+                const sizeClass = "w-10 h-10"; 
+                let fillUrl = "";
+                
+                if (type === 'gold') fillUrl = "url(#grad-gold-3d)";
+                else if (type === 'silver') fillUrl = "url(#grad-silver-3d)";
+                else if (type === 'bronze') fillUrl = "url(#grad-bronze-3d)";
+                else return ""; // Should not happen for active stars
+
+                return `
+                <div class="${sizeClass} star-animate relative z-10">
+                    <svg viewBox="0 0 24 24" class="w-full h-full drop-shadow-2xl" fill="${fillUrl}">
+                        <path d="M12 2L15 9L22 9L17 14L19 21L12 17L5 21L7 14L2 9L9 9L12 2Z" filter="url(#inset-shadow-3d)"/>
+                        <path d="M12 17V9L15 9" fill="black" fill-opacity="0.1"/>
+                    </svg>
+                </div>`;
+            }
+
+
+            // --- HELPER: Get Medal Config based on Score ---
+            function getMedalStatus(score, thresholds) {
+                // thresholds = { gold: 95, silver: 75, bronze: 50 }
+                if (score >= thresholds.gold) return { type: 'gold', label: 'ذهبية' }; 
+                if (score >= thresholds.silver) return { type: 'silver', label: 'فضية' }; 
+                if (score >= thresholds.bronze) return { type: 'bronze', label: 'برونزية' }; 
+                return null; // No medal
+            }
+
+            // --- STAR 1: DIAGNOSTIC ---
+            const diagnostics = studentData.diagnostics || {};
+            const diagnosticScore = diagnostics.d_best_weighted 
+                ? robustParseFloat(diagnostics.d_best_weighted.grade) 
+                : (studentData['الدرجة التشخيصية الموزونة'] ? robustParseFloat(studentData['الدرجة التشخيصية الموزونة']) : 0);
+            
+            const diagMedal = getMedalStatus(diagnosticScore, { gold: 95, silver: 75, bronze: 50 });
+            
+            let star1Html = '';
+            if (diagMedal) {
+                // Active 3D Star
+                star1Html = `
+                <div class="star-badge active" title="درجة التشخيصي: ${formatDecimal(diagnosticScore)}%">
+                    ${getStarSVG(diagMedal.type)}
+                    <span class="star-label">التشخيصي</span>
+                    <span class="star-sublabel">${diagMedal.label}</span>
+                    <div class="star-score-box" dir="ltr">${formatDecimal(diagnosticScore)}%</div>
+                </div>`;
+            } else {
+                // Gray/Locked state for low score (FA Icon)
+                star1Html = `
+                <div class="star-badge" title="درجة التشخيصي منخفضة">
+                    <i class="fas fa-star text-gray-300" style="font-size: 2.5rem;"></i>
+                    <span class="star-label text-gray-400">التشخيصي</span>
+                    <span class="star-sublabel text-red-500 font-bold">لم يستحق</span>
+                    <div class="star-score-box" dir="ltr">${formatDecimal(diagnosticScore)}%</div>
+                </div>`;
+            }
+
+            // --- STAR 2: MASTERY ---
+            let star2Html = '';
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            // 1. Check Date First (Absolute Priority)
+            const masteryDateStr = (studentData.lessonRules && studentData.lessonRules['star_mastery']) ? studentData.lessonRules['star_mastery'].value : null;
+            let isMasteryLocked = true; // Default locked unless we prove it's open
+
+            if (masteryDateStr) {
+                const masteryDate = parseDateAsLocal(masteryDateStr);
+                // Check if today is before the unlock date
+                if (today < masteryDate) {
+                    isMasteryLocked = true;
+                } else {
+                    isMasteryLocked = false;
+                }
+            } else {
+                // If no date rule, fallback to locked (or could be unlocked, depending on business rule. Usually locked if not set)
+                isMasteryLocked = true;
+            }
+
+            if (isMasteryLocked) {
+                // SHOW LOCK UI WITH DATE
+                const displayDate = masteryDateStr || "";
+                star2Html = `
+                <div class="star-badge" title="لم يحن الموعد بعد: ${displayDate}">
+                    <i class="fas fa-lock" style="font-size: 2.5rem;"></i>
+                    <span class="star-label text-gray-400">الإتقان</span>
+                    <span class="star-sublabel text-gray-400" style="font-size:0.65rem; direction: ltr;">${displayDate}</span>
+                </div>`;
+            } else {
+                // DATE IS OPEN - NOW CHECK SCORE
+                const masteryFrozenRaw = studentData.masteryFrozen;
+                const hasMasteryFrozen = (masteryFrozenRaw !== null && masteryFrozenRaw !== undefined && masteryFrozenRaw !== "");
+                
+                let finalMasteryScore = 0;
+                
+                if (hasMasteryFrozen) {
+                    // Use Frozen Score
+                    finalMasteryScore = parseFloat(masteryFrozenRaw) * 100;
+                } else {
+                    // Use Dynamic Calculation
+                    finalMasteryScore = sheetInteractionScore;
+                }
+
+                const masteryMedal = getMedalStatus(finalMasteryScore, { gold: 85, silver: 55, bronze: 999 });
+
+                if (masteryMedal) {
+                     star2Html = `
+                        <div class="star-badge active" title="${hasMasteryFrozen ? 'نسبة مثبتة' : 'نسبة تفاعل'}: ${formatDecimal(finalMasteryScore)}%">
+                            ${getStarSVG(masteryMedal.type)}
+                            <span class="star-label">الإتقان</span>
+                            <span class="star-sublabel">${masteryMedal.label}</span>
+                            <div class="star-score-box" dir="ltr">${formatDecimal(finalMasteryScore)}%</div>
+                        </div>`;
+                } else {
+                     star2Html = `
+                      <div class="star-badge" style="opacity:0.8">
+                         <i class="fas fa-star text-gray-300" style="font-size: 2.5rem;"></i>
+                         <span class="star-label">الإتقان</span>
+                         <span class="star-sublabel text-red-600 font-bold">لم يستحق</span>
+                         <div class="star-score-box" dir="ltr">${formatDecimal(finalMasteryScore)}%</div>
+                      </div>`;
+                }
+            }
+
+            // --- STAR 3: COMPLETION ---
+            let star3Html = '';
+            
+            // 1. Check Date First (Absolute Priority)
+            const completionDateStr = (studentData.lessonRules && studentData.lessonRules['star_completion']) ? studentData.lessonRules['star_completion'].value : null;
+            let isCompletionLocked = true;
+
+            if (completionDateStr) {
+                const completionDate = parseDateAsLocal(completionDateStr);
+                if (today < completionDate) {
+                    isCompletionLocked = true;
+                } else {
+                    isCompletionLocked = false;
+                }
+            } else {
+                isCompletionLocked = true;
+            }
+
+            if (isCompletionLocked) {
+                // SHOW LOCK UI WITH DATE
+                const displayDate = completionDateStr || "";
+                star3Html = `
+                <div class="star-badge" title="لم يحن الموعد بعد: ${displayDate}">
+                    <i class="fas fa-lock" style="font-size: 2.5rem;"></i>
+                    <span class="star-label text-gray-400">الختام</span>
+                    <span class="star-sublabel text-gray-400" style="font-size:0.65rem; direction: ltr;">${displayDate}</span>
+                </div>`;
+            } else {
+                // DATE IS OPEN - NOW CHECK SCORE
+                const completionFrozenRaw = studentData.completionFrozen;
+                const hasCompletionFrozen = (completionFrozenRaw !== null && completionFrozenRaw !== undefined && completionFrozenRaw !== "");
+                
+                let finalCompletionScore = 0;
+
+                if (hasCompletionFrozen) {
+                    finalCompletionScore = parseFloat(completionFrozenRaw) * 100;
+                } else {
+                    finalCompletionScore = sheetInteractionScore; // Or different dynamic logic if applicable
+                }
+
+                const completionMedal = getMedalStatus(finalCompletionScore, { gold: 85, silver: 55, bronze: 999 });
+
+                if (completionMedal) {
+                     star3Html = `
+                        <div class="star-badge active" title="${hasCompletionFrozen ? 'نسبة مثبتة' : 'نسبة تفاعل'}: ${formatDecimal(finalCompletionScore)}%">
+                            ${getStarSVG(completionMedal.type)}
+                            <span class="star-label">الختام</span>
+                            <span class="star-sublabel">${completionMedal.label}</span>
+                            <div class="star-score-box" dir="ltr">${formatDecimal(finalCompletionScore)}%</div>
+                        </div>`;
+                } else {
+                     star3Html = `
+                        <div class="star-badge" style="opacity:0.8">
+                            <i class="fas fa-star text-gray-300" style="font-size: 2.5rem;"></i>
+                            <span class="star-label">الختام</span>
+                            <span class="star-sublabel text-red-600 font-bold">لم يستحق</span>
+                             <div class="star-score-box" dir="ltr">${formatDecimal(finalCompletionScore)}%</div>
+                        </div>`;
+                }
+            }
+
+            // Render Stars HTML Container
+            const starsContainer = document.createElement('div');
+            starsContainer.className = "flex justify-around mt-6 pt-4 border-t border-gray-200";
+            starsContainer.innerHTML = star1Html + star2Html + star3Html;
+            
+            const diagnosticCard = document.getElementById('diagnostic-card');
+            const existingStars = diagnosticCard.querySelector('.flex.justify-around.mt-6');
+            if(existingStars) existingStars.remove();
+            diagnosticCard.appendChild(starsContainer);
+
+
+            // ... (Rest of logic for Progress Circle calculation to match new structure if needed) ...
+            let totalUnlockedPossibleScoreCircle = 0;
+            let totalUnlockedGainedScoreCircle = 0;
+            let totalUnlockedLostScoreCircle = 0;
+            let totalUnlockedAttemptedPossibleScoreCircle = 0;
+
+            Object.values(curriculumIndex).forEach(chapter => {
+                chapter.lessons.forEach(lesson => {
+                    // ... Locking logic for circle ...
+                    const rule = lessonRules[lesson.id];
+                    let isLocked = true;
+                    if (rule) {
+                        if (rule.method === 'يدوي' && rule.value === 'مفتوح') { isLocked = false; }
+                        else if (rule.method === 'تاريخ') {
+                            const d = parseDateAsLocal(rule.value);
+                            const t = new Date(); t.setHours(0,0,0,0);
+                            if (t >= d) { isLocked = false; }
+                        }
+                    } else { isLocked = false; }
+                    if (studentData && studentData.role === 'teacher') { isLocked = false; }
+
+                    if (!isLocked) {
+                        const lessonMaxScore = lesson.maxScore || 10;
+                        totalUnlockedPossibleScoreCircle += lessonMaxScore;
+                        const lessonGrade = robustParseFloat(studentLessons[lesson.id]?.grade);
+                        if (lessonGrade !== null) {
+                            totalUnlockedGainedScoreCircle += lessonGrade;
+                            totalUnlockedAttemptedPossibleScoreCircle += lessonMaxScore;
+                        }
+                        (lesson.games || []).forEach(game => {
+                            const gameMaxScore = game.maxScore || 5;
+                            totalUnlockedPossibleScoreCircle += gameMaxScore;
+                            const gameGrade = robustParseFloat(studentGames[game.id]?.grade);
+                            if (gameGrade !== null) {
+                                totalUnlockedGainedScoreCircle += gameGrade;
+                                totalUnlockedAttemptedPossibleScoreCircle += gameMaxScore;
+                            }
+                        });
+                    }
+                });
+            });
+            
+            totalUnlockedLostScoreCircle = totalUnlockedAttemptedPossibleScoreCircle - totalUnlockedGainedScoreCircle;
+            const masteryPercentageCircle = totalUnlockedPossibleScoreCircle > 0 ? Math.round(totalUnlockedGainedScoreCircle / totalUnlockedPossibleScoreCircle * 100) : 0;
+            
+            const needsImprovementPercent = totalUnlockedPossibleScoreCircle > 0 ? Math.round(totalUnlockedLostScoreCircle / totalUnlockedPossibleScoreCircle * 100) : 0;
+            const pendingPercent = 100 - masteryPercentageCircle - needsImprovementPercent;
+
+            const progressCircle = document.getElementById('overall-progress-circle');
+            const masteryText = document.getElementById('mastery-percentage-text');
+            const needsImprovementLegendText = document.getElementById('needs-improvement-legend-text');
+            const pendingLegendText = document.getElementById('pending-legend-text');
+
+            masteryText.textContent = `${masteryPercentageCircle}%`;
+            needsImprovementLegendText.textContent = `تحتاج تحسين ${needsImprovementPercent}%`;
+            pendingLegendText.textContent = `بانتظارك ${Math.max(0, pendingPercent)}%`;
+
+            const gainedDegrees = totalUnlockedPossibleScoreCircle > 0 ? (totalUnlockedGainedScoreCircle / totalUnlockedPossibleScoreCircle) * 360 : 0;
+            const needsImprovementDegrees = totalUnlockedPossibleScoreCircle > 0 ? (totalUnlockedLostScoreCircle / totalUnlockedPossibleScoreCircle) * 360 : 0;
+            
+            progressCircle.style.background = `conic-gradient(#22c55e 0deg ${gainedDegrees}deg, #ef4444 ${gainedDegrees}deg ${gainedDegrees + needsImprovementDegrees}deg, #a5b4fc ${gainedDegrees + needsImprovementDegrees}deg 360deg)`;
+
+            // ... (Achievement Bar Logic) ...
+            const achievementContainer = document.getElementById('certificate-progress-container');
+            if (achievementContainer) {
+                const isParticipant = masteryPercentageCircle >= 55;
+                const isExcellent = masteryPercentageCircle >= 85;
+
+                achievementContainer.innerHTML = `
+                <div class="w-full mt-6 pt-6 border-t border-gray-200 px-2">
+                    <div class="relative h-4 bg-gray-200 rounded-full w-full mt-12 mb-12">
+                        <div class="absolute top-0 right-0 h-full bg-gradient-to-l from-blue-400 to-blue-600 rounded-full transition-all duration-1000 shadow-sm flex items-center justify-center overflow-hidden" style="width: ${masteryPercentageCircle}%">
+                             <span class="text-[10px] font-bold text-white px-1 truncate">${masteryPercentageCircle}%</span>
+                        </div>
+                        <div class="absolute top-[-4px] right-[55%] w-0.5 h-6 bg-gray-400 z-10"></div>
+                        <div class="absolute bottom-full mb-2 right-[55%] transform translate-x-1/2 flex flex-col items-center w-32">
+                            <span class="text-xs font-bold bg-gray-100 border border-gray-200 px-2 py-1 rounded shadow-sm ${isParticipant ? 'text-green-600' : 'text-gray-500'}">شهادة مشارك</span>
+                        </div>
+                        <div class="absolute top-6 right-[55%] transform translate-x-1/2 flex flex-col items-center w-32">
+                            <span class="text-xs font-bold text-gray-500">55% فأكثر</span>
+                        </div>
+                        <div class="absolute top-[-4px] right-[85%] w-0.5 h-6 bg-yellow-400 z-10"></div>
+                        <div class="absolute bottom-full mb-2 right-[85%] transform translate-x-1/2 flex flex-col items-center w-32">
+                            <span class="text-xs font-bold bg-yellow-50 border border-yellow-200 px-2 py-1 rounded shadow-sm ${isExcellent ? 'text-yellow-700' : 'text-gray-500'}">شهادة تميز</span>
+                        </div>
+                        <div class="absolute top-6 right-[85%] transform translate-x-1/2 flex flex-col items-center w-32">
+                            <span class="text-xs font-bold text-gray-500">85% فأكثر</span>
+                        </div>
+                    </div>
+                </div>
+                `;
+            }
+            
+            const nextTaskForSpotlight = determineMusaidTasks(studentData).primaryTask;
+            
+            buildLearningPath(studentData, nextTaskForSpotlight);
+            
+            const dismissUntil = localStorage.getItem('dismissMusaidUntil');
+            const musaidIsDismissed = dismissUntil && new Date().getTime() < parseInt(dismissUntil);
+
+            if (determineMusaidTasks(studentData).primaryTask && !musaidIsDismissed) {
+                showMusaidModal(determineMusaidTasks(studentData), calculateRemainingTasks(studentData));
+            }
+        }
+
+        function fetchAndRenderLeaderboards(currentStudent) {
+            const loader = document.getElementById('leaderboard-loader');
+            const grid = document.getElementById('leaderboard-grid');
+            loader.classList.remove('hidden');
+            grid.classList.add('hidden');
+
+            fetch(`${SCRIPT_URL}?action=getLeaderboardData&studentId=${currentStudent.id}&classId=${currentStudent.classIdentifier}`)
+                .then(res => res.json())
+                .then(response => {
+                    if (response.status === 'success' && response.data) {
+                        const data = response.data;
+                        grid.innerHTML = ''; 
+                        grid.appendChild(createLeaderboardCard('أوائل جميع الفصول', 'مجموع النقاط', data.overallTop10, currentStudent.id, data.ranks.overall));
+                        grid.appendChild(createLeaderboardCard(`أوائل فصل ${currentStudent.class}`, 'مجموع النقاط', data.classTop10, currentStudent.id, data.ranks.class));
+                        grid.appendChild(createLeaderboardCard('أوائل الاختبار التشخيصي', 'المعدل', data.diagnosticTop10, currentStudent.id, data.ranks.diagnostic, true));
+                        loader.classList.add('hidden');
+                        grid.classList.remove('hidden');
+                    } else {
+                        throw new Error(response.message || "Failed to load leaderboard data.");
+                    }
+                })
+                .catch(err => {
+                    console.error("Leaderboard Error:", err);
+                    loader.innerHTML = `<p class="text-red-500 font-semibold">حدث خطأ أثناء تحميل لوحة الأوائل.</p>`;
+                });
+        }
+
+        function createLeaderboardCard(title, scoreLabel, data, currentStudentId, rank, isDiagnostic = false) {
+            const card = document.createElement('div');
+            card.className = 'leaderboard-card';
+            const uniqueId = `leaderboard-${title.replace(/[\s/]/g, '-')}`;
+
+            let tableRows = data.slice(0, 10).map((student, index) => {
+                const isCurrentUser = student.id.toString() === currentStudentId.toString();
+                let scoreDisplay;
+                if (isDiagnostic) {
+                    scoreDisplay = `<div><span class="font-bold">${formatDecimal(student.diagnosticGrade)}%</span><span class="block text-xs text-gray-500 font-normal">${student.diagnosticPoints} نقطة</span></div>`;
+                } else {
+                    scoreDisplay = `<span class="font-bold">${formatDecimal(student.totalScore)}</span>`;
+                }
+                const hiddenClass = index >= 3 ? 'expandable-row hidden' : '';
+                return `<tr class="${isCurrentUser ? 'current-student' : ''} ${hiddenClass}" data-table-id="${uniqueId}"><td class="rank">#${index + 1}</td><td>${student.name} <span class="text-sm text-gray-500">(${student.class})</span></td><td class="score">${scoreDisplay}</td></tr>`;
+            }).join('');
+
+            const rankCard = rank > 0 ? `<div class="current-student-rank-card">مركزك الحالي: ${rank}</div>` : '';
+            const expandButton = data.length > 3 ? `<button onclick="toggleLeaderboard(this, '${uniqueId}')" class="expand-leaderboard-btn">توسيع الجدول <i class="fas fa-chevron-down ml-1"></i></button>` : '';
+
+            card.innerHTML = `<h3 class="leaderboard-title">${title}</h3><table class="leaderboard-table"><thead><tr><th>#</th><th>الاسم</th><th class="score">${scoreLabel}</th></tr></thead><tbody>${tableRows}</tbody></table>${expandButton}${rankCard}`;
+            return card;
+        }
+
+        window.toggleLeaderboard = (button, tableId) => {
+            const rows = document.querySelectorAll(`.expandable-row[data-table-id="${tableId}"]`);
+            if (!rows.length) return;
+            const isHidden = rows[0].classList.contains('hidden');
+            rows.forEach(row => row.classList.toggle('hidden'));
+            button.innerHTML = isHidden ? 'إخفاء <i class="fas fa-chevron-up ml-1"></i>' : 'توسيع الجدول <i class="fas fa-chevron-down ml-1"></i>';
+        };
+
+        function buildLearningPath(studentData, nextTask = null) {
+            const learningPathContainer = document.getElementById('learning-path-section');
+            const studentLessons = studentData.lessons || {};
+            const studentGames = studentData.games || {};
+            const lessonRules = studentData.lessonRules || {};
+
+            learningPathContainer.innerHTML = `<div class="flex flex-col sm:flex-row justify-between items-center mb-6">
+                <div class="flex items-center gap-4">
+                    <h2 class="text-3xl font-bold text-blue-800">مسار الإنجاز والتعلم</h2>
+                    <button id="recall-musaid-btn" class="recall-musaid-btn" title="إظهار المساعد الشخصي">💡</button>
+                </div>
+                <div class="flex flex-wrap gap-x-4 gap-y-2 mt-4 sm:mt-0 text-sm text-gray-600 font-semibold bg-gray-200 px-3 py-2 rounded-lg">
+                    <span><i class="fas fa-trophy text-yellow-500"></i> إتقان</span>
+                    <span><i class="fas fa-check text-green-500"></i> جيد</span>
+                    <span><i class="fas fa-sync-alt text-red-500"></i> تحسين</span>
+                    <span><i class="fas fa-circle-notch text-gray-500"></i> لم يبدأ</span>
+                    <span><i class="fas fa-lock text-gray-500"></i> مغلق</span>
+                </div>
+            </div>`;
+            
+            document.getElementById('recall-musaid-btn').addEventListener('click', () => {
+                localStorage.removeItem('dismissMusaidUntil');
+                updateMusaidIconState(); 
+                const student = getStudentFromStorage();
+                const musaidTasks = determineMusaidTasks(student);
+                const stats = calculateRemainingTasks(student);
+                if (musaidTasks.primaryTask) {
+                    showMusaidModal(musaidTasks, stats);
+                }
+            });
+            
+            updateMusaidIconState();
+
+            Object.keys(curriculumIndex).forEach((chapterKey) => {
+                const chapter = curriculumIndex[chapterKey];
+                let lessonSummariesHtml = '';
+                const lessonsHtml = chapter.lessons.map((lesson, index) => {
+                    const lessonData = studentLessons[lesson.id];
+                    const lessonGrade = robustParseFloat(lessonData?.grade);
+                    
+                    const rule = lessonRules[lesson.id];
+                    let isLocked = true;
+                    let unlockDate = null;
+
+                    if (rule) {
+                        if (rule.method === 'يدوي' && rule.value === 'مفتوح') { isLocked = false; }
+                        else if (rule.method === 'تاريخ') {
+                            const today = new Date();
+                            const openDate = parseDateAsLocal(rule.value);
+                            today.setHours(0, 0, 0, 0);
+                            if (today >= openDate) { isLocked = false; } else { unlockDate = rule.value; }
+                        }
+                    } else { isLocked = false; }
+                    
+                    if (studentData && studentData.role === 'teacher') { isLocked = false; unlockDate = null; }
+
+                    const game1 = lesson.games && lesson.games[0] ? lesson.games[0] : null;
+                    const game1Data = game1 ? studentGames[game1.id] : null;
+                    const game1Grade = robustParseFloat(game1Data?.grade);
+                    const game2 = lesson.games && lesson.games[1] ? lesson.games[1] : null;
+                    const game2Data = game2 ? studentGames[game2.id] : null;
+                    const game2Grade = robustParseFloat(game2Data?.grade);
+
+                    lessonSummariesHtml += buildSummaryBox(lesson, index, { lessonGrade, game1Grade, game2Grade }, studentData, isLocked);
+
+                    const allGrades = [{ grade: lessonGrade, maxScore: lesson.maxScore }];
+                    if(game1) allGrades.push({ grade: game1Grade, maxScore: game1.maxScore });
+                    if(game2) allGrades.push({ grade: game2Grade, maxScore: game2.maxScore });
+
+                    const { state, icon } = isLocked 
+                        ? { state: 'locked', icon: 'fa-lock' } 
+                        : getCheckpointPerformance(allGrades);
+
+                    let gradeHtml = `<span class="lesson-grade">${lessonGrade !== null ? `${formatDecimal(lessonGrade)}/${lesson.maxScore}`: 'لم يتم'}</span>`;
+                    
+                    const lessonLink = studentData.id ? `lessons/${lesson.id}.html?studentId=${studentData.id}&classId=${studentData.classIdentifier}` : `lessons/${lesson.id}.html`;
+                    
+                    const isLessonSpotlight = nextTask && nextTask.type === 'lesson' && nextTask.details.id === lesson.id;
+                    const lessonSpotlightText = isLessonSpotlight ? "ابدأ هنا" : "";
+                    
+                    const lessonTestHtml = `<a id="lesson-card-${lesson.id}" href="${lessonLink}" target="_top" class="lesson-test-card ${isLessonSpotlight ? 'spotlight' : ''}">
+                        ${isLessonSpotlight ? `<div class="start-here-badge">${lessonSpotlightText}</div>` : ''}
+                        <span class="text-3xl ml-4">📖</span>
+                        <span class="lesson-title flex-grow">${lesson.title}</span>
+                        ${gradeHtml}
+                    </a>`;
+
+                    const gamesHtml = (lesson.games || []).map(game => {
+                        const gameGrade = robustParseFloat(studentGames[game.id]?.grade);
+                        
+                        const isGameSpotlight = nextTask && nextTask.type === 'game' && nextTask.details.id === game.id;
+                        const gameSpotlightText = isGameSpotlight ? "ابدأ هنا" : "";
+                        const gameStartBadge = isGameSpotlight ? `<div class="start-here-badge" style="font-size: 0.7rem; top: -10px; right: -10px; left: auto;">${gameSpotlightText}</div>` : '';
+
+                        return `<div id="game-${game.id}" onclick="openGameModal('${game.id}')" class="game-card ${isGameSpotlight ? 'spotlight' : ''}">
+                                    ${gameStartBadge}
+                                    <div class="game-icon-badge">🎮</div>
+                                    <div class="game-title">${game.title}</div>
+                                    <div class="game-grade">${gameGrade !== null ? `${formatDecimal(gameGrade)} / ${game.maxScore}` : '- / -'} ${gameGrade === game.maxScore ? '<i class="fas fa-star text-yellow-400 ml-1"></i>' : ''}</div>
+                                </div>`;
+                    }).join('');
+
+                    const unlockDateHtml = unlockDate ? `<div class="unlock-date">${unlockDate} :يفتح بتاريخ</div>` : '';
+
+                    return `<div id="lesson-${lesson.id}" class="lesson-checkpoint ${state}">
+                                <div class="checkpoint-icon"><i class="fas ${icon}"></i></div>
+                                <div class="checkpoint-content">
+                                    <div class="lesson-card">
+                                        ${lessonTestHtml}
+                                        ${gamesHtml ? `<div class="games-grid">${gamesHtml}</div>` : ''}
+                                        ${unlockDateHtml}
+                                    </div>
+                                </div>
+                            </div>`;
+                }).join('');
+
+                const chapterCard = document.createElement('div');
+                chapterCard.className = 'chapter-card mb-4';
+                chapterCard.innerHTML = `<div class="chapter-card-header"><div class="flex justify-between items-center"><h3 class="text-2xl font-bold text-blue-800">${chapter.title}</h3><i class="fas fa-chevron-down text-2xl text-gray-400 expand-icon"></i></div><div class="lesson-summary-grid">${lessonSummariesHtml}</div></div><div class="chapter-lessons-container"><div class="lessons-path">${lessonsHtml}</div></div>`;
+                learningPathContainer.appendChild(chapterCard);
+                chapterCard.querySelector('.chapter-card-header').addEventListener('click', (e) => {
+                    if (!e.target.closest('.lesson-summary-box')) {
+                        chapterCard.classList.toggle('expanded');
+                    }
+                });
+                
+                if(nextTask && chapter.lessons.some(l => (nextTask.type === 'lesson' && l.id === nextTask.details.id) || (nextTask.type === 'game' && l.id === nextTask.parentLessonId))){
+                    chapterCard.classList.add('expanded');
+                }
+            });
+        }
+        
+        function getCheckpointPerformance(grades) {
+            if (grades.some(g => g.grade === null)) {
+                return { state: 'not-started', icon: 'fa-book-open' };
+            }
+
+            let totalGrade = 0;
+            let totalMaxScore = 0;
+            grades.forEach(g => {
+                totalGrade += g.grade;
+                totalMaxScore += g.maxScore;
+            });
+
+            if (totalGrade === totalMaxScore) {
+                return { state: 'excellent', icon: 'fa-trophy' };
+            }
+            
+            if (grades.some(g => g.grade < g.maxScore / 2)) {
+                 return { state: 'improve', icon: 'fa-sync-alt' };
+            }
+
+            return { state: 'good', icon: 'fa-check' };
+        }
+
+        function updateMusaidIconState() {
+            const recallBtn = document.getElementById('recall-musaid-btn');
+            if (!recallBtn) return;
+
+            const dismissUntil = localStorage.getItem('dismissMusaidUntil');
+            const isDismissed = dismissUntil && new Date().getTime() < parseInt(dismissUntil);
+
+            if (isDismissed) {
+                recallBtn.classList.add('musaid-dismissed');
+                recallBtn.title = "المساعد الشخصي (متوقف مؤقتاً)";
+            } else {
+                recallBtn.classList.remove('musaid-dismissed');
+                recallBtn.title = "إظهار المساعد الشخصي";
+            }
+        }
+
+        function isTaskSetComplete(lesson, studentData) {
+            if (!lesson) return true;
+            const { lessons = {}, games = {} } = studentData;
+
+            if (robustParseFloat(lessons[lesson.id]?.grade) === null) {
+                return false;
+            }
+            for (const game of (lesson.games || [])) {
+                if (robustParseFloat(games[game.id]?.grade) === null) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        function findFirstIncompleteInSet(lesson, studentData) {
+             if (!lesson) return null;
+             const { lessons = {}, games = {} } = studentData;
+             
+             if (robustParseFloat(lessons[lesson.id]?.grade) === null) {
+                 return { type: 'lesson', details: lesson };
+             }
+             
+             for (const game of (lesson.games || [])) {
+                 if (robustParseFloat(games[game.id]?.grade) === null) {
+                      return { type: 'game', details: game, parentLessonId: lesson.id };
+                 }
+             }
+             return null;
+        }
+
+        function findOldestUncompletedTask(studentData) {
+            const { lessons: studentLessons = {}, games: studentGames = {}, lessonRules = {} } = studentData;
+
+            for (const chapterKey of Object.keys(curriculumIndex)) {
+                for (const lesson of curriculumIndex[chapterKey].lessons) {
+                    const rule = lessonRules[lesson.id];
+                    let isLocked = true;
+                    if (rule) {
+                        if (rule.method === 'يدوي' && rule.value === 'مفتوح') { isLocked = false; }
+                        else if (rule.method === 'تاريخ') {
+                            const today = new Date(); 
+                            const openDate = parseDateAsLocal(rule.value);
+                            today.setHours(0, 0, 0, 0);
+                            if (today >= openDate) { isLocked = false; }
+                        }
+                    } else { isLocked = false; }
+                    if (studentData && studentData.role === 'teacher') { isLocked = false; }
+
+                    if (!isLocked) {
+                        if (robustParseFloat(studentLessons[lesson.id]?.grade) === null) {
+                            return { type: 'lesson', details: lesson };
+                        }
+                        for (const game of (lesson.games || [])) {
+                            if (robustParseFloat(studentGames[game.id]?.grade) === null) {
+                                return { type: 'game', details: game, parentLessonId: lesson.id };
+                            }
+                        }
+                    }
+                }
+            }
+            return null;
+        }
+
+        function determineMusaidTasks(studentData) {
+            if (!studentData) return { primaryTask: null, secondaryTask: null, messageType: 'none' };
+
+            const { diagnostics = {}, lessonRules = {}, role } = studentData;
+
+            if (!diagnostics.d_best_weighted && !diagnostics.d_test_overall) {
+                return {
+                    primaryTask: { type: 'diagnostic', details: { title: 'الاختبار التشخيصي', id: 'diagnostic' } },
+                    secondaryTask: null,
+                    messageType: 'diagnostic'
+                };
+            }
+
+            const oldestUncompletedTask = findOldestUncompletedTask(studentData);
+
+            const unlockedLessons = [];
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            Object.values(curriculumIndex).forEach(chapter => {
+                chapter.lessons.forEach(lesson => {
+                    const rule = lessonRules[lesson.id];
+                    let isLocked = true;
+                    if (rule) {
+                        if (rule.method === 'يدوي' && rule.value === 'مفتوح') { isLocked = false; }
+                        else if (rule.method === 'تاريخ') {
+                            const openDate = parseDateAsLocal(rule.value);
+                            if (today >= openDate) { isLocked = false; }
+                        }
+                    } else { isLocked = false; }
+                    if (role === 'teacher') { isLocked = false; }
+
+                    if (!isLocked) {
+                        unlockedLessons.push(lesson);
+                    }
+                });
+            });
+
+            const newestLesson = unlockedLessons.length > 0 ? unlockedLessons[unlockedLessons.length - 1] : null;
+            const previousLesson = unlockedLessons.length > 1 ? unlockedLessons[unlockedLessons.length - 2] : null;
+
+            const isPreviousComplete = isTaskSetComplete(previousLesson, studentData);
+            const isNewestComplete = isTaskSetComplete(newestLesson, studentData);
+
+            if (previousLesson && !isPreviousComplete) {
+                return {
+                    primaryTask: findFirstIncompleteInSet(previousLesson, studentData),
+                    secondaryTask: oldestUncompletedTask,
+                    messageType: 'complete-previous'
+                };
+            }
+
+            if (newestLesson && !isNewestComplete) {
+                return {
+                    primaryTask: findFirstIncompleteInSet(newestLesson, studentData),
+                    secondaryTask: oldestUncompletedTask,
+                    messageType: 'do-new'
+                };
+            }
+
+            if (oldestUncompletedTask) {
+                return {
+                    primaryTask: oldestUncompletedTask,
+                    secondaryTask: null, 
+                    messageType: 'complete-oldest'
+                };
+            }
+
+            return { primaryTask: null, secondaryTask: null, messageType: 'all-done' };
+        }
+
+        function calculateRemainingTasks(studentData) {
+            let remainingLessons = 0;
+            let remainingGames = 0;
+            const studentLessons = studentData.lessons || {};
+            const studentGames = studentData.games || {};
+            const lessonRules = studentData.lessonRules || {};
+
+             for (const chapterKey of Object.keys(curriculumIndex)) {
+                 for (const lesson of curriculumIndex[chapterKey].lessons) {
+                        const rule = lessonRules[lesson.id];
+                    let isLocked = true;
+                    if (rule) {
+                        if (rule.method === 'يدوي' && rule.value === 'مفتوح') { isLocked = false; }
+                        else if (rule.method === 'تاريخ') {
+                            const today = new Date(); 
+                            const openDate = parseDateAsLocal(rule.value);
+                            today.setHours(0, 0, 0, 0);
+                            if (today >= openDate) { isLocked = false; }
+                        }
+                    } else { isLocked = false; }
+                    if (studentData && studentData.role === 'teacher') { isLocked = false; }
+
+                    if(!isLocked) {
+                        if (robustParseFloat(studentLessons[lesson.id]?.grade) === null) {
+                            remainingLessons++;
+                        }
+                        for (const game of (lesson.games || [])) {
+                             if (robustParseFloat(studentGames[game.id]?.grade) === null) {
+                                  remainingGames++;
+                             }
+                        }
+                    }
+                 }
+             }
+            return { remainingLessons, remainingGames };
+        }
+
+        function showMusaidModal(musaidTasks, stats) {
+            const { primaryTask, secondaryTask, messageType } = musaidTasks;
+            if (!primaryTask) return;
+
+            let taskTitle = primaryTask.details.title;
+            let icon = '🎯';
+            let taskTypeMessage = '';
+            let actionButtonText = '🚀 لنبدأ الآن';
+
+            switch (messageType) {
+                case 'diagnostic':
+                    taskTypeMessage = 'مرحباً بك! مهمتك الأولى هي إكمال الاختبار التشخيصي:';
+                    icon = '🚀';
+                    actionButtonText = '🚀 ابدأ الاختبار الآن';
+                    break;
+                case 'complete-previous':
+                    taskTypeMessage = 'انتبه! لديك مهام سابقة لم تكتملها. مهمتك ذات الأولوية الآن هي:';
+                    icon = '⚠️';
+                    break;
+                case 'do-new':
+                    taskTypeMessage = 'أحسنت! مهمتك التالية بانتظارك:';
+                    icon = '✨';
+                    break;
+                case 'complete-oldest':
+                    taskTypeMessage = 'رائع! أنت متقدم في الدروس الأخيرة. لاحظنا أن لديك مهمة قديمة لم تنهها:';
+                    icon = '🧐';
+                    break;
+                default: 
+                    taskTypeMessage = 'مهمتك التالية هي:';
+            }
+
+            const musaidBody = musaidModal.querySelector('#musaid-modal-body');
+            const musaidFooter = musaidModal.querySelector('#musaid-modal-footer');
+            const musaidHeader = musaidModal.querySelector('#musaid-modal-header');
+
+            musaidHeader.querySelector('.emoji-icon').textContent = icon;
+            musaidBody.innerHTML = `<p>${taskTypeMessage}</p>
+                <p class="task-name">${taskTitle}</p>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-value">${stats.remainingLessons}</div>
+                        <div class="stat-label">دروس متبقية</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">${stats.remainingGames}</div>
+                        <div class="stat-label">لعبة متبقية</div>
+                    </div>
+                </div>`;
+            
+            let secondaryTaskHtml = '';
+            if (secondaryTask && secondaryTask.details.id !== primaryTask.details.id) {
+                secondaryTaskHtml = `<button id="musaid-secondary-btn" class="secondary-action-btn">لديك مهام قديمة.. اذهب لأولها</button>`;
+            }
+            
+            musaidFooter.innerHTML = `
+                <button id="musaid-action-btn" class="action-btn">${actionButtonText}</button>
+                <div class="mt-3">${secondaryTaskHtml}</div>
+                <button id="musaid-dismiss-btn" class="dismiss-btn">👍 حسنًا، لا تظهر اليوم</button>`;
+            
+            document.getElementById('musaid-action-btn').onclick = () => goToTaskAndCloseModal(primaryTask, "ابدأ هنا");
+            
+            if (secondaryTaskHtml) {
+                document.getElementById('musaid-secondary-btn').onclick = () => goToTaskAndCloseModal(secondaryTask, "أكمل هنا");
+            }
+
+            document.getElementById('musaid-dismiss-btn').onclick = dismissMusaidForToday;
+
+            musaidModal.classList.remove('hidden');
+        }
+
+        function goToTaskAndCloseModal(task, badgeText) {
+            musaidModal.classList.add('hidden');
+            let url;
+            if (task.type === 'diagnostic') {
+                const student = getStudentFromStorage();
+                if (student) {
+                    url = `diagnostic.html?studentId=${student.id}&classId=${student.classIdentifier}`;
+                    window.open(url, '_top');
+                }
+                return;
+            }
+
+            document.querySelectorAll('.spotlight').forEach(el => el.classList.remove('spotlight'));
+            document.querySelectorAll('.start-here-badge').forEach(badge => badge.remove());
+
+            let elementId = task.type === 'lesson' ? `lesson-card-${task.details.id}` : `game-${task.details.id}`;
+            const element = document.getElementById(elementId);
+
+            if (element) {
+                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                element.classList.add('spotlight');
+                
+                const badge = document.createElement('div');
+                badge.className = 'start-here-badge';
+                badge.textContent = badgeText;
+                
+                if (task.type === 'game') {
+                    badge.style.cssText = 'font-size: 0.7rem; top: -10px; right: -10px; left: auto;';
+                }
+                
+                element.appendChild(badge);
+
+                const chapterCard = element.closest('.chapter-card');
+                if (chapterCard && !chapterCard.classList.contains('expanded')) {
+                    chapterCard.classList.add('expanded');
+                }
+            }
+        }
+
+        function dismissMusaidForToday() {
+            const now = new Date();
+            const expiry = now.getTime() + 24 * 60 * 60 * 1000;
+            localStorage.setItem('dismissMusaidUntil', expiry);
+            musaidModal.classList.add('hidden');
+            updateMusaidIconState();
+        }
+        
+        function buildSummaryBox(lesson, index, grades, studentData, isLocked) {
+            const { lessonGrade, game1Grade, game2Grade } = grades;
+            const lessonIcon = isLocked ? 'fa-lock' : getPerformanceIcon(lessonGrade, lesson.maxScore);
+            const game1 = lesson.games && lesson.games[0];
+            const game2 = lesson.games && lesson.games[1];
+            const game1Icon = isLocked ? 'fa-lock' : (game1 ? getPerformanceIcon(game1Grade, game1.maxScore) : 'fa-times');
+            const game2Icon = isLocked ? 'fa-lock' : (game2 ? getPerformanceIcon(game2Grade, game2.maxScore) : 'fa-times');
+            const lessonLink = studentData.id ? `lessons/${lesson.id}.html?studentId=${studentData.id}&classId=${studentData.classIdentifier}` : `lessons/${lesson.id}.html`;
+            let content = `<a href="${lessonLink}" target="_top" class="top-part" title="اختبار الدرس"><span class="lesson-number">${index + 1}</span><i class="fas ${lessonIcon} summary-icon"></i></a><div class="bottom-part"><a href="#" onclick="openGameModal('${game1 ? game1.id : ''}'); return false;" title="${game1 ? game1.title : ''}"><i class="fas ${game1Icon} summary-icon"></i></a><a href="#" onclick="openGameModal('${game2 ? game2.id : ''}'); return false;" title="${game2 ? game2.title : ''}"><i class="fas ${game2Icon} summary-icon"></i></a></div>`;
+            return `<div class="lesson-summary-box ${isLocked ? 'locked' : ''}" title="${isLocked ? 'الدرس مغلق' : lesson.title}">${content}</div>`;
+        }
+
+        function getPerformanceIcon(grade, maxScore) { 
+            if (grade === null) return 'fa-circle-notch'; 
+            const numericGrade = parseFloat(grade);
+            if (numericGrade === maxScore) return 'fa-trophy'; 
+            if (numericGrade >= maxScore / 2) return 'fa-check'; 
+            return 'fa-sync-alt'; 
+        }
+
+        function renderTestCard(studentData) {
+            const card = document.getElementById('diagnostic-card');
+            const diagnostics = studentData.diagnostics || {};
+            const diagnosticLink = `diagnostic.html?studentId=${studentData.id}&classId=${studentData.classIdentifier}`;
+            if (diagnostics.d_best_weighted !== undefined) {
+                const scoreData = diagnostics.d_best_weighted;
+                const score = robustParseFloat(scoreData?.grade) ?? 0;
+                const scoreColor = score >= 80 ? 'text-green-600' : (score >= 50 ? 'text-yellow-600' : 'text-red-600');
+                const totalPoints = scoreData?.metricValue ?? 'N/A';
+                card.innerHTML = `<h4 class="text-xl font-bold text-purple-700 mb-3">الاختبار التشخيصي</h4><div class="flex justify-around items-center text-center p-3 bg-purple-50 rounded-lg"><div><p class="text-sm font-bold text-gray-500 mb-1">المعدل</p><span class="text-3xl font-extrabold ${scoreColor}">${formatDecimal(score)}%</span></div><div class="border-r border-purple-200 h-10 mx-2"></div><div><p class="text-sm font-bold text-gray-500 mb-1">النقاط</p><span class="text-3xl font-extrabold text-purple-800">${totalPoints}</span></div></div><a href="${diagnosticLink}" target="_top" class="mt-4 w-full text-center block bg-purple-100 text-purple-800 font-bold py-2 rounded-lg hover:bg-purple-200 transition-colors">إعادة الاختبار</a>`;
+            } else {
+                card.innerHTML = `<h4 class="text-xl font-bold text-purple-700 mb-2">الاختبار التشخيصي</h4><p class="text-gray-600 my-4 text-center font-semibold">لم يتم أداء الاختبار بعد.</p><a href="${diagnosticLink}" target="_top" class="w-full text-center block bg-green-500 text-white font-bold py-2 rounded-lg hover:bg-green-600 transition-colors shadow-md hover:shadow-lg">ابدأ الاختبار الآن</a>`;
+            }
+        }
+        
         window.openGameModal = (gameId) => {
             if (!gameId || gameId === 'null') return;
             const student = getStudentFromStorage();
@@ -838,15 +1621,6 @@
             const gameSrc = student ? `games/${gameId}.html?studentId=${student.id}&classId=${student.classIdentifier}` : `games/${gameId}.html`;
             gameIframe.src = gameSrc;
             gameModal.classList.remove('hidden');
-            
-            // --- INJECT THE MAGIC SCRIPT WHEN IFRAME LOADS ---
-            gameIframe.onload = function() {
-                try {
-                    injectEnhancedSaveGrade(gameIframe.contentWindow);
-                } catch(e) {
-                    console.error("Could not inject script (likely Cross-Origin if testing locally):", e);
-                }
-            };
         };
         
         function closeGameModal() {

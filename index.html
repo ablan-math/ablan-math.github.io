@@ -9,6 +9,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- مكتبة SweetAlert للتنبيهات الجميلة - تمت إضافتها هنا لتعمل في المنصة -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         body {
             font-family: 'Cairo', sans-serif;
@@ -531,6 +533,87 @@
         const studentDataView = document.getElementById('student-data-view');
         const leaderboardView = document.getElementById('leaderboard-view');
         const musaidModal = document.getElementById('musaid-modal');
+
+        // ==== THE MAGIC INJECTOR: Overwrites saveGrade in iFrames ====
+        function injectEnhancedSaveGrade(iframeWindow) {
+            console.log("Injecting enhanced saveGrade logic into iframe...");
+            
+            // 1. Override the saveGrade function in the iframe context
+            iframeWindow.saveGrade = async function(studentId, classId, itemId, grade, maxScore) {
+                const submitBtn = iframeWindow.document.getElementById('submit-btn'); 
+                
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.textContent = 'جاري الحفظ...';
+                }
+
+                const url = `${SCRIPT_URL}?action=saveGrade&studentId=${studentId}&classId=${classId}&itemId=${itemId}&grade=${grade}&maxScore=${maxScore}`;
+
+                try {
+                    const response = await fetch(url, { redirect: 'follow' });
+                    const result = await response.json();
+
+                    // Check for error status
+                    if (result.status === 'error') {
+                        throw new Error(result.message);
+                    }
+
+                    // --- Success Scenario ---
+                    console.log('Grade saved successfully:', result);
+                    
+                    // Use SweetAlert from the PARENT window (since it is loaded here)
+                    Swal.fire({
+                        title: 'أحسنت! 🌟',
+                        text: 'تم حفظ نتيجتك بنجاح',
+                        icon: 'success',
+                        confirmButtonText: 'ممتاز',
+                        confirmButtonColor: '#3085d6'
+                    }).then(() => {
+                        // Close modal and refresh data
+                        closeGameModal();
+                    });
+
+                } catch (error) {
+                    console.error("Save Grade Error:", error);
+
+                    // --- Check for Cooldown Error ---
+                    if (error.message && error.message.includes('COOLDOWN_ACTIVE')) {
+                        const parts = error.message.split(':');
+                        const hoursLeft = parts.length > 1 ? parts[1].trim() : '24';
+
+                        // Show friendly alert using Parent's SweetAlert
+                        Swal.fire({
+                            title: 'عفواً يا بطل! 🛑',
+                            html: `
+                                <div style="text-align: right; direction: rtl; font-size: 1.1em; line-height: 1.6;">
+                                    <p>لقد استنفذت محاولاتك المسموحة لهذا الدرس حالياً.</p>
+                                    <p style="color: #d33; font-weight: bold; margin: 10px 0;">يمكنك المحاولة مجدداً بعد ${hoursLeft} ساعة.</p>
+                                    <p style="color: #555;">استغل هذا الوقت لمراجعة الدرس جيداً! 📚</p>
+                                </div>
+                            `,
+                            icon: 'warning',
+                            confirmButtonText: 'حسناً، سأراجع الدرس',
+                            confirmButtonColor: '#f39c12',
+                            allowOutsideClick: false
+                        });
+
+                        if (submitBtn) {
+                            submitBtn.textContent = 'المحاولات مكتملة مؤقتاً';
+                        }
+                        return; // Stop execution
+                    }
+
+                    // --- Generic Error ---
+                    Swal.fire('تنبيه', `حدث خطأ غير متوقع: ${error.message}`, 'error');
+                    
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = 'حاول مرة أخرى';
+                    }
+                }
+            };
+        }
+        // ==============================================================
 
         function getClassIdentifier(fullClassName) { if (!fullClassName) return null; const classMap = { "ثالث / أول": "3-1", "ثالث / ثاني": "3-2", "ثالث / ثالث": "3-3" }; return classMap[fullClassName.trim()] || null; }
         function robustParseFloat(value) { if (value === null || value === undefined || value === "") return null; const stringValue = String(value); const sanitizedValue = stringValue.replace(',', '.').trim(); const parsed = parseFloat(sanitizedValue); return isNaN(parsed) ? null : parsed; }
@@ -1621,6 +1704,15 @@
             const gameSrc = student ? `games/${gameId}.html?studentId=${student.id}&classId=${student.classIdentifier}` : `games/${gameId}.html`;
             gameIframe.src = gameSrc;
             gameModal.classList.remove('hidden');
+            
+            // --- INJECT THE MAGIC SCRIPT WHEN IFRAME LOADS ---
+            gameIframe.onload = function() {
+                try {
+                    injectEnhancedSaveGrade(gameIframe.contentWindow);
+                } catch(e) {
+                    console.error("Could not inject script (likely Cross-Origin if testing locally):", e);
+                }
+            };
         };
         
         function closeGameModal() {

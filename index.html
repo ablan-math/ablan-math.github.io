@@ -541,22 +541,48 @@
             // 1. Force Unlock the Button (The "Button Liberator")
             // This timer checks every second to see if the old code disabled the button
             const unlockerInterval = setInterval(() => {
-                const submitBtn = iframeWindow.document.getElementById('submit-btn'); 
-                if (submitBtn) {
-                    // If button is disabled OR contains "No attempts" (Arabic), we unlock it
-                    // The text 'لا توجد محاولات' or 'المحاولات' covers 'No attempts remaining'
-                    if (submitBtn.disabled || submitBtn.textContent.includes('لا توجد محاولات') || submitBtn.textContent.includes('المحاولات')) {
-                        submitBtn.disabled = false;
-                        submitBtn.textContent = 'حاول مجدداً (تحسين درجة) 🌟';
-                        submitBtn.style.backgroundColor = '#2563eb'; // Reset color to blue
-                        submitBtn.style.cursor = 'pointer';
+                const doc = iframeWindow.document;
+                
+                // Attempt to find ANY submit button or the "No attempts" bar
+                // We look for buttons with specific text or the 'submit-btn' ID
+                // Also look for elements containing the "No attempts" message to replace/unlock them
+                const buttons = doc.querySelectorAll('button, input[type="submit"], input[type="button"], .w-full.bg-green-600, div[class*="bg-red-"], div[class*="bg-green-"]');
+                
+                buttons.forEach(btn => {
+                    const text = btn.textContent || btn.value || "";
+                    
+                    // Condition 1: It's the submit button (ID check)
+                    // Condition 2: It has "send" or "check" text
+                    // Condition 3: It has the "No attempts" text (green bar in screenshot)
+                    if (btn.id === 'submit-btn' || 
+                        text.includes('لا توجد محاولات') || 
+                        text.includes('المحاولات') || 
+                        text.includes('تحقق') ||
+                        text.includes('إرسال')) {
                         
-                        // We do NOT override onclick here, because we want the original onclick (submitLesson) to fire.
-                        // submitLesson will calculate the grade and call saveGrade().
-                        // saveGrade() is overwritten below, so our logic will run.
+                        // If it's disabled or showing the "No attempts" text, we LIBERATE it
+                        if (btn.disabled || text.includes('لا توجد محاولات') || text.includes('المحاولات')) {
+                            console.log("Button unlocked:", btn);
+                            btn.disabled = false;
+                            
+                            // Change text to encourage retry
+                            if (btn.tagName.toLowerCase() === 'input') {
+                                btn.value = 'حاول مجدداً (تحسين درجة) 🌟';
+                            } else {
+                                btn.textContent = 'حاول مجدداً (تحسين درجة) 🌟';
+                            }
+                            
+                            // Visual reset to blue button
+                            btn.style.backgroundColor = '#2563eb'; 
+                            btn.style.color = '#ffffff';
+                            btn.style.cursor = 'pointer';
+                            btn.style.pointerEvents = 'auto'; // Ensure it's clickable
+                            btn.style.display = 'block'; // Ensure it's visible
+                            btn.classList.remove('bg-green-600', 'bg-red-600', 'cursor-not-allowed'); // Remove lock styles
+                        }
                     }
-                }
-            }, 1000);
+                });
+            }, 500); // Check every 500ms
 
             // 2. Override the saveGrade function in the iframe context
             iframeWindow.saveGrade = async function(studentId, classId, itemId, grade, maxScore) {
@@ -564,7 +590,8 @@
                 
                 if (submitBtn) {
                     submitBtn.disabled = true;
-                    submitBtn.textContent = 'جاري الحفظ...';
+                    if(submitBtn.tagName.toLowerCase() === 'input') submitBtn.value = 'جاري الحفظ...';
+                    else submitBtn.textContent = 'جاري الحفظ...';
                 }
 
                 const url = `${SCRIPT_URL}?action=saveGrade&studentId=${studentId}&classId=${classId}&itemId=${itemId}&grade=${grade}&maxScore=${maxScore}`;
@@ -618,7 +645,8 @@
                         });
 
                         if (submitBtn) {
-                            submitBtn.textContent = 'المحاولات مكتملة مؤقتاً';
+                            if(submitBtn.tagName.toLowerCase() === 'input') submitBtn.value = 'المحاولات مكتملة مؤقتاً';
+                            else submitBtn.textContent = 'المحاولات مكتملة مؤقتاً';
                         }
                         return; // Stop execution
                     }
@@ -628,7 +656,8 @@
                     
                     if (submitBtn) {
                         submitBtn.disabled = false;
-                        submitBtn.textContent = 'حاول مرة أخرى';
+                        if(submitBtn.tagName.toLowerCase() === 'input') submitBtn.value = 'حاول مرة أخرى';
+                        else submitBtn.textContent = 'حاول مرة أخرى';
                     }
                 }
             };

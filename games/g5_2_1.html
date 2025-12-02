@@ -364,6 +364,8 @@
                 <!-- سيتم ملؤها بواسطة المحرك أو الكود الداخلي -->
             </div>
 
+            <div id="save-status" class="text-sm text-gray-500 mb-4 h-6"></div>
+
             <!-- عناصر سجل الأبطال -->
             <div id="leaderboard-loader" class="hidden mb-4 text-blue-500">جاري تحميل سجل الأبطال...</div>
             <div id="leaderboard-container" class="mb-4"></div>
@@ -771,19 +773,11 @@
             let finalGrade = (score / maxScore) * 5;
             finalGrade = Math.round(finalGrade * 10) / 10; 
             if (finalGrade > 5) finalGrade = 5;
-            
-            // عرض النتيجة في القسم الجديد
-            document.getElementById('final-result-display').innerHTML = `
-                <p class="text-gray-700 mb-2">مجموع النقاط: <span class="font-bold text-xl">${toArabicNum(score)} / ${toArabicNum(maxScore)}</span></p>
-                <p class="text-blue-600">الدرجة النهائية: <span class="font-bold text-2xl">${toArabicNum(finalGrade)} / ٥</span></p>
-            `;
-            
-            // تحديث العنصر القديم أيضاً لتجنب أي خطأ في الكود السابق
-            // document.getElementById('points-display').innerText = ... (تم استبداله)
 
             document.getElementById('final-time-display').innerText = getFinalTimeFormatted();
+            document.getElementById('points-display').innerText = `${toArabicNum(score)} / ${toArabicNum(maxScore)}`;
+            document.getElementById('final-grade-display').innerText = `${toArabicNum(finalGrade)} / ٥`;
 
-            // استدعاء دالة الحفظ المحدثة (تمرير maxScore لضمان الدقة)
             if (window.saveAndFinishGame) {
                 window.saveAndFinishGame(score, timerSeconds, maxScore);
             }
@@ -793,14 +787,9 @@
     <!-- محرك الاتصال بالمنصة -->
     <script>
     (function() {
-        // --- CONFIGURATION ---
-        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
-        const GAME_ID = 'g5_2_1'; // معرف اللعبة الجديد
-        const PLATFORM_MAX_GRADE = 5;
-        const METRIC_TYPE = 'time';
-        const METRIC_LABEL = 'الوقت (ثواني)';
+        let SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
+        let GAME_ID = 'g5_2_1'; 
 
-        // --- Read URL Parameters ---
         const urlParams = new URLSearchParams(window.location.search);
         const studentId = urlParams.get('studentId');
         const classId = urlParams.get('classId');
@@ -808,48 +797,55 @@
 
         let currentUser = (studentId && studentName) ? { id: studentId, name: studentName } : null;
 
-        // --- CORE FUNCTIONS ---
-
-        // 1. الدالة الرئيسية للحفظ (معدلة لتقبل maxPoints)
-        window.saveAndFinishGame = function(points, metricValue, dynamicMaxPoints) {
-            const finalPoints = parseFloat(points) || 0;
-            const finalMetric = parseFloat(metricValue) || 0;
-            // استخدام maxPoints الديناميكي الممرر من اللعبة، أو 10 كقيمة افتراضية
+        window.saveAndFinishGame = function(points, timeTaken, dynamicMaxPoints) {
+            const saveStatus = document.getElementById('save-status');
             const maxPoints = dynamicMaxPoints || 10; 
+            let grade = (points / maxPoints) * 5;
+            grade = Math.min(5, Math.max(0, grade)).toFixed(2);
             
-            const finalGrade = (finalPoints / maxPoints) * PLATFORM_MAX_GRADE;
-
-            // تحديث واجهة النتائج (تكرار للتأكيد)
+            // تحديث عرض النتائج
             const resultDisplay = document.getElementById('final-result-display');
             if (resultDisplay) {
                 const toAr = (n) => n.toString().replace(/\d/g, d => "٠١٢٣٤٥٦٧٨٩"[d]);
                 resultDisplay.innerHTML = `
-                    <p class="text-gray-700">النقاط: <span class="font-bold text-xl">${toAr(finalPoints)} / ${toAr(maxPoints)}</span></p>
-                    <p class="text-blue-600">الدرجة في المنصة: <span class="font-bold text-2xl">${toAr(finalGrade.toFixed(1))} / ٥</span></p>
+                    <p class="text-gray-700 mb-2">مجموع النقاط: <span class="font-bold text-xl">${toAr(points)} / ${toAr(maxPoints)}</span></p>
+                    <p class="text-blue-600">الدرجة النهائية: <span class="font-bold text-2xl">${toAr(grade)} / ٥</span></p>
                 `;
             }
 
-            if (studentId && classId) {
+            if(studentId && classId) {
+                saveStatus.innerText = "جاري حفظ الدرجة...";
                 const params = new URLSearchParams({
                     action: 'saveGrade',
                     studentId: studentId,
                     classId: classId,
                     itemId: GAME_ID,
-                    grade: finalGrade.toFixed(2),
-                    metricValue: Math.round(finalMetric).toString()
+                    grade: grade,
+                    metricValue: timeTaken 
                 });
+
                 fetch(`${SCRIPT_URL}?${params.toString()}`)
-                    .then(res => res.json())
-                    .then(result => console.log('Save result:', result.status))
-                    .catch(err => console.error("Save Error:", err))
+                    .then(r => r.json())
+                    .then(data => {
+                        if(data.status === 'success') {
+                            saveStatus.innerText = "تم حفظ الدرجة بنجاح ✅";
+                            saveStatus.className = "text-sm text-green-600 mb-4 h-6 font-bold";
+                        } else {
+                            saveStatus.innerText = "لم يتم الحفظ (خطأ في الخادم)";
+                            saveStatus.className = "text-sm text-red-500 mb-4 h-6";
+                        }
+                    })
+                    .catch(e => {
+                        saveStatus.innerText = "خطأ في الاتصال ⚠️";
+                        saveStatus.className = "text-sm text-red-500 mb-4 h-6";
+                    })
                     .finally(fetchAndShowLeaderboard);
             } else {
-                console.log(`Visitor finished. Score: ${finalPoints}, Metric: ${finalMetric}`);
-                fetchAndShowLeaderboard();
+                saveStatus.innerText = "وضع الزائر: لم يتم حفظ الدرجة";
+                fetchAndShowLeaderboard(); // استدعاء لعرض الرسالة للزوار
             }
-        }
+        };
 
-        // 2. دالة جلب وعرض سجل الأبطال
         function fetchAndShowLeaderboard() {
             const loader = document.getElementById('leaderboard-loader');
             const container = document.getElementById('leaderboard-container');
@@ -862,12 +858,13 @@
             }
 
             loader.style.display = 'block';
+            loader.classList.remove('hidden'); // تأكيد الإظهار
             container.innerHTML = '';
 
             const params = new URLSearchParams({
                 action: 'getLeaderboard',
                 gameId: GAME_ID,
-                metricType: METRIC_TYPE,
+                metricType: 'time',
                 classId: classId
             });
 
@@ -877,12 +874,11 @@
                     if (response.status === 'success' && response.data) {
                         displayLeaderboard(response.data);
                     } else {
-                        throw new Error(response.message || 'Failed to load leaderboard data.');
+                        container.innerHTML = `<p class="text-center text-gray-500">لا توجد بيانات.</p>`;
                     }
                 })
                 .catch(err => {
-                    console.error("Leaderboard Error:", err);
-                    container.innerHTML = `<p class="text-center text-red-500">حدث خطأ في تحميل سجل الأبطال.</p>`;
+                    container.innerHTML = `<p class="text-center text-red-500">حدث خطأ في تحميل السجل.</p>`;
                 })
                 .finally(() => {
                     loader.style.display = 'none';
@@ -890,11 +886,10 @@
                 });
         }
         
-        // 3. دالة بناء جدول سجل الأبطال
         function displayLeaderboard(data) {
             const container = document.getElementById('leaderboard-container');
             if (!data || data.length === 0) {
-                container.innerHTML = `<p class="text-center text-gray-500 mt-4">لا توجد نتائج بعد. كن أول الأبطال!</p>`;
+                container.innerHTML = `<p class="text-center text-gray-500 mt-4">كن أول الأبطال!</p>`;
                 return;
             }
 
@@ -908,7 +903,7 @@
                                 <th class="text-center py-2 px-2">#</th>
                                 <th class="text-right py-2 px-2">الطالب</th>
                                 <th class="text-center py-2 px-2">الدرجة</th>
-                                <th class="text-center py-2 px-2">${METRIC_LABEL}</th>
+                                <th class="text-center py-2 px-2">الوقت</th>
                             </tr>
                         </thead>
                         <tbody class="text-gray-700">`;
@@ -924,7 +919,7 @@
                 const rowClass = isCurrentUser ? 'bg-blue-100 font-bold' : (index % 2 === 0 ? 'bg-gray-50' : '');
                 const toAr = (n) => n.toString().replace(/\d/g, d => "٠١٢٣٤٥٦٧٨٩"[d]);
 
-                // تحويل الثواني إلى دقائق:ثواني للعرض
+                // تحويل الثواني إلى دقائق:ثواني
                 const minutes = Math.floor(player.metricValue / 60);
                 const seconds = player.metricValue % 60;
                 const timeStr = `${toAr(minutes)}:${toAr(seconds.toString().padStart(2, '0'))}`;
@@ -942,7 +937,6 @@
             container.innerHTML = tableHTML;
         }
 
-        // 4. إظهار زر الإنهاء
         function showFinishButton() {
             const finishWrapper = document.getElementById('finish-game-wrapper');
             if (finishWrapper) {
@@ -951,7 +945,6 @@
             }
         }
 
-        // 5. تهيئة الترحيب وزر الإنهاء
         document.addEventListener('DOMContentLoaded', () => {
             const welcomeMessage = document.getElementById('welcomeMessage');
             if (studentName && welcomeMessage) {
@@ -966,7 +959,6 @@
             }
         });
     })();
-    // --- END OF CONNECTION & LEADERBOARD ENGINE ---
     </script>
 </body>
 </html>

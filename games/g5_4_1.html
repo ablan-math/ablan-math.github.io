@@ -1,1 +1,1136 @@
-999
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>الحذف بالضرب ١</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        /* --- تنسيقات أساسية --- */
+        body {
+            font-family: 'Cairo', sans-serif;
+            direction: rtl;
+            overscroll-behavior: none;
+            background-color: #f0f9ff;
+            height: 100dvh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            padding: 5px; 
+            box-sizing: border-box;
+            color: #1f2937;
+        }
+
+        /* --- مكتبة عرض المعادلات --- */
+        .equation-rtl-container {
+            direction: rtl !important; 
+            display: inline-flex;
+            flex-direction: row;      
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;           
+            gap: 0.15rem;             
+            font-family: 'Cairo', sans-serif;
+            font-size: 1.15rem; 
+            font-weight: 700;
+            line-height: 1.4;
+        }
+
+        .eq-part { display: inline-block; unicode-bidi: embed; }
+        .eq-sign-minus { color: #dc2626; font-weight: bold; margin-left: 1px; }
+        .eq-variable { color: #0369a1; }
+        .eq-operator { color: #ea580c; margin: 0 2px; }
+        .eq-number   { color: #111827; }
+        .eq-paren    { color: #374151; font-weight: 800; margin: 0 2px; }
+        .eq-factor   { color: #dc2626; font-weight: 900; font-size: 1.25rem; } 
+        
+        /* --- تنسيق الشرح المفصل --- */
+        .step-detail-container { display: flex; flex-direction: column; align-items: center; width: 100%; gap: 0.8rem; }
+        .step-section { width: 100%; text-align: center; border-bottom: 1px dashed #e5e7eb; padding-bottom: 0.6rem; }
+        .step-section:last-child { border-bottom: none; }
+        .step-label { font-size: 0.85rem; color: #6b7280; margin-bottom: 0.4rem; font-weight: bold; }
+
+        /* تنسيق الكسور */
+        .math-fraction { display: inline-flex; flex-direction: column; align-items: center; vertical-align: middle; margin: 0 0.4rem; font-weight: bold; color: #1f2937; }
+        .math-numerator { border-bottom: 2px solid #374151; padding-bottom: 1px; display: block; width: 100%; font-size: 1.3rem; direction: rtl; }
+        .math-denominator { padding-top: 1px; display: block; width: 100%; font-size: 1.1rem; color: #ef4444; direction: rtl; }
+        .math-eq-container { display: flex; align-items: center; justify-content: center; direction: rtl; gap: 0.6rem; font-size: 1.2rem; }
+        
+        /* --- تنسيق الشرح البصري للحذف --- */
+        .ve-grid { display: grid; grid-template-columns: auto auto auto auto auto; gap: 0.4rem 0.2rem; align-items: center; justify-content: center; direction: rtl; font-weight: bold; font-size: 1.2rem; margin-top: 0.4rem; }
+        .ve-cell { padding: 0.15rem 0.4rem; text-align: center; position: relative; display: flex; justify-content: center; align-items: center; gap: 1px; }
+        .ve-box-red { border: 2px solid #ef4444; background-color: #fef2f2; border-radius: 6px; color: #991b1b; }
+        .ve-box-green { border: 2px solid #10b981; background-color: #ecfdf5; border-radius: 6px; color: #065f46; }
+        .ve-strike { position: relative; opacity: 0.6; }
+        .ve-strike::after { content: ''; position: absolute; width: 100%; height: 3px; background-color: #ef4444; top: 50%; left: 0; transform: rotate(-10deg); }
+        .ve-line-row { grid-column: 1 / -1; width: 100%; height: 2px; background-color: #374151; margin: 0.2rem 0; border-radius: 2px; }
+        .ve-term-body { direction: rtl; unicode-bidi: embed; }
+        
+        /* تنسيق خاص لخطوة الضرب */
+        .mult-arrow { color: #d97706; font-weight: bold; font-size: 1.2rem; margin: 0 10px; }
+        .mult-dist-grid { display: grid; grid-template-columns: repeat(3, auto); gap: 1rem; align-items: center; justify-content: center; direction: rtl; }
+        .mult-dist-item { background: #fffbeb; padding: 4px 8px; border-radius: 6px; border: 1px solid #fcd34d; font-size: 0.9rem; color: #92400e; }
+
+        /* --- واجهة اللعبة --- */
+        .game-card {
+            background: white; border-radius: 1rem; box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.1);
+            width: 100%; 
+            max-width: 450px; 
+            padding: 1rem;
+            display: flex; flex-direction: column; gap: 0.6rem;
+            max-height: 100%; overflow-y: auto; border-top: 6px solid #0ea5e9; scroll-behavior: smooth;
+            position: relative;
+        }
+        .problem-area { background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 0.75rem; padding: 0.8rem 0.4rem; display: flex; flex-direction: column; align-items: center; gap: 0.4rem; position: relative; }
+        .main-equations { display: flex; flex-direction: column; align-items: center; gap: 0.4rem; width: 100%; border-bottom: 2px dashed #cbd5e1; padding-bottom: 0.8rem; margin-bottom: 0.4rem; position: relative; padding-right: 0.5rem; transition: all 0.5s ease; }
+        
+        .eq-box { background: white; border: 1px solid #cbd5e1; padding: 0.5rem 1rem; border-radius: 0.5rem; box-shadow: 0 2px 4px rgba(0,0,0,0.02); width: 95%; display: flex; justify-content: center; transition: all 0.5s; position: relative; }
+        .eq-box.modified { border-color: #f59e0b; background-color: #fff7ed; transform: scale(1.02); box-shadow: 0 4px 6px rgba(245, 158, 11, 0.1); }
+        .eq-tag { position: absolute; right: -25px; top: 50%; transform: translateY(-50%); font-size: 0.7rem; color: #94a3b8; font-weight: bold; width: 20px; }
+        
+        .history-step { background-color: #f0f9ff; border: 1px solid #bae6fd; color: #0369a1; padding: 0.4rem 0.8rem; border-radius: 0.5rem; width: 98%; text-align: center; margin-bottom: 0.3rem; display: flex; justify-content: space-between; align-items: center; animation: slideIn 0.4s ease-out; font-size: 0.9rem; }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .history-label { font-size: 0.75rem; color: #0284c7; font-weight: bold; background: #e0f2fe; padding: 1px 6px; border-radius: 4px; }
+        
+        .choices-grid { display: grid; grid-template-columns: 1fr; gap: 0.6rem; width: 100%; }
+        /* كلاس جديد للخيارات الثلاثية المتجاورة */
+        .choices-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem; width: 100%; }
+        
+        .choice-button { width: 100%; padding: 0.8rem 0.6rem; background-color: #ffffff; border: 2px solid #e5e7eb; border-radius: 0.6rem; box-shadow: 0 2px 5px rgba(0,0,0,0.05); cursor: pointer; font-size: 1rem; font-weight: 700; min-height: 3.5rem; display: flex; justify-content: center; align-items: center; transition: all 0.2s; color: #374151; }
+        .choice-button:hover:not(:disabled) { border-color: #38bdf8; background-color: #f0f9ff; transform: translateY(-2px); }
+        .choice-button:disabled { cursor: default; opacity: 0.6; transform: none; }
+        .choice-button.correct { border-color: #10b981 !important; background-color: #d1fae5 !important; color: #065f46; }
+        .choice-button.incorrect { border-color: #ef4444 !important; background-color: #fee2e2 !important; color: #991b1b; }
+
+        .action-btn { width: 100%; padding: 0.6rem; border-radius: 0.6rem; font-weight: bold; text-align: center; color: white; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); transition: transform 0.2s; border: none; cursor: pointer; font-size: 0.95rem; }
+        .action-btn:active { transform: scale(0.98); }
+        .btn-primary { background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%); }
+        .btn-secondary { background-color: #6b7280; }
+        
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(3px); display: flex; align-items: center; justify-content: center; z-index: 50; opacity: 0; visibility: hidden; padding: 1rem; transition: 0.3s; }
+        .modal-overlay.show { opacity: 1; visibility: visible; }
+        .modal-box { background: white; padding: 1.5rem; border-radius: 1.2rem; width: 100%; max-width: 420px; text-align: center; transform: scale(0.95); transition: 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); }
+        .modal-overlay.show .modal-box { transform: scale(1); }
+        
+        .scrollable-content { max-height: 50vh; overflow-y: auto; scrollbar-width: thin; padding: 0 5px; margin-top: 0.5rem; }
+        
+        .badge { padding: 0.2rem 0.6rem; border-radius: 9999px; font-size: 0.8rem; font-weight: bold; display: inline-flex; align-items: center; gap: 0.2rem; }
+        .badge-score { background: #fffbeb; color: #b45309; border: 1px solid #fcd34d; }
+        .badge-timer { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+
+        /* --- تأثير الانتقال بين الأسئلة --- */
+        .question-transition-overlay {
+            position: fixed;
+            inset: 0;
+            background: #f0f9ff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease-in-out;
+        }
+        .question-transition-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        /* إطار النتيجة المنبثق */
+        .result-popup {
+            background: white;
+            border: 1px solid #e0f2fe;
+            border-radius: 1.5rem;
+            padding: 2rem;
+            width: 90%;
+            max-width: 380px;
+            box-shadow: 0 20px 40px rgba(14, 165, 233, 0.15);
+            text-align: center;
+            transform: scale(0.9);
+            opacity: 0;
+            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .question-transition-overlay.active .result-popup {
+            transform: scale(1);
+            opacity: 1;
+        }
+        .star-rating {
+            font-size: 2.5rem;
+            color: #fbbf24;
+            margin: 0.5rem 0;
+            text-shadow: 0 2px 4px rgba(251, 191, 36, 0.3);
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- ================= شاشة البداية ================= -->
+    <div id="welcome-screen" class="modal-overlay show">
+        <div class="modal-box">
+            <div class="w-14 h-14 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" />
+                </svg>
+            </div>
+            <h1 class="text-xl font-bold text-gray-800 mb-2">الحذف بالضرب ١</h1>
+            <p id="welcomeMessage" class="text-sm text-gray-600 mb-5 leading-relaxed">
+                في هذا المستوى المتقدم، لن تتمكن من الحذف مباشرة.<br>
+                عليك أولاً <strong>ضرب إحدى المعادلتين</strong> في عدد مناسب لجعل المعاملات متساوية أو متعاكسة، ثم الحذف.
+            </p>
+            <div class="flex flex-col gap-2">
+                <button onclick="startGame()" class="action-btn btn-primary">ابدأ التحدي 🚀</button>
+            </div>
+            <p class="text-[10px] text-gray-400 mt-4 font-semibold">تطوير: أ. عبد العزيز خالد العبلان</p>
+        </div>
+    </div>
+
+    <!-- ================= شاشة الانتقال المستقلة ================= -->
+    <div id="question-transition" class="question-transition-overlay">
+        <div class="result-popup">
+            <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-2 text-3xl">🎉</div>
+            <h3 class="text-2xl font-bold text-gray-800 mb-1" id="trans-title">انتهى السؤال!</h3>
+            <div class="star-rating" id="trans-stars">⭐⭐⭐</div>
+            <p class="text-gray-600 text-sm mb-2">نقاطك في هذا السؤال:</p>
+            <div class="text-4xl font-black text-blue-600 mb-4" id="trans-score">0 / 0</div>
+            
+            <div class="w-full bg-gray-100 rounded-full h-3 mb-6 overflow-hidden border border-gray-200">
+                <div id="trans-bar" class="bg-blue-500 h-3 rounded-full transition-all duration-1000" style="width: 0%"></div>
+            </div>
+            
+            <button id="next-q-btn" class="action-btn btn-primary w-full text-lg shadow-lg">السؤال التالي ⬅️</button>
+            
+            <p class="text-gray-400 text-xs mt-3">سينتقل تلقائياً بعد قليل...</p>
+        </div>
+    </div>
+
+    <!-- ================= واجهة اللعبة ================= -->
+    <div id="game-ui" class="game-card hidden">
+        <div class="flex items-center justify-between mb-2">
+            <h2 id="question-counter" class="text-base font-bold text-gray-700">المسألة ١</h2>
+            <div class="flex gap-2">
+                <div id="timer-display" class="badge badge-timer">
+                    <span id="timer-text">٠٠:٠٠</span>
+                </div>
+                <div id="current-score-display" class="badge badge-score">النقاط: ٠</div>
+            </div>
+            <button onclick="location.reload()" class="text-gray-400 hover:text-red-500 font-bold px-2 transition">✕</button>
+        </div>
+
+        <div class="problem-area" id="problem-area">
+            <div class="main-equations" id="main-equations">
+                <div class="relative w-full flex justify-center"><span class="eq-tag">١</span><div id="eq1" class="eq-box"></div></div>
+                <div class="relative w-full flex justify-center"><span class="eq-tag">٢</span><div id="eq2" class="eq-box"></div></div>
+            </div>
+            <div id="steps-history" class="w-full flex flex-col items-center"></div>
+        </div>
+
+        <div id="interaction-area" class="w-full">
+            <p id="prompt-text" class="text-center text-blue-800 font-bold text-sm my-2 bg-blue-50 p-2 rounded-lg border border-blue-100">...</p>
+            <div id="options-grid" class="choices-grid"></div>
+        </div>
+
+        <div id="feedback-container" class="mt-2 flex justify-center items-center gap-2 min-h-[2rem]">
+            <span id="feedback-text" class="font-bold text-sm transition-all duration-300"></span>
+            <button id="explain-btn" class="hidden px-3 py-1 bg-yellow-100 text-yellow-800 border border-yellow-300 rounded-full text-[10px] font-bold hover:bg-yellow-200 transition" onclick="showStepExplanation()">توضيح الخطوة 💡</button>
+        </div>
+
+        <div class="mt-1">
+            <button id="next-btn" onclick="nextStep()" class="action-btn btn-primary hidden text-sm">الخطوة التالية ⬅️</button>
+        </div>
+    </div>
+
+    <!-- ================= شاشة النهاية ================= -->
+    <div id="end-screen" class="modal-overlay">
+        <div class="modal-box">
+            <h2 id="final-title" class="text-xl font-bold text-gray-800 mb-2 mt-2">أحسنت العمل!</h2>
+            <div id="final-result-display" class="bg-gray-50 rounded-xl p-3 mb-4 border border-gray-100 text-sm"></div>
+            
+            <div class="w-full text-right mt-2">
+                <div id="leaderboard-loader" class="text-center text-gray-500 text-xs hidden">جاري تحميل سجل الأبطال...</div>
+                <div id="leaderboard-container" class="scrollable-content bg-gray-50 border rounded-lg" style="max-height: 150px;"></div>
+            </div>
+
+            <div class="flex flex-col gap-2 mt-4">
+                <button onclick="location.reload()" class="action-btn btn-primary text-sm">تدريب جديد 🔄</button>
+                <div id="finish-game-wrapper" class="hidden">
+                    <button id="finish-game-btn" class="action-btn btn-secondary text-sm w-full">إنهاء وعودة للمنصة</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= نافذة الشرح ================= -->
+    <div id="explanation-modal" class="modal-overlay">
+        <div class="modal-box relative text-right" style="max-width: 420px;">
+            <button onclick="hideExplanation()" class="absolute top-3 left-4 text-gray-400 hover:text-gray-600">✕</button>
+            <h3 id="modal-title" class="text-lg font-bold text-blue-700 mb-3 flex items-center gap-2">توضيح الخطوة</h3>
+            <div id="explanation-content" class="text-gray-700 leading-relaxed bg-blue-50 p-3 rounded-lg border border-blue-100 flex flex-col items-center scrollable-content text-sm"></div>
+            <button onclick="hideExplanation()" class="mt-4 w-full action-btn btn-primary text-sm">فهمت، تابع 👍</button>
+        </div>
+    </div>
+
+    <script>
+        // --- دوال مساعدة للعرض ---
+        function toArabicNum(str) {
+            return str.toString().replace(/\d/g, d => "٠١٢٣٤٥٦٧٨٩"[d]);
+        }
+
+        function formatSignedNum(n) {
+            const absN = Math.abs(n);
+            const arN = toArabicNum(absN);
+            if (n < 0) {
+                return `<span class="eq-sign-minus">-</span>${arN}`;
+            }
+            return arN;
+        }
+
+        function fmtTerm(coeff, variable, addPlusIfPos = false) { 
+            if (coeff === 0) return "0";
+            let sign = "";
+            if (coeff < 0) sign = "-";
+            else if (addPlusIfPos) sign = "+";
+            let absCoeff = Math.abs(coeff);
+            let numStr = toArabicNum(absCoeff);
+            if (absCoeff === 1 && variable) return sign + variable;
+            return sign + numStr + variable;
+        }
+
+        function renderSafeNum(n) { return formatSignedNum(n); }
+
+        function generateEquationHTML(eqStr) {
+            if (!eqStr) return '';
+            let s = eqStr.replace(/\s+/g, '');
+            let rawTokens = s.split(/([+=\-−])/).filter(t => t !== '');
+            let mergedTokens = [];
+            for (let i = 0; i < rawTokens.length; i++) {
+                let t = rawTokens[i];
+                if ((t === '-' || t === '−') && (mergedTokens.length === 0 || ['+','=','-','−'].includes(mergedTokens[mergedTokens.length-1]))) {
+                    if (i + 1 < rawTokens.length) {
+                        let nextT = rawTokens[i+1];
+                        mergedTokens.push("-" + nextT); i++; 
+                    } else { mergedTokens.push(t); }
+                } else { mergedTokens.push(t); }
+            }
+            let html = '<div class="equation-rtl-container">';
+            mergedTokens.forEach(token => {
+                let isOp = ['+','=','-','−'].includes(token);
+                if (isOp) { html += `<span class="eq-part eq-operator">${token}</span>`; } 
+                else {
+                    let isNeg = token.startsWith('-') || token.startsWith('−');
+                    let cleanToken = token.replace(/^[-−]/, '');
+                    let displayContent = cleanToken.replace(/x/gi, 'س').replace(/y/gi, 'ص').replace(/\d+/g, d => toArabicNum(d));
+                    if (isNeg) { html += `<span class="eq-part eq-sign-minus">-</span><span class="eq-part eq-number">${displayContent}</span>`; } 
+                    else { html += `<span class="eq-part eq-number">${displayContent}</span>`; }
+                }
+            });
+            html += '</div>';
+            return html;
+        }
+
+        // دالة جديدة لتنسيق المعادلة المضروبة (رقم أحمر خارج القوس)
+        function generateMultiplyingVisualHTML(factor, eqStr) {
+            const factorHTML = toArabicNum(factor);
+            const innerEqHTML = generateEquationHTML(eqStr).replace('<div class="equation-rtl-container">', '').replace('</div>', '');
+            
+            return `<div class="equation-rtl-container">
+                        <span class="eq-factor">${factorHTML}</span>
+                        <span class="eq-paren">(</span>
+                        ${innerEqHTML}
+                        <span class="eq-paren">)</span>
+                    </div>`;
+        }
+
+        function formatOpt(opt) {
+            if(opt.includes('نحذف') || opt.includes('نجمع') || opt.includes('نطرح') || opt.includes('نضرب') || opt.includes('المعادلة') || opt.includes('قيمة')) return opt;
+            // التحقق إذا كان الخيار هو الصيغة الرياضية (رقم قوس معادلة)
+            if (/^[\d-].*\(.*\)/.test(opt)) {
+                const match = opt.match(/^([\d-]+)\((.*)\)$/);
+                if (match) {
+                    const factor = match[1];
+                    const innerEq = match[2];
+                    const innerEqHTML = generateEquationHTML(innerEq).replace('<div class="equation-rtl-container">', '').replace('</div>', '');
+                    return `<div class="equation-rtl-container"><span class="font-bold text-gray-700">${toArabicNum(factor)}</span><span class="mx-1 text-gray-500">(</span>${innerEqHTML}<span class="mx-1 text-gray-500">)</span></div>`;
+                }
+                return generateEquationHTML(opt.replace(/\(/g, ' ( ').replace(/\)/g, ' ) '));
+            }
+            if (opt.includes(',') || opt.includes('(')) return opt.replace(/-/g, '−').replace(/\d+/g, d => toArabicNum(d)).replace(',', '،');
+            return generateEquationHTML(opt);
+        }
+
+        // --- أدوات الشرح البصري ---
+        function createDivisionHTML(term, result, divisor) {
+            const divHTML = renderSafeNum(divisor);
+            let termValStr = term.replace(/x/gi, 'س').replace(/y/gi, 'ص').replace(/\d+/g, d => toArabicNum(d));
+            let termHTML = termValStr;
+            if (term.startsWith('-')) {
+                let cleanT = termValStr.replace('-', '');
+                termHTML = `<span class="eq-sign-minus">-</span><span>${cleanT}</span>`;
+            }
+            const equationVal = parseInt(result) * parseInt(divisor);
+            const otherSideHTML = renderSafeNum(equationVal);
+            const resultHTML = renderSafeNum(result);
+            return `<div class="step-detail-container"><div class="step-section"><div class="step-label">المعادلة الحالية:</div><div class="font-bold text-gray-800 dir-rtl inline-block text-lg"><div class="equation-rtl-container">${termHTML} <span class="eq-operator">=</span> ${otherSideHTML}</div></div></div><div class="step-section"><div class="step-label">العملية (نقسم الطرفين على ${divHTML}):</div><div class="math-eq-container"><div class="math-fraction"><span class="math-numerator">${termHTML}</span><span class="math-denominator">${divHTML}</span></div><span>=</span><div class="math-fraction"><span class="math-numerator">${otherSideHTML}</span><span class="math-denominator">${divHTML}</span></div></div></div><div class="step-section"><div class="step-label">النتيجة:</div><div class="font-bold text-lg text-green-700 dir-rtl"><span dir="ltr">${term.includes('x') ? 'س' : 'ص'}</span> = ${resultHTML}</div></div></div>`;
+        }
+
+        function createDetailedMultiplicationVisual(qObj, targetEqIndex, factor) {
+            const eq1HTML = generateEquationHTML(qObj.eq1);
+            const eq2HTML = generateEquationHTML(qObj.eq2);
+            
+            const targetEqStr = targetEqIndex === 1 ? qObj.eq1 : qObj.eq2;
+            const factorHTML = renderSafeNum(factor);
+            const targetEqHTML = generateEquationHTML(targetEqStr).replace(/<\/?div.*?>/g, ''); 
+            const step2HTML = `<span class="text-blue-700 font-bold">${factorHTML}</span> <span class="eq-operator">×</span> (${targetEqHTML})`;
+
+            const parsed = parseEquation(targetEqStr);
+            const term1 = fmtTerm(parsed.a, 'x');
+            const term2 = fmtTerm(parsed.b, 'y', true);
+            const term3 = parsed.c.toString();
+            
+            const dist1 = `(${factorHTML} × ${generateEquationHTML(term1).replace(/<\/?div.*?>/g, '')})`;
+            const dist2 = `(${factorHTML} × ${generateEquationHTML(term2).replace(/<\/?div.*?>/g, '')})`;
+            const dist3 = `(${factorHTML} × ${renderSafeNum(parsed.c)})`;
+            
+            let newA = parsed.a * factor;
+            let newB = parsed.b * factor;
+            let newC = parsed.c * factor;
+            let finalEqStr = fmtTerm(newA, 'x') + " " + fmtTerm(newB, 'y', true) + " = " + newC;
+            if (finalEqStr.includes("-")) finalEqStr = finalEqStr.replace("-", "- ");
+            if (finalEqStr.includes("+")) finalEqStr = finalEqStr.replace("+", "+ ");
+            finalEqStr = finalEqStr.replace(/\s\s+/g, ' ').trim();
+            const finalHTML = generateEquationHTML(finalEqStr);
+
+            return `<div class="step-detail-container text-sm">
+                <div class="step-section">
+                    <div class="step-label">١. النظام الأصلي:</div>
+                    <div class="flex flex-col gap-1 items-center opacity-75">
+                        <div class="flex items-center gap-2"><span class="eq-tag text-xs">١</span>${eq1HTML}</div>
+                        <div class="flex items-center gap-2"><span class="eq-tag text-xs">٢</span>${eq2HTML}</div>
+                    </div>
+                </div>
+                <div class="step-section">
+                    <div class="step-label">٢. نضرب المعادلة ${targetEqIndex === 1 ? 'الأولى' : 'الثانية'} في ${factorHTML}:</div>
+                    <div class="equation-rtl-container text-lg bg-blue-50 p-2 rounded border border-blue-100">
+                        ${step2HTML}
+                    </div>
+                </div>
+                <div class="step-section">
+                    <div class="step-label">٣. نوزع الضرب على جميع الحدود:</div>
+                    <div class="mult-dist-grid">
+                        <div class="mult-dist-item">${dist1}</div>
+                        <div class="font-bold text-gray-400">+</div>
+                        <div class="mult-dist-item">${dist2}</div>
+                        <div class="font-bold text-gray-400">=</div>
+                        <div class="mult-dist-item">${dist3}</div>
+                    </div>
+                </div>
+                <div class="step-section">
+                    <div class="step-label">٤. ناتج الضرب (المعادلة الجديدة):</div>
+                    <div class="font-bold text-xl text-green-700 mt-1">
+                        ${finalHTML}
+                    </div>
+                </div>
+            </div>`;
+        }
+
+        function createMultiplicationVisual(oldEq, factor, newEq, eqIndex) {
+            let label = eqIndex === 1 ? "الأولى" : "الثانية";
+            let factorHTML = renderSafeNum(factor);
+            return `<div class="step-detail-container">
+                <div class="step-section">
+                    <div class="step-label">الهدف: توحيد المعاملات للحذف</div>
+                    <div class="text-gray-700 text-sm">سنضرب <span class="font-bold">المعادلة ${label}</span> في <span class="font-bold dir-ltr">${factorHTML}</span></div>
+                </div>
+                <div class="step-section">
+                    <div class="flex flex-col items-center gap-2">
+                        <div class="opacity-60 text-sm">المعادلة الأصلية</div>
+                        <div class="font-bold text-lg text-gray-500">${generateEquationHTML(oldEq)}</div>
+                        <div class="mult-arrow">↓ نضرب كل حد في (${factorHTML})</div>
+                        <div class="font-bold text-xl text-green-700 bg-green-50 px-4 py-2 rounded-lg border border-green-200 shadow-sm">${generateEquationHTML(newEq)}</div>
+                    </div>
+                </div>
+            </div>`;
+        }
+
+        function createVisualEliminationHTML(eq1_parts, eq2_parts, op, result_parts) {
+            const formatTerm = (termStr, isEq2Sub = false) => {
+                let valStr = termStr;
+                if (isEq2Sub) {
+                    if (termStr.startsWith('-')) {
+                        valStr = termStr.substring(1); return `<span class="ve-added-sign">+</span>` + generateEquationHTML(valStr).replace(/<\/?div.*?>/g,'');
+                    } else {
+                        let clean = termStr; let ar = generateEquationHTML(clean).replace(/<\/?div.*?>/g,''); return `<span class="ve-sign">−</span><span class="ve-term-body">${ar}</span>`;
+                    }
+                }
+                return generateEquationHTML(termStr).replace(/<\/?div.*?>/g,'');
+            };
+            const getBoxClass = (termStr, isEq2Sub) => {
+                if (isEq2Sub) { if (termStr.startsWith('-')) return 've-box-green'; return 've-box-red'; }
+                if (termStr.startsWith('-')) return 've-box-red'; return 've-box-green';
+            };
+            let isXEliminated = (result_parts[0].includes('y') || result_parts[0].includes('ص')) ? true : false;
+            if (result_parts[0] === "" && result_parts.length > 1) isXEliminated = true; 
+            if (result_parts[0].includes('x') || result_parts[0].includes('س')) isXEliminated = false;
+            const isYEliminated = !isXEliminated;
+            const hEq1 = eq1_parts.map(t => formatTerm(t, false));
+            const hEq2 = eq2_parts.map(t => formatTerm(t, op === '-')); 
+            const hRes = result_parts.map(t => formatTerm(t, false));
+            const eq2BoxClass1 = getBoxClass(eq2_parts[0], op === '-');
+            const eq2BoxClass2 = getBoxClass(eq2_parts[1], op === '-');
+            return `<div class="step-detail-container"><div class="step-section"><div class="step-label">نضع المعادلتين فوق بعضهما ${op === '-' ? '(مع تغيير إشارات الثانية)' : 'ونجمع'}:</div><div class="ve-grid"><div class="ve-cell ${isXEliminated ? 've-box-red ve-strike' : 've-box-green'}">${hEq1[0]}</div><div class="ve-cell ve-operator">+</div><div class="ve-cell ${isYEliminated ? 've-box-red ve-strike' : 've-box-green'}">${hEq1[1]}</div><div class="ve-cell ve-operator">=</div><div class="ve-cell ve-box-green">${hEq1[2]}</div><div class="ve-cell ${isXEliminated ? 've-box-red ve-strike' : eq2BoxClass1} ${isXEliminated ? 've-strike' : ''}">${hEq2[0]}</div><div class="ve-cell ve-operator">+</div><div class="ve-cell ${isYEliminated ? 've-box-red ve-strike' : eq2BoxClass2} ${isYEliminated ? 've-strike' : ''}">${hEq2[1]}</div><div class="ve-cell ve-operator">=</div><div class="ve-cell ve-box-green">${hEq2[2]}</div><div class="ve-line-row"></div><div class="ve-cell"></div><div class="ve-cell"></div><div class="ve-cell text-green-700 font-bold text-xl">${hRes[0]}</div><div class="ve-cell ve-operator">=</div><div class="ve-cell text-green-700 font-bold text-xl">${hRes[1]}</div></div></div></div>`;
+        }
+
+        function createSubstitutionSequenceHTML(e1, substitutedVar, substValue) {
+            const arA = renderSafeNum(e1.a); const arVal = renderSafeNum(substValue);
+            
+            // 1. Original Equation setup
+            let eqOriginalStr = fmtTerm(e1.a, 'x') + " " + fmtTerm(e1.b, 'y', true) + " = " + e1.c;
+            if (e1.b < 0) eqOriginalStr = eqOriginalStr.replace("-", "- "); 
+            if (e1.b > 0) eqOriginalStr = eqOriginalStr.replace("+", "+ ");
+            
+            // 2. Substitution setup
+            let substStepHTML = ""; 
+            let resultStepHTML = "";
+            let solveVarChar = "";
+            let solveCoeff = 0;
+            let constantPart = 0;
+            
+            if (substitutedVar === 'x') {
+                // We replaced x, solving for y
+                solveVarChar = 'ص';
+                solveCoeff = e1.b;
+                constantPart = e1.a * substValue;
+                
+                let xSubstStr = ""; 
+                if (e1.a === 1) xSubstStr = `(${arVal})`; 
+                else if (e1.a === -1) xSubstStr = `<span class="eq-sign-minus">-</span>(${arVal})`; 
+                else xSubstStr = `${renderSafeNum(e1.a)}(${arVal})`;
+                
+                let yTerm = fmtTerm(e1.b, 'y', true); 
+                let yTermHTML = generateEquationHTML(yTerm + "=" + e1.c).replace('<div class="equation-rtl-container">','').replace('</div>',''); 
+                substStepHTML = `<div class="equation-rtl-container">${xSubstStr} ${yTermHTML}</div>`;
+                
+                let valMultStr = constantPart + yTerm + "=" + e1.c; 
+                resultStepHTML = generateEquationHTML(valMultStr);
+            } else {
+                // We replaced y, solving for x
+                solveVarChar = 'س';
+                solveCoeff = e1.a;
+                constantPart = e1.b * substValue;
+                
+                let xTerm = fmtTerm(e1.a, 'x'); 
+                let xTermHTML = generateEquationHTML(xTerm).replace(/<\/?div.*?>/g,'');
+                
+                let ySubstStr = ""; 
+                let op = (e1.b >= 0) ? "+" : "-"; 
+                let absB = Math.abs(e1.b); 
+                let arAbsB = renderSafeNum(absB);
+                
+                if (absB === 1) ySubstStr = `<span class="eq-operator">${op}</span> (${arVal})`; 
+                else ySubstStr = `<span class="eq-operator">${op}</span> ${arAbsB}(${arVal})`;
+                
+                let constHTML = generateEquationHTML("=" + e1.c).replace(/<\/?div.*?>/g,'');
+                substStepHTML = `<div class="equation-rtl-container">${xTermHTML} ${ySubstStr} ${constHTML}</div>`;
+                
+                let valMultStr = (constantPart >= 0 ? "+" : "") + constantPart; 
+                resultStepHTML = generateEquationHTML(xTerm + valMultStr + "=" + e1.c);
+            }
+
+            // --- New Steps Calculation (Moving Constant & Division) ---
+            let moveOpText = constantPart >= 0 ? "نطرح" : "نضيف";
+            let absConst = Math.abs(constantPart);
+            let rhsAfterMove = e1.c - constantPart;
+            
+            // HTML for Step 4 (Move Constant)
+            // Example: 3x = 25 - 4  =>  3x = 21
+            let termSolve = fmtTerm(solveCoeff, solveVarChar === 'س' ? 'x' : 'y');
+            let step4EqStr = `${termSolve} = ${toArabicNum(rhsAfterMove)}`;
+            let step4HTML = generateEquationHTML(step4EqStr);
+            
+            // HTML for Step 5 (Divide)
+            let finalVal = rhsAfterMove / solveCoeff;
+            let step5EqStr = (solveVarChar === 'س' ? 'x' : 'y') + " = " + finalVal;
+            let step5HTML = generateEquationHTML(step5EqStr);
+
+            return `<div class="step-detail-container">
+                <div class="step-section">
+                    <div class="step-label">١. المعادلة التي سنعوض فيها:</div>
+                    <div class="font-bold text-lg text-gray-600">${generateEquationHTML(eqOriginalStr)}</div>
+                </div>
+                <div class="step-section">
+                    <div class="step-label">٢. نستبدل الـ (${substitutedVar==='x'?'س':'ص'}) بقيمتها (${toArabicNum(substValue)}):</div>
+                    <div class="font-bold text-lg text-gray-800">${substStepHTML}</div>
+                </div>
+                <div class="step-section">
+                    <div class="step-label">٣. نضرب ونبسط:</div>
+                    <div class="font-bold text-lg text-green-700">${resultStepHTML}</div>
+                </div>
+                <div class="step-section">
+                    <div class="step-label">٤. ${moveOpText} ${toArabicNum(absConst)} من الطرفين:</div>
+                    <div class="font-bold text-lg text-blue-700 dir-rtl">${step4HTML}</div>
+                </div>
+                <div class="step-section">
+                    <div class="step-label">٥. نقسم الطرفين على معامل ${solveVarChar} (${toArabicNum(solveCoeff)}):</div>
+                    <div class="font-bold text-xl text-green-700 dir-rtl">${step5HTML}</div>
+                </div>
+            </div>`;
+        }
+
+        // --- منطق الأسئلة المتقدمة (الضرب ثم الحذف) ---
+
+        function parseEquation(eqStr) {
+            let s = eqStr.replace(/\s+/g, ''); let parts = s.split('='); let left = parts[0]; let right = parseInt(parts[1]);
+            let a = 0; let matchX = left.match(/([+-]?\d*)x/); if (matchX) { let val = matchX[1]; if (val === '' || val === '+') a = 1; else if (val === '-') a = -1; else a = parseInt(val); }
+            let remaining = left.replace(matchX ? matchX[0] : '', ''); let b = 0; let matchY = remaining.match(/([+-]?\d*)y/); if (matchY) { let val = matchY[1]; if (val === '' || val === '+') b = 1; else if (val === '-') b = -1; else b = parseInt(val); }
+            return { a, b, c: right, str: eqStr };
+        }
+
+        function generateMultiplicationSteps(qObj) {
+            const e1 = parseEquation(qObj.eq1);
+            const e2 = parseEquation(qObj.eq2);
+            const steps = [];
+
+            const multEqIndex = qObj.multiplyEq; 
+            const factor = qObj.factor;
+            const targetVar = qObj.target; 
+            
+            let eqLabel = multEqIndex === 1 ? 'الأولى' : 'الثانية';
+            let wrongEqLabel = multEqIndex === 1 ? 'الثانية' : 'الأولى';
+            let opText = `نضرب المعادلة ${eqLabel} في ${toArabicNum(factor)}`;
+            let wrongOp = `نضرب المعادلة ${eqLabel} في ${toArabicNum(factor+1)}`;
+            let wrongOp2 = `نضرب المعادلة ${wrongEqLabel} في ${toArabicNum(factor)}`;
+            
+            const detailedVisual = createDetailedMultiplicationVisual(qObj, multEqIndex, factor);
+            const eqStrForDisplay = multEqIndex === 1 ? qObj.eq1 : qObj.eq2;
+            const intermediateVisualHTML = generateMultiplyingVisualHTML(factor, eqStrForDisplay);
+
+            steps.push({
+                label: "تجهيز المعادلات",
+                prompt: `ما الخطوة اللازمة لحذف (${targetVar === 'x' ? 'س' : 'ص'})؟`,
+                correct: opText,
+                options: [opText, wrongOp, wrongOp2],
+                explanation: `نحتاج لجعل معاملات (${targetVar === 'x' ? 'س' : 'ص'}) متساوية في القيمة (ومتعاكسة في الإشارة إن أمكن) قبل الجمع.`,
+                visualExplanation: detailedVisual,
+                action: 'multiply',
+                targetEq: multEqIndex,
+                factor: factor,
+                updateEq: true,
+                newEqHTML: intermediateVisualHTML,
+                eqIndex: multEqIndex
+            });
+
+            let newE1 = {...e1}, newE2 = {...e2};
+            if(multEqIndex === 1) { newE1.a *= factor; newE1.b *= factor; newE1.c *= factor; }
+            else { newE2.a *= factor; newE2.b *= factor; newE2.c *= factor; }
+            
+            let correctNewEqStr = "";
+            let originalEqStr = "";
+            let parsedEqToMultiply = multEqIndex === 1 ? e1 : e2;
+
+            if(multEqIndex === 1) {
+                correctNewEqStr = fmtTerm(newE1.a, 'x') + " " + fmtTerm(newE1.b, 'y', true) + " = " + newE1.c;
+                originalEqStr = qObj.eq1;
+            } else {
+                correctNewEqStr = fmtTerm(newE2.a, 'x') + " " + fmtTerm(newE2.b, 'y', true) + " = " + newE2.c;
+                originalEqStr = qObj.eq2;
+            }
+            if (correctNewEqStr.includes("-")) correctNewEqStr = correctNewEqStr.replace("-", "- ");
+            if (correctNewEqStr.includes("+")) correctNewEqStr = correctNewEqStr.replace("+", "+ ");
+            correctNewEqStr = correctNewEqStr.replace(/\s\s+/g, ' ').trim();
+
+            let wrongEq1Obj = {...parsedEqToMultiply};
+            if (targetVar === 'y') wrongEq1Obj.b *= factor; else wrongEq1Obj.a *= factor;
+            let wrongNewEq1 = fmtTerm(wrongEq1Obj.a, 'x') + " " + fmtTerm(wrongEq1Obj.b, 'y', true) + " = " + wrongEq1Obj.c;
+            if (wrongNewEq1.includes("-")) wrongNewEq1 = wrongNewEq1.replace("-", "- ");
+            if (wrongNewEq1.includes("+")) wrongNewEq1 = wrongNewEq1.replace("+", "+ ");
+
+            let wrongEq2Obj = {...parsedEqToMultiply};
+            wrongEq2Obj.a *= factor;
+            wrongEq2Obj.b *= factor;
+            let wrongNewEq2 = fmtTerm(wrongEq2Obj.a, 'x') + " " + fmtTerm(wrongEq2Obj.b, 'y', true) + " = " + wrongEq2Obj.c;
+             if (wrongNewEq2.includes("-")) wrongNewEq2 = wrongNewEq2.replace("-", "- ");
+            if (wrongNewEq2.includes("+")) wrongNewEq2 = wrongNewEq2.replace("+", "+ ");
+
+            let distractor = (Math.random() > 0.5) ? wrongNewEq1 : wrongNewEq2;
+
+            steps.push({
+                label: "تنفيذ الضرب",
+                prompt: `كيف تصبح المعادلة ${multEqIndex === 1 ? 'الأولى' : 'الثانية'} بعد الضرب؟`,
+                correct: correctNewEqStr,
+                options: [correctNewEqStr, distractor], 
+                visualExplanation: createMultiplicationVisual(originalEqStr, factor, correctNewEqStr, multEqIndex),
+                updateEq: true,
+                newEqStr: correctNewEqStr, 
+                eqIndex: multEqIndex,
+                otherEqStr: multEqIndex === 1 ? qObj.eq2 : qObj.eq1,
+                otherEqIndex: multEqIndex === 1 ? 2 : 1
+            });
+
+            let resA = newE1.a + newE2.a;
+            let resB = newE1.b + newE2.b;
+            let resC = newE1.c + newE2.c;
+            
+            let operation = 'add';
+            if (targetVar === 'x' && resA !== 0) { 
+                resA = newE1.a - newE2.a; resB = newE1.b - newE2.b; resC = newE1.c - newE2.c; operation = 'sub';
+            } else if (targetVar === 'y' && resB !== 0) { 
+                resA = newE1.a - newE2.a; resB = newE1.b - newE2.b; resC = newE1.c - newE2.c; operation = 'sub';
+            }
+
+            let resultEqStr = ""; let remainingVar = ""; let remainingVal = 0; let remainingCoeff = 0;
+            if (targetVar === 'x') { 
+                resultEqStr = fmtTerm(resB, 'y') + " = " + resC; remainingVar = "y"; remainingCoeff = resB; remainingVal = resC / resB; 
+            } else { 
+                resultEqStr = fmtTerm(resA, 'x') + " = " + resC; remainingVar = "x"; remainingCoeff = resA; remainingVal = resC / resA; 
+            }
+
+            let opPrompt = operation === 'add' ? "الآن، نجمع المعادلتين:" : "الآن، نطرح المعادلتين:";
+            let eq1Parts = [fmtTerm(newE1.a, 'x'), fmtTerm(newE1.b, 'y'), newE1.c.toString()]; 
+            let eq2Parts = [fmtTerm(newE2.a, 'x'), fmtTerm(newE2.b, 'y'), newE2.c.toString()]; 
+            let resParts = targetVar === 'x' ? [fmtTerm(resB, 'y'), resC.toString()] : [fmtTerm(resA, 'x'), resC.toString()];
+
+            steps.push({ 
+                label: operation === 'add' ? "الجمع" : "الطرح", 
+                prompt: opPrompt, 
+                correct: resultEqStr, 
+                options: [resultEqStr, fmtTerm(remainingCoeff * 2, remainingVar) + " = " + (resC+4)], 
+                visualExplanation: createVisualEliminationHTML(eq1Parts, eq2Parts, operation === 'add' ? '+' : '-', resParts) 
+            });
+
+            let foundVarStr = remainingVar + " = " + remainingVal; 
+            if (remainingCoeff !== 1) { 
+                steps.push({ 
+                    label: "إيجاد " + (remainingVar==='x'?'س':'ص'), 
+                    prompt: "قيمة " + (remainingVar==='x'?'س':'ص') + ":", 
+                    correct: foundVarStr, 
+                    options: [foundVarStr, remainingVar + " = " + (remainingVal+2)], 
+                    visualExplanation: createDivisionHTML(fmtTerm(remainingCoeff, remainingVar), remainingVal.toString(), remainingCoeff.toString()) 
+                }); 
+            }
+
+            let finalVar = (remainingVar === 'y') ? 'x' : 'y'; 
+            let finalCoeff = (remainingVar === 'y') ? e1.a : e1.b; 
+            let rhs = e1.c - (remainingVar === 'y' ? e1.b * remainingVal : e1.a * remainingVal); 
+            let finalVal = rhs / finalCoeff; 
+            let finalResStr = finalVar + " = " + finalVal;
+            
+            let wrongFinal1 = finalVar + " = " + (finalVal + 1); 
+            let wrongFinal2 = finalVar + " = " + (-finalVal);    
+            
+            let subVisual = createSubstitutionSequenceHTML(e1, remainingVar, remainingVal);
+            
+            steps.push({ 
+                label: "إيجاد " + (finalVar==='x'?'س':'ص'), 
+                prompt: "ما قيمة (" + (finalVar==='x'?'س':'ص') + ")؟", 
+                correct: finalResStr, 
+                options: [finalResStr, wrongFinal1, wrongFinal2],
+                visualExplanation: subVisual,
+                isThreeOptions: true
+            });
+
+            return steps;
+        }
+
+        // --- بنك الأسئلة الموسع (٩ أسئلة) ---
+        
+        // 1. النوع الأول: ضرب المعادلة الأولى
+        const q1_raw = { eq1: "x + y = 4", eq2: "2x - 3y = 3", target: 'y', multiplyEq: 1, factor: 3 };
+        const q2_raw = { eq1: "x - 2y = 5", eq2: "3x + 4y = 25", target: 'y', multiplyEq: 1, factor: 2 };
+        const q3_raw = { eq1: "2x + y = 7", eq2: "5x - 3y = 1", target: 'y', multiplyEq: 1, factor: 3 };
+
+        // 2. النوع الثاني: ضرب المعادلة الثانية
+        const q4_raw = { eq1: "4x + 3y = 22", eq2: "2x - y = 6", target: 'y', multiplyEq: 2, factor: 3 };
+        const q5_raw = { eq1: "3x + 5y = 21", eq2: "2x - y = 1", target: 'y', multiplyEq: 2, factor: 5 };
+        const q6_raw = { eq1: "2x + 3y = 13", eq2: "4x - y = 5", target: 'y', multiplyEq: 2, factor: 3 };
+
+        // 3. النوع الثالث: الضرب في سالب
+        const q7_raw = { eq1: "3x + 4y = 25", eq2: "x + 2y = 9", target: 'x', multiplyEq: 2, factor: -3 };
+        const q8_raw = { eq1: "5x + 2y = 16", eq2: "x + 2y = 8", target: 'y', multiplyEq: 2, factor: -1 };
+        const q9_raw = { eq1: "4x + 5y = 18", eq2: "2x + y = 6", target: 'x', multiplyEq: 2, factor: -2 };
+
+        let questionsList = [];
+        let currentQIndex = 0, currentStepIndex = 0, score = 0, maxScore = 0, timerSeconds = 0, timerInterval;
+        let questionStartScore = 0; 
+        let transitionTimeout = null; // متغير لحفظ التايمر
+
+        function initQuestions() {
+            // توليد خطوات الحل لجميع الأسئلة الـ 9
+            const rawQuestions = [q1_raw, q2_raw, q3_raw, q4_raw, q5_raw, q6_raw, q7_raw, q8_raw, q9_raw];
+            
+            questionsList = rawQuestions.map(q => ({
+                ...q,
+                steps: generateMultiplicationSteps(q)
+            }));
+            
+            // خلط ترتيب الأسئلة عشوائياً، ثم اختيار 3 فقط للعبة الحالية
+            questionsList.sort(() => Math.random() - 0.5);
+            questionsList = questionsList.slice(0, 3); // نختار 3 أسئلة فقط
+        }
+
+        function startGame() {
+            initQuestions();
+            maxScore = questionsList.reduce((acc, q) => acc + q.steps.length, 0);
+            currentQIndex = 0; currentStepIndex = 0; score = 0; timerSeconds = 0;
+            questionStartScore = 0; 
+            
+            document.getElementById('welcome-screen').classList.remove('show'); 
+            document.getElementById('game-ui').classList.remove('hidden'); 
+            document.getElementById('current-score-display').innerText = `النقاط: ٠`;
+            
+            if(timerInterval) clearInterval(timerInterval); 
+            timerInterval = setInterval(() => { 
+                timerSeconds++; 
+                const mins = Math.floor(timerSeconds/60).toString().padStart(2,'0'); 
+                const secs = (timerSeconds%60).toString().padStart(2,'0'); 
+                document.getElementById('timer-text').innerText = `${toArabicNum(mins)}:${toArabicNum(secs)}`; 
+            }, 1000);
+            
+            loadQuestion();
+        }
+
+        function loadQuestion() {
+            const q = questionsList[currentQIndex]; 
+            currentStepIndex = 0; 
+            
+            // Ensure scroll is at top for new question
+            const gameUI = document.getElementById('game-ui');
+            if(gameUI) gameUI.scrollTop = 0;
+
+            document.getElementById('question-counter').innerText = `المسألة ${toArabicNum(currentQIndex+1)} من ${toArabicNum(questionsList.length)}`;
+            
+            document.getElementById('eq1').innerHTML = generateEquationHTML(q.eq1); 
+            document.getElementById('eq2').innerHTML = generateEquationHTML(q.eq2);
+            document.getElementById('eq1').classList.remove('modified');
+            document.getElementById('eq2').classList.remove('modified');
+            
+            document.getElementById('steps-history').innerHTML = ''; 
+            document.getElementById('interaction-area').classList.remove('hidden');
+            renderStep();
+        }
+
+        function renderStep() {
+            const step = questionsList[currentQIndex].steps[currentStepIndex]; 
+            document.getElementById('prompt-text').innerText = step.prompt; 
+            const grid = document.getElementById('options-grid'); 
+            grid.innerHTML = '';
+            
+            if (step.isThreeOptions) {
+                grid.className = 'choices-grid-3';
+            } else {
+                grid.className = 'choices-grid';
+            }
+            
+            [...step.options].sort(() => Math.random() - 0.5).forEach(opt => { 
+                const btn = document.createElement('button'); 
+                btn.className = 'choice-button'; 
+                if (opt.includes('نحذف') || opt.includes('نجمع') || opt.includes('نطرح') || opt.includes('نضرب') || opt.includes('المعادلة') || opt.includes('قيمة')) { 
+                    btn.innerText = opt; 
+                } else { 
+                    btn.innerHTML = formatOpt(opt); 
+                } 
+                btn.onclick = () => checkAnswer(btn, opt, step); 
+                grid.appendChild(btn); 
+            });
+            
+            document.getElementById('feedback-text').innerText = ""; 
+            document.getElementById('explain-btn').classList.add('hidden'); 
+            document.getElementById('next-btn').classList.add('hidden'); 
+            const area = document.getElementById('problem-area'); 
+            area.scrollTop = area.scrollHeight;
+        }
+
+        function checkAnswer(btn, selected, step) {
+            const isCorrect = selected === step.correct; 
+            document.querySelectorAll('.choice-button').forEach(b => b.disabled = true);
+            
+            if (isCorrect) { 
+                btn.classList.add('correct'); 
+                score++; 
+                document.getElementById('current-score-display').innerText = `النقاط: ${toArabicNum(score)}`; 
+                const fb = document.getElementById('feedback-text'); 
+                fb.innerText = "أحسنت! ✅"; 
+                fb.className = "text-green-600 font-bold"; 
+                
+                const div = document.createElement('div'); 
+                div.className = 'history-step'; 
+                div.innerHTML = `<span class="history-label">${step.label}</span><span style="display:inline-block">${formatOpt(step.correct)}</span>`; 
+                document.getElementById('steps-history').appendChild(div);
+                
+                if (step.updateEq) {
+                    const modifiedBox = document.getElementById(`eq${step.eqIndex}`);
+                    
+                    if (step.newEqHTML) {
+                        modifiedBox.innerHTML = step.newEqHTML;
+                    } else {
+                        modifiedBox.innerHTML = generateEquationHTML(step.newEqStr);
+                    }
+                    modifiedBox.classList.add('modified');
+                    
+                    if (step.otherEqStr && step.otherEqIndex) {
+                        const otherBox = document.getElementById(`eq${step.otherEqIndex}`);
+                        otherBox.innerHTML = generateEquationHTML(step.otherEqStr);
+                    }
+                }
+
+                document.getElementById('next-btn').classList.remove('hidden'); 
+                setTimeout(() => { 
+                    const gameUI = document.getElementById('game-ui'); 
+                    gameUI.scrollTo({ top: gameUI.scrollHeight, behavior: 'smooth' }); 
+                }, 100); 
+            } else { 
+                btn.classList.add('incorrect'); 
+                const fb = document.getElementById('feedback-text'); 
+                fb.innerText = "خطأ ❌"; 
+                fb.className = "text-red-500 font-bold"; 
+                document.getElementById('explain-btn').classList.remove('hidden'); 
+                
+                const div = document.createElement('div'); 
+                div.className = 'history-step bg-red-50 border-red-200'; 
+                div.innerHTML = `<span class="history-label">${step.label}</span><span style="display:inline-block text-red-700">${formatOpt(step.correct)}</span>`; 
+                document.getElementById('steps-history').appendChild(div);
+
+                 if (step.updateEq) {
+                    const modifiedBox = document.getElementById(`eq${step.eqIndex}`);
+                    
+                    if (step.newEqHTML) {
+                        modifiedBox.innerHTML = step.newEqHTML;
+                    } else {
+                        modifiedBox.innerHTML = generateEquationHTML(step.newEqStr);
+                    }
+                    modifiedBox.classList.add('modified');
+
+                    if (step.otherEqStr && step.otherEqIndex) {
+                        const otherBox = document.getElementById(`eq${step.otherEqIndex}`);
+                        otherBox.innerHTML = generateEquationHTML(step.otherEqStr);
+                    }
+                }
+
+                document.getElementById('next-btn').classList.remove('hidden'); 
+                setTimeout(() => { 
+                    const gameUI = document.getElementById('game-ui'); 
+                    gameUI.scrollTo({ top: gameUI.scrollHeight, behavior: 'smooth' }); 
+                }, 100); 
+            }
+        }
+
+        // دالة عرض الانتقال (محدثة لدعم الزر والتايمر)
+        function showQuestionTransition(finishedQIndex, gainedScore, maxQScore) {
+            const overlay = document.getElementById('question-transition');
+            const nextBtn = document.getElementById('next-q-btn');
+            
+            if (overlay) {
+                // تحديث البيانات
+                document.getElementById('trans-title').innerText = `نتيجة السؤال ${toArabicNum(finishedQIndex)}`;
+                document.getElementById('trans-score').innerText = `${toArabicNum(gainedScore)} / ${toArabicNum(maxQScore)}`;
+                
+                let stars = '';
+                const percentage = gainedScore / maxQScore;
+                if (percentage >= 1) stars = '⭐⭐⭐';
+                else if (percentage >= 0.6) stars = '⭐⭐';
+                else stars = '⭐';
+                document.getElementById('trans-stars').innerText = stars;
+
+                const bar = document.getElementById('trans-bar');
+                bar.style.width = '0%'; 
+                
+                // إظهار الشاشة
+                overlay.classList.add('active');
+                
+                // تحريك الشريط
+                setTimeout(() => {
+                    bar.style.width = `${percentage * 100}%`;
+                    if(percentage < 0.5) bar.className = "bg-red-500 h-3 rounded-full transition-all duration-1000";
+                    else if(percentage < 1) bar.className = "bg-yellow-500 h-3 rounded-full transition-all duration-1000";
+                    else bar.className = "bg-green-500 h-3 rounded-full transition-all duration-1000";
+                }, 100);
+
+                // تجهيز الانتقال (الدالة الفعلية للانتقال)
+                const proceedToNext = () => {
+                    if (transitionTimeout) clearTimeout(transitionTimeout);
+                    overlay.classList.remove('active');
+                    loadQuestion();
+                };
+
+                // إعداد الزر
+                nextBtn.onclick = proceedToNext;
+
+                // إعداد المؤقت التلقائي (4 ثواني)
+                if (transitionTimeout) clearTimeout(transitionTimeout);
+                transitionTimeout = setTimeout(proceedToNext, 4000); 
+            } else {
+                loadQuestion();
+            }
+        }
+
+        function nextStep() {
+            const q = questionsList[currentQIndex]; 
+            currentStepIndex++;
+            if (currentStepIndex < q.steps.length) { 
+                renderStep(); 
+            } else { 
+                const finishedQIndex = currentQIndex + 1; 
+                const gainedScore = score - questionStartScore; 
+                const maxQScore = q.steps.length; 
+
+                currentQIndex++; 
+                if (currentQIndex < questionsList.length) { 
+                    showQuestionTransition(finishedQIndex, gainedScore, maxQScore);
+                    questionStartScore = score;
+                } else { 
+                    endGame(); 
+                } 
+            }
+        }
+
+        function endGame() {
+            clearInterval(timerInterval);
+            document.getElementById('game-ui').classList.add('hidden');
+            document.getElementById('end-screen').classList.add('show');
+            if (window.saveAndFinishGame) {
+                window.saveAndFinishGame(score, timerSeconds);
+            }
+        }
+
+        function showStepExplanation() {
+            const step = questionsList[currentQIndex].steps[currentStepIndex]; 
+            let content = '';
+            if (step.visualExplanation) { 
+                content = step.visualExplanation; 
+                if (step.explanation) content += `<div class="mt-3 text-sm text-gray-600 border-t pt-2">${step.explanation}</div>`; 
+            } else { 
+                let correctHTML = formatOpt(step.correct); 
+                content = `<div class="mb-3 text-center bg-white p-2 rounded border border-gray-200"><span class="text-xs text-gray-500 block mb-1">الإجابة الصحيحة (الخطوة):</span><span class="font-bold text-lg text-green-600 inline-block">${correctHTML}</span></div><p>${step.explanation || ''}</p>`; 
+            }
+            document.getElementById('explanation-content').innerHTML = content; 
+            document.getElementById('explanation-modal').classList.add('show');
+        }
+        function hideExplanation() { document.getElementById('explanation-modal').classList.remove('show'); }
+
+        // --- START OF CONNECTION & LEADERBOARD ENGINE ---
+        (function() {
+            // --- CONFIGURATION ---
+            const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
+            const GAME_ID = 'g5_4_1';
+            const PLATFORM_MAX_GRADE = 5;
+            const METRIC_TYPE = 'time';
+            const METRIC_LABEL = 'الوقت (ثواني)';
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const studentId = urlParams.get('studentId');
+            const classId = urlParams.get('classId');
+            const studentName = urlParams.get('studentName');
+            let currentUser = (studentId && studentName) ? { id: studentId, name: studentName } : null;
+
+            window.saveAndFinishGame = function(points, metricValue) {
+                // استخدام النقاط الفعلية المحسوبة في اللعبة كحد أقصى
+                const maxPoints = (typeof window.maxScore !== 'undefined') ? window.maxScore : 15; 
+                const finalPoints = parseFloat(points) || 0;
+                const finalMetric = parseFloat(metricValue) || 0;
+                const finalGrade = (finalPoints / maxPoints) * PLATFORM_MAX_GRADE;
+
+                const resultDisplay = document.getElementById('final-result-display');
+                if (resultDisplay) {
+                    resultDisplay.innerHTML = `
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-gray-500">النقاط:</span>
+                            <span class="font-bold text-orange-600 text-lg">${toArabicNum(finalPoints)} / ${toArabicNum(maxPoints)}</span>
+                        </div>
+                        <hr class="border-gray-200 my-2">
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-700 font-bold">الدرجة النهائية:</span>
+                            <span class="font-bold text-green-600 text-xl">${toArabicNum(finalGrade.toFixed(1))} / ${toArabicNum(PLATFORM_MAX_GRADE)}</span>
+                        </div>
+                    `;
+                    const titleEl = document.getElementById('final-title');
+                    if (finalPoints === maxPoints) {
+                        titleEl.innerText = "متميز! 🌟"; titleEl.className = "text-xl font-bold text-green-700 mb-2 mt-2";
+                    } else if (finalPoints >= maxPoints/2) {
+                        titleEl.innerText = "جيد جداً! 👍"; titleEl.className = "text-xl font-bold text-blue-700 mb-2 mt-2";
+                    } else {
+                        titleEl.innerText = "حاول مرة أخرى 💪"; titleEl.className = "text-xl font-bold text-orange-600 mb-2 mt-2";
+                    }
+                }
+
+                if (studentId && classId) {
+                    const params = new URLSearchParams({
+                        action: 'saveGrade',
+                        studentId: studentId,
+                        classId: classId,
+                        itemId: GAME_ID,
+                        grade: finalGrade.toFixed(2),
+                        metricValue: Math.round(finalMetric).toString()
+                    });
+                    fetch(`${SCRIPT_URL}?${params.toString()}`)
+                        .then(res => res.json())
+                        .then(result => console.log('Save result:', result.status))
+                        .catch(err => console.error("Save Error:", err))
+                        .finally(() => { setTimeout(fetchAndShowLeaderboard, 1500); });
+                } else {
+                    fetchAndShowLeaderboard();
+                }
+            }
+
+            function fetchAndShowLeaderboard() {
+                const loader = document.getElementById('leaderboard-loader');
+                const container = document.getElementById('leaderboard-container');
+                if (!loader || !container) return;
+                
+                if (!classId) {
+                    container.innerHTML = `<p class="text-center text-gray-500 mt-4 text-xs">سجل الأبطال متاح للطلاب المسجلين فقط.</p>`;
+                    showFinishButton(); return;
+                }
+
+                loader.style.display = 'block'; container.innerHTML = '';
+                const params = new URLSearchParams({ action: 'getLeaderboard', gameId: GAME_ID, metricType: METRIC_TYPE, classId: classId });
+
+                fetch(`${SCRIPT_URL}?${params.toString()}`)
+                    .then(res => res.json())
+                    .then(response => {
+                        if (response.status === 'success' && response.data) displayLeaderboard(response.data);
+                        else throw new Error(response.message || 'Failed to load');
+                    })
+                    .catch(err => { container.innerHTML = `<p class="text-center text-red-500 text-xs py-2">خطأ في التحميل.</p>`; })
+                    .finally(() => { loader.style.display = 'none'; showFinishButton(); });
+            }
+            
+            function displayLeaderboard(data) {
+                const container = document.getElementById('leaderboard-container');
+                if (!data || data.length === 0) { container.innerHTML = `<p class="text-center text-gray-500 mt-4 text-xs">لا توجد نتائج بعد.</p>`; return; }
+                let tableHTML = `<table class="w-full text-xs text-center"><thead><tr class="text-gray-500 border-b"><th>#</th><th>الاسم</th><th>النقاط</th><th>الوقت</th></tr></thead><tbody class="text-gray-700">`;
+                data.forEach((player, index) => {
+                    const isCurrentUser = (currentUser && player.name === currentUser.name);
+                    const rowClass = isCurrentUser ? 'bg-blue-50 font-bold' : (index % 2 === 0 ? 'bg-gray-50' : '');
+                    tableHTML += `<tr class="${rowClass} border-b border-gray-100"><td class="p-2">${toArabicNum(index + 1)}</td><td class="p-2 text-right truncate max-w-[100px]">${player.name}</td><td class="p-2 text-orange-600 font-bold">${toArabicNum(player.grade.toFixed(1))}</td><td class="p-2">${toArabicNum(player.metricValue)}</td></tr>`;
+                });
+                tableHTML += `</tbody></table>`;
+                container.innerHTML = tableHTML;
+            }
+
+            function showFinishButton() {
+                const finishWrapper = document.getElementById('finish-game-wrapper');
+                if (finishWrapper) finishWrapper.style.display = 'block';
+            }
+
+            document.addEventListener('DOMContentLoaded', () => {
+                const welcomeMessage = document.getElementById('welcomeMessage');
+                if (studentName && welcomeMessage) {
+                    welcomeMessage.innerHTML = `أهلاً بك يا <span class="font-bold text-blue-600">${studentName}</span>!<br>في هذا المستوى، اضرب المعادلة أولاً لتوحيد المعاملات ثم احذف.`;
+                }
+                const finishBtn = document.getElementById('finish-game-btn');
+                if (finishBtn) {
+                    finishBtn.addEventListener('click', () => {
+                        window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*');
+                    });
+                }
+            });
+        })();
+    </script>
+</body>
+</html>

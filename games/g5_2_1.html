@@ -377,16 +377,10 @@
                 <p class="text-gray-600 text-sm mb-1">الوقت المستغرق:</p>
                 <p id="final-time-display" class="text-xl font-bold text-blue-600 mb-3"></p>
                 
-                <p class="text-gray-600 text-sm mb-1">مجموع النقاط:</p>
-                <p id="points-display" class="text-xl font-bold text-gray-800 mb-3"></p>
-                
-                <div class="border-t border-gray-300 my-2"></div>
-                
-                <p class="text-blue-700 font-bold text-lg mb-1">الدرجة النهائية:</p>
-                <p id="final-grade-display" class="text-4xl font-bold text-blue-600"></p>
+                <!-- مكان عرض النتائج من المحرك الجديد -->
+                <div id="final-result-display" class="mb-4 border-t pt-2"></div>
             </div>
 
-            <div id="save-status" class="text-sm text-gray-500 mb-4 h-6"></div>
             <div id="leaderboard-loader" class="hidden mb-4 text-blue-500">جاري تحميل سجل الأبطال...</div>
             <div id="leaderboard-container" class="mb-4"></div>
 
@@ -816,29 +810,23 @@
             document.getElementById('game-ui').classList.add('hidden');
             document.getElementById('end-screen').classList.add('show');
             
-            let finalGrade = (score / maxScore) * 5;
-            finalGrade = Math.round(finalGrade * 10) / 10; 
-            if (finalGrade > 5) finalGrade = 5;
-            
-            const toAr = (n) => n.toString().replace(/\d/g, d => "٠١٢٣٤٥٦٧٨٩"[d]);
-
             document.getElementById('final-time-display').innerText = getFinalTimeFormatted();
-            document.getElementById('points-display').innerText = `${toArabicNum(score)} / ${toArabicNum(maxScore)}`;
-            document.getElementById('final-grade-display').innerText = `${toArabicNum(finalGrade)} / ٥`;
-
+            
+            // استدعاء دالة المحرك الجديد لحفظ وإنهاء اللعبة
             if (window.saveAndFinishGame) {
-                window.saveAndFinishGame(score, timerSeconds, maxScore); // نرسل الوقت والدرجة العظمى
+                window.saveAndFinishGame(score, timerSeconds); 
             }
         }
     </script>
 
-    <!-- محرك الاتصال بالمنصة -->
+    <!-- محرك الاتصال بالمنصة الجديد -->
     <script>
     // --- START OF CONNECTION & LEADERBOARD ENGINE ---
     (function() {
         // --- CONFIGURATION (عدّل هذه الإعدادات لكل لعبة) ---
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
-        const GAME_ID = 'g5_2_2';         // مثال: 'g1_1_1'
+        const GAME_ID = 'g5_2_2';                       // معرف اللعبة
+        const GAME_MAX_POINTS = 18;                     // أقصى نقاط تقريبية للمسائل الثلاث (6+5+7)
         const PLATFORM_MAX_GRADE = 5;                   // الدرجة النهائية في المنصة
         const METRIC_TYPE = 'time';                     // نوع المعيار: 'time', 'stars', 'errors'
         const METRIC_LABEL = 'الوقت (ثواني)';           // اسم المعيار للعرض في الجدول
@@ -854,11 +842,19 @@
         // --- CORE FUNCTIONS ---
 
         // 1. الدالة الرئيسية التي تستدعيها عند انتهاء اللعبة
-        window.saveAndFinishGame = function(points, metricValue, dynamicMaxPoints) {
+        window.saveAndFinishGame = function(points, metricValue) {
             const finalPoints = parseFloat(points) || 0;
             const finalMetric = parseFloat(metricValue) || 0;
-            const maxPoints = dynamicMaxPoints || 10; // استخدام القيمة الديناميكية
+            const maxPoints = parseFloat(GAME_MAX_POINTS) || 1;
             const finalGrade = (finalPoints / maxPoints) * PLATFORM_MAX_GRADE;
+
+            const resultDisplay = document.getElementById('final-result-display');
+            if (resultDisplay) {
+                resultDisplay.innerHTML = `
+                    <p class="text-gray-700">النقاط: <span class="font-bold text-xl">${finalPoints} / ${maxPoints}</span></p>
+                    <p class="text-blue-600">الدرجة في المنصة: <span class="font-bold text-2xl">${finalGrade.toFixed(1)} / ${PLATFORM_MAX_GRADE}</span></p>
+                `;
+            }
 
             if (studentId && classId) {
                 const params = new URLSearchParams({
@@ -943,8 +939,6 @@
                             </tr>
                         </thead>
                         <tbody class="text-gray-700">`;
-            
-            const toAr = (n) => n.toString().replace(/\d/g, d => "٠١٢٣٤٥٦٧٨٩"[d]);
 
             data.forEach((player, index) => {
                 const rank = index + 1;
@@ -956,17 +950,12 @@
                 const isCurrentUser = (currentUser && player.name === currentUser.name);
                 const rowClass = isCurrentUser ? 'bg-blue-100 font-bold' : (index % 2 === 0 ? 'bg-gray-100' : '');
 
-                // تحويل الثواني إلى دقائق:ثواني
-                const minutes = Math.floor(player.metricValue / 60);
-                const seconds = player.metricValue % 60;
-                const timeStr = `${toAr(minutes)}:${toAr(seconds.toString().padStart(2, '0'))}`;
-
                 tableHTML += `
                     <tr class="${rowClass}">
                         <td class="text-center py-2 px-3 text-xl">${rankDisplay}</td>
                         <td class="text-right py-2 px-3">${player.name}</td>
-                        <td class="text-center py-2 px-3">${toAr(player.grade.toFixed(1))}</td>
-                        <td class="text-center py-2 px-3">${timeStr}</td>
+                        <td class="text-center py-2 px-3">${player.grade.toFixed(1)}</td>
+                        <td class="text-center py-2 px-3">${player.metricValue}</td>
                     </tr>`;
             });
 
@@ -987,7 +976,7 @@
             // Personalize welcome message
             const welcomeMessage = document.getElementById('welcomeMessage');
             if (studentName && welcomeMessage) {
-                welcomeMessage.innerHTML = `أهلاً بك يا <span class="font-bold text-yellow-600">${studentName}</span>! انطلق في رحلتك لحل المعادلات.`;
+                welcomeMessage.innerHTML = `أهلاً بك يا <span class="font-bold text-yellow-600">${studentName}</span>! انطلق في رحلتك لحل أنظمة المعادلات بالتعويض. كل خطوة صحيحة تقربك من الوصول للحل النهائي!`;
             }
 
             const finishBtn = document.getElementById('finish-game-btn');

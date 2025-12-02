@@ -292,6 +292,7 @@
     <div id="welcome-screen" class="modal-overlay show">
         <div class="modal-box">
             <h1 class="text-2xl font-bold text-blue-700 mb-2">الحل بالتعويض 1</h1>
+            <!-- رسالة الترحيب المعدلة للمحرك الجديد -->
             <p id="welcomeMessage" class="text-gray-600 mb-4">حل أنظمة المعادلات خطوة بخطوة.<br>لديك ٣ مسائل مختلفة في كل محاولة.</p>
             <div class="bg-blue-50 p-3 rounded-lg text-sm text-blue-800 mb-6">
                 <p><strong>طريقة احتساب الدرجات:</strong></p>
@@ -359,18 +360,16 @@
             <h2 class="text-3xl font-bold text-green-600 mb-2">🎉 تم الحل!</h2>
             <p class="text-gray-700 mb-4">لقد أتممت جميع المسائل.</p>
             
-            <!-- منطقة عرض النتائج -->
-            <div id="final-result-display" class="bg-gray-50 p-4 rounded-lg mb-4">
-                <!-- سيتم ملؤها بواسطة المحرك أو الكود الداخلي -->
-            </div>
+            <!-- منطقة عرض النتائج للمحرك الجديد -->
+            <div id="final-result-display" class="bg-gray-50 p-4 rounded-lg mb-4"></div>
 
-            <div id="save-status" class="text-sm text-gray-500 mb-4 h-6"></div>
+            <div id="final-time-info" class="text-blue-600 font-bold mb-4 text-lg"></div>
 
-            <!-- عناصر سجل الأبطال -->
+            <!-- عناصر سجل الأبطال المطلوبة -->
             <div id="leaderboard-loader" class="hidden mb-4 text-blue-500">جاري تحميل سجل الأبطال...</div>
             <div id="leaderboard-container" class="mb-4"></div>
 
-            <!-- زر الإنهاء والعودة -->
+            <!-- زر الإنهاء والعودة (مطلوب للمحرك الجديد) -->
             <div id="finish-game-wrapper" class="hidden">
                 <button id="finish-game-btn" class="action-btn btn-blue mb-2">إنهاء وإرسال</button>
             </div>
@@ -775,21 +774,29 @@
             if (finalGrade > 5) finalGrade = 5;
 
             document.getElementById('final-time-display').innerText = getFinalTimeFormatted();
-            document.getElementById('points-display').innerText = `${toArabicNum(score)} / ${toArabicNum(maxScore)}`;
-            document.getElementById('final-grade-display').innerText = `${toArabicNum(finalGrade)} / ٥`;
+            // لا تعرض أي نقاط هنا، سيتم تحديث العرض عبر الدالة saveAndFinishGame في السكريبت
+            // ولكن للاحتياط، يمكننا وضع نص مبدئي
+            // document.getElementById('points-display').innerText = ...
 
+            // استدعاء دالة الحفظ
             if (window.saveAndFinishGame) {
-                window.saveAndFinishGame(score, timerSeconds, maxScore);
+                window.saveAndFinishGame(score, timerSeconds, maxScore); // نرسل الوقت والدرجة العظمى
             }
         }
     </script>
 
     <!-- محرك الاتصال بالمنصة -->
     <script>
+    // --- START OF CONNECTION & LEADERBOARD ENGINE ---
     (function() {
-        let SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
-        let GAME_ID = 'g5_2_1'; 
+        // --- CONFIGURATION (عدّل هذه الإعدادات لكل لعبة) ---
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
+        const GAME_ID = 'g5_2_1';         // مثال: 'g1_1_1'
+        const PLATFORM_MAX_GRADE = 5;                   // الدرجة النهائية في المنصة
+        const METRIC_TYPE = 'time';                     // نوع المعيار: 'time', 'stars', 'errors'
+        const METRIC_LABEL = 'الوقت (ثواني)';           // اسم المعيار للعرض في الجدول
 
+        // --- Read URL Parameters ---
         const urlParams = new URLSearchParams(window.location.search);
         const studentId = urlParams.get('studentId');
         const classId = urlParams.get('classId');
@@ -797,74 +804,67 @@
 
         let currentUser = (studentId && studentName) ? { id: studentId, name: studentName } : null;
 
-        window.saveAndFinishGame = function(points, timeTaken, dynamicMaxPoints) {
-            const saveStatus = document.getElementById('save-status');
-            const maxPoints = dynamicMaxPoints || 10; 
-            let grade = (points / maxPoints) * 5;
-            grade = Math.min(5, Math.max(0, grade)).toFixed(2);
-            
-            // تحديث عرض النتائج
+        // --- CORE FUNCTIONS ---
+
+        // 1. الدالة الرئيسية التي تستدعيها عند انتهاء اللعبة
+        window.saveAndFinishGame = function(points, metricValue, dynamicMaxPoints) {
+            const finalPoints = parseFloat(points) || 0;
+            const finalMetric = parseFloat(metricValue) || 0;
+            const maxPoints = dynamicMaxPoints || 10; // استخدام القيمة الديناميكية
+            const finalGrade = (finalPoints / maxPoints) * PLATFORM_MAX_GRADE;
+
             const resultDisplay = document.getElementById('final-result-display');
             if (resultDisplay) {
+                // دالة تنسيق أرقام عربية داخلية
                 const toAr = (n) => n.toString().replace(/\d/g, d => "٠١٢٣٤٥٦٧٨٩"[d]);
                 resultDisplay.innerHTML = `
-                    <p class="text-gray-700 mb-2">مجموع النقاط: <span class="font-bold text-xl">${toAr(points)} / ${toAr(maxPoints)}</span></p>
-                    <p class="text-blue-600">الدرجة النهائية: <span class="font-bold text-2xl">${toAr(grade)} / ٥</span></p>
+                    <p class="text-gray-700 mb-1">النقاط: <span class="font-bold text-xl">${toAr(finalPoints)} / ${toAr(maxPoints)}</span></p>
+                    <p class="text-blue-600">الدرجة في المنصة: <span class="font-bold text-2xl">${toAr(finalGrade.toFixed(1))} / ٥</span></p>
                 `;
             }
 
-            if(studentId && classId) {
-                saveStatus.innerText = "جاري حفظ الدرجة...";
+            if (studentId && classId) {
                 const params = new URLSearchParams({
                     action: 'saveGrade',
                     studentId: studentId,
                     classId: classId,
                     itemId: GAME_ID,
-                    grade: grade,
-                    metricValue: timeTaken 
+                    grade: finalGrade.toFixed(2),
+                    metricValue: Math.round(finalMetric).toString()
                 });
-
                 fetch(`${SCRIPT_URL}?${params.toString()}`)
-                    .then(r => r.json())
-                    .then(data => {
-                        if(data.status === 'success') {
-                            saveStatus.innerText = "تم حفظ الدرجة بنجاح ✅";
-                            saveStatus.className = "text-sm text-green-600 mb-4 h-6 font-bold";
-                        } else {
-                            saveStatus.innerText = "لم يتم الحفظ (خطأ في الخادم)";
-                            saveStatus.className = "text-sm text-red-500 mb-4 h-6";
-                        }
-                    })
-                    .catch(e => {
-                        saveStatus.innerText = "خطأ في الاتصال ⚠️";
-                        saveStatus.className = "text-sm text-red-500 mb-4 h-6";
-                    })
+                    .then(res => res.json())
+                    .then(result => console.log('Save result:', result.status))
+                    .catch(err => console.error("Save Error:", err))
                     .finally(fetchAndShowLeaderboard);
             } else {
-                saveStatus.innerText = "وضع الزائر: لم يتم حفظ الدرجة";
-                fetchAndShowLeaderboard(); // استدعاء لعرض الرسالة للزوار
+                console.log(`Visitor finished. Score: ${finalPoints}, Metric: ${finalMetric}`);
+                // حتى الزائر نعرض له رسالة (أو نحاول جلب سجل عام إن وجد)
+                fetchAndShowLeaderboard();
             }
-        };
+        }
 
+        // 2. دالة جلب وعرض سجل الأبطال
         function fetchAndShowLeaderboard() {
             const loader = document.getElementById('leaderboard-loader');
             const container = document.getElementById('leaderboard-container');
             if (!loader || !container) return;
             
             if (!classId) {
+                console.log("No classId found.");
                 container.innerHTML = `<p class="text-center text-gray-500 mt-4">سجل الأبطال متاح للطلاب المسجلين فقط.</p>`;
                 showFinishButton();
                 return;
             }
 
             loader.style.display = 'block';
-            loader.classList.remove('hidden'); // تأكيد الإظهار
+            loader.classList.remove('hidden');
             container.innerHTML = '';
 
             const params = new URLSearchParams({
                 action: 'getLeaderboard',
                 gameId: GAME_ID,
-                metricType: 'time',
+                metricType: METRIC_TYPE,
                 classId: classId
             });
 
@@ -874,11 +874,12 @@
                     if (response.status === 'success' && response.data) {
                         displayLeaderboard(response.data);
                     } else {
-                        container.innerHTML = `<p class="text-center text-gray-500">لا توجد بيانات.</p>`;
+                        throw new Error(response.message || 'Failed to load leaderboard data.');
                     }
                 })
                 .catch(err => {
-                    container.innerHTML = `<p class="text-center text-red-500">حدث خطأ في تحميل السجل.</p>`;
+                    console.error("Leaderboard Error:", err);
+                    container.innerHTML = `<p class="text-center text-red-500">حدث خطأ في تحميل سجل الأبطال.</p>`;
                 })
                 .finally(() => {
                     loader.style.display = 'none';
@@ -886,10 +887,11 @@
                 });
         }
         
+        // 3. دالة بناء جدول سجل الأبطال
         function displayLeaderboard(data) {
             const container = document.getElementById('leaderboard-container');
             if (!data || data.length === 0) {
-                container.innerHTML = `<p class="text-center text-gray-500 mt-4">كن أول الأبطال!</p>`;
+                container.innerHTML = `<p class="text-center text-gray-500 mt-4">لا توجد نتائج بعد. كن أول الأبطال!</p>`;
                 return;
             }
 
@@ -903,10 +905,12 @@
                                 <th class="text-center py-2 px-2">#</th>
                                 <th class="text-right py-2 px-2">الطالب</th>
                                 <th class="text-center py-2 px-2">الدرجة</th>
-                                <th class="text-center py-2 px-2">الوقت</th>
+                                <th class="text-center py-2 px-2">${METRIC_LABEL}</th>
                             </tr>
                         </thead>
                         <tbody class="text-gray-700">`;
+
+            const toAr = (n) => n.toString().replace(/\d/g, d => "٠١٢٣٤٥٦٧٨٩"[d]);
 
             data.forEach((player, index) => {
                 const rank = index + 1;
@@ -917,7 +921,6 @@
 
                 const isCurrentUser = (currentUser && player.name === currentUser.name);
                 const rowClass = isCurrentUser ? 'bg-blue-100 font-bold' : (index % 2 === 0 ? 'bg-gray-50' : '');
-                const toAr = (n) => n.toString().replace(/\d/g, d => "٠١٢٣٤٥٦٧٨٩"[d]);
 
                 // تحويل الثواني إلى دقائق:ثواني
                 const minutes = Math.floor(player.metricValue / 60);
@@ -937,6 +940,7 @@
             container.innerHTML = tableHTML;
         }
 
+        // 4. إظهار زر الإنهاء
         function showFinishButton() {
             const finishWrapper = document.getElementById('finish-game-wrapper');
             if (finishWrapper) {
@@ -945,10 +949,12 @@
             }
         }
 
+        // 5. التعامل مع زر الإنهاء وتخصيص رسالة الترحيب
         document.addEventListener('DOMContentLoaded', () => {
+            // Personalize welcome message
             const welcomeMessage = document.getElementById('welcomeMessage');
             if (studentName && welcomeMessage) {
-                welcomeMessage.innerHTML = `أهلاً بك يا <span class="font-bold text-blue-600">${studentName}</span>! <br> حل أنظمة المعادلات خطوة بخطوة. لديك ٣ مسائل.`;
+                welcomeMessage.innerHTML = `أهلاً بك يا <span class="font-bold text-yellow-600">${studentName}</span>! <br> حل أنظمة المعادلات خطوة بخطوة. لديك ٣ مسائل.`;
             }
 
             const finishBtn = document.getElementById('finish-game-btn');
@@ -959,6 +965,7 @@
             }
         });
     })();
+    // --- END OF CONNECTION & LEADERBOARD ENGINE ---
     </script>
 </body>
 </html>

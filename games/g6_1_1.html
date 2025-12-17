@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>لعبة قوة الأسس</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body { font-family: 'Cairo', sans-serif; background-color: #f0f9ff; user-select: none; }
+        .card { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .option-btn { transition: transform 0.1s; cursor: pointer; }
+        .option-btn:active { transform: scale(0.95); }
+        .fade-in { animation: fadeIn 0.4s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .correct-anim { animation: pulseGreen 0.5s; background-color: #dcfce7 !important; border-color: #22c55e !important; color: #15803d !important; }
+        .wrong-anim { animation: shake 0.4s; background-color: #fee2e2 !important; border-color: #ef4444 !important; color: #b91c1c !important; }
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen p-4">
+
+    <!-- حاوية اللعبة -->
+    <div class="w-full max-w-md bg-white rounded-3xl shadow-xl overflow-hidden border-4 border-blue-100 relative" id="game-container">
+        
+        <!-- الشريط العلوي -->
+        <div class="bg-blue-600 p-4 flex justify-between items-center text-white">
+            <div class="flex items-center gap-2">
+                <i class="fas fa-gamepad"></i>
+                <span class="font-bold text-sm">ضرب وحيدات الحد</span>
+            </div>
+            <div class="bg-blue-700 px-3 py-1 rounded-full text-xs font-bold">
+                <span id="current-q">1</span> / 5
+            </div>
+        </div>
+
+        <!-- منطقة السؤال -->
+        <div class="p-8 text-center bg-blue-50" id="question-area">
+            <p class="text-gray-500 text-sm font-bold mb-4">بسط العبارة التالية:</p>
+            <div class="text-5xl font-black text-blue-900 flex justify-center items-center gap-2" style="direction: ltr;">
+                <span id="term1">x²</span>
+                <span class="text-blue-400">×</span>
+                <span id="term2">x³</span>
+            </div>
+        </div>
+
+        <!-- الخيارات -->
+        <div class="p-6 grid grid-cols-2 gap-4" id="options-area">
+            <!-- ستتم تعبئة الخيارات هنا -->
+        </div>
+
+        <!-- شاشة النهاية (مخفية) -->
+        <div id="result-screen" class="hidden absolute inset-0 bg-white flex flex-col items-center justify-center p-6 text-center z-10">
+            <div class="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center text-green-600 text-4xl mb-4 shadow-sm animate-bounce">
+                <i class="fas fa-trophy"></i>
+            </div>
+            <h2 class="text-2xl font-black text-gray-800 mb-2">انتهت اللعبة!</h2>
+            <p class="text-gray-500 mb-6">درجتك المستحقة</p>
+            <div class="text-6xl font-black text-blue-600 mb-8" id="final-score">5</div>
+            
+            <button id="save-btn" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-blue-700 transition flex items-center justify-center gap-2">
+                <i class="fas fa-save"></i> حفظ الدرجة والخروج
+            </button>
+            <div id="save-status" class="mt-3 text-sm font-bold h-6"></div>
+        </div>
+
+    </div>
+
+    <script>
+        // *** إعدادات الاتصال ***
+        const API_URL = "https://script.google.com/macros/s/AKfycbxqAQlGhNs8k5RwHs6jrWxDiDwaMABSx8a9Fl81O5oVVa5fHRWTwIEvsGy2cSDP4zGLWQ/exec";
+        // معرف اللعبة في الشيت
+        const GAME_ID = "g6_1_1"; 
+
+        // المتغيرات
+        let score = 0;
+        let currentQuestion = 0;
+        const totalQuestions = 5;
+        let canClick = true;
+
+        // قراءة بيانات الطالب من الرابط
+        const urlParams = new URLSearchParams(window.location.search);
+        const studentId = urlParams.get('studentId');
+        const classId = urlParams.get('classId');
+
+        // مولد الأسئلة
+        function generateQuestion() {
+            const vars = ['x', 'y', 'm', 'n', 'a'];
+            const v = vars[Math.floor(Math.random() * vars.length)];
+            const exp1 = Math.floor(Math.random() * 5) + 2; // 2 to 6
+            const exp2 = Math.floor(Math.random() * 5) + 2; // 2 to 6
+            
+            const correctAnswer = exp1 + exp2;
+            
+            // المشتتات (أخطاء شائعة: الضرب، الطرح، الجمع الخطأ)
+            let wrong1 = exp1 * exp2;
+            let wrong2 = Math.abs(exp1 - exp2); 
+            if (wrong2 === correctAnswer || wrong2 === 0) wrong2 = correctAnswer + 1;
+            let wrong3 = correctAnswer - 1;
+            if (wrong1 === correctAnswer) wrong1 = correctAnswer + 2;
+
+            return {
+                text1: `${v}<sup>${exp1}</sup>`,
+                text2: `${v}<sup>${exp2}</sup>`,
+                correct: `${v}<sup>${correctAnswer}</sup>`,
+                options: [
+                    `${v}<sup>${correctAnswer}</sup>`,
+                    `${v}<sup>${wrong1}</sup>`,
+                    `${v}<sup>${wrong2}</sup>`,
+                    `${v}<sup>${wrong3}</sup>`
+                ].sort(() => Math.random() - 0.5)
+            };
+        }
+
+        function loadQuestion() {
+            if (currentQuestion >= totalQuestions) {
+                showResults();
+                return;
+            }
+
+            const q = generateQuestion();
+            document.getElementById('current-q').innerText = currentQuestion + 1;
+            document.getElementById('term1').innerHTML = q.text1;
+            document.getElementById('term2').innerHTML = q.text2;
+
+            const optionsContainer = document.getElementById('options-area');
+            optionsContainer.innerHTML = '';
+
+            q.options.forEach(opt => {
+                const btn = document.createElement('div');
+                btn.className = 'option-btn bg-white border-2 border-gray-200 p-4 rounded-2xl text-xl font-bold text-gray-700 text-center shadow-sm hover:border-blue-300 fade-in';
+                btn.innerHTML = opt;
+                btn.onclick = () => checkAnswer(btn, opt === q.correct);
+                optionsContainer.appendChild(btn);
+            });
+        }
+
+        function checkAnswer(btn, isCorrect) {
+            if (!canClick) return;
+            canClick = false;
+
+            if (isCorrect) {
+                score++;
+                btn.classList.add('correct-anim');
+                const audio = new Audio('data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU'); // Sound placeholder
+            } else {
+                btn.classList.add('wrong-anim');
+                // Highlight correct one? Maybe later.
+            }
+
+            setTimeout(() => {
+                currentQuestion++;
+                canClick = true;
+                loadQuestion();
+            }, 800);
+        }
+
+        function showResults() {
+            document.getElementById('result-screen').classList.remove('hidden');
+            document.getElementById('final-score').innerText = score;
+            
+            // Auto save logic or button logic
+            const saveBtn = document.getElementById('save-btn');
+            saveBtn.onclick = saveAndExit;
+        }
+
+        function saveAndExit() {
+            const statusDiv = document.getElementById('save-status');
+            const btn = document.getElementById('save-btn');
+            
+            if (!studentId || studentId === 'visitor') {
+                statusDiv.innerHTML = '<span class="text-orange-500">وضع زائر: لا يمكن الحفظ</span>';
+                setTimeout(() => window.parent.location.reload(), 1500); // Close iframe logic usually handled by parent refresh
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري الحفظ...';
+            statusDiv.innerText = '';
+
+            fetch(`${API_URL}?action=saveScore&studentId=${studentId}&classId=${classId}&type=game&itemId=${GAME_ID}&score=${score}`)
+            .then(response => response.json())
+            .then(data => {
+                if(data.status === 'success') {
+                    btn.classList.remove('bg-blue-600');
+                    btn.classList.add('bg-green-600');
+                    btn.innerHTML = '<i class="fas fa-check"></i> تم الحفظ بنجاح';
+                    // إغلاق النافذة (يتطلب تواصل مع الصفحة الأم)
+                    setTimeout(() => {
+                        // محاولة إغلاق المودال من الصفحة الأب
+                        if (window.parent && window.parent.closeGameModal) {
+                            window.parent.closeGameModal();
+                            window.parent.updateData(); // تحديث البيانات في الصفحة الرئيسية
+                        } else {
+                            window.location.reload(); // Fallback
+                        }
+                    }, 1500);
+                } else {
+                    throw new Error('Save failed');
+                }
+            })
+            .catch(error => {
+                btn.disabled = false;
+                btn.innerHTML = 'فشل الحفظ - حاول مرة أخرى';
+                btn.classList.add('bg-red-600');
+                console.error(error);
+            });
+        }
+
+        // Start
+        loadQuestion();
+
+    </script>
+</body>
+</html>

@@ -703,7 +703,13 @@
                 needsArrangement: sc.needsArrangement,
                 correctArrangedEq2: sc.correctArrangedEq2 
             }));
-            maxScore = currentQuestionsList.reduce((acc, q) => acc + q.steps.length, 0);
+            
+            // Fix: Assign to window.maxScore so it is accessible in saveAndFinishGame
+            window.maxScore = currentQuestionsList.reduce((acc, q) => acc + q.steps.length, 0);
+            
+            // Update local variable just in case used elsewhere
+            maxScore = window.maxScore; 
+            
             currentQIndex = 0; currentStepIndex = 0; score = 0; timerSeconds = 0;
             document.getElementById('welcome-screen').classList.remove('show'); document.getElementById('game-ui').classList.remove('hidden'); document.getElementById('current-score-display').innerText = `النقاط: ٠`;
             loadQuestion();
@@ -945,6 +951,7 @@
         }
         function hideExplanation() { document.getElementById('explanation-modal').classList.remove('show'); }
 
+        // --- START OF CONNECTION & LEADERBOARD ENGINE ---
         (function() {
             const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
             const GAME_ID = 'g5_4_2';                         
@@ -962,8 +969,15 @@
             window.saveAndFinishGame = function(points, metricValue) {
                 const finalPoints = parseFloat(points) || 0;
                 const finalMetric = parseFloat(metricValue) || 0;
+                
+                // Ensure maxScore is retrieved correctly
                 const maxPoints = (typeof window.maxScore !== 'undefined' && window.maxScore > 0) ? window.maxScore : 15;
-                const finalGrade = (finalPoints / maxPoints) * PLATFORM_MAX_GRADE;
+                
+                // Calculate proportional grade: (Points / MaxPoints) * 5
+                let finalGrade = (finalPoints / maxPoints) * PLATFORM_MAX_GRADE;
+                
+                // Cap at 5 just in case
+                if (finalGrade > PLATFORM_MAX_GRADE) finalGrade = PLATFORM_MAX_GRADE;
 
                 const resultDisplay = document.getElementById('final-result-display');
                 if (resultDisplay) {

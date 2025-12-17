@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>لعبة تبسيط الكسور</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body { font-family: 'Cairo', sans-serif; background-color: #fdf2f8; user-select: none; } /* Pinkish bg for variety */
+        .card { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .option-btn { transition: transform 0.1s; cursor: pointer; }
+        .option-btn:active { transform: scale(0.95); }
+        .fraction { display: inline-block; text-align: center; vertical-align: middle; }
+        .fraction .top { border-bottom: 3px solid #1e3a8a; display: block; padding: 0 5px; }
+        .fraction .bottom { display: block; padding: 0 5px; }
+        .correct-anim { animation: pulseGreen 0.5s; background-color: #dcfce7 !important; border-color: #22c55e !important; color: #15803d !important; }
+        .wrong-anim { animation: shake 0.4s; background-color: #fee2e2 !important; border-color: #ef4444 !important; color: #b91c1c !important; }
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen p-4">
+
+    <!-- حاوية اللعبة -->
+    <div class="w-full max-w-md bg-white rounded-3xl shadow-xl overflow-hidden border-4 border-pink-100" id="game-container">
+        
+        <!-- الشريط العلوي -->
+        <div class="bg-pink-600 p-4 flex justify-between items-center text-white">
+            <div class="flex items-center gap-2">
+                <i class="fas fa-divide"></i>
+                <span class="font-bold text-sm">قسمة وحيدات الحد</span>
+            </div>
+            <div class="bg-pink-700 px-3 py-1 rounded-full text-xs font-bold">
+                <span id="current-q">1</span> / 5
+            </div>
+        </div>
+
+        <!-- منطقة السؤال -->
+        <div class="p-8 text-center bg-pink-50 min-h-[200px] flex flex-col items-center justify-center" id="question-area">
+            <p class="text-gray-500 text-sm font-bold mb-4">أوجد ناتج القسمة:</p>
+            <div class="text-5xl font-black text-blue-900" style="direction: ltr;">
+                <!-- صيغة الكسر -->
+                <div class="fraction">
+                    <span class="top" id="term-top">x⁷</span>
+                    <span class="bottom" id="term-bottom">x³</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- الخيارات -->
+        <div class="p-6 grid grid-cols-2 gap-4" id="options-area">
+            <!-- ستتم تعبئة الخيارات هنا -->
+        </div>
+
+        <!-- شاشة النهاية -->
+        <div id="result-screen" class="hidden absolute inset-0 bg-white flex flex-col items-center justify-center p-6 text-center z-10">
+            <div class="w-20 h-20 bg-pink-100 rounded-full flex items-center justify-center text-pink-600 text-4xl mb-4 shadow-sm animate-bounce">
+                <i class="fas fa-star"></i>
+            </div>
+            <h2 class="text-2xl font-black text-gray-800 mb-2">ممتاز!</h2>
+            <p class="text-gray-500 mb-6">نتيجتك النهائية</p>
+            <div class="text-6xl font-black text-pink-600 mb-8" id="final-score">0</div>
+            
+            <button id="save-btn" class="w-full bg-pink-600 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-pink-700 transition flex items-center justify-center gap-2">
+                <i class="fas fa-save"></i> حفظ وإنهاء
+            </button>
+            <div id="save-status" class="mt-3 text-sm font-bold h-6"></div>
+        </div>
+
+    </div>
+
+    <script>
+        // *** إعدادات الاتصال ***
+        const API_URL = "https://script.google.com/macros/s/AKfycbxqAQlGhNs8k5RwHs6jrWxDiDwaMABSx8a9Fl81O5oVVa5fHRWTwIEvsGy2cSDP4zGLWQ/exec";
+        const GAME_ID = "g6_2_1"; // تأكد أن هذا يطابق المعرف في term2.html للعبة الأولى في الدرس الثاني
+
+        // المتغيرات
+        let score = 0;
+        let currentQuestion = 0;
+        const totalQuestions = 5;
+        let canClick = true;
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const studentId = urlParams.get('studentId');
+        const classId = urlParams.get('classId');
+
+        function generateQuestion() {
+            const vars = ['x', 'y', 'z', 'b'];
+            const v = vars[Math.floor(Math.random() * vars.length)];
+            
+            // نضمن أن الأس اللي فوق أكبر من اللي تحت لتسهيل المسألة (أسس موجبة)
+            const expBottom = Math.floor(Math.random() * 4) + 2; // 2 to 5
+            const diff = Math.floor(Math.random() * 4) + 1; // 1 to 4
+            const expTop = expBottom + diff; 
+            
+            const correctAnswer = diff; // لأن عند القسمة نطرح الأسس
+            
+            const ansText = (correctAnswer === 1) ? v : `${v}<sup>${correctAnswer}</sup>`;
+
+            // المشتتات
+            let wrong1 = `${v}<sup>${expTop + expBottom}</sup>`; // جمعهم بالغلط
+            let wrong2 = `${v}<sup>${Math.abs(diff - 1) || 2}</sup>`;
+            let wrong3 = (correctAnswer === 1) ? `${v}<sup>2</sup>` : v;
+
+            return {
+                top: `${v}<sup>${expTop}</sup>`,
+                bottom: `${v}<sup>${expBottom}</sup>`,
+                correct: ansText,
+                options: [ansText, wrong1, wrong2, wrong3].sort(() => Math.random() - 0.5)
+            };
+        }
+
+        function loadQuestion() {
+            if (currentQuestion >= totalQuestions) {
+                showResults();
+                return;
+            }
+
+            const q = generateQuestion();
+            document.getElementById('current-q').innerText = currentQuestion + 1;
+            document.getElementById('term-top').innerHTML = q.top;
+            document.getElementById('term-bottom').innerHTML = q.bottom;
+
+            const optionsContainer = document.getElementById('options-area');
+            optionsContainer.innerHTML = '';
+
+            q.options.forEach(opt => {
+                const btn = document.createElement('div');
+                btn.className = 'option-btn bg-white border-2 border-gray-200 p-4 rounded-2xl text-xl font-bold text-gray-700 text-center shadow-sm hover:border-pink-300';
+                btn.innerHTML = opt;
+                btn.onclick = () => checkAnswer(btn, opt === q.correct);
+                optionsContainer.appendChild(btn);
+            });
+        }
+
+        function checkAnswer(btn, isCorrect) {
+            if (!canClick) return;
+            canClick = false;
+
+            if (isCorrect) {
+                score++;
+                btn.classList.add('correct-anim');
+            } else {
+                btn.classList.add('wrong-anim');
+            }
+
+            setTimeout(() => {
+                currentQuestion++;
+                canClick = true;
+                loadQuestion();
+            }, 800);
+        }
+
+        function showResults() {
+            document.getElementById('result-screen').classList.remove('hidden');
+            document.getElementById('final-score').innerText = score;
+            const saveBtn = document.getElementById('save-btn');
+            saveBtn.onclick = saveAndExit;
+        }
+
+        function saveAndExit() {
+            const statusDiv = document.getElementById('save-status');
+            const btn = document.getElementById('save-btn');
+            
+            if (!studentId || studentId === 'visitor') {
+                statusDiv.innerHTML = '<span class="text-orange-500">وضع زائر: لا يمكن الحفظ</span>';
+                setTimeout(() => {
+                     if (window.parent && window.parent.closeGameModal) window.parent.closeGameModal();
+                }, 1500);
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري الاتصال...';
+            statusDiv.innerText = '';
+
+            fetch(`${API_URL}?action=saveScore&studentId=${studentId}&classId=${classId}&type=game&itemId=${GAME_ID}&score=${score}`)
+            .then(response => response.json())
+            .then(data => {
+                if(data.status === 'success') {
+                    btn.classList.remove('bg-pink-600');
+                    btn.classList.add('bg-green-600');
+                    btn.innerHTML = '<i class="fas fa-check"></i> تم الحفظ!';
+                    setTimeout(() => {
+                        if (window.parent && window.parent.closeGameModal) {
+                            window.parent.closeGameModal();
+                            window.parent.updateData(); 
+                        } else {
+                            window.history.back(); // Fallback
+                        }
+                    }, 1000);
+                } else {
+                    throw new Error('Error');
+                }
+            })
+            .catch(error => {
+                btn.disabled = false;
+                btn.innerHTML = 'حدث خطأ، حاول مجدداً';
+                btn.classList.add('bg-red-600');
+            });
+        }
+
+        // Start
+        loadQuestion();
+
+    </script>
+</body>
+</html>

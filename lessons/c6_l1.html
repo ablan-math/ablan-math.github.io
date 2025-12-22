@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <!-- SYSTEM COMPLIANCE LOG: Method=GET | ServerAuthority=ABSOLUTE | AutoClearTimer=YES -->
+    <!-- SYSTEM COMPLIANCE LOG: DebuggerAdded=YES | HardReset=YES | ErrorHandling=IMPROVED -->
     <title>٦-١ ضرب وحيدات الحد</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -67,6 +67,9 @@
         /* Loading */
         .loader { border: 4px solid #f3f3f3; border-radius: 50%; border-top: 4px solid #2563eb; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 0 auto; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        /* Debug Panel */
+        #debug-panel { position: fixed; bottom: 60px; left: 10px; width: 300px; background: rgba(0,0,0,0.9); color: #00ff00; font-family: monospace; font-size: 10px; padding: 10px; border-radius: 8px; z-index: 9999; direction: ltr; max-height: 200px; overflow-y: auto; display: none; }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800">
@@ -325,6 +328,19 @@
         </div>
     </div>
 
+    <!-- Debug Panel -->
+    <div id="debug-panel" class="hidden">
+        <div class="flex justify-between items-center mb-2 border-b border-green-700 pb-1">
+            <span class="font-bold text-white">🛠️ تشخيص الاتصال</span>
+            <button onclick="document.getElementById('debug-panel').style.display='none'" class="text-red-400 hover:text-red-200 font-bold">x</button>
+        </div>
+        <div id="debug-content" class="space-y-1">Waiting...</div>
+        <button onclick="hardReset()" class="mt-2 w-full bg-red-700 text-white text-xs py-1 rounded hover:bg-red-600">تصفير الذاكرة وإعادة التحميل</button>
+    </div>
+    
+    <!-- Debug Toggle Button -->
+    <button onclick="document.getElementById('debug-panel').style.display='block'" class="fixed bottom-2 left-2 text-[10px] text-gray-300 hover:text-gray-500 opacity-50 z-50">🛠️ تشخيص</button>
+
     <script>
         lucide.createIcons();
         const urlParams = new URLSearchParams(window.location.search);
@@ -411,7 +427,9 @@
             if(tabId === 'quiz') {
                 if(document.getElementById('quizForm').innerHTML === '') { generateQuiz(); }
                 renderDynamicGames(); 
-                fetchStudentData(); // Refresh attempts when entering quiz tab
+                // Only fetch for students, not visitors to prevent server confusion
+                const sId = urlParams.get('studentId');
+                if(sId && sId !== 'visitor') fetchStudentData();
             }
         }
 
@@ -467,9 +485,30 @@
 
         // --- 1. ROBUST SYNC & RETRY MECHANISMS ---
         
+        function logDebug(msg) {
+            const panel = document.getElementById('debug-content');
+            if(panel) panel.innerHTML += `<div>${new Date().toLocaleTimeString()} - ${msg}</div>`;
+            console.log(msg);
+        }
+
+        function hardReset() {
+            localStorage.clear();
+            window.location.reload();
+        }
+
         // Force sync from server
         async function fetchStudentData() {
-            if (!APPS_SCRIPT_URL.startsWith('http')) return;
+            // Visitors don't sync with server to avoid collision
+            const sId = urlParams.get('studentId') || 'visitor';
+            if (sId === 'visitor') {
+                logDebug("Visitor Mode: Local Only");
+                return;
+            }
+
+            if (!APPS_SCRIPT_URL.startsWith('http')) {
+                logDebug("Error: Invalid Apps Script URL");
+                return;
+            }
 
             const loadingEl = document.getElementById('loading-attempts');
             const displayEl = document.getElementById('attempts-display');
@@ -477,48 +516,60 @@
             if(displayEl) displayEl.classList.add('hidden');
 
             try {
-                const sId = urlParams.get('studentId') || 'visitor';
                 const cId = urlParams.get('classId') || 'visitor';
-                // Timestamp to prevent caching
                 const url = `${APPS_SCRIPT_URL}?action=getStatus&studentId=${sId}&classId=${cId}&itemId=${LESSON_KEY}&t=${Date.now()}`;
                 
+                logDebug(`Fetching data for ${sId}...`);
                 const response = await fetch(url);
                 const data = await response.json();
+                logDebug(`Server Response: ${JSON.stringify(data).substring(0, 100)}...`);
 
                 if (data && data.lessons && data.lessons[LESSON_KEY]) {
                     const lessonData = data.lessons[LESSON_KEY];
                     const consumed = lessonData.attempts || 0;
-                    const maxAttempts = (sId === 'visitor') ? 1 : 3;
+                    const maxAttempts = 3; 
                     
-                    // 1. Update attempts from server (The Truth)
+                    // 1. Force Authority
                     attemptsLeft = Math.max(0, maxAttempts - consumed);
                     
                     // 2. Logic: Server vs Local Storage
-                    if (!lessonData.allowed) {
-                        // Case A: Server says BLOCKED
-                        attemptsLeft = 0;
-                        if (lessonData.waitTime > 0) {
-                            localStorage.setItem(`${NEXT_ATTEMPT_KEY}_${sId}`, Date.now() + lessonData.waitTime);
-                            startTimer(Date.now() + lessonData.waitTime);
+                    if (attemptsLeft > 0) {
+                        // UNLOCK EVERYTHING
+                        localStorage.removeItem(`${NEXT_ATTEMPT_KEY}_${sId}`);
+                        
+                        if (timerInterval) clearInterval(timerInterval);
+                        
+                        document.getElementById('timer-top-container').classList.add('hidden');
+                        document.getElementById('timer-bottom-container').classList.add('hidden');
+                        document.getElementById('retake-quiz-btn').classList.remove('hidden');
+                        
+                        const submitBtn = document.querySelector('#quizForm button[type="submit"]');
+                        if(submitBtn) {
+                             submitBtn.disabled = false;
+                             submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                             submitBtn.textContent = "تحقق من الإجابات";
                         }
                     } else {
-                        // Case B: Server says ALLOWED (You reset the sheet)
-                        // IMPORTANT: Force clear any local locks
-                        localStorage.removeItem(`${NEXT_ATTEMPT_KEY}_${sId}`);
-                        clearInterval(timerInterval); // Stop local timer
-                        const timerTop = document.getElementById('timer-top-container');
-                        if(timerTop) timerTop.classList.add('hidden'); // Hide timer UI
-                        
-                        // Ensure local storage matches server attempts
-                        localStorage.setItem(`${ATTEMPTS_KEY}_${sId}`, attemptsLeft);
+                        // Server says BLOCKED
+                        attemptsLeft = 0;
+                        if (lessonData.waitTime > 0) {
+                            const unlockTime = Date.now() + lessonData.waitTime;
+                            localStorage.setItem(`${NEXT_ATTEMPT_KEY}_${sId}`, unlockTime);
+                            startTimer(unlockTime);
+                        }
                     }
+                    
+                    localStorage.setItem(`${ATTEMPTS_KEY}_${sId}`, attemptsLeft);
                     
                     const scoreEl = document.getElementById('student-score');
                     if (lessonData.grade > 0 && scoreEl) {
                         scoreEl.textContent = lessonData.grade;
                     }
+                } else {
+                    logDebug("Data format invalid or lesson missing.");
                 }
             } catch (error) {
+                logDebug(`Sync Error: ${error.message}`);
                 console.error("Sync Error:", error);
             } finally {
                 updateAttemptsUI();
@@ -529,8 +580,28 @@
 
         function initAttempts() {
             const sId = urlParams.get('studentId') || 'visitor';
-            // ALWAYS fetch from server to get true state
-            fetchStudentData();
+            
+            if (sId === 'visitor') {
+                // VISITOR MODE: Local Storage Only
+                const storedAttempts = localStorage.getItem(`${ATTEMPTS_KEY}_visitor`);
+                attemptsLeft = (storedAttempts === null) ? 1 : parseInt(storedAttempts); // Default 1 attempt
+                
+                // Check local timer for visitor
+                const storedTime = localStorage.getItem(`${NEXT_ATTEMPT_KEY}_visitor`);
+                if (attemptsLeft <= 0 && storedTime) {
+                    const nextTime = parseInt(storedTime);
+                    if (Date.now() < nextTime) startTimer(nextTime);
+                }
+                updateAttemptsUI();
+            } else {
+                // STUDENT MODE
+                // Start with what we have (0 to be safe) until server replies
+                attemptsLeft = 0; 
+                updateAttemptsUI();
+                
+                // Always fetch fresh data
+                fetchStudentData();
+            }
         }
         
         let timerInterval;
@@ -569,7 +640,15 @@
                 const diff = targetTime - now;
                 if (diff <= 0) {
                     clearInterval(timerInterval);
-                    fetchStudentData(); // Check server instead of full reload
+                    const sId = urlParams.get('studentId') || 'visitor';
+                    if (sId === 'visitor') {
+                         attemptsLeft = 1;
+                         localStorage.setItem(`${ATTEMPTS_KEY}_visitor`, 1);
+                         localStorage.removeItem(`${NEXT_ATTEMPT_KEY}_visitor`);
+                         updateAttemptsUI();
+                    } else {
+                        fetchStudentData(); 
+                    }
                     return;
                 }
                 const hours = Math.floor((diff / (1000 * 60 * 60)));
@@ -647,7 +726,6 @@
             quizForm.onsubmit = handleQuizSubmit;
         }
 
-        // --- NEW SAVE FUNCTION WITH RETRY (AUTO-RETRY) ---
         async function saveScoreToBackend(lessonId, grade) {
             const urlParams = new URLSearchParams(window.location.search);
             const studentId = urlParams.get('studentId');
@@ -655,7 +733,7 @@
             const saveStatus = document.getElementById('save-status');
             
             if (!studentId || !classId) {
-                if(saveStatus) saveStatus.innerHTML = '<span class="text-yellow-600">⚠️ وضع زائر: لم يتم الحفظ.</span>';
+                if(saveStatus) saveStatus.innerHTML = '<span class="text-yellow-600">تم تسجيل النتيجة محلياً (زائر)</span>';
                 return;
             }
 
@@ -663,24 +741,22 @@
             
             const requestUrl = `${APPS_SCRIPT_URL}?action=saveScore&studentId=${studentId}&classId=${classId}&itemId=${lessonId}&score=${grade}&type=lesson`;
             
-            // Retry Logic: Try 3 times with 2-second delay
             let success = false;
             for (let i = 0; i < 3; i++) {
                 try {
-                    // Method changed to GET as per backend script
                     await fetch(requestUrl);
                     success = true;
-                    break; // Exit loop on success
+                    break;
                 } catch (error) {
                     console.warn(`Save attempt ${i+1} failed. Retrying...`);
                     if(saveStatus) saveStatus.innerHTML = `<span class="text-orange-500">⏳ جاري إعادة المحاولة (${i+1}/3)...</span>`;
-                    await new Promise(r => setTimeout(r, 2000)); // Wait 2s
+                    await new Promise(r => setTimeout(r, 2000));
                 }
             }
 
             if (success) {
                 if(saveStatus) saveStatus.innerHTML = '<span class="text-green-600 font-bold">✔ تم حفظ النتيجة بنجاح!</span>';
-                setTimeout(() => fetchStudentData(), 1000); // Sync attempts
+                setTimeout(() => fetchStudentData(), 1000); 
             } else {
                 if(saveStatus) saveStatus.innerHTML = '<span class="text-red-600 font-bold">❌ تعذر الحفظ. تأكد من الاتصال.</span>';
             }
@@ -694,10 +770,22 @@
                 return;
             }
 
-            // Local decrement for immediate feedback
             attemptsLeft--;
             const sId = urlParams.get('studentId') || 'visitor';
-            localStorage.setItem(`${ATTEMPTS_KEY}_${sId}`, attemptsLeft);
+            
+            if (sId === 'visitor') {
+                localStorage.setItem(`${ATTEMPTS_KEY}_visitor`, attemptsLeft);
+                if (attemptsLeft === 0) {
+                    localStorage.setItem(`${NEXT_ATTEMPT_KEY}_visitor`, Date.now() + COOLDOWN_MS);
+                    startTimer(Date.now() + COOLDOWN_MS);
+                }
+            } else {
+                localStorage.setItem(`${ATTEMPTS_KEY}_${sId}`, attemptsLeft);
+                if (attemptsLeft === 0) {
+                    localStorage.setItem(`${NEXT_ATTEMPT_KEY}_${sId}`, Date.now() + COOLDOWN_MS);
+                    startTimer(Date.now() + COOLDOWN_MS);
+                }
+            }
             updateAttemptsUI();
 
             let score = 0;
@@ -732,7 +820,6 @@
 
             const finalScore = score * 2; 
             
-            // Save to Backend with Retry
             await saveScoreToBackend(LESSON_KEY, finalScore);
 
             const resultCard = document.getElementById('quiz-results');

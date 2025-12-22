@@ -383,9 +383,9 @@
             <button onclick="closeLesson()" class="mt-8 text-gray-400 font-bold block w-full hover:text-gray-600">العودة للقائمة</button>
         </div>
 
-        <!-- Lesson Content (Open) - iframe فقط يملأ الشاشة -->
-        <div id="open-view" class="w-full h-full relative">
-            <iframe id="lesson-content-iframe" src="" class="fullscreen-iframe-container" allowfullscreen></iframe>
+        <!-- Lesson Content (Open) - تم التعديل ليتم الفتح في رابط خارجي بدلاً من iframe -->
+        <div id="open-view" class="hidden w-full h-full relative">
+             <!-- تم إخفاء الـ iframe لأنه سيتم التوجيه لصفحة جديدة -->
         </div>
 
     </div>
@@ -788,14 +788,14 @@
             // Check lock status
             const lockStatus = checkLessonLockStatus(lesson, index, chapter);
 
-            // Switch Views First
-            document.getElementById('app-container').classList.add('hidden');
-            document.getElementById('lesson-view').classList.remove('hidden');
-
             if (lockStatus.isLocked) {
-                // Show Locked View
-                document.getElementById('open-view').classList.add('hidden');
+                // Show Locked View inside dashboard overlay
+                document.getElementById('app-container').classList.add('hidden');
+                document.getElementById('lesson-view').classList.remove('hidden');
+                
+                // Show Locked Content
                 document.getElementById('locked-view').classList.remove('hidden');
+                document.getElementById('open-view').classList.add('hidden');
                 
                 const dateDisplay = document.getElementById('unlock-date-display');
                 if (lockStatus.date) {
@@ -806,11 +806,8 @@
                 return;
             }
 
-            // If Open
-            document.getElementById('open-view').classList.remove('hidden');
-            document.getElementById('locked-view').classList.add('hidden');
-
-            // --- بناء رابط الدرس مع درجات الألعاب ---
+            // --- إذا كان الدرس مفتوحاً: التوجيه لصفحة الدرس مباشرة ---
+            
             // Calculate total score first
             let totalScore = 0;
             if(currentUser.lessons) Object.values(currentUser.lessons).forEach(v => totalScore += (v.grade || 0));
@@ -823,7 +820,6 @@
             const studentName = encodeURIComponent(currentUser.name || 'زائر');
 
             // إضافة طابع زمني (timestamp) لمنع المتصفح من حفظ نسخة قديمة من الصفحة (Caching)
-            // هذا هو التعديل الجوهري لحل المشكلة
             const timestamp = new Date().getTime();
 
             // بناء الرابط الأساسي
@@ -833,23 +829,22 @@
             lesson.games.forEach((game, idx) => {
                 const gameScore = currentUser?.games?.[game.id]?.grade || 0;
                 const gameMax = game.maxScore || 5;
-                // إضافة متغيرات الألعاب
                 lessonUrl += `&g${idx+1}_title=${encodeURIComponent(game.title)}`;
                 lessonUrl += `&g${idx+1}_id=${game.id}`;
                 lessonUrl += `&g${idx+1}_score=${gameScore}`;
                 lessonUrl += `&g${idx+1}_max=${gameMax}`;
             });
 
-            console.log("Opening Lesson URL with timestamp:", lessonUrl); // للمراجعة في الكونسول
-            document.getElementById('lesson-content-iframe').src = lessonUrl;
+            console.log("Redirecting to Lesson URL:", lessonUrl);
+            
+            // *** التغيير الجوهري هنا: التوجيه المباشر للصفحة ***
+            window.location.href = lessonUrl;
         }
 
         function closeLesson() {
             document.getElementById('lesson-view').classList.add('hidden');
             document.getElementById('app-container').classList.remove('hidden');
             activeLessonId = null;
-            // Clear iframes to stop sound/video
-            document.getElementById('lesson-content-iframe').src = '';
             // Update data in background
             updateData(); 
         }

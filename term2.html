@@ -404,6 +404,11 @@
     <script>
         // *** رابط السكربت الخاص بك ***
         const API_URL = "https://script.google.com/macros/s/AKfycbxqAQlGhNs8k5RwHs6jrWxDiDwaMABSx8a9Fl81O5oVVa5fHRWTwIEvsGy2cSDP4zGLWQ/exec";
+        
+        // *** الرابط الأساسي للملفات ***
+        // يمكنك تغييره هنا إذا قمت بنقل الملفات
+        const BASE_LESSON_URL = "https://ablan-math.github.io/lessons/";
+        const BASE_GAME_URL = "https://ablan-math.github.io/games/";
 
         // --- بيانات المنهج (معرفات c6_l1, g6_1_1 كما طلبت) ---
         const curriculumIndex = {
@@ -530,7 +535,7 @@
             else if (typeof dateInput === 'string' && dateInput.includes('-')) {
                 const parts = dateInput.split('-');
                 if (parts.length === 3 && parts[0].length === 2) { // إذا كان الجزء الأول يوم وليس سنة
-                     dateObj = new Date(parts[2], parts[1] - 1, parts[0]);
+                      dateObj = new Date(parts[2], parts[1] - 1, parts[0]);
                 }
             }
             
@@ -688,19 +693,19 @@
                 } else {
                     // Not started or Locked
                     if (lockStatus.isLocked) {
-                         // Locked Game
-                         // Add a clear lock icon in the corner
-                         gIcon = '<i class="fas fa-lock text-gray-400 absolute top-2 right-2 z-10 text-lg"></i>';
-                         
-                         // Make the background watermark slightly more visible or distinct
-                         largeBgIcon = '<i class="fas fa-lock watermark-icon-glow absolute -bottom-6 -left-4 text-gray-300 transform -rotate-12 pointer-events-none z-0 opacity-40" style="font-size: 6rem;"></i>';
-                         
-                         // Remove opacity-70 from container to make text readable, but keep gray bg
-                         gClass = 'bg-gray-50 border-gray-200';
+                          // Locked Game
+                          // Add a clear lock icon in the corner
+                          gIcon = '<i class="fas fa-lock text-gray-400 absolute top-2 right-2 z-10 text-lg"></i>';
+                          
+                          // Make the background watermark slightly more visible or distinct
+                          largeBgIcon = '<i class="fas fa-lock watermark-icon-glow absolute -bottom-6 -left-4 text-gray-300 transform -rotate-12 pointer-events-none z-0 opacity-40" style="font-size: 6rem;"></i>';
+                          
+                          // Remove opacity-70 from container to make text readable, but keep gray bg
+                          gClass = 'bg-gray-50 border-gray-200';
                     } else {
-                         // Not Started (Ready) - Use Theme Color Border
-                         largeBgIcon = '<i class="fas fa-gamepad watermark-icon-glow absolute -bottom-6 -left-4 text-blue-100 transform -rotate-12 pointer-events-none z-0 opacity-40" style="font-size: 6rem;"></i>';
-                         gClass = 'bg-white border-blue-100'; // Light blue border for ready games
+                          // Not Started (Ready) - Use Theme Color Border
+                          largeBgIcon = '<i class="fas fa-gamepad watermark-icon-glow absolute -bottom-6 -left-4 text-blue-100 transform -rotate-12 pointer-events-none z-0 opacity-40" style="font-size: 6rem;"></i>';
+                          gClass = 'bg-white border-blue-100'; // Light blue border for ready games
                     }
                 }
                 
@@ -811,20 +816,31 @@
             if(currentUser.lessons) Object.values(currentUser.lessons).forEach(v => totalScore += (v.grade || 0));
             if(currentUser.games) Object.values(currentUser.games).forEach(v => totalScore += (v.grade || 0));
 
-            // Construct URL
-            let lessonUrl = `https://ablan-math.github.io/lessons/${lessonId}.html?studentId=${currentUser.id}&classId=${currentUser.classIdentifier}&name=${encodeURIComponent(currentUser.name)}&totalScore=${totalScore}`;
+            // تحديد بيانات الطالب (مع معالجة حالة الزائر)
+            const studentId = currentUser.id || 'visitor';
+            const classId = currentUser.classIdentifier || 'visitor';
+            // ترميز الاسم لضمان عدم حدوث مشاكل في الرابط
+            const studentName = encodeURIComponent(currentUser.name || 'زائر');
+
+            // إضافة طابع زمني (timestamp) لمنع المتصفح من حفظ نسخة قديمة من الصفحة (Caching)
+            // هذا هو التعديل الجوهري لحل المشكلة
+            const timestamp = new Date().getTime();
+
+            // بناء الرابط الأساسي
+            let lessonUrl = `${BASE_LESSON_URL}${lessonId}.html?studentId=${studentId}&name=${studentName}&classId=${classId}&totalScore=${totalScore}&v=${timestamp}`;
             
             // إضافة معلومات درجات الألعاب للرابط
             lesson.games.forEach((game, idx) => {
                 const gameScore = currentUser?.games?.[game.id]?.grade || 0;
                 const gameMax = game.maxScore || 5;
-                // إضافة متغيرات مثل g1_title=اسم اللعبة&g1_id=معرف اللعبة&g1_score=5&g1_max=5
+                // إضافة متغيرات الألعاب
                 lessonUrl += `&g${idx+1}_title=${encodeURIComponent(game.title)}`;
                 lessonUrl += `&g${idx+1}_id=${game.id}`;
                 lessonUrl += `&g${idx+1}_score=${gameScore}`;
                 lessonUrl += `&g${idx+1}_max=${gameMax}`;
             });
 
+            console.log("Opening Lesson URL with timestamp:", lessonUrl); // للمراجعة في الكونسول
             document.getElementById('lesson-content-iframe').src = lessonUrl;
         }
 
@@ -854,8 +870,8 @@
             const studentId = currentUser?.id || 'visitor';
             const classId = currentUser?.classIdentifier || 'visitor';
             
-            // بناء رابط اللعبة: https://ablan-math.github.io/games/{ID}.html
-            const gameUrl = `https://ablan-math.github.io/games/${gameId}.html?studentId=${studentId}&classId=${classId}`;
+            // بناء رابط اللعبة
+            const gameUrl = `${BASE_GAME_URL}${gameId}.html?studentId=${studentId}&classId=${classId}`;
             
             document.getElementById('game-iframe').src = gameUrl;
             document.getElementById('modal-game').classList.remove('hidden');

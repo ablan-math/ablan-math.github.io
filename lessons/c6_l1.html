@@ -472,6 +472,7 @@
 
             const loadingEl = document.getElementById('loading-attempts');
             const displayEl = document.getElementById('attempts-display');
+            // Show loading indicator
             if(loadingEl) loadingEl.classList.remove('hidden');
             if(displayEl) displayEl.classList.add('hidden');
 
@@ -489,15 +490,27 @@
                     const consumed = lessonData.attempts || 0;
                     const maxAttempts = (sId === 'visitor') ? 1 : 3;
                     
-                    // Force update local variable from server truth
+                    // 1. Update attempts from server (The Truth)
                     attemptsLeft = Math.max(0, maxAttempts - consumed);
                     
+                    // 2. Logic: Server vs Local Storage
                     if (!lessonData.allowed) {
+                        // Case A: Server says BLOCKED
                         attemptsLeft = 0;
                         if (lessonData.waitTime > 0) {
                             localStorage.setItem(`${NEXT_ATTEMPT_KEY}_${sId}`, Date.now() + lessonData.waitTime);
                             startTimer(Date.now() + lessonData.waitTime);
                         }
+                    } else {
+                        // Case B: Server says ALLOWED (You reset the sheet)
+                        // IMPORTANT: Force clear any local locks
+                        localStorage.removeItem(`${NEXT_ATTEMPT_KEY}_${sId}`);
+                        clearInterval(timerInterval); // Stop local timer
+                        const timerTop = document.getElementById('timer-top-container');
+                        if(timerTop) timerTop.classList.add('hidden'); // Hide timer UI
+                        
+                        // Ensure local storage matches server attempts
+                        localStorage.setItem(`${ATTEMPTS_KEY}_${sId}`, attemptsLeft);
                     }
                     
                     const scoreEl = document.getElementById('student-score');

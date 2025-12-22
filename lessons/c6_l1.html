@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <!-- SYSTEM COMPLIANCE LOG: ServerAuthority=ABSOLUTE | LocalStorage=Transient | SyncStatus=Visible -->
+    <!-- SYSTEM COMPLIANCE LOG: Method=GET | ServerAuthority=ABSOLUTE | AutoClearTimer=YES -->
     <title>٦-١ ضرب وحيدات الحد</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -278,11 +278,7 @@
                          <div id="loading-attempts" class="hidden"><div class="loader w-4 h-4"></div></div>
                          <div id="attempts-display" class="flex flex-col items-center">
                             <span class="block text-xl md:text-2xl font-bold text-purple-600" id="attempts-count">-</span>
-                            <div class="flex items-center gap-1 text-[10px] md:text-xs text-gray-400">
-                                <span>محاولات</span>
-                            </div>
-                            <!-- Status Dot: Green=Connected, Red=Error -->
-                            <span id="sync-status" class="w-2 h-2 rounded-full bg-gray-300 mt-1" title="حالة الاتصال"></span>
+                            <span class="text-[10px] md:text-xs text-gray-400">محاولات</span>
                         </div>
                          <div id="timer-top-container" class="hidden mt-1">
                             <span class="block text-xs font-bold text-red-500 font-mono" id="timer-display-top">00:00:00</span>
@@ -477,12 +473,8 @@
 
             const loadingEl = document.getElementById('loading-attempts');
             const displayEl = document.getElementById('attempts-display');
-            const syncStatus = document.getElementById('sync-status');
-            
-            // Show loading indicator
             if(loadingEl) loadingEl.classList.remove('hidden');
             if(displayEl) displayEl.classList.add('hidden');
-            if(syncStatus) { syncStatus.className = 'w-2 h-2 rounded-full bg-yellow-400 mt-1'; syncStatus.title = 'جارٍ الاتصال...'; }
 
             try {
                 const sId = urlParams.get('studentId') || 'visitor';
@@ -498,57 +490,36 @@
                     const consumed = lessonData.attempts || 0;
                     const maxAttempts = (sId === 'visitor') ? 1 : 3;
                     
-                    // 1. Force Authority: attemptsLeft is simply (3 - consumed)
-                    // If you reset sheet (consumed=0), attemptsLeft becomes 3 immediately.
+                    // 1. Update attempts from server (The Truth)
                     attemptsLeft = Math.max(0, maxAttempts - consumed);
                     
                     // 2. Logic: Server vs Local Storage
-                    // If server says allowed (which happens if attempts < 3), we force unlock
-                    // We ignore 'allowed' flag if attempts < maxAttempts just to be safe and responsive
-                    if (attemptsLeft > 0) {
-                        // UNLOCK EVERYTHING
-                        
-                        // Force clear local locks
-                        localStorage.removeItem(`${NEXT_ATTEMPT_KEY}_${sId}`);
-                        
-                        // KILL THE TIMER
-                        if (timerInterval) clearInterval(timerInterval);
-                        
-                        // Hide timer UIs
-                        document.getElementById('timer-top-container').classList.add('hidden');
-                        document.getElementById('timer-bottom-container').classList.add('hidden');
-                        
-                        document.getElementById('retake-quiz-btn').classList.remove('hidden');
-                        
-                        const submitBtn = document.querySelector('#quizForm button[type="submit"]');
-                        if(submitBtn) {
-                             submitBtn.disabled = false;
-                             submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-                             submitBtn.textContent = "تحقق من الإجابات";
-                        }
-                    } else {
-                        // Server says BLOCKED (0 attempts left)
+                    if (!lessonData.allowed) {
+                        // Case A: Server says BLOCKED
                         attemptsLeft = 0;
                         if (lessonData.waitTime > 0) {
-                            const unlockTime = Date.now() + lessonData.waitTime;
-                            localStorage.setItem(`${NEXT_ATTEMPT_KEY}_${sId}`, unlockTime);
-                            startTimer(unlockTime);
+                            localStorage.setItem(`${NEXT_ATTEMPT_KEY}_${sId}`, Date.now() + lessonData.waitTime);
+                            startTimer(Date.now() + lessonData.waitTime);
                         }
+                    } else {
+                        // Case B: Server says ALLOWED (You reset the sheet)
+                        // IMPORTANT: Force clear any local locks
+                        localStorage.removeItem(`${NEXT_ATTEMPT_KEY}_${sId}`);
+                        clearInterval(timerInterval); // Stop local timer
+                        const timerTop = document.getElementById('timer-top-container');
+                        if(timerTop) timerTop.classList.add('hidden'); // Hide timer UI
+                        
+                        // Ensure local storage matches server attempts
+                        localStorage.setItem(`${ATTEMPTS_KEY}_${sId}`, attemptsLeft);
                     }
-                    
-                    // Sync local storage for attempts count
-                    localStorage.setItem(`${ATTEMPTS_KEY}_${sId}`, attemptsLeft);
                     
                     const scoreEl = document.getElementById('student-score');
                     if (lessonData.grade > 0 && scoreEl) {
                         scoreEl.textContent = lessonData.grade;
                     }
-                    
-                    if(syncStatus) { syncStatus.className = 'w-2 h-2 rounded-full bg-green-500 mt-1'; syncStatus.title = 'متصل'; }
                 }
             } catch (error) {
                 console.error("Sync Error:", error);
-                if(syncStatus) { syncStatus.className = 'w-2 h-2 rounded-full bg-red-500 mt-1'; syncStatus.title = 'فشل الاتصال'; }
             } finally {
                 updateAttemptsUI();
                 if(loadingEl) loadingEl.classList.add('hidden');
@@ -696,12 +667,8 @@
             let success = false;
             for (let i = 0; i < 3; i++) {
                 try {
-                    // Using no-cors means we assume success if no network error throws
-                    await fetch(requestUrl, {
-                        method: 'POST',
-                        mode: 'no-cors', 
-                        headers: {'Content-Type': 'application/x-www-form-urlencoded'}
-                    });
+                    // Method changed to GET as per backend script
+                    await fetch(requestUrl);
                     success = true;
                     break; // Exit loop on success
                 } catch (error) {

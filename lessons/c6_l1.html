@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <!-- SYSTEM COMPLIANCE LOG: AutoRetrySave=YES | ForceServerSync=YES | SecureAttempts=YES -->
+    <!-- SYSTEM COMPLIANCE LOG: ForceServerTruth=YES | ManualSyncBtn=YES | StrictReset=YES -->
     <title>٦-١ ضرب وحيدات الحد</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -276,9 +276,13 @@
                     </div>
                     <div class="text-center">
                          <div id="loading-attempts" class="hidden"><div class="loader w-4 h-4"></div></div>
-                         <div id="attempts-display">
+                         <div id="attempts-display" class="flex flex-col items-center">
                             <span class="block text-xl md:text-2xl font-bold text-purple-600" id="attempts-count">-</span>
-                            <span class="text-[10px] md:text-xs text-gray-400">محاولات</span>
+                            <div class="flex items-center gap-1 text-[10px] md:text-xs text-gray-400">
+                                <span>محاولات</span>
+                                <button onclick="fetchStudentData()" class="p-1 hover:text-blue-600" title="تحديث الحالة"><i class="fas fa-sync-alt"></i></button>
+                            </div>
+                            <span id="sync-status" class="w-2 h-2 rounded-full bg-gray-300 mt-1" title="حالة الاتصال"></span>
                         </div>
                          <div id="timer-top-container" class="hidden mt-1">
                             <span class="block text-xs font-bold text-red-500 font-mono" id="timer-display-top">00:00:00</span>
@@ -359,6 +363,7 @@
             let hasGames = false;
             games.forEach((game, idx) => {
                 const i = idx + 1;
+                // Try URL params first, else default
                 const title = urlParams.get(`g${i}_title`) || game.title;
                 const id = urlParams.get(`g${i}_id`) || game.id;
                 const score = parseInt(urlParams.get(`g${i}_score`)) || 0;
@@ -472,9 +477,12 @@
 
             const loadingEl = document.getElementById('loading-attempts');
             const displayEl = document.getElementById('attempts-display');
+            const syncStatus = document.getElementById('sync-status');
+            
             // Show loading indicator
             if(loadingEl) loadingEl.classList.remove('hidden');
             if(displayEl) displayEl.classList.add('hidden');
+            if(syncStatus) { syncStatus.className = 'w-2 h-2 rounded-full bg-yellow-400 mt-1'; syncStatus.title = 'جارٍ الاتصال...'; }
 
             try {
                 const sId = urlParams.get('studentId') || 'visitor';
@@ -517,9 +525,12 @@
                     if (lessonData.grade > 0 && scoreEl) {
                         scoreEl.textContent = lessonData.grade;
                     }
+                    
+                    if(syncStatus) { syncStatus.className = 'w-2 h-2 rounded-full bg-green-500 mt-1'; syncStatus.title = 'متصل'; }
                 }
             } catch (error) {
                 console.error("Sync Error:", error);
+                if(syncStatus) { syncStatus.className = 'w-2 h-2 rounded-full bg-red-500 mt-1'; syncStatus.title = 'فشل الاتصال'; }
             } finally {
                 updateAttemptsUI();
                 if(loadingEl) loadingEl.classList.add('hidden');
@@ -554,6 +565,8 @@
             }
         }
         
+        let timerInterval;
+        
         function updateAttemptsUI() {
             const countEl = document.getElementById('attempts-count');
             if(countEl) countEl.textContent = convertToArabic(attemptsLeft);
@@ -582,11 +595,13 @@
         }
         
         function startTimer(targetTime) {
+             clearInterval(timerInterval);
              const tick = () => {
                 const now = Date.now();
                 const diff = targetTime - now;
                 if (diff <= 0) {
-                    window.location.reload();
+                    clearInterval(timerInterval);
+                    fetchStudentData(); // Check server instead of full reload
                     return;
                 }
                 const hours = Math.floor((diff / (1000 * 60 * 60)));
@@ -603,7 +618,7 @@
                 }
                 if(bottomDisplay) bottomDisplay.textContent = timeStrAr;
             };
-            setInterval(tick, 1000);
+            timerInterval = setInterval(tick, 1000);
             tick();
         }
 

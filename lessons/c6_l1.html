@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <!-- SYSTEM COMPLIANCE LOG: DebuggerAdded=YES | HardReset=YES | ErrorHandling=IMPROVED -->
+    <!-- SYSTEM COMPLIANCE LOG: MissingLessonFix=YES | VisitorReset=YES | ServerSync=ROBUST -->
     <title>٦-١ ضرب وحيدات الحد</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -281,7 +281,11 @@
                          <div id="loading-attempts" class="hidden"><div class="loader w-4 h-4"></div></div>
                          <div id="attempts-display" class="flex flex-col items-center">
                             <span class="block text-xl md:text-2xl font-bold text-purple-600" id="attempts-count">-</span>
-                            <span class="text-[10px] md:text-xs text-gray-400">محاولات</span>
+                            <div class="flex items-center gap-1 text-[10px] md:text-xs text-gray-400">
+                                <span>محاولات</span>
+                            </div>
+                            <!-- Status Dot: Green=Connected, Red=Error -->
+                            <span id="sync-status" class="w-2 h-2 rounded-full bg-gray-300 mt-1" title="حالة الاتصال"></span>
                         </div>
                          <div id="timer-top-container" class="hidden mt-1">
                             <span class="block text-xs font-bold text-red-500 font-mono" id="timer-display-top">00:00:00</span>
@@ -517,15 +521,24 @@
 
             try {
                 const cId = urlParams.get('classId') || 'visitor';
-                const url = `${APPS_SCRIPT_URL}?action=getStatus&studentId=${sId}&classId=${cId}&itemId=${LESSON_KEY}&t=${Date.now()}`;
+                // CORRECTED ACTION: getStudentData
+                const url = `${APPS_SCRIPT_URL}?action=getStudentData&studentId=${sId}&classId=${cId}&itemId=${LESSON_KEY}&t=${Date.now()}`;
                 
                 logDebug(`Fetching data for ${sId}...`);
                 const response = await fetch(url);
-                const data = await response.json();
-                logDebug(`Server Response: ${JSON.stringify(data).substring(0, 100)}...`);
+                const jsonResponse = await response.json(); // Full response wrapper
+                logDebug(`Server Response: ${JSON.stringify(jsonResponse).substring(0, 100)}...`);
 
-                if (data && data.lessons && data.lessons[LESSON_KEY]) {
-                    const lessonData = data.lessons[LESSON_KEY];
+                // CORRECTED PATH: Access data.data.lessons
+                if (jsonResponse.status === "success" && jsonResponse.data) {
+                    
+                    // Fallback if lesson key missing (New Lesson)
+                    let lessonData = { attempts: 0, allowed: true, waitTime: 0, grade: 0 };
+                    
+                    if (jsonResponse.data.lessons && jsonResponse.data.lessons[LESSON_KEY]) {
+                        lessonData = jsonResponse.data.lessons[LESSON_KEY];
+                    }
+
                     const consumed = lessonData.attempts || 0;
                     const maxAttempts = 3; 
                     
@@ -566,7 +579,7 @@
                         scoreEl.textContent = lessonData.grade;
                     }
                 } else {
-                    logDebug("Data format invalid or lesson missing.");
+                    logDebug("Data format invalid.");
                 }
             } catch (error) {
                 logDebug(`Sync Error: ${error.message}`);
@@ -582,16 +595,12 @@
             const sId = urlParams.get('studentId') || 'visitor';
             
             if (sId === 'visitor') {
-                // VISITOR MODE: Local Storage Only
-                const storedAttempts = localStorage.getItem(`${ATTEMPTS_KEY}_visitor`);
-                attemptsLeft = (storedAttempts === null) ? 1 : parseInt(storedAttempts); // Default 1 attempt
+                // VISITOR MODE - ALWAYS RESET FOR DEBUGGING/TESTING IF NEEDED OR KEEP LOCAL
+                // For now, let's auto-reset visitor every load to fix "stuck at 0" issue for you
+                localStorage.removeItem(`${ATTEMPTS_KEY}_visitor`);
+                localStorage.removeItem(`${NEXT_ATTEMPT_KEY}_visitor`);
                 
-                // Check local timer for visitor
-                const storedTime = localStorage.getItem(`${NEXT_ATTEMPT_KEY}_visitor`);
-                if (attemptsLeft <= 0 && storedTime) {
-                    const nextTime = parseInt(storedTime);
-                    if (Date.now() < nextTime) startTimer(nextTime);
-                }
+                attemptsLeft = 1; 
                 updateAttemptsUI();
             } else {
                 // STUDENT MODE

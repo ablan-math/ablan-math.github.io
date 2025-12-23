@@ -26,6 +26,7 @@
 </head>
 <body class="bg-gray-100">
     <div id="app-container" class="min-h-screen flex flex-col">
+        <!-- الهيدر المطور مع زر الرجوع والاسم -->
         <header id="main-header" class="bg-white shadow-md sticky top-0 z-50"></header>
         
         <main class="container mx-auto max-w-4xl my-8 px-4 flex-grow">
@@ -63,9 +64,7 @@
                 <section class="mb-12">
                     <h2 class="text-2xl font-bold text-gray-800 mb-4">🎯 ثانياً: حدد الطريقة الأفضل (تفاعلي)</h2>
                     <p class="mb-4 text-gray-600">اضغط على الطريقة التي تراها مناسبة لكل نظام وشاهد الشرح المخصص:</p>
-                    <div id="choice-container" class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <!-- يتم إضافة الأمثلة هنا برمجياً -->
-                    </div>
+                    <div id="choice-container" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
                 </section>
 
                 <!-- القسم الثالث: تطبيقات من واقع الحياة -->
@@ -139,67 +138,50 @@
 
     function getStudentData() {
         const params = new URLSearchParams(window.location.search);
-        const data = {
-            id: params.get('studentId') || localStorage.getItem('sId') || null,
-            classId: params.get('classId') || localStorage.getItem('cId') || null,
-            name: params.get('name') || "زائر"
-        };
-        if(data.id) { localStorage.setItem('sId', data.id); localStorage.setItem('cId', data.classId); }
-        return data.id ? data : null;
+        
+        // محاولة جلب البيانات من الرابط أولاً
+        let sId = params.get('studentId');
+        let cId = params.get('classId');
+        let name = params.get('name');
+
+        // إذا لم تكن في الرابط، ابحث في التخزين المحلي
+        if (!sId) sId = localStorage.getItem('sId');
+        if (!cId) cId = localStorage.getItem('cId');
+        if (!name) name = localStorage.getItem('sName');
+
+        if(sId) {
+            localStorage.setItem('sId', sId);
+            localStorage.setItem('cId', cId || "");
+            if(name) localStorage.setItem('sName', name);
+            return { id: sId, classId: cId, name: name || "طالب" };
+        }
+        return null;
     }
 
     function buildHeader() {
+        const header = document.getElementById('main-header');
         const name = studentData ? studentData.name : "زائر";
-        document.getElementById('main-header').innerHTML = `
+        header.innerHTML = `
             <div class="container mx-auto px-6 py-4 flex justify-between items-center">
-                <div><h1 class="text-xl font-bold text-blue-800">منصة الرياضيات التفاعلية</h1></div>
-                <div class="text-left font-bold text-gray-700">${name}</div>
+                <div>
+                    <h1 class="text-xl font-bold text-blue-800">منصة الرياضيات التفاعلية</h1>
+                    <p class="text-xs text-gray-500">الدرس ٥-٥: تطبيقات الأنظمة</p>
+                </div>
+                <div class="text-left">
+                    <p class="font-bold text-gray-700">${name}</p>
+                    <a href="javascript:void(0)" onclick="window.history.back()" class="text-sm text-blue-600 hover:underline font-bold flex items-center justify-end">
+                        رجوع &rarr;
+                    </a>
+                </div>
             </div>`;
     }
 
-    // القسم الثاني المطور بشرح الإجابات الصحيحة والخاطئة
     function renderInteractiveChoices() {
         const challenges = [
-            { 
-                eq: 'ص = ٣س + ١<br>٢س + ص = ٩', 
-                correct: 'التعويض',
-                feedbacks: {
-                    'التعويض': 'صحيح! لأن المتغير (ص) معزول في طرف وحده، مما يسهل استخدامه مباشرة في المعادلة الأخرى.',
-                    'الحذف بالجمع': 'خاطئ، لأن المعاملات ليست متعاكسة، والتعويض هنا أسرع بكثير لوجود (ص) جاهزة.',
-                    'الحذف بالطرح': 'خاطئ، لأن المعاملات ليست متساوية، والتعويض هنا سيوفر عليك خطوات الترتيب.',
-                    'الحذف بالضرب': 'خاطئ، الضرب يستخدم عندما لا يوجد معامل ١، وهنا (ص) معاملها ١ ومعزولة، فلا داعي للضرب.'
-                }
-            },
-            { 
-                eq: '٤س - ص = ٥<br>٤س + ص = ١١', 
-                correct: 'الحذف بالجمع',
-                feedbacks: {
-                    'الحذف بالجمع': 'صحيح! لأن معامل (ص) هو (-١) و (+١)، وهما معكوسان جمعيان يختفيان مباشرة بالجمع.',
-                    'التعويض': 'خاطئ، لا يوجد متغير معزول حالياً، والحذف بالجمع يعطيك الحل في خطوة واحدة دون حاجة لعزل متغير.',
-                    'الحذف بالطرح': 'خاطئ، بالرغم من أنه يحذف س، إلا أن الجمع أسهل هنا لتجنب أخطاء الإشارات التي قد تقع مع الطرح.',
-                    'الحذف بالضرب': 'خاطئ، لا حاجة للضرب وتغيير الأرقام ما دامت المعادلتان جاهزتين للحذف بالجمع مباشرة.'
-                }
-            },
-            { 
-                eq: '٣س + ٢ص = ٨<br>٣س - ٥ص = ١', 
-                correct: 'الحذف بالطرح',
-                feedbacks: {
-                    'الحذف بالطرح': 'صحيح! لأن معامل (س) في المعادلتين هو (٣)، وطرحهما يحذف (س) فوراً ويترك لك مجهولاً واحداً.',
-                    'التعويض': 'خاطئ، لا يوجد متغير معامله ١ ليعزل بسهولة، ستحتاج لاستخدام الكسور إذا اخترت التعويض هنا.',
-                    'الحذف بالجمع': 'خاطئ، الجمع هنا لن يحذف أي متغير لأن المعاملات ليست معكوسة جمعياً (٣+٣ = ٦ وليس ٠).',
-                    'الحذف بالضرب': 'خاطئ، لا حاجة لضرب المعادلات وتكبير الأرقام ما دام (س) جاهز للحذف بالطرح المباشر.'
-                }
-            },
-            { 
-                eq: '٢س + ٣ص = ٧<br>٥س + ٤ص = ١٢', 
-                correct: 'الحذف بالضرب',
-                feedbacks: {
-                    'الحذف بالضرب': 'صحيح! لأنه لا يوجد متغير معامله ١، ولا توجد معاملات متساوية أو متعاكسة، لذا الضرب ضروري.',
-                    'التعويض': 'خاطئ، اختيار التعويض هنا سيعقد الحل جداً بسبب ظهور الكسور عند عزل أي متغير.',
-                    'الحذف بالجمع': 'خاطئ، الجمع المباشر لن يحذف أي متغير لأن الأرقام مختلفة تماماً.',
-                    'الحذف بالطرح': 'خاطئ، الطرح المباشر لن يحذف أي متغير لأن المعاملات غير متساوية.'
-                }
-            }
+            { eq: 'ص = ٣س + ١<br>٢س + ص = ٩', correct: 'التعويض', feedbacks: { 'التعويض': 'صحيح! لأن ص جاهزة.', 'الحذف بالجمع': 'خاطئ، التعويض هنا أسرع.', 'الحذف بالطرح': 'خاطئ، المعاملات غير متساوية.', 'الحذف بالضرب': 'خاطئ، لا حاجة للضرب هنا.' } },
+            { eq: '٤س - ص = ٥<br>٤س + ص = ١١', correct: 'الحذف بالجمع', feedbacks: { 'الحذف بالجمع': 'صحيح! لأن معاملات ص متعاكسة.', 'التعويض': 'خاطئ، لا يوجد متغير معزول حالياً.', 'الحذف بالطرح': 'خاطئ، الجمع أسهل لتجنب أخطاء الإشارات.', 'الحذف بالضرب': 'خاطئ، المعادلات جاهزة للحذف بالجمع.' } },
+            { eq: '٣س + ٢ص = ٨<br>٣س - ٥ص = ١', correct: 'الحذف بالطرح', feedbacks: { 'الحذف بالطرح': 'صحيح! لأن معامل س متساوٍ (٣).', 'التعويض': 'خاطئ، لا يوجد متغير معامله ١ بسهولة.', 'الحذف بالجمع': 'خاطئ، الجمع لن يحذف أي متغير.', 'الحذف بالضرب': 'خاطئ، س جاهز للحذف بالطرح.' } },
+            { eq: '٢س + ٣ص = ٧<br>٥س + ٤ص = ١٢', correct: 'الحذف بالضرب', feedbacks: { 'الحذف بالضرب': 'صحيح! لعدم وجود متغير معامله ١ أو معاملات متساوية.', 'التعويض': 'خاطئ، سيؤدي لظهور كسور معقدة.', 'الحذف بالجمع': 'خاطئ، لن يحذف أي متغير بالجمع.', 'الحذف بالطرح': 'خاطئ، لن يحذف أي متغير بالطرح.' } }
         ];
         const container = document.getElementById('choice-container');
         challenges.forEach((c, i) => {
@@ -220,18 +202,11 @@
         const fb = document.getElementById(`quick-feedback-${idx}`);
         fb.classList.remove('hidden');
         fb.innerHTML = feedbackText;
-        
-        if(selected === correct) {
-            fb.className = "mt-3 p-2 rounded text-center text-xs font-bold text-green-700 bg-green-50 border-green-200";
-        } else {
-            fb.className = "mt-3 p-2 rounded text-center text-xs font-bold text-red-700 bg-red-50 border-red-200";
-        }
+        fb.className = (selected === correct) ? "mt-3 p-2 rounded text-center text-xs font-bold text-green-700 bg-green-50 border-green-200" : "mt-3 p-2 rounded text-center text-xs font-bold text-red-700 bg-red-50 border-red-200";
     }
 
     function renderRealLifeExamples() {
-        const examples = [
-            { id: 'shop', title: '🛒 التسوق', problem: '٤ كراسات وحقيبة بـ ١٠٠ ريال، وكراستان وحقيبة بـ ٦٠ ريال. ما ثمن الكراسة؟', steps: ['المعادلات: ٤ك+ح=١٠٠ ، ٢ك+ح=٦٠', 'نستخدم الحذف بالطرح لأن معامل ح متساوٍ.', 'بالطرح: ٢ك = ٤٠ ريال.', 'إذن الكراسة الواحدة بـ ٢٠ ريال.'] }
-        ];
+        const examples = [ { id: 'shop', title: '🛒 التسوق', problem: '٤ كراسات وحقيبة بـ ١٠٠ ريال، وكراستان وحقيبة بـ ٦٠ ريال. ما ثمن الكراسة؟', steps: ['المعادلات: ٤ك+ح=١٠٠ ، ٢ك+ح=٦٠', 'نستخدم الحذف بالطرح لأن معامل ح متساوٍ.', 'بالطرح: ٢ك = ٤٠ ريال.', 'إذن الكراسة الواحدة بـ ٢٠ ريال.'] } ];
         const container = document.getElementById('apps-container');
         examples.forEach(ex => {
             container.innerHTML += `
@@ -293,13 +268,11 @@
             }
             document.getElementById(`hint-${i}`).classList.remove('hidden');
         });
-
         const grade = (score / 5) * 10;
         document.getElementById('results-area').classList.remove('hidden');
         const scoreDisp = document.getElementById('score-display');
         scoreDisp.textContent = `${grade} / 10`;
         scoreDisp.setAttribute('dir', 'ltr');
-
         if (studentData) saveResult(grade);
         document.getElementById('submit-quiz').disabled = true;
         document.getElementById('submit-quiz').classList.add('opacity-50');
@@ -308,14 +281,14 @@
     function saveResult(grade) {
         const status = document.getElementById('save-status');
         status.innerHTML = "⏳ جارٍ حفظ الدرجة...";
-        status.className = "py-2 px-4 bg-blue-100 text-blue-700";
+        status.className = "py-2 px-4 bg-blue-100 text-blue-700 rounded-lg";
         const url = `${SCRIPT_URL}?action=saveGrade&studentId=${studentData.id}&classId=${studentData.classId}&lessonId=c5_l5&grade=${grade}`;
         fetch(url).then(() => {
-            status.innerHTML = "✅ تم حفظ نتيجتك في المنصة";
-            status.className = "py-2 px-4 bg-green-100 text-green-700";
+            status.innerHTML = "✅ تم حفظ نتيجتك في المنصة بنجاح";
+            status.className = "py-2 px-4 bg-green-100 text-green-700 rounded-lg";
         }).catch(() => {
-            status.innerHTML = "⚠️ فشل الحفظ، صوّر الشاشة للمعلم";
-            status.className = "py-2 px-4 bg-red-100 text-red-700";
+            status.innerHTML = "⚠️ فشل الحفظ التلقائي، صوّر الشاشة للمعلم";
+            status.className = "py-2 px-4 bg-red-100 text-red-700 rounded-lg";
         });
     }
 
@@ -324,7 +297,6 @@
         document.getElementById('modal-body').innerHTML = activeQuestions[i].explanation;
         document.getElementById('modal').classList.remove('hidden');
     }
-
     function closeModal() { document.getElementById('modal').classList.add('hidden'); }
     </script>
 </body>

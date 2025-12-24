@@ -70,13 +70,45 @@
         .leaderboard-table th, .leaderboard-table td { padding: 0.75rem 0.5rem; text-align: right; border-bottom: 1px solid #e5e7eb; vertical-align: middle; }
         .leaderboard-table th { font-weight: 700; color: #4b5563; }
         .leaderboard-table tr:last-child td { border-bottom: none; }
-        .leaderboard-table .rank { font-weight: 700; color: #1d4ed8; width: 40px; text-align: center; }
+        .leaderboard-table .rank { width: 60px; text-align: center; vertical-align: middle; } /* Adjusted width for stars */
         .leaderboard-table .score { text-align: left; line-height: 1.2; }
         .leaderboard-table tr.current-student { background-color: #eef2ff; }
         .current-student-rank-card { margin-top: 1rem; padding: 0.75rem; background-color: #e0e7ff; border-radius: 0.75rem; text-align: center; font-weight: 700; color: #312e81; }
         .expand-leaderboard-btn { width: 100%; margin-top: 0.75rem; padding: 0.5rem; background-color: #f3f4f6; border: 1px solid #d1d5db; border-radius: 0.5rem; font-weight: 600; color: #4b5563; cursor: pointer; transition: background-color 0.2s; }
         .expand-leaderboard-btn:hover { background-color: #e5e7eb; }
         .expand-leaderboard-btn .fas { transition: transform 0.3s; }
+
+        /* Rank Star Styles for Leaderboard */
+        .rank-star-container {
+            position: relative;
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            width: 40px;
+            height: 40px;
+        }
+        .rank-star-icon {
+            font-size: 2.2rem;
+            filter: drop-shadow(0 2px 2px rgba(0,0,0,0.1));
+        }
+        .rank-star-gold { color: #FFD700; }
+        .rank-star-silver { color: #C0C0C0; }
+        .rank-star-bronze { color: #CD7F32; } /* Fallback */
+        .rank-star-number {
+            position: absolute;
+            color: #fff;
+            font-weight: 900;
+            font-size: 0.9rem;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -45%); /* Slight adjust for visual center */
+        }
+        .rank-simple-number {
+            font-weight: 700;
+            color: #6b7280;
+            font-size: 1.1rem;
+        }
 
         /* --- Lesson & Path Styles --- */
         .lesson-checkpoint.locked .lesson-card, .lesson-checkpoint.locked .game-card { opacity: 0.6; background-color: #f3f4f6; pointer-events: none; cursor: not-allowed; }
@@ -517,6 +549,17 @@
             }
         };
 
+        // CALCULATE TOTAL PLATFORM SCORE FOR PERCENTAGE
+        let totalPlatformMaxScore = 0;
+        Object.values(curriculumIndex).forEach(chapter => {
+            chapter.lessons.forEach(lesson => {
+                totalPlatformMaxScore += (lesson.maxScore || 10);
+                (lesson.games || []).forEach(game => {
+                    totalPlatformMaxScore += (game.maxScore || 5);
+                });
+            });
+        });
+
         const preloader = document.getElementById('preloader');
         const loginView = document.getElementById('login-view');
         const appContainer = document.getElementById('app-container');
@@ -871,23 +914,34 @@
                 }
             }
 
-            // --- STAR 3: FINAL STAR (الختام) ---
+            // --- STAR 3: FINAL STAR (الختام / نجم المنصة) ---
             let star3Html = '';
             
-            // 1. Check Date First (Absolute Priority) - Looking for 'star_final'
-            const finalDateStr = (studentData.lessonRules && studentData.lessonRules['star_final']) ? studentData.lessonRules['star_final'].value : null;
+            // 1. Check Date First (Absolute Priority) 
+            // Try 'star_final' first, then 'star_completion' as fallback
+            const rules = studentData.lessonRules || {};
+            const finalRule = rules['star_final'] || rules['star_completion'];
+            const finalDateStr = finalRule ? finalRule.value : null;
+            
             let isFinalLocked = true;
 
             if (finalDateStr) {
-                const finalDate = parseDateAsLocal(finalDateStr);
-                if (today < finalDate) {
-                    isFinalLocked = true;
+                if (finalRule.method === 'يدوي' && finalRule.value === 'مفتوح') {
+                     isFinalLocked = false;
                 } else {
-                    isFinalLocked = false;
+                    const finalDate = parseDateAsLocal(finalDateStr);
+                    if (today < finalDate) {
+                        isFinalLocked = true;
+                    } else {
+                        isFinalLocked = false;
+                    }
                 }
             } else {
                 isFinalLocked = true;
             }
+            
+            // Allow teacher access always
+            if (studentData.role === 'teacher') isFinalLocked = false;
 
             if (isFinalLocked) {
                 // SHOW LOCK UI WITH DATE
@@ -901,7 +955,8 @@
             } else {
                 // DATE IS OPEN - NOW CHECK SCORE
                 // Note: We use 'finalFrozen' data if available (passed from GAS)
-                const finalFrozenRaw = studentData.finalFrozen || studentData.completionFrozen; // Fallback if name differs
+                // Also check 'completionFrozen' as a fallback just in case old data persists
+                const finalFrozenRaw = studentData.finalFrozen || studentData.completionFrozen; 
                 const hasFinalFrozen = (finalFrozenRaw !== null && finalFrozenRaw !== undefined && finalFrozenRaw !== "");
                 
                 let finalScore = 0;
@@ -909,13 +964,14 @@
                 if (hasFinalFrozen) {
                     finalScore = parseFloat(finalFrozenRaw) * 100;
                 } else {
-                    finalScore = sheetInteractionScore; // Or different dynamic logic if applicable
+                    finalScore = sheetInteractionScore; // Fallback to current calc
                 }
 
-                // Check Medal Status (Standard Gold/Silver or strict 95? Using standard logic but highlighting based on score)
-                const finalMedal = getMedalStatus(finalScore, { gold: 85, silver: 55, bronze: 999 });
+                // Check Medal Status - UPDATED TO 95% GOLD, 80% SILVER
+                const finalMedal = getMedalStatus(finalScore, { gold: 95, silver: 80, bronze: 999 });
 
                 if (finalMedal) {
+                     // Active Star
                      star3Html = `
                         <div class="star-badge active" title="${hasFinalFrozen ? 'نسبة مثبتة' : 'نسبة تفاعل'}: ${formatDecimal(finalScore)}%">
                             ${getStarSVG(finalMedal.type)}
@@ -924,6 +980,7 @@
                             <div class="star-score-box" dir="ltr">${formatDecimal(finalScore)}%</div>
                         </div>`;
                 } else {
+                     // Faded Star (Did not deserve)
                      star3Html = `
                         <div class="star-badge" style="opacity:0.8">
                             <i class="fas fa-star text-gray-300" style="font-size: 2.5rem;"></i>
@@ -1077,7 +1134,8 @@
                     if (response.status === 'success' && response.data) {
                         const data = response.data;
                         grid.innerHTML = ''; 
-                        grid.appendChild(createLeaderboardCard('أوائل جميع الفصول', 'مجموع النقاط', data.overallTop10, currentStudent.id, data.ranks.overall));
+                        // UPDATED: Title to "نجوم المنصة" instead of "أوائل جميع الفصول"
+                        grid.appendChild(createLeaderboardCard('نجوم المنصة', 'مجموع النقاط', data.overallTop10, currentStudent.id, data.ranks.overall));
                         grid.appendChild(createLeaderboardCard(`أوائل فصل ${currentStudent.class}`, 'مجموع النقاط', data.classTop10, currentStudent.id, data.ranks.class));
                         grid.appendChild(createLeaderboardCard('أوائل الاختبار التشخيصي', 'المعدل', data.diagnosticTop10, currentStudent.id, data.ranks.diagnostic, true));
                         loader.classList.add('hidden');
@@ -1097,22 +1155,90 @@
             card.className = 'leaderboard-card';
             const uniqueId = `leaderboard-${title.replace(/[\s/]/g, '-')}`;
 
-            let tableRows = data.slice(0, 10).map((student, index) => {
+            // Helper to calculate score percentage for the general leaderboard
+            // Assuming totalPlatformMaxScore is calculated
+            const getPercentage = (score) => {
+                if (isDiagnostic) return score; // Diagnostic comes as percentage already or distinct metric
+                if (totalPlatformMaxScore > 0) return (score / totalPlatformMaxScore) * 100;
+                return 0;
+            };
+
+            // Calculate ranks considering ties
+            let currentRank = 1;
+            let previousScore = -1;
+            let displayRankData = [];
+
+            data.forEach((student, index) => {
+                let studentScore = isDiagnostic ? student.diagnosticGrade : student.totalScore;
+                
+                // If score is different from previous, update rank to current index + 1 (Standard Competition Ranking) 
+                // OR Dense Ranking (1, 1, 2)? 
+                // User requirement: "If multiple students took 100%, record number 1 on all of them."
+                // User also implies grouping. I will use Dense Ranking for simplicity in Star grouping (1, 1, 2, 2, 3...)
+                // Actually, standard tie logic usually skips. Let's stick to: if score < previous, increment rank.
+                if (index === 0) {
+                    currentRank = 1;
+                } else {
+                    let prevStudentScore = isDiagnostic ? data[index-1].diagnosticGrade : data[index-1].totalScore;
+                    if (studentScore < prevStudentScore) {
+                        currentRank = index + 1; // Standard Competition Ranking (1, 1, 3)
+                        // Or Dense? currentRank++; (1, 1, 2). 
+                        // "Record number 1 on all of them" supports ties.
+                        // Let's use Standard Ranking as it is fair for "Top 10" lists.
+                    }
+                }
+                displayRankData.push({ ...student, rank: currentRank });
+            });
+
+            // UPDATED: Removed slicing to show all data received from backend (which is now 100)
+            let tableRows = displayRankData.map((student) => {
                 const isCurrentUser = student.id.toString() === currentStudentId.toString();
                 let scoreDisplay;
+                let scoreVal;
+                
                 if (isDiagnostic) {
+                    scoreVal = student.diagnosticGrade;
                     scoreDisplay = `<div><span class="font-bold">${formatDecimal(student.diagnosticGrade)}%</span><span class="block text-xs text-gray-500 font-normal">${student.diagnosticPoints} نقطة</span></div>`;
                 } else {
+                    scoreVal = getPercentage(student.totalScore);
                     scoreDisplay = `<span class="font-bold">${formatDecimal(student.totalScore)}</span>`;
                 }
-                const hiddenClass = index >= 3 ? 'expandable-row hidden' : '';
-                return `<tr class="${isCurrentUser ? 'current-student' : ''} ${hiddenClass}" data-table-id="${uniqueId}"><td class="rank">#${index + 1}</td><td>${student.name} <span class="text-sm text-gray-500">(${student.class})</span></td><td class="score">${scoreDisplay}</td></tr>`;
+
+                // STAR RANK LOGIC
+                let rankDisplay = `<span class="rank-simple-number">#${student.rank}</span>`;
+                
+                // Only apply stars for General Leaderboard (not diagnostic necessarily unless requested, but logic applies nicely)
+                // Thresholds: Gold >= 95%, Silver >= 80%
+                if (!isDiagnostic) {
+                    if (scoreVal >= 95) {
+                        rankDisplay = `<div class="rank-star-container" title="نجم منصة ذهبي"><i class="fas fa-star rank-star-icon rank-star-gold"></i><span class="rank-star-number text-yellow-900">${student.rank}</span></div>`;
+                    } else if (scoreVal >= 80) {
+                        rankDisplay = `<div class="rank-star-container" title="نجم منصة فضي"><i class="fas fa-star rank-star-icon rank-star-silver"></i><span class="rank-star-number text-gray-800">${student.rank}</span></div>`;
+                    }
+                } else {
+                    // Apply similar logic for Diagnostic
+                    if (scoreVal >= 95) {
+                        rankDisplay = `<div class="rank-star-container"><i class="fas fa-star rank-star-icon rank-star-gold"></i><span class="rank-star-number text-yellow-900">${student.rank}</span></div>`;
+                    } else if (scoreVal >= 80) {
+                        rankDisplay = `<div class="rank-star-container"><i class="fas fa-star rank-star-icon rank-star-silver"></i><span class="rank-star-number text-gray-800">${student.rank}</span></div>`;
+                    }
+                }
+
+                // Keep showing only top 5 initially, hide the rest
+                const hiddenClass = displayRankData.indexOf(student) >= 5 ? 'expandable-row hidden' : ''; 
+                
+                return `<tr class="${isCurrentUser ? 'current-student' : ''} ${hiddenClass}" data-table-id="${uniqueId}">
+                            <td class="rank">${rankDisplay}</td>
+                            <td>${student.name} <span class="text-sm text-gray-500">(${student.class})</span></td>
+                            <td class="score">${scoreDisplay}</td>
+                        </tr>`;
             }).join('');
 
             const rankCard = rank > 0 ? `<div class="current-student-rank-card">مركزك الحالي: ${rank}</div>` : '';
-            const expandButton = data.length > 3 ? `<button onclick="toggleLeaderboard(this, '${uniqueId}')" class="expand-leaderboard-btn">توسيع الجدول <i class="fas fa-chevron-down ml-1"></i></button>` : '';
+            // Show expand button if more than 5 rows
+            const expandButton = data.length > 5 ? `<button onclick="toggleLeaderboard(this, '${uniqueId}')" class="expand-leaderboard-btn">توسيع الجدول <i class="fas fa-chevron-down ml-1"></i></button>` : '';
 
-            card.innerHTML = `<h3 class="leaderboard-title">${title}</h3><table class="leaderboard-table"><thead><tr><th>#</th><th>الاسم</th><th class="score">${scoreLabel}</th></tr></thead><tbody>${tableRows}</tbody></table>${expandButton}${rankCard}`;
+            card.innerHTML = `<h3 class="leaderboard-title">${title}</h3><table class="leaderboard-table"><thead><tr><th>الترتيب</th><th>الاسم</th><th class="score">${scoreLabel}</th></tr></thead><tbody>${tableRows}</tbody></table>${expandButton}${rankCard}`;
             return card;
         }
 

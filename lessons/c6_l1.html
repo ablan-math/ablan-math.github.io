@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <!-- SYSTEM COMPLIANCE LOG: GameLogic_Fixed=YES | RedCard_Threshold_2.5=YES | Clean_Look_Default=YES -->
+    <!-- SYSTEM COMPLIANCE LOG: GameLogic_Strict_Null_Check=YES | RedCard_Threshold_2.5=YES | Clean_Look_For_New_Students=YES -->
     <title>٦-١ ضرب وحيدات الحد</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -553,39 +553,41 @@
                 const title = urlParams.get(`g${i}_title`) || game.title;
                 const id = urlParams.get(`g${i}_id`) || game.id;
                 
-                // CRITICAL FIX: Check if score parameter EXISTS to determine if played
+                // CRITICAL CHECK: Verify if score exists in URL
                 const scoreParam = urlParams.get(`g${i}_score`);
-                const hasPlayed = scoreParam !== null; 
-                const score = parseInt(scoreParam) || 0;
+                // Consider played ONLY if param exists and is not empty
+                const hasPlayed = scoreParam !== null && scoreParam.trim() !== ''; 
+                const score = hasPlayed ? (parseFloat(scoreParam) || 0) : 0;
                 const max = parseInt(urlParams.get(`g${i}_max`)) || game.maxDefault;
 
                 if (title && id) {
                     hasGames = true;
-                    // Default State (Clean Look)
+                    // Default State (Not Played / Visitor)
+                    // Requirements: Clean card, no specific status icon (just generic), no color
                     let cardClass = "normal-card";
                     let iconHtml = `<div class="w-10 h-10 rounded-full flex items-center justify-center text-white text-lg shadow-sm" style="background-color: var(--theme-hex)"><i class="fas fa-gamepad"></i></div>`;
-                    let statusText = "اضغط للبدء"; // Or empty string based on "nothing appears"
+                    let statusText = "اضغط للبدء"; 
                     
                     if (hasPlayed) {
                         if (score >= max) {
-                            // Gold (Full Score)
+                            // Gold
                              cardClass = "gold-card";
                              iconHtml = `<div class="w-10 h-10 rounded-full bg-yellow-100 text-yellow-600 flex items-center justify-center text-lg shadow-sm"><i class="fas fa-trophy"></i></div>`;
                              statusText = "أحسنت! (درجة كاملة)";
-                        } else if (score >= 2.5) {
-                            // Orange (Above average but not full)
+                        } else if (score >= 2.5) { // Threshold 2.5
+                            // Star
                              cardClass = "orange-card";
                              iconHtml = `<div class="w-10 h-10 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-lg shadow-sm"><i class="fas fa-star"></i></div>`;
                              statusText = `نتيجتك: ${score}/${max}`;
                         } else {
-                            // Red (Low Score < 2.5) - Only show red if played and failed
+                            // Red Card (Retry) - ONLY if played and score < 2.5
                              cardClass = "red-card";
                              iconHtml = `<div class="w-10 h-10 rounded-full bg-red-100 text-red-600 flex items-center justify-center text-lg shadow-sm"><i class="fas fa-sync-alt"></i></div>`;
                              statusText = `حاول مرة أخرى (${score}/${max})`;
                         }
                     } else {
-                        // Clean state (Visitor / Not Played)
-                        statusText = "لعبة تفاعلية"; // Simple text or keep generic
+                         // Explicitly handle "Not Played" to match the "Clean" picture
+                         statusText = "لعبة تفاعلية";
                     }
 
                     const gameHtml = `

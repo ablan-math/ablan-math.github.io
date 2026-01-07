@@ -3,214 +3,701 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>لعبة قوة الأسس</title>
+    <title>نينجا وحيدات الحد - V15.4</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Cairo', sans-serif; background-color: #f0f9ff; user-select: none; }
-        .card { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-        .option-btn { transition: transform 0.1s; cursor: pointer; }
-        .option-btn:active { transform: scale(0.95); }
-        .fade-in { animation: fadeIn 0.4s ease-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .correct-anim { animation: pulseGreen 0.5s; background-color: #dcfce7 !important; border-color: #22c55e !important; color: #15803d !important; }
-        .wrong-anim { animation: shake 0.4s; background-color: #fee2e2 !important; border-color: #ef4444 !important; color: #b91c1c !important; }
-        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+        body {
+            font-family: 'Cairo', sans-serif;
+            overflow: hidden;
+            background-color: #f3f4f6;
+            touch-action: none;
+            user-select: none;
+        }
+        .arabic-num {
+            font-feature-settings: "ss01";
+            font-variant-numeric: tabular-nums;
+        }
+        ::-webkit-scrollbar { width: 0px; background: transparent; }
+        .btn-press:active { transform: scale(0.98); }
+        
+        #game-container {
+            max-width: 450px;
+            height: 100vh;
+            margin: 0 auto;
+            position: relative;
+            background-color: #1e293b;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+            cursor: default;
+        }
+        @keyframes pulse-border {
+            0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+        .pulse-btn { animation: pulse-border 2s infinite; }
+        @keyframes float-icon {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        .floating-icon { animation: float-icon 3s ease-in-out infinite; }
     </style>
 </head>
-<body class="flex flex-col items-center justify-center min-h-screen p-4">
+<body>
 
-    <!-- حاوية اللعبة -->
-    <div class="w-full max-w-md bg-white rounded-3xl shadow-xl overflow-hidden border-4 border-blue-100 relative" id="game-container">
+    <div id="game-container">
         
-        <!-- الشريط العلوي -->
-        <div class="bg-blue-600 p-4 flex justify-between items-center text-white">
-            <div class="flex items-center gap-2">
-                <i class="fas fa-gamepad"></i>
-                <span class="font-bold text-sm">ضرب وحيدات الحد</span>
+        <!-- الشريط العلوي النحيف -->
+        <div id="mini-header" class="flex justify-between items-center px-4 py-2 bg-slate-800 text-white z-50 shadow-md h-[50px] shrink-0">
+            <div class="bg-indigo-600 px-3 py-1 rounded-full text-sm font-bold shadow-sm flex items-center gap-2">
+                <svg class="w-4 h-4 text-indigo-200" fill="currentColor" viewBox="0 0 24 24"><path d="M14.5 17.5L3 6V3h3l11.5 11.5-3 3zM15 12l-2-2 4-4 2 2-4 4zm4 4l-2-2 4-4 2 2-4 4z"/></svg>
+                <span>السابق:</span>
+                <span id="prev-score-display" class="arabic-num">--</span>
             </div>
-            <div class="bg-blue-700 px-3 py-1 rounded-full text-xs font-bold">
-                <span id="current-q">1</span> / 5
-            </div>
-        </div>
-
-        <!-- منطقة السؤال -->
-        <div class="p-8 text-center bg-blue-50" id="question-area">
-            <p class="text-gray-500 text-sm font-bold mb-4">بسط العبارة التالية:</p>
-            <div class="text-5xl font-black text-blue-900 flex justify-center items-center gap-2" style="direction: ltr;">
-                <span id="term1">x²</span>
-                <span class="text-blue-400">×</span>
-                <span id="term2">x³</span>
+            <div id="student-name-display" class="font-bold text-sm truncate max-w-[150px] text-indigo-100 flex items-center gap-1">
+                جاري التحميل...
             </div>
         </div>
 
-        <!-- الخيارات -->
-        <div class="p-6 grid grid-cols-2 gap-4" id="options-area">
-            <!-- ستتم تعبئة الخيارات هنا -->
-        </div>
+        <!-- منطقة المحتوى -->
+        <div id="content-area" class="relative flex-grow w-full h-full overflow-hidden">
 
-        <!-- شاشة النهاية (مخفية) -->
-        <div id="result-screen" class="hidden absolute inset-0 bg-white flex flex-col items-center justify-center p-6 text-center z-10">
-            <div class="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center text-green-600 text-4xl mb-4 shadow-sm animate-bounce">
-                <i class="fas fa-trophy"></i>
+            <!-- شاشة البداية -->
+            <div id="screen-splash" class="absolute inset-0 flex flex-col justify-center items-center bg-slate-900 text-white z-40 p-6 text-center">
+                <div class="mb-6 floating-icon relative">
+                    <svg width="120" height="120" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M50 15C30 15 15 30 15 50C15 70 30 85 50 85C70 85 85 70 85 50C85 30 70 15 50 15Z" fill="#1f2937"/>
+                        <path d="M30 45H70V60H30V45Z" fill="#fca5a5"/>
+                        <path d="M25 40H75V55C75 65 65 75 50 75C35 75 25 65 25 55V40Z" fill="#111827"/>
+                        <circle cx="40" cy="50" r="3" fill="white"/>
+                        <circle cx="60" cy="50" r="3" fill="white"/>
+                        <path d="M80 30L95 20M80 35L95 40" stroke="#ef4444" stroke-width="4" stroke-linecap="round"/>
+                    </svg>
+                    <svg class="absolute -bottom-4 -right-4 w-12 h-12 text-yellow-500 opacity-80" viewBox="0 0 24 24" fill="currentColor">
+                         <path d="M19.8 17.5l-2.3 2.3-6.5-6.5 1.4-1.4 6.5 6.5c.3.3.3.7 0 1-.3.3-.6.3-.9.1zm-15.6-11l2.3-2.3 6.5 6.5-1.4 1.4-6.5-6.5c-.3-.3-.3-.7 0-1 .3-.3.6-.3.9-.1zm13.1-2.4l-2.1-2.1-13.2 13.2 2.1 2.1 13.2-13.2z"/>
+                    </svg>
+                </div>
+                <h1 class="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-br from-yellow-400 to-orange-600 mb-2 drop-shadow-sm leading-tight">نينجا وحيدات الحد</h1>
+                <p class="text-slate-400 text-sm mb-8 font-semibold">اقطع العوامل واضغط زر الانتهاء!</p>
+                <div class="space-y-4 w-full max-w-[280px]">
+                    <button onclick="GameApp.startGame()" class="btn-press w-full py-4 bg-gradient-to-r from-emerald-500 to-emerald-700 rounded-2xl text-xl font-bold shadow-lg shadow-emerald-900/50 border-b-4 border-emerald-900 transition-all hover:brightness-110 flex justify-center items-center gap-3">
+                        <span>⚔️</span><span>بدء التحدي</span>
+                    </button>
+                    <button onclick="GameApp.fetchLeaderboard()" class="btn-press w-full py-3 bg-slate-700 rounded-xl text-lg font-bold text-slate-200 border border-slate-600">سجل الأبطال</button>
+                </div>
+                <div class="mt-auto pt-8"><p class="text-xs text-slate-500 font-Cairo">أ. عبد العزيز خالد العبلان</p></div>
             </div>
-            <h2 class="text-2xl font-black text-gray-800 mb-2">انتهت اللعبة!</h2>
-            <p class="text-gray-500 mb-6">درجتك المستحقة</p>
-            <div class="text-6xl font-black text-blue-600 mb-8" id="final-score">5</div>
-            
-            <button id="save-btn" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-blue-700 transition flex items-center justify-center gap-2">
-                <i class="fas fa-save"></i> حفظ الدرجة والخروج
-            </button>
-            <div id="save-status" class="mt-3 text-sm font-bold h-6"></div>
-        </div>
 
+            <!-- شاشة اللعبة -->
+            <div id="screen-game" class="absolute inset-0 z-10 hidden bg-slate-900">
+                <div class="absolute top-0 w-full z-20 flex flex-col items-center pt-2 gap-2 pointer-events-none">
+                    <div class="w-full px-4 flex justify-between items-start">
+                        <div class="text-white bg-black/40 px-3 py-1 rounded-lg backdrop-blur-sm h-fit">
+                            <span class="text-[10px] text-slate-300 block">الجولة</span>
+                            <div class="text-lg font-bold text-yellow-400 arabic-num leading-none"><span id="current-round">١</span>/٥</div>
+                        </div>
+                        <div id="target-box" class="bg-slate-800/90 border-2 border-yellow-500 px-6 py-2 rounded-xl text-center shadow-lg backdrop-blur-sm min-w-[150px]">
+                            <span class="text-slate-400 text-[10px] block mb-0 font-Cairo uppercase tracking-wider">المطلوب تحليله</span>
+                            <span id="target-monomial" class="text-3xl font-black text-white arabic-num inline-block leading-relaxed" dir="rtl">...</span>
+                        </div>
+                        <div class="text-white bg-black/40 px-3 py-1 rounded-lg backdrop-blur-sm h-fit">
+                            <span class="text-[10px] text-slate-300 block">المحاولات</span>
+                            <div id="lives-display" class="text-sm leading-none mt-1">❤️❤️❤️</div>
+                        </div>
+                    </div>
+                    <div class="bg-black/60 px-4 py-2 rounded-xl backdrop-blur-md border border-white/10 min-w-[200px] text-center transition-all duration-300">
+                        <span class="text-slate-400 text-[10px] block mb-1">تم التجميع:</span>
+                        <div id="collected-factors" class="text-lg font-bold arabic-num flex justify-center gap-2 flex-wrap min-h-[1.5rem]" dir="ltr">
+                            <span class="text-slate-500 text-sm">...</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="absolute bottom-6 w-full flex justify-center z-30 pointer-events-auto">
+                    <button onclick="GameApp.ninja.checkAnswer()" class="pulse-btn bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-12 rounded-full shadow-lg border-b-4 border-emerald-800 active:border-b-0 active:translate-y-1 transition-all text-xl">
+                        انتهى التحليل ✅
+                    </button>
+                </div>
+                <canvas id="gameCanvas"></canvas>
+            </div>
+
+            <!-- شاشة التغذية الراجعة (الانتقالية) -->
+            <div id="screen-feedback" class="absolute inset-0 flex flex-col justify-center items-center bg-slate-900/95 z-50 hidden p-6 text-center backdrop-blur-sm">
+                <div id="feedback-icon" class="text-7xl mb-4 animate-bounce"></div>
+                <h2 id="feedback-title" class="text-3xl font-black mb-6 text-white tracking-wide"></h2>
+                
+                <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 w-full max-w-sm shadow-xl space-y-4">
+                    <!-- قسم السؤال -->
+                    <div class="border-b border-slate-600 pb-4">
+                        <p class="text-slate-400 text-xs font-bold uppercase mb-2">السؤال</p>
+                        <div id="feedback-question" class="text-3xl font-black text-white arabic-num" dir="rtl"></div>
+                    </div>
+                    
+                    <!-- قسم الإجابة الصحيحة -->
+                    <div>
+                        <p class="text-slate-400 text-xs font-bold uppercase mb-2">التحليل الصحيح</p>
+                        <div id="feedback-correct-answer" class="text-2xl font-black text-yellow-400 arabic-num leading-relaxed" dir="ltr"></div>
+                    </div>
+                </div>
+
+                <button onclick="GameApp.nextStep()" class="mt-8 btn-press py-3 px-16 bg-indigo-600 hover:bg-indigo-500 rounded-2xl font-bold text-white shadow-lg text-xl transition-colors border-b-4 border-indigo-800">
+                    التالي ➜
+                </button>
+            </div>
+
+            <!-- شاشة النهاية -->
+            <div id="screen-result" class="absolute inset-0 flex flex-col justify-center items-center bg-slate-900 text-white z-50 hidden p-6">
+                <div class="mb-4 text-yellow-400">
+                    <svg class="w-20 h-20" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/><path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z"/></svg>
+                </div>
+                <h2 class="text-3xl font-bold mb-2 text-white">نتيجتك النهائية</h2>
+                
+                <div class="relative w-32 h-32 flex items-center justify-center mb-4">
+                    <svg class="absolute inset-0 w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                        <circle cx="50" cy="50" r="45" fill="none" stroke="#334155" stroke-width="8" />
+                        <circle id="score-circle" cx="50" cy="50" r="45" fill="none" stroke="#22c55e" stroke-width="8" stroke-dasharray="283" stroke-dashoffset="0" stroke-linecap="round" />
+                    </svg>
+                    <div class="flex flex-col items-center">
+                        <span id="final-score-val" class="text-4xl font-black text-white arabic-num">٠</span>
+                        <span class="text-xs text-slate-400 mt-1">من ٥</span>
+                    </div>
+                </div>
+
+                <!-- عداد الأخطاء الثانوي -->
+                <div class="flex justify-center w-full mb-6">
+                    <div class="bg-red-900/30 border border-red-500/30 rounded-lg px-4 py-2 flex items-center gap-3">
+                        <span class="text-slate-300 text-sm font-bold">عدد المحاولات الخاطئة:</span>
+                        <span id="final-mistakes-val" class="text-2xl font-bold text-red-400 arabic-num">٠</span>
+                    </div>
+                </div>
+
+                <div class="w-full bg-slate-800 rounded-xl p-3 mb-6 max-h-[140px] overflow-y-auto border border-slate-700">
+                    <h3 class="text-xs font-bold text-slate-400 mb-2 border-b border-slate-700 pb-1">سجل الأبطال</h3>
+                    <table class="w-full text-sm text-right"><tbody id="leaderboard-body"></tbody></table>
+                </div>
+                <div class="flex gap-3 w-full max-w-[300px]">
+                    <button onclick="GameApp.restartGame()" class="flex-1 btn-press py-3 bg-indigo-600 rounded-xl font-bold text-white shadow-lg">إعادة</button>
+                    <button onclick="GameApp.finishGame()" class="flex-1 btn-press py-3 bg-slate-700 rounded-xl font-bold text-slate-200 border border-slate-600">إنهاء</button>
+                </div>
+                <div class="mt-4"><p class="text-xs text-slate-600 font-Cairo">أ. عبد العزيز خالد العبلان</p></div>
+            </div>
+
+            <div id="loader" class="absolute inset-0 bg-slate-900/90 z-[60] flex flex-col justify-center items-center hidden">
+                <div class="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+                <p class="text-white font-bold animate-pulse">جاري الاتصال...</p>
+            </div>
+        </div>
     </div>
 
     <script>
-        // *** إعدادات الاتصال ***
-        const API_URL = "https://script.google.com/macros/s/AKfycbxqAQlGhNs8k5RwHs6jrWxDiDwaMABSx8a9Fl81O5oVVa5fHRWTwIEvsGy2cSDP4zGLWQ/exec";
-        // معرف اللعبة في الشيت
-        const GAME_ID = "g6_1_1"; 
-
-        // المتغيرات
-        let score = 0;
-        let currentQuestion = 0;
-        const totalQuestions = 5;
-        let canClick = true;
-
-        // قراءة بيانات الطالب من الرابط
-        const urlParams = new URLSearchParams(window.location.search);
-        const studentId = urlParams.get('studentId');
-        const classId = urlParams.get('classId');
-
-        // مولد الأسئلة
-        function generateQuestion() {
-            const vars = ['x', 'y', 'm', 'n', 'a'];
-            const v = vars[Math.floor(Math.random() * vars.length)];
-            const exp1 = Math.floor(Math.random() * 5) + 2; // 2 to 6
-            const exp2 = Math.floor(Math.random() * 5) + 2; // 2 to 6
-            
-            const correctAnswer = exp1 + exp2;
-            
-            // المشتتات (أخطاء شائعة: الضرب، الطرح، الجمع الخطأ)
-            let wrong1 = exp1 * exp2;
-            let wrong2 = Math.abs(exp1 - exp2); 
-            if (wrong2 === correctAnswer || wrong2 === 0) wrong2 = correctAnswer + 1;
-            let wrong3 = correctAnswer - 1;
-            if (wrong1 === correctAnswer) wrong1 = correctAnswer + 2;
-
-            return {
-                text1: `${v}<sup>${exp1}</sup>`,
-                text2: `${v}<sup>${exp2}</sup>`,
-                correct: `${v}<sup>${correctAnswer}</sup>`,
-                options: [
-                    `${v}<sup>${correctAnswer}</sup>`,
-                    `${v}<sup>${wrong1}</sup>`,
-                    `${v}<sup>${wrong2}</sup>`,
-                    `${v}<sup>${wrong3}</sup>`
-                ].sort(() => Math.random() - 0.5)
-            };
-        }
-
-        function loadQuestion() {
-            if (currentQuestion >= totalQuestions) {
-                showResults();
-                return;
+        const API_URL = 'https://script.google.com/macros/s/AKfycbxqAQlGhNs8k5RwHs6jrWxDiDwaMABSx8a9Fl81O5oVVa5fHRWTwIEvsGy2cSDP4zGLWQ/exec';
+        
+        const Utils = {
+            toArabicNum: (num) => {
+                if (num === null || num === undefined) return '';
+                const map = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+                return num.toString().replace(/\d/g, d => map[d]);
+            },
+            getGameId: () => {
+                const params = new URLSearchParams(window.location.search);
+                return params.get('gameId') || 'g6_1_1';
+            },
+            getUrlParam: (key) => {
+                const params = new URLSearchParams(window.location.search);
+                const val = params.get(key);
+                return val ? decodeURIComponent(val) : null;
             }
+        };
 
-            const q = generateQuestion();
-            document.getElementById('current-q').innerText = currentQuestion + 1;
-            document.getElementById('term1').innerHTML = q.text1;
-            document.getElementById('term2').innerHTML = q.text2;
+        const AppState = {
+            studentName: 'زائر',
+            studentId: '',
+            classId: '',
+            gameId: Utils.getGameId(),
+            prevScore: 0,
+            currentScore: 0,
+            totalMistakes: 0,
+            maxRounds: 5
+        };
 
-            const optionsContainer = document.getElementById('options-area');
-            optionsContainer.innerHTML = '';
-
-            q.options.forEach(opt => {
-                const btn = document.createElement('div');
-                btn.className = 'option-btn bg-white border-2 border-gray-200 p-4 rounded-2xl text-xl font-bold text-gray-700 text-center shadow-sm hover:border-blue-300 fade-in';
-                btn.innerHTML = opt;
-                btn.onclick = () => checkAnswer(btn, opt === q.correct);
-                optionsContainer.appendChild(btn);
-            });
-        }
-
-        function checkAnswer(btn, isCorrect) {
-            if (!canClick) return;
-            canClick = false;
-
-            if (isCorrect) {
-                score++;
-                btn.classList.add('correct-anim');
-                const audio = new Audio('data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU'); // Sound placeholder
-            } else {
-                btn.classList.add('wrong-anim');
-                // Highlight correct one? Maybe later.
-            }
-
-            setTimeout(() => {
-                currentQuestion++;
-                canClick = true;
-                loadQuestion();
-            }, 800);
-        }
-
-        function showResults() {
-            document.getElementById('result-screen').classList.remove('hidden');
-            document.getElementById('final-score').innerText = score;
-            
-            // Auto save logic or button logic
-            const saveBtn = document.getElementById('save-btn');
-            saveBtn.onclick = saveAndExit;
-        }
-
-        function saveAndExit() {
-            const statusDiv = document.getElementById('save-status');
-            const btn = document.getElementById('save-btn');
-            
-            if (!studentId || studentId === 'visitor') {
-                statusDiv.innerHTML = '<span class="text-orange-500">وضع زائر: لا يمكن الحفظ</span>';
-                setTimeout(() => window.parent.location.reload(), 1500); // Close iframe logic usually handled by parent refresh
-                return;
-            }
-
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري الحفظ...';
-            statusDiv.innerText = '';
-
-            fetch(`${API_URL}?action=saveScore&studentId=${studentId}&classId=${classId}&type=game&itemId=${GAME_ID}&score=${score}`)
-            .then(response => response.json())
-            .then(data => {
-                if(data.status === 'success') {
-                    btn.classList.remove('bg-blue-600');
-                    btn.classList.add('bg-green-600');
-                    btn.innerHTML = '<i class="fas fa-check"></i> تم الحفظ بنجاح';
-                    // إغلاق النافذة (يتطلب تواصل مع الصفحة الأم)
-                    setTimeout(() => {
-                        // محاولة إغلاق المودال من الصفحة الأب
-                        if (window.parent && window.parent.closeGameModal) {
-                            window.parent.closeGameModal();
-                            window.parent.updateData(); // تحديث البيانات في الصفحة الرئيسية
-                        } else {
-                            window.location.reload(); // Fallback
-                        }
-                    }, 1500);
-                } else {
-                    throw new Error('Save failed');
+        const QuestionBank = {
+            bank: {
+                1: [{ coeff: 6, vars: {} }, { coeff: 10, vars: {} }, { coeff: 15, vars: {} }],
+                2: [{ coeff: 1, vars: { 'س': 2 } }, { coeff: 1, vars: { 'ص': 3 } }, { coeff: 1, vars: { 'أ': 2 } }],
+                3: [{ coeff: 2, vars: { 'س': 1 } }, { coeff: 3, vars: { 'ص': 2 } }, { coeff: 5, vars: { 'أ': 1 } }],
+                4: [{ coeff: 4, vars: { 'س': 1 } }, { coeff: 6, vars: { 'ص': 2 } }, { coeff: 9, vars: { 'س': 1 } }],
+                5: [{ coeff: 8, vars: { 'س': 2 } }, { coeff: 12, vars: { 'س': 1 } }, { coeff: 10, vars: { 'س': 1, 'ص': 1 } }]
+            },
+            getChallenge: (level) => {
+                const safeLevel = (level >= 1 && level <= 5) ? level : 5;
+                const pool = QuestionBank.bank[safeLevel];
+                const rawData = pool[Math.floor(Math.random() * pool.length)];
+                return QuestionBank.processData(rawData);
+            },
+            processData: (data) => {
+                let needed = [];
+                let temp = data.coeff;
+                let d = 2;
+                while(d * d <= temp) {
+                    while(temp % d === 0) { needed.push(Utils.toArabicNum(d)); temp /= d; }
+                    d++;
                 }
-            })
-            .catch(error => {
-                btn.disabled = false;
-                btn.innerHTML = 'فشل الحفظ - حاول مرة أخرى';
-                btn.classList.add('bg-red-600');
-                console.error(error);
-            });
+                if(temp > 1) needed.push(Utils.toArabicNum(temp));
+                for(let v in data.vars) {
+                    for(let i=0; i<data.vars[v]; i++) needed.push(v);
+                }
+                let str = '';
+                if(data.coeff !== 1 || Object.keys(data.vars).length === 0) str += Utils.toArabicNum(data.coeff);
+                let keys = Object.keys(data.vars).sort();
+                for(let k of keys) {
+                    str += `<span class="inline-block mx-0.5">${k}</span>`;
+                    if(data.vars[k] > 1) str += `<span class="relative text-lg text-yellow-400 top-[-0.6em] right-[-2px] inline-block">${Utils.toArabicNum(data.vars[k])}</span>`;
+                }
+                return {
+                    display: str,
+                    required: needed,
+                    remaining: [...needed],
+                    fullAnswer: needed.join(' × ') 
+                };
+            }
+        };
+
+        class NinjaGame {
+            constructor() {
+                this.canvas = document.getElementById('gameCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.width = 0;
+                this.height = 0;
+                this.animationId = null;
+                this.lastTime = 0;
+                this.currentRound = 1;
+                this.lives = 3;
+                this.target = null;
+                this.collectedItems = [];
+                this.objects = [];
+                this.particles = [];
+                this.slicePoints = [];
+                this.spawnInterval = null;
+                this.isRoundOver = false;
+
+                this.handleResize = this.handleResize.bind(this);
+                window.addEventListener('resize', this.handleResize);
+                
+                ['touchstart', 'touchmove'].forEach(evt => {
+                    this.canvas.addEventListener(evt, (e) => {
+                        e.preventDefault();
+                        const rect = this.canvas.getBoundingClientRect();
+                        const touch = e.touches[0];
+                        this.handleInput(touch.clientX - rect.left, touch.clientY - rect.top);
+                    }, { passive: false });
+                });
+
+                let isMouseDown = false;
+                this.canvas.addEventListener('mousedown', (e) => {
+                    isMouseDown = true;
+                    const rect = this.canvas.getBoundingClientRect();
+                    this.handleInput(e.clientX - rect.left, e.clientY - rect.top);
+                });
+                this.canvas.addEventListener('mousemove', (e) => {
+                    if(isMouseDown) {
+                        const rect = this.canvas.getBoundingClientRect();
+                        this.handleInput(e.clientX - rect.left, e.clientY - rect.top);
+                    }
+                });
+                window.addEventListener('mouseup', () => isMouseDown = false);
+            }
+
+            handleResize() {
+                const container = document.getElementById('content-area');
+                this.width = this.canvas.width = container.clientWidth;
+                this.height = this.canvas.height = container.clientHeight;
+            }
+
+            init() {
+                this.handleResize();
+                this.currentRound = 1;
+                this.startRound();
+                this.loop(0);
+            }
+
+            startRound() {
+                this.isRoundOver = false;
+                this.lives = 3;
+                this.collectedItems = [];
+                this.objects = [];
+                this.slicePoints = [];
+                this.target = QuestionBank.getChallenge(this.currentRound);
+                
+                document.getElementById('current-round').textContent = Utils.toArabicNum(this.currentRound);
+                document.getElementById('target-monomial').innerHTML = this.target.display;
+                this.renderCollected();
+                this.updateLivesDisplay();
+
+                if(this.spawnInterval) clearInterval(this.spawnInterval);
+                this.spawnInterval = setInterval(() => {
+                    if(!this.isRoundOver && this.objects.length < 5) {
+                        this.spawnObject();
+                    }
+                }, 1000);
+            }
+
+            renderCollected() {
+                const container = document.getElementById('collected-factors');
+                if (this.collectedItems.length === 0) {
+                    container.innerHTML = '<span class="text-slate-500 text-sm">لا شيء بعد</span>';
+                    return;
+                }
+                let html = this.collectedItems.map((item, index) => {
+                    const colorClass = item.isCorrect ? 'text-emerald-400' : 'text-red-500';
+                    const separator = index < this.collectedItems.length - 1 ? '<span class="text-slate-500 mx-1">×</span>' : '';
+                    return `<span class="${colorClass} font-bold">${item.text}</span>${separator}`;
+                }).join('');
+                container.innerHTML = html;
+            }
+
+            spawnObject() {
+                const r = 30;
+                const x = Math.random() * (this.width - 2 * r) + r;
+                const y = this.height + r;
+                
+                let text, isCorrect;
+                
+                if(Math.random() > 0.5 && this.target.remaining.length > 0) {
+                    const idx = Math.floor(Math.random() * this.target.remaining.length);
+                    text = this.target.remaining[idx];
+                    isCorrect = true;
+                } else {
+                    const distractors = ['٢', '٣', '٥', '٧', 'س', 'ص', 'أ', 'ب', '٤', '٩', '٦'];
+                    text = distractors[Math.floor(Math.random() * distractors.length)];
+                    isCorrect = this.target.remaining.includes(text);
+                }
+
+                this.objects.push({
+                    x, y, r, text, isCorrect, 
+                    color: '#38bdf8',
+                    vx: (Math.random() - 0.5) * 2,
+                    vy: -(Math.random() * 3 + 5),
+                    gravity: 0.08, 
+                    rotation: Math.random() * Math.PI,
+                    active: true
+                });
+            }
+
+            handleInput(x, y) {
+                this.slicePoints.push({x, y, life: 12}); 
+                if(this.slicePoints.length > 12) this.slicePoints.shift();
+                
+                if(this.slicePoints.length >= 2) {
+                    const p1 = this.slicePoints[this.slicePoints.length-2];
+                    const p2 = this.slicePoints[this.slicePoints.length-1];
+                    this.objects.forEach(obj => {
+                        if(obj.active) {
+                            const dist = Math.hypot(obj.x - p2.x, obj.y - p2.y);
+                            if(dist < obj.r * 1.5) this.sliceObject(obj);
+                        }
+                    });
+                }
+            }
+
+            sliceObject(obj) {
+                obj.active = false;
+                const effectColor = obj.isCorrect ? '#22c55e' : '#ef4444';
+                this.createParticles(obj.x, obj.y, effectColor);
+                
+                this.collectedItems.push({ text: obj.text, isCorrect: obj.isCorrect });
+                this.renderCollected();
+
+                if(obj.isCorrect) {
+                    const idx = this.target.remaining.indexOf(obj.text);
+                    if(idx > -1) this.target.remaining.splice(idx, 1);
+                } else {
+                    AppState.totalMistakes++; 
+                    this.lives--;
+                    this.updateLivesDisplay();
+                    if(this.lives <= 0) {
+                        this.isRoundOver = true;
+                        GameApp.showFeedback(false, this.target.display, this.target.fullAnswer);
+                    }
+                }
+            }
+            
+            checkAnswer() {
+                if(this.isRoundOver) return;
+                const hasErrors = this.collectedItems.some(item => !item.isCorrect);
+                const isComplete = this.target.remaining.length === 0;
+
+                if (!hasErrors && isComplete) {
+                    this.isRoundOver = true;
+                    AppState.currentScore++;
+                    GameApp.showFeedback(true, this.target.display, this.target.fullAnswer);
+                } else {
+                    AppState.totalMistakes++; 
+                    this.lives--;
+                    this.updateLivesDisplay();
+                    if(this.lives <= 0) {
+                        this.isRoundOver = true;
+                        GameApp.showFeedback(false, this.target.display, this.target.fullAnswer);
+                    } else {
+                        alert('إجابة غير صحيحة أو غير مكتملة! حاول مجدداً.');
+                    }
+                }
+            }
+
+            updateLivesDisplay() {
+                let s = '';
+                for(let i=0; i<this.lives; i++) s += '❤️';
+                document.getElementById('lives-display').innerText = s;
+            }
+
+            createParticles(x, y, color) {
+                for(let i=0; i<12; i++) {
+                    this.particles.push({
+                        x, y, color,
+                        vx: (Math.random() - 0.5) * 12,
+                        vy: (Math.random() - 0.5) * 12,
+                        life: 1.0
+                    });
+                }
+            }
+
+            endGame() {
+                clearInterval(this.spawnInterval);
+                cancelAnimationFrame(this.animationId);
+                GameApp.showResult();
+            }
+
+            loop(timestamp) {
+                if(!this.lastTime) this.lastTime = timestamp;
+                this.lastTime = timestamp;
+                this.ctx.clearRect(0, 0, this.width, this.height);
+
+                this.objects.forEach((obj, idx) => {
+                    if(!obj.active) return;
+                    obj.x += obj.vx;
+                    obj.y += obj.vy;
+                    obj.vy += obj.gravity;
+                    obj.rotation += 0.05;
+                    if(obj.y > this.height + 100) this.objects.splice(idx, 1);
+
+                    this.ctx.save();
+                    this.ctx.translate(obj.x, obj.y);
+                    this.ctx.rotate(obj.rotation);
+                    this.ctx.beginPath();
+                    this.ctx.arc(0, 0, obj.r, 0, Math.PI*2);
+                    
+                    const grad = this.ctx.createRadialGradient(-10, -10, 0, 0, 0, obj.r);
+                    grad.addColorStop(0, '#7dd3fc');
+                    grad.addColorStop(1, '#0369a1');
+                    
+                    this.ctx.fillStyle = grad;
+                    this.ctx.fill();
+                    
+                    this.ctx.strokeStyle = 'white';
+                    this.ctx.lineWidth = 2;
+                    this.ctx.stroke();
+                    this.ctx.fillStyle = 'white';
+                    this.ctx.font = 'bold 24px Cairo';
+                    this.ctx.textAlign = 'center';
+                    this.ctx.textBaseline = 'middle';
+                    this.ctx.fillText(obj.text, 0, 0);
+                    this.ctx.restore();
+                });
+
+                for(let i=this.particles.length-1; i>=0; i--) {
+                    const p = this.particles[i];
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    p.life -= 0.05;
+                    if(p.life <= 0) { this.particles.splice(i, 1); continue; }
+                    this.ctx.globalAlpha = p.life;
+                    this.ctx.fillStyle = p.color;
+                    this.ctx.beginPath();
+                    this.ctx.arc(p.x, p.y, 4, 0, Math.PI*2);
+                    this.ctx.fill();
+                    this.ctx.globalAlpha = 1;
+                }
+
+                if(this.slicePoints.length > 2) {
+                    this.ctx.shadowBlur = 15;
+                    this.ctx.shadowColor = '#06b6d4';
+                    this.ctx.beginPath();
+                    this.ctx.lineJoin = 'round';
+                    this.ctx.lineCap = 'round';
+                    this.ctx.moveTo(this.slicePoints[0].x, this.slicePoints[0].y);
+                    for(let i=1; i<this.slicePoints.length; i++) {
+                         const p = this.slicePoints[i];
+                         this.ctx.lineTo(p.x, p.y);
+                    }
+                    this.ctx.strokeStyle = 'white';
+                    this.ctx.lineWidth = 6;
+                    this.ctx.stroke();
+                    this.ctx.shadowBlur = 0;
+                }
+                
+                for(let i=this.slicePoints.length-1; i>=0; i--) {
+                    this.slicePoints[i].life--;
+                    if(this.slicePoints[i].life <= 0) this.slicePoints.splice(i, 1);
+                }
+                this.animationId = requestAnimationFrame((t) => this.loop(t));
+            }
         }
 
-        // Start
-        loadQuestion();
+        const GameApp = {
+            ninja: new NinjaGame(),
+            init: async () => {
+                AppState.studentName = Utils.getUrlParam('studentName') || Utils.getUrlParam('name') || Utils.getUrlParam('username') || '';
+                AppState.studentId = Utils.getUrlParam('studentId');
+                AppState.classId = Utils.getUrlParam('classId');
+                if (!AppState.studentName) await GameApp.fetchData();
+                else {
+                    document.getElementById('student-name-display').innerText = AppState.studentName;
+                    GameApp.fetchData(true); 
+                }
+                GameApp.showScreen('splash');
+            },
+            fetchData: async (scoreOnly = false) => {
+                document.getElementById('loader').classList.remove('hidden');
+                try {
+                    const response = await fetch(`${API_URL}?action=getStudentData&studentId=${AppState.studentId}&gameId=${AppState.gameId}`);
+                    const data = await response.json();
+                    if (!scoreOnly && data.name) {
+                        AppState.studentName = data.name;
+                        document.getElementById('student-name-display').innerText = AppState.studentName;
+                    }
+                    if (data.score) {
+                        AppState.prevScore = data.score;
+                        document.getElementById('prev-score-display').innerText = Utils.toArabicNum(data.score);
+                    }
+                } catch (e) {
+                    if (!AppState.studentName) {
+                        AppState.studentName = "زائر";
+                        document.getElementById('student-name-display').innerText = "زائر";
+                    }
+                } finally { document.getElementById('loader').classList.add('hidden'); }
+            },
+            saveScore: async (finalScore) => {
+                if (!AppState.studentId) return;
+                try {
+                    const formData = new FormData();
+                    formData.append('action', 'saveScore');
+                    formData.append('studentId', AppState.studentId);
+                    formData.append('classId', AppState.classId || '0');
+                    formData.append('itemId', AppState.gameId);
+                    formData.append('score', finalScore);
+                    // Updated to use correct parameter name for secondary metric
+                    formData.append('metricValue', AppState.totalMistakes);
+                    formData.append('type', 'game');
+                    fetch(API_URL, { method: 'POST', body: formData, mode: 'no-cors' });
+                } catch (e) { console.error('Save Error', e); }
+            },
+            fetchLeaderboard: async () => {
+                document.getElementById('loader').classList.remove('hidden');
+                try {
+                    const response = await fetch(`${API_URL}?action=getLeaderboard&gameId=${AppState.gameId}`);
+                    const data = await response.json();
+                    GameApp.renderLeaderboard(data);
+                    document.getElementById('screen-splash').classList.add('hidden');
+                    document.getElementById('screen-result').classList.remove('hidden');
+                    document.querySelector('#screen-result button').parentElement.classList.add('hidden');
+                    let backBtn = document.getElementById('temp-back-btn');
+                    if(!backBtn) {
+                        backBtn = document.createElement('button');
+                        backBtn.id = 'temp-back-btn';
+                        backBtn.innerText = "عودة للقائمة";
+                        backBtn.className = "mt-4 text-indigo-400 underline";
+                        backBtn.onclick = () => location.reload();
+                        document.getElementById('screen-result').appendChild(backBtn);
+                    }
+                } catch(e) { alert('تعذر تحميل السجل'); } finally { document.getElementById('loader').classList.add('hidden'); }
+            },
+            renderLeaderboard: (data) => {
+                const tbody = document.getElementById('leaderboard-body');
+                tbody.innerHTML = '';
+                if (!data || data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="2" class="p-2 text-center text-slate-500">لا يوجد أبطال بعد</td></tr>';
+                    return;
+                }
+                data.slice(0, 5).forEach((row, index) => {
+                    const tr = document.createElement('tr');
+                    tr.className = index % 2 === 0 ? 'bg-slate-700/50' : '';
+                    tr.innerHTML = `<td class="p-2 text-right">${index + 1}. ${row.name}</td><td class="p-2 text-left font-bold text-yellow-500 arabic-num">${Utils.toArabicNum(row.score)}</td>`;
+                    tbody.appendChild(tr);
+                });
+            },
+            
+            showFeedback: (isSuccess, question, correctAnswer) => {
+                clearInterval(GameApp.ninja.spawnInterval);
+                
+                const screen = document.getElementById('screen-feedback');
+                const icon = document.getElementById('feedback-icon');
+                const title = document.getElementById('feedback-title');
+                const questionBox = document.getElementById('feedback-question');
+                const answerBox = document.getElementById('feedback-correct-answer');
+                
+                screen.classList.remove('hidden');
+                
+                // عرض السؤال والجواب
+                questionBox.innerHTML = question;
+                answerBox.innerHTML = correctAnswer;
 
+                if (isSuccess) {
+                    icon.innerHTML = '🎉';
+                    title.innerText = 'أحسنت يا بطل!';
+                    title.className = 'text-3xl font-black mb-6 text-emerald-400 tracking-wide';
+                } else {
+                    icon.innerHTML = '🤔';
+                    title.innerText = 'حظاً أوفر!';
+                    title.className = 'text-3xl font-black mb-6 text-red-400 tracking-wide';
+                }
+            },
+
+            nextStep: () => {
+                document.getElementById('screen-feedback').classList.add('hidden');
+                
+                if(GameApp.ninja.currentRound < AppState.maxRounds) {
+                    GameApp.ninja.currentRound++;
+                    GameApp.ninja.startRound();
+                } else {
+                    GameApp.ninja.endGame();
+                }
+            },
+
+            showScreen: (screenId) => {
+                ['screen-splash', 'screen-game', 'screen-result', 'screen-feedback'].forEach(id => document.getElementById(id).classList.add('hidden'));
+                document.getElementById('screen-' + screenId).classList.remove('hidden');
+            },
+            startGame: () => {
+                AppState.currentScore = 0;
+                AppState.totalMistakes = 0; 
+                GameApp.showScreen('game');
+                GameApp.ninja.init();
+            },
+            showResult: () => {
+                const finalGrade = AppState.currentScore; 
+                document.getElementById('final-score-val').innerText = Utils.toArabicNum(finalGrade);
+                document.getElementById('final-mistakes-val').innerText = Utils.toArabicNum(AppState.totalMistakes);
+
+                const circle = document.getElementById('score-circle');
+                const radius = circle.r.baseVal.value;
+                const circumference = radius * 2 * Math.PI;
+                const offset = circumference - (finalGrade / 5) * circumference;
+                circle.style.strokeDashoffset = offset;
+                GameApp.showScreen('result');
+                document.querySelector('#screen-result button').parentElement.classList.remove('hidden');
+                GameApp.saveScore(finalGrade);
+            },
+            restartGame: () => GameApp.startGame(),
+            finishGame: () => window.parent.postMessage({ event: 'gameFinished', gameId: AppState.gameId }, '*')
+        };
+        window.onload = GameApp.init;
     </script>
 </body>
 </html>

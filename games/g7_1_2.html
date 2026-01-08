@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>نينجا وحيدات الحد - V19.0 (Fixed)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Cairo', sans-serif;
+            overflow: hidden;
+            background-color: #1e293b;
+            touch-action: none;
+            user-select: none;
+            height: 100vh;
+            width: 100vw;
+            margin: 0;
+        }
+        .arabic-num { font-feature-settings: "ss01"; font-variant-numeric: tabular-nums; }
+        #game-container {
+            max-width: 450px;
+            height: 100%;
+            margin: 0 auto;
+            position: relative;
+            background-color: #1e293b;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
+        }
+        canvas { display: block; width: 100%; height: 100%; cursor: crosshair; }
+        .pulse-btn { animation: pulse 2s infinite; }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+        
+        /* تنسيق الأسس */
+        .var-group { display: inline-block; position: relative; margin-right: 2px; }
+        .exponent-style {
+            font-size: 0.8em;
+            color: #fbbf24;
+            position: absolute;
+            top: -0.4em;
+            left: -0.6em;
+            font-weight: 900;
+        }
+        
+        /* Loader Style form V19 */
+        .loader { border: 2px solid #f3f3f3; border-top: 2px solid #2563eb; border-radius: 50%; width: 18px; height: 18px; animation: spin 1s linear infinite; display: inline-block; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        /* Rank Highlight */
+        .rank-row-me { background-color: #312e81 !important; border-right: 4px solid #facc15 !important; }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        
+        <!-- الشريط العلوي (معدل ليتوافق مع بيانات V19) -->
+        <div class="flex justify-between items-center px-4 py-2 bg-slate-800 text-white z-50 shadow-md h-[50px] shrink-0 border-b border-slate-700">
+            <div class="bg-indigo-900/50 border border-indigo-500/30 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-2">
+                <span class="text-indigo-300">السابق:</span>
+                <span id="prev-score-display" class="arabic-num text-white">--</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <i class="fas fa-user-ninja text-indigo-400"></i>
+                <div id="student-name-display" class="font-bold text-sm truncate max-w-[150px] text-indigo-100">
+                    جاري الربط...
+                </div>
+            </div>
+        </div>
+
+        <div id="content-area" class="relative flex-grow w-full h-full overflow-hidden">
+
+            <!-- شاشة البداية -->
+            <div id="screen-splash" class="absolute inset-0 flex flex-col justify-center items-center bg-slate-900 z-40 p-6 text-center">
+                <div class="mb-8 relative w-24 h-24">
+                    <!-- Ninja Icon -->
+                    <div class="absolute inset-0 bg-slate-800 rounded-full border-4 border-slate-700"></div>
+                    <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full h-8 bg-black"></div>
+                    <div class="absolute top-1/2 left-1/3 transform -translate-x-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full"></div>
+                    <div class="absolute top-1/2 right-1/3 transform translate-x-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full"></div>
+                </div>
+                <h1 class="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500 mb-2">نينجا وحيدات الحد</h1>
+                <p class="text-slate-400 text-sm mb-8">اقطع العوامل الأولية الصحيحة!</p>
+                <div class="space-y-3 w-full max-w-[260px]">
+                    <button onclick="GameApp.startGame()" class="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold shadow-lg border-b-4 border-emerald-800 active:border-b-0 active:translate-y-1 transition-all">بدء التحدي ⚔️</button>
+                    <button onclick="GameApp.fetchLeaderboardV19(true)" class="w-full py-3 bg-slate-700 text-slate-200 rounded-xl font-bold border border-slate-600 text-sm">سجل الأبطال 🏆</button>
+                </div>
+                <div class="mt-auto pt-6 text-[10px] text-slate-600 font-Cairo">أ. عبد العزيز خالد العبلان (V19 Core)</div>
+            </div>
+
+            <!-- شاشة اللعبة -->
+            <div id="screen-game" class="absolute inset-0 z-10 hidden bg-slate-900">
+                <div class="absolute top-0 w-full z-20 flex flex-col items-center pt-2 pointer-events-none">
+                    <div class="flex justify-between w-full px-4 mb-2">
+                        <div class="bg-black/40 px-3 py-1 rounded text-white text-xs">جولة <span id="current-round" class="text-yellow-400 font-bold arabic-num">1</span></div>
+                        <div class="bg-black/40 px-3 py-1 rounded text-white text-xs"><span id="lives-display">❤️❤️❤️</span></div>
+                    </div>
+                    
+                    <div class="bg-slate-800/90 border-2 border-yellow-500/50 px-6 py-2 rounded-xl text-center shadow-lg backdrop-blur-sm min-w-[180px]">
+                        <span class="text-slate-400 text-[10px] block font-bold">حلل وحيدة الحد:</span>
+                        <div id="target-monomial" class="text-4xl font-black text-white arabic-num py-2 flex justify-center items-center gap-1" dir="rtl">...</div>
+                    </div>
+
+                    <div class="mt-2 bg-black/50 px-4 py-1 rounded-full border border-white/10">
+                        <span class="text-slate-400 text-[10px]">المجمع:</span>
+                        <span id="collected-factors" class="text-emerald-400 font-bold text-lg arabic-num mx-2" dir="ltr">...</span>
+                    </div>
+                </div>
+
+                <div class="absolute bottom-6 w-full flex justify-center z-30 pointer-events-auto">
+                    <button onclick="GameApp.ninja.checkAnswer()" class="pulse-btn bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 px-10 rounded-full shadow-lg border-b-4 border-indigo-800 active:border-b-0 active:translate-y-1 transition-all">انتهى التحليل ✅</button>
+                </div>
+                <canvas id="gameCanvas"></canvas>
+            </div>
+
+            <!-- Feedback Overlay -->
+            <div id="screen-feedback" class="absolute inset-0 z-[60] hidden flex flex-col justify-center items-center bg-slate-900/98 backdrop-blur-xl p-6">
+                <div id="feedback-icon" class="text-6xl mb-4 animate-bounce">🤔</div>
+                <h2 id="feedback-title" class="text-2xl font-bold text-white mb-6">...</h2>
+                <div class="bg-slate-800 w-full max-w-sm rounded-xl p-5 border border-slate-600 shadow-2xl text-center">
+                    <div class="mb-4 border-b border-slate-700 pb-3">
+                        <p class="text-slate-400 text-xs font-bold mb-1">السؤال</p>
+                        <div id="feedback-question" class="text-4xl font-black text-white arabic-num flex justify-center items-center gap-1" dir="rtl"></div>
+                    </div>
+                    <div>
+                        <p class="text-emerald-400 text-xs font-bold mb-1">التحليل الصحيح</p>
+                        <div id="feedback-correct-answer" class="text-2xl font-bold text-yellow-400 arabic-num" dir="ltr"></div>
+                    </div>
+                </div>
+                <button onclick="GameApp.nextStep()" class="mt-8 bg-white text-slate-900 px-8 py-3 rounded-xl font-bold hover:bg-gray-100 transition-colors shadow-lg">التالي ➜</button>
+            </div>
+
+            <!-- شاشة النتائج -->
+            <div id="screen-result" class="absolute inset-0 z-50 hidden flex flex-col justify-center items-center bg-slate-900 p-6">
+                <h2 class="text-3xl font-bold text-white mb-6">النتيجة النهائية</h2>
+                <div class="relative w-36 h-36 flex items-center justify-center mb-4">
+                    <svg class="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                        <circle cx="50" cy="50" r="45" fill="none" stroke="#334155" stroke-width="8" />
+                        <circle id="score-circle" cx="50" cy="50" r="45" fill="none" stroke="#10b981" stroke-width="8" stroke-dasharray="283" stroke-dashoffset="283" stroke-linecap="round" class="transition-all duration-1000" />
+                    </svg>
+                    <div class="absolute inset-0 flex flex-col items-center justify-center">
+                        <span id="final-score-val" class="text-4xl font-black text-white arabic-num">0</span>
+                        <span class="text-xs text-slate-400">من 5</span>
+                    </div>
+                </div>
+                
+                <div class="bg-red-500/10 border border-red-500/20 px-4 py-2 rounded-lg mb-6 flex items-center gap-2">
+                    <span class="text-red-400 text-sm">الأخطاء:</span>
+                    <span id="final-mistakes-val" class="text-xl font-bold text-white arabic-num">0</span>
+                </div>
+
+                <div class="w-full bg-slate-800 rounded-xl p-4 mb-4 max-h-[150px] overflow-y-auto border border-slate-700">
+                    <div class="flex justify-between items-center mb-2 border-b border-slate-700 pb-1">
+                        <h3 id="leaderboard-title" class="text-xs font-bold text-slate-400">لوحة الشرف</h3>
+                        <div id="leaderboard-loader" class="hidden"><div class="loader"></div></div>
+                    </div>
+                    <table class="w-full text-sm text-right text-slate-300"><tbody id="leaderboard-body"></tbody></table>
+                </div>
+
+                <div class="flex gap-2 w-full max-w-[300px]">
+                    <button onclick="location.reload()" class="flex-1 py-3 bg-indigo-600 text-white rounded-lg font-bold shadow">إعادة</button>
+                    <button onclick="GameApp.finishGame()" class="flex-1 py-3 bg-slate-700 text-slate-300 rounded-lg font-bold border border-slate-600">إنهاء</button>
+                </div>
+            </div>
+
+            <div id="loader" class="absolute inset-0 z-[100] bg-slate-900/90 hidden flex flex-col justify-center items-center">
+                <div class="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+                <p class="text-white text-sm animate-pulse">جاري الاتصال بالسحابة...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- بروتوكول الاتصال الثابت V19 ---
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxqAQlGhNs8k5RwHs6jrWxDiDwaMABSx8a9Fl81O5oVVa5fHRWTwIEvsGy2cSDP4zGLWQ/exec';
+        
+        // استخراج المتغيرات بنفس طريقة V19
+        const urlParams = new URLSearchParams(window.location.search);
+        
+        const AppConfig = {
+            gameId: urlParams.get('gameId') || 'g7_1_2', // تم التعديل هنا: معرف لعبة النينجا الجديد
+            studentId: urlParams.get('studentId'),
+            classId: urlParams.get('classId'),
+            // دعم مرن للاسم من الرابط
+            studentName: urlParams.get('name') || urlParams.get('studentName') || "بطل نينجا"
+        };
+
+        const Utils = {
+            toArabicNum: (num) => {
+                if (num === null || num === undefined) return '';
+                return String(num).replace(/\d/g, d => "٠١٢٣٤٥٦٧٨٩"[d]);
+            }
+        };
+
+        const AppState = {
+            prevScore: 0,
+            currentScore: 0,
+            totalMistakes: 0,
+            maxRounds: 5
+        };
+
+        const QuestionBank = {
+            generate: (level) => {
+                const questions = [
+                    { coeff: 6, vars: {} }, { coeff: 10, vars: {} }, { coeff: 15, vars: {} },
+                    { coeff: 1, vars: { 'س': 2 } }, { coeff: 1, vars: { 'ص': 3 } },
+                    { coeff: 2, vars: { 'س': 1 } }, { coeff: 3, vars: { 'ص': 2 } }, { coeff: 4, vars: { 'س': 1 } },
+                    { coeff: 6, vars: { 'س': 2 } }, { coeff: 9, vars: { 'س': 2 } }, { coeff: 8, vars: { 'س': 1 } }
+                ];
+                const index = Math.floor(Math.random() * questions.length);
+                return QuestionBank.process(questions[index]);
+            },
+
+            process: (data) => {
+                let factors = [];
+                let num = data.coeff;
+                let d = 2;
+                while (d * d <= num) {
+                    while (num % d === 0) { factors.push(Utils.toArabicNum(d)); num /= d; }
+                    d++;
+                }
+                if (num > 1) factors.push(Utils.toArabicNum(num));
+                
+                for (let v in data.vars) {
+                    for (let i = 0; i < data.vars[i]; i++) factors.push(v); // Fixed loop logic
+                    for (let k = 0; k < data.vars[v]; k++) factors.push(v);
+                }
+                
+                factors.sort((a, b) => {
+                    const isNumA = /[٠-٩]/.test(a);
+                    const isNumB = /[٠-٩]/.test(b);
+                    if (isNumA && !isNumB) return -1;
+                    if (!isNumA && isNumB) return 1;
+                    return a.localeCompare(b);
+                });
+
+                let displayHTML = '';
+                if (data.coeff !== 1 || Object.keys(data.vars).length === 0) {
+                    displayHTML += `<span class="inline-block">${Utils.toArabicNum(data.coeff)}</span>`;
+                }
+                
+                let keys = Object.keys(data.vars).sort();
+                for (let k of keys) {
+                    if (data.vars[k] > 1) {
+                        displayHTML += `<span class="var-group text-4xl">${k}<span class="exponent-style">${Utils.toArabicNum(data.vars[k])}</span></span>`;
+                    } else {
+                        displayHTML += `<span class="inline-block mx-px text-4xl">${k}</span>`;
+                    }
+                }
+
+                return {
+                    display: displayHTML,
+                    required: factors,
+                    remaining: [...factors],
+                    fullAnswer: factors.join(' × ')
+                };
+            }
+        };
+
+        // --- محرك اللعبة (NinjaGame) ---
+        // (تم الاحتفاظ به كما هو تقريباً مع بعض التحسينات)
+        class NinjaGame {
+            constructor() {
+                this.canvas = document.getElementById('gameCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.width = 0; this.height = 0;
+                this.balls = []; this.particles = []; this.trail = []; this.collected = [];
+                this.input = { x: 0, y: 0 };
+                this.setupEvents();
+                window.addEventListener('resize', () => this.resize());
+            }
+
+            resize() {
+                const rect = this.canvas.parentElement.getBoundingClientRect();
+                this.width = this.canvas.width = rect.width;
+                this.height = this.canvas.height = rect.height;
+            }
+
+            setupEvents() {
+                const move = (x, y) => {
+                    const rect = this.canvas.getBoundingClientRect();
+                    this.input.x = x - rect.left;
+                    this.input.y = y - rect.top;
+                    this.trail.push({ x: this.input.x, y: this.input.y, life: 8 });
+                    if (this.trail.length > 8) this.trail.shift();
+                    this.checkCollision();
+                };
+                
+                this.canvas.addEventListener('mousemove', (e) => move(e.clientX, e.clientY));
+                this.canvas.addEventListener('touchmove', (e) => { e.preventDefault(); move(e.touches[0].clientX, e.touches[0].clientY); }, { passive: false });
+            }
+
+            init() { this.resize(); this.currentRound = 1; this.startRound(); this.loop(); }
+
+            startRound() {
+                this.isPaused = false; this.lives = 3; this.balls = []; this.collected = []; this.trail = [];
+                this.target = QuestionBank.generate(this.currentRound);
+                document.getElementById('current-round').innerText = Utils.toArabicNum(this.currentRound);
+                document.getElementById('target-monomial').innerHTML = this.target.display;
+                document.getElementById('lives-display').innerText = '❤️❤️❤️';
+                document.getElementById('feedback-question').innerHTML = this.target.display;
+                this.updateCollectedUI();
+                if (this.spawnTimer) clearInterval(this.spawnTimer);
+                this.spawnTimer = setInterval(() => { if (!this.isPaused && this.balls.length < 5) this.spawnBall(); }, 1200);
+            }
+
+            updateCollectedUI() {
+                const el = document.getElementById('collected-factors');
+                if (this.collected.length === 0) el.innerHTML = '<span class="text-slate-500 text-xs">لا شيء</span>';
+                else el.innerHTML = this.collected.map(item => `<span class="${item.correct ? 'text-emerald-400' : 'text-red-400'} mx-1">${item.val}</span>`).join('<span class="text-white text-xs">×</span>');
+            }
+
+            spawnBall() {
+                const r = 35;
+                const x = Math.random() * (this.width - 2 * r) + r;
+                let val, isCorrect;
+                if (Math.random() < 0.6 && this.target.remaining.length > 0) {
+                    const idx = Math.floor(Math.random() * this.target.remaining.length);
+                    val = this.target.remaining[idx]; isCorrect = true;
+                } else {
+                    const pool = ['٢', '٣', '٥', '٧', 'س', 'ص', 'أ', 'ب'];
+                    val = pool[Math.floor(Math.random() * pool.length)];
+                    isCorrect = this.target.remaining.includes(val);
+                }
+                this.balls.push({ x, y: this.height + r, r, val, isCorrect, vx: (Math.random() - 0.5) * 3, vy: -(Math.random() * 4 + 6), gravity: 0.1, angle: 0 });
+            }
+
+            checkCollision() {
+                if (this.trail.length < 1) return;
+                const p = this.trail[this.trail.length - 1];
+                for (let i = this.balls.length - 1; i >= 0; i--) {
+                    const ball = this.balls[i];
+                    const dist = Math.hypot(ball.x - p.x, ball.y - p.y);
+                    if (dist < ball.r + 10) {
+                        this.sliceBall(ball, i);
+                    }
+                }
+            }
+
+            sliceBall(ball, index) {
+                this.balls.splice(index, 1);
+                for (let i = 0; i < 10; i++) this.particles.push({ x: ball.x, y: ball.y, vx: (Math.random() - 0.5) * 10, vy: (Math.random() - 0.5) * 10, life: 1, color: ball.isCorrect ? '#10b981' : '#ef4444' });
+
+                if (ball.isCorrect) {
+                    const needIdx = this.target.remaining.indexOf(ball.val);
+                    if (needIdx > -1) {
+                        this.target.remaining.splice(needIdx, 1);
+                        this.collected.push({ val: ball.val, correct: true });
+                    } else {
+                        this.collected.push({ val: ball.val, correct: false });
+                        this.handleMistake();
+                    }
+                } else {
+                    this.collected.push({ val: ball.val, correct: false });
+                    this.handleMistake();
+                }
+                this.updateCollectedUI();
+            }
+
+            handleMistake() {
+                AppState.totalMistakes++; this.lives--;
+                let hearts = ''; for(let i=0; i<this.lives; i++) hearts += '❤️';
+                document.getElementById('lives-display').innerText = hearts;
+                if (this.lives <= 0) { this.isPaused = true; GameApp.showFeedback(false, this.target.display, this.target.fullAnswer); }
+            }
+
+            checkAnswer() {
+                if (this.isPaused) return;
+                const hasErrors = this.collected.some(c => !c.correct);
+                const isComplete = this.target.remaining.length === 0;
+                if (isComplete && !hasErrors) {
+                    this.isPaused = true; AppState.currentScore++;
+                    GameApp.showFeedback(true, this.target.display, this.target.fullAnswer);
+                } else {
+                    this.handleMistake();
+                    if (this.lives > 0) alert('إجابتك ناقصة أو تحتوي على أخطاء!');
+                }
+            }
+
+            loop() {
+                if (!this.isPaused) {
+                    this.ctx.clearRect(0, 0, this.width, this.height);
+                    this.balls.forEach((ball, i) => {
+                        ball.x += ball.vx; ball.y += ball.vy; ball.vy += ball.gravity; ball.angle += 0.05;
+                        if (ball.y > this.height + 100) { this.balls.splice(i, 1); return; }
+                        this.ctx.save(); this.ctx.translate(ball.x, ball.y); this.ctx.rotate(ball.angle);
+                        this.ctx.beginPath(); this.ctx.arc(0, 0, ball.r, 0, Math.PI * 2);
+                        const grad = this.ctx.createRadialGradient(-10, -10, 0, 0, 0, ball.r);
+                        grad.addColorStop(0, '#7dd3fc'); grad.addColorStop(1, '#0369a1');
+                        this.ctx.fillStyle = grad; this.ctx.fill();
+                        this.ctx.strokeStyle = 'white'; this.ctx.lineWidth = 3; this.ctx.stroke();
+                        this.ctx.fillStyle = 'white'; this.ctx.font = 'bold 28px Cairo';
+                        this.ctx.textAlign = 'center'; this.ctx.textBaseline = 'middle';
+                        this.ctx.fillText(ball.val, 0, 0);
+                        this.ctx.restore();
+                    });
+                    for (let i = this.particles.length - 1; i >= 0; i--) {
+                        const p = this.particles[i]; p.x += p.vx; p.y += p.vy; p.life -= 0.05;
+                        if (p.life <= 0) { this.particles.splice(i, 1); continue; }
+                        this.ctx.globalAlpha = p.life; this.ctx.fillStyle = p.color;
+                        this.ctx.beginPath(); this.ctx.arc(p.x, p.y, 5, 0, Math.PI * 2); this.ctx.fill(); this.ctx.globalAlpha = 1;
+                    }
+                    if (this.trail.length > 1) {
+                        this.ctx.beginPath(); this.ctx.moveTo(this.trail[0].x, this.trail[0].y);
+                        for (let i = 1; i < this.trail.length; i++) this.ctx.lineTo(this.trail[i].x, this.trail[i].y);
+                        this.ctx.strokeStyle = 'white'; this.ctx.lineWidth = 5; this.ctx.lineCap = 'round'; this.ctx.stroke();
+                    }
+                }
+                requestAnimationFrame(() => this.loop());
+            }
+        }
+
+        // --- منطق التطبيق (Application Logic) مع تحديثات V19 ---
+        const GameApp = {
+            ninja: new NinjaGame(),
+            
+            init: async () => {
+                // وضع الاسم الافتراضي فوراً
+                document.getElementById('student-name-display').innerText = decodeURIComponent(AppConfig.studentName);
+                
+                if (AppConfig.studentId && AppConfig.classId) {
+                    await GameApp.fetchInitialDataV19();
+                } else {
+                    document.getElementById('student-name-display').innerText = "زائر";
+                }
+                GameApp.showScreen('splash');
+            },
+
+            // جلب البيانات بأسلوب V19 (مع classId و Cache Busting)
+            fetchInitialDataV19: async () => {
+                try {
+                    const url = `${SCRIPT_URL}?action=getStudentData&studentId=${AppConfig.studentId}&classId=${encodeURIComponent(AppConfig.classId)}&itemId=${AppConfig.gameId}&t=${Date.now()}`;
+                    const res = await fetch(url);
+                    const response = await res.json();
+                    
+                    if (response.status === 'success' && response.data) {
+                        if (response.data.name) {
+                            AppConfig.studentName = response.data.name;
+                            document.getElementById('student-name-display').innerText = response.data.name;
+                        }
+                        const games = response.data.games || {};
+                        if (games[AppConfig.gameId]) {
+                            AppState.prevScore = parseFloat(games[AppConfig.gameId].grade) || 0;
+                            document.getElementById('prev-score-display').innerText = Utils.toArabicNum(AppState.prevScore.toFixed(1));
+                        }
+                    }
+                } catch (e) {
+                    console.error("Connection error, using offline defaults");
+                }
+            },
+
+            // حفظ البيانات بأسلوب V19
+            saveDataV19: async (grade, metric) => {
+                if (!AppConfig.studentId) return;
+                
+                // إظهار اللودر داخل قائمة المتصدرين
+                document.getElementById('leaderboard-loader').classList.remove('hidden');
+                
+                const params = new URLSearchParams({ 
+                    action: 'saveScore', 
+                    studentId: AppConfig.studentId, 
+                    classId: AppConfig.classId || '0', 
+                    itemId: AppConfig.gameId, 
+                    score: grade, 
+                    metricValue: metric,
+                    type: 'game' 
+                });
+
+                try { 
+                    await fetch(`${SCRIPT_URL}?${params.toString()}`); 
+                } catch(e) {
+                    console.error("Save failed");
+                } finally { 
+                    // جلب اللوحة بعد الحفظ لضمان ظهور النتيجة
+                    GameApp.fetchLeaderboardV19(); 
+                }
+            },
+
+            // جلب المتصدرين بأسلوب V19 (مفلتر حسب الفصل)
+            fetchLeaderboardV19: async (isManual = false) => {
+                const tbody = document.getElementById('leaderboard-body');
+                const loader = document.getElementById('leaderboard-loader');
+                
+                if (isManual) {
+                    GameApp.showScreen('result');
+                    document.querySelector('#screen-result button:first-child').style.display = 'none'; // اخفاء زر الاعادة في وضع العرض فقط
+                }
+
+                loader.classList.remove('hidden');
+                tbody.innerHTML = '';
+                
+                try {
+                    // إضافة classId و timestamp
+                    const response = await fetch(`${SCRIPT_URL}?action=getLeaderboard&gameId=${AppConfig.gameId}&classId=${encodeURIComponent(AppConfig.classId || '')}&t=${Date.now()}`);
+                    const json = await response.json();
+                    
+                    if (json.status === 'success' && json.data && json.data.length > 0) {
+                        document.getElementById('leaderboard-title').innerHTML = `أبطال فصل (${Utils.toArabicNum(AppConfig.classId || 'العام')})`;
+                        
+                        let html = '';
+                        json.data.slice(0, 10).forEach((row, i) => {
+                            // منطق تمييز الطالب (Me)
+                            const isMe = (AppConfig.studentId && String(row.studentId) === String(AppConfig.studentId));
+                            html += `
+                                <tr class="border-b border-slate-700 ${isMe ? 'rank-row-me' : ''}">
+                                    <td class="p-2 text-center text-xs text-slate-400 font-bold">${i < 3 ? ['🥇','🥈','🥉'][i] : Utils.toArabicNum(i+1)}</td>
+                                    <td class="p-2 font-bold ${isMe ? 'text-white' : ''}">${row.name} ${isMe ? '(أنت)' : ''}</td>
+                                    <td class="p-2 text-center text-emerald-400 font-bold arabic-num">${Utils.toArabicNum(parseFloat(row.grade).toFixed(1))}</td>
+                                </tr>
+                            `;
+                        });
+                        tbody.innerHTML = html;
+                    } else {
+                        tbody.innerHTML = '<tr><td colspan="3" class="text-center p-4 text-slate-500 text-xs">كن أول الأبطال!</td></tr>';
+                    }
+                } catch(e) {
+                    tbody.innerHTML = '<tr><td colspan="3" class="text-center p-2 text-red-400">خطأ في الاتصال</td></tr>';
+                } finally {
+                    loader.classList.add('hidden');
+                    document.getElementById('loader').classList.add('hidden'); // إخفاء اللودر العام إذا كان ظاهراً
+                }
+            },
+
+            showFeedback: (isSuccess, question, answer) => {
+                const screen = document.getElementById('screen-feedback');
+                const icon = document.getElementById('feedback-icon');
+                const title = document.getElementById('feedback-title');
+                screen.classList.remove('hidden');
+                document.getElementById('feedback-question').innerHTML = question;
+                document.getElementById('feedback-correct-answer').innerText = answer;
+                if (isSuccess) { icon.innerText = '🎉'; title.innerText = 'أحسنت يا بطل!'; title.className = 'text-2xl font-bold text-emerald-400 mb-6'; }
+                else { icon.innerText = '💪'; title.innerText = 'حاول مرة أخرى!'; title.className = 'text-2xl font-bold text-yellow-400 mb-6'; }
+            },
+            
+            nextStep: () => {
+                document.getElementById('screen-feedback').classList.add('hidden');
+                if (GameApp.ninja.currentRound < AppState.maxRounds) { GameApp.ninja.currentRound++; GameApp.ninja.startRound(); }
+                else GameApp.showResult();
+            },
+            
+            showScreen: (id) => {
+                ['screen-splash', 'screen-game', 'screen-result', 'screen-feedback'].forEach(s => document.getElementById(s).classList.add('hidden'));
+                document.getElementById('screen-' + id).classList.remove('hidden');
+                if (id === 'game') GameApp.ninja.resize();
+            },
+            
+            startGame: () => { 
+                AppState.currentScore = 0; 
+                AppState.totalMistakes = 0; 
+                GameApp.showScreen('game'); 
+                GameApp.ninja.init(); 
+            },
+            
+            showResult: () => {
+                const score = AppState.currentScore; 
+                document.getElementById('final-score-val').innerText = Utils.toArabicNum(score); 
+                document.getElementById('final-mistakes-val').innerText = Utils.toArabicNum(AppState.totalMistakes);
+                
+                setTimeout(() => { const offset = 283 - (score / 5) * 283; document.getElementById('score-circle').style.strokeDashoffset = offset; }, 100);
+                
+                GameApp.showScreen('result'); 
+                document.querySelector('#screen-result button:first-child').style.display = 'block';
+                
+                // استخدام دالة الحفظ الجديدة V19
+                GameApp.saveDataV19(score, AppState.totalMistakes);
+            },
+            
+            finishGame: () => window.parent.postMessage({ event: 'gameFinished', gameId: AppConfig.gameId }, '*')
+        };
+
+        window.onload = GameApp.init;
+    </script>
+</body>
+</html>

@@ -3,478 +3,640 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>نينجا وحيدات الحد - V18.0</title>
+    <title>صائد وحيدات الحد | V25.4</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
     <style>
         body {
             font-family: 'Cairo', sans-serif;
-            overflow: hidden;
-            background-color: #1e293b;
-            touch-action: none;
-            user-select: none;
+            background-color: #f3f4f6;
             height: 100vh;
-            width: 100vw;
-            margin: 0;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            -webkit-user-select: none;
         }
-        .arabic-num { font-feature-settings: "ss01"; font-variant-numeric: tabular-nums; }
-        #game-container {
-            max-width: 450px;
-            height: 100%;
-            margin: 0 auto;
-            position: relative;
-            background-color: #1e293b;
-            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+
+        #app-container {
+            width: 100%;
+            max-width: 420px;
+            height: 100vh;
+            max-height: 900px;
+            background-color: #0f172a;
             display: flex;
             flex-direction: column;
+            position: relative;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            overflow: hidden;
         }
-        canvas { display: block; width: 100%; height: 100%; cursor: crosshair; } /* تغيير شكل المؤشر ليوحي بالقطع */
-        .pulse-btn { animation: pulse 2s infinite; }
-        @keyframes pulse {
-            0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
-            70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+
+        /* Fraction Style for Instructions */
+        .fraction {
+            display: inline-block;
+            text-align: center;
+            vertical-align: middle;
+            font-size: 0.8em;
+            margin: 0 2px;
+        }
+        .fraction > span {
+            display: block;
+            padding: 0 2px;
+        }
+        .fraction span.numerator {
+            border-bottom: 1px solid currentColor;
+        }
+        .fraction span.denominator {
+            border-top: 0;
+        }
+
+        ::-webkit-scrollbar { display: none; }
+
+        .screen {
+            position: absolute;
+            top: 3rem; 
+            left: 0; 
+            width: 100%; 
+            height: calc(100% - 3rem); 
+            display: flex; flex-direction: column;
+            z-index: 10;
+            transition: opacity 0.3s ease;
+            background-color: #0f172a;
+            opacity: 0; pointer-events: none;
         }
         
-        /* تنسيق دقيق للأسس */
-        .var-group { display: inline-block; position: relative; margin-right: 2px; }
-        .exponent-style {
-            font-size: 0.8em;
-            color: #fbbf24;
-            position: absolute;
-            top: -0.4em;
-            left: -0.6em; /* إزاحة لليسار */
-            font-weight: 900;
+        .active { opacity: 1; pointer-events: auto; z-index: 20; }
+        .visually-hidden { display: none !important; }
+
+        #gameCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+            display: block;
         }
+
+        /* Buttons */
+        .btn-primary {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: white;
+            border-radius: 12px;
+            font-weight: 800;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+            border: 1px solid rgba(255,255,255,0.1);
+            transition: transform 0.1s;
+        }
+        .btn-primary:active { transform: scale(0.96); }
+
+        .btn-secondary {
+            background-color: #334155;
+            color: white;
+            border-radius: 12px;
+            font-weight: 700;
+            border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.4);
+        }
+        .btn-secondary:active { transform: scale(0.96); }
+
+        /* Overlays */
+        #level-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(15, 23, 42, 0.95);
+            z-index: 50;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            opacity: 0; pointer-events: none; transition: opacity 0.3s;
+        }
+        #level-overlay.show { opacity: 1; pointer-events: auto; }
+
+        #leaderboard-modal {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(15, 23, 42, 0.98);
+            z-index: 100;
+            display: flex; flex-direction: column;
+            padding: 1.5rem;
+            opacity: 0; pointer-events: none; transition: opacity 0.2s;
+        }
+        #leaderboard-modal.show { opacity: 1; pointer-events: auto; }
+
+        .leaderboard-row:nth-child(even) { background-color: rgba(255,255,255,0.05); }
+        .rank-1 { color: #fbbf24; font-weight: 900; }
+        .rank-2 { color: #94a3b8; font-weight: 800; }
+        .rank-3 { color: #b45309; font-weight: 800; }
+
+        .loader {
+            border: 2px solid rgba(255,255,255,0.1);
+            border-radius: 50%;
+            border-top: 2px solid #3b82f6;
+            width: 16px; height: 16px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
 
-    <div id="game-container">
+<div id="app-container">
+    
+    <!-- Top Header: Student Name (Right) & Best Score (Left) -->
+    <header class="h-12 bg-slate-800 border-b border-slate-700 flex items-center justify-between px-4 z-50 shrink-0 relative shadow-md">
+        <div class="flex items-center gap-2 text-slate-200">
+            <span class="text-[10px] text-slate-400">الطالب:</span>
+            <span id="header-student-name" class="font-bold text-xs truncate max-w-[120px]">...</span>
+        </div>
+        <!-- Moved Best Score Here -->
+        <div class="flex items-center gap-2">
+            <span class="text-[10px] text-slate-400">أفضل نتيجة:</span>
+            <span id="header-best-score" class="font-mono font-black text-emerald-400 text-base">٠</span>
+        </div>
+    </header>
+
+    <!-- Start Screen -->
+    <div id="start-screen" class="screen active px-5 py-4 items-center justify-start text-center overflow-hidden">
         
-        <!-- الشريط العلوي -->
-        <div class="flex justify-between items-center px-4 py-2 bg-slate-800 text-white z-50 shadow-md h-[50px] shrink-0 border-b border-slate-700">
-            <div class="bg-indigo-900/50 border border-indigo-500/30 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-2">
-                <span class="text-indigo-300">السابق:</span>
-                <span id="prev-score-display" class="arabic-num text-white">--</span>
+        <!-- Compact Title -->
+        <div class="mt-2 mb-3 flex items-center justify-center gap-2">
+            <div class="text-4xl animate-bounce">🚀</div>
+            <h1 class="text-2xl font-black text-white leading-tight">صائد وحيدات الحد</h1>
+        </div>
+
+        <!-- Compact Instructions Area -->
+        <div class="bg-slate-800/80 p-3 rounded-xl w-full mb-3 border border-slate-700 text-right shadow-lg flex-1 flex flex-col justify-center max-h-[280px]">
+            <h3 class="text-yellow-400 font-bold mb-2 text-xs border-b border-slate-600 pb-1">📋 القواعد الذهبية:</h3>
+            
+            <div class="mb-2">
+                <p class="text-[10px] text-slate-300 font-bold mb-0.5">🎯 الأهداف (٣ مراحل):</p>
+                <ul class="text-[10px] text-slate-400 list-disc list-inside space-y-0.5 mr-1 leading-tight">
+                    <li>جمع <span class="text-white">١٥</span> كرة (سهلة) ⬅️ <span class="text-white">١٠</span> (متوسطة) ⬅️ <span class="text-white">٥</span> (صعبة).</li>
+                </ul>
             </div>
-            <div id="student-name-display" class="font-bold text-sm truncate max-w-[150px] text-indigo-100">
-                جاري الاتصال...
+
+            <div>
+                <p class="text-[10px] text-slate-300 font-bold mb-0.5">⚠️ احذر من (غير وحيدة حد):</p>
+                <ul class="text-[10px] text-slate-400 list-disc list-inside space-y-1 mr-1 leading-tight">
+                    <li><span class="text-red-400 font-bold">لا</span> جمع (+) ولا طرح (-).</li>
+                    <li><span class="text-red-400 font-bold">لا</span> متغير بالمقام (مثال: <div class="fraction text-white"><span class="numerator">٥</span><span class="denominator">س</span></div> ممنوع ❌).</li>
+                    <li><span class="text-red-400 font-bold">لا</span> أس سالب (مثل س⁻²).</li>
+                    <li><span class="text-red-400 font-bold">لا</span> جذر على المتغير (√س).</li>
+                </ul>
             </div>
         </div>
 
-        <div id="content-area" class="relative flex-grow w-full h-full overflow-hidden">
-
-            <!-- شاشة البداية -->
-            <div id="screen-splash" class="absolute inset-0 flex flex-col justify-center items-center bg-slate-900 z-40 p-6 text-center">
-                <div class="mb-8 relative w-24 h-24">
-                    <!-- Ninja Icon SVG -->
-                    <div class="absolute inset-0 bg-slate-800 rounded-full border-4 border-slate-700"></div>
-                    <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full h-8 bg-black"></div>
-                    <div class="absolute top-1/2 left-1/3 transform -translate-x-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full"></div>
-                    <div class="absolute top-1/2 right-1/3 transform translate-x-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full"></div>
-                </div>
-                <h1 class="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500 mb-2">نينجا وحيدات الحد</h1>
-                <p class="text-slate-400 text-sm mb-8">اقطع العوامل الأولية الصحيحة!</p>
-                <div class="space-y-3 w-full max-w-[260px]">
-                    <button onclick="GameApp.startGame()" class="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold shadow-lg border-b-4 border-emerald-800 active:border-b-0 active:translate-y-1 transition-all">بدء التحدي ⚔️</button>
-                    <button onclick="GameApp.fetchLeaderboard()" class="w-full py-3 bg-slate-700 text-slate-200 rounded-xl font-bold border border-slate-600 text-sm">سجل الأبطال 🏆</button>
-                </div>
-                <div class="mt-auto pt-6 text-[10px] text-slate-600 font-Cairo">أ. عبد العزيز خالد العبلان</div>
+        <!-- Buttons Area - Moved Up & Side-by-Side -->
+        <div class="w-full mt-1 mb-2">
+            <div class="flex gap-2 w-full h-14">
+                <!-- Big Launch Button -->
+                <button id="start-btn" class="btn-primary flex-[2.5] flex items-center justify-center gap-2 text-sm shadow-xl border-b-4 border-blue-700 active:border-b-0 active:translate-y-1">
+                    <span class="text-xl">🛸</span>
+                    <span>انطلق للمهمة</span>
+                </button>
+                
+                <!-- Smaller Leaderboard Button -->
+                <button onclick="showLeaderboardModal()" class="btn-secondary flex-1 flex flex-col items-center justify-center gap-0.5 text-[10px] shadow-lg">
+                    <span class="text-lg">🏆</span>
+                    <span>الأبطال</span>
+                </button>
             </div>
+        </div>
 
-            <!-- شاشة اللعبة -->
-            <div id="screen-game" class="absolute inset-0 z-10 hidden bg-slate-900">
-                <div class="absolute top-0 w-full z-20 flex flex-col items-center pt-2 pointer-events-none">
-                    <div class="flex justify-between w-full px-4 mb-2">
-                        <div class="bg-black/40 px-3 py-1 rounded text-white text-xs">جولة <span id="current-round" class="text-yellow-400 font-bold arabic-num">1</span></div>
-                        <div class="bg-black/40 px-3 py-1 rounded text-white text-xs"><span id="lives-display">❤️❤️❤️</span></div>
-                    </div>
-                    
-                    <!-- الهدف: تم تحسين العرض لضمان الترتيب -->
-                    <div class="bg-slate-800/90 border-2 border-yellow-500/50 px-6 py-2 rounded-xl text-center shadow-lg backdrop-blur-sm min-w-[180px]">
-                        <span class="text-slate-400 text-[10px] block font-bold">حلل وحيدة الحد:</span>
-                        <div id="target-monomial" class="text-4xl font-black text-white arabic-num py-2 flex justify-center items-center gap-1" dir="rtl">...</div>
-                    </div>
+        <footer class="text-[9px] text-slate-600 mt-auto">
+            تطوير: أ. عبد العزيز خالد العبلان
+        </footer>
+    </div>
 
-                    <div class="mt-2 bg-black/50 px-4 py-1 rounded-full border border-white/10">
-                        <span class="text-slate-400 text-[10px]">المجمع:</span>
-                        <span id="collected-factors" class="text-emerald-400 font-bold text-lg arabic-num mx-2" dir="ltr">...</span>
-                    </div>
+    <!-- Game Screen -->
+    <div id="game-screen" class="screen visually-hidden">
+        <div class="absolute top-3 left-3 right-3 flex justify-between items-start z-30 pointer-events-none">
+            <div class="flex flex-col gap-1 items-start">
+                <div class="bg-blue-600/90 px-2 py-0.5 rounded-md border border-blue-400 shadow-sm backdrop-blur-sm">
+                    <span class="text-[10px] text-white">مرحلة</span>
+                    <span id="level-display" class="font-black text-white text-xs mr-1">١</span>
                 </div>
-
-                <div class="absolute bottom-6 w-full flex justify-center z-30 pointer-events-auto">
-                    <button onclick="GameApp.ninja.checkAnswer()" class="pulse-btn bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 px-10 rounded-full shadow-lg border-b-4 border-indigo-800 active:border-b-0 active:translate-y-1 transition-all">انتهى التحليل ✅</button>
-                </div>
-                <canvas id="gameCanvas"></canvas>
-            </div>
-
-            <!-- Feedback Overlay -->
-            <div id="screen-feedback" class="absolute inset-0 z-[60] hidden flex flex-col justify-center items-center bg-slate-900/98 backdrop-blur-xl p-6">
-                <div id="feedback-icon" class="text-6xl mb-4 animate-bounce">🤔</div>
-                <h2 id="feedback-title" class="text-2xl font-bold text-white mb-6">...</h2>
-                <div class="bg-slate-800 w-full max-w-sm rounded-xl p-5 border border-slate-600 shadow-2xl text-center">
-                    <div class="mb-4 border-b border-slate-700 pb-3">
-                        <p class="text-slate-400 text-xs font-bold mb-1">السؤال</p>
-                        <div id="feedback-question" class="text-4xl font-black text-white arabic-num flex justify-center items-center gap-1" dir="rtl"></div>
-                    </div>
-                    <div>
-                        <p class="text-emerald-400 text-xs font-bold mb-1">التحليل الصحيح</p>
-                        <div id="feedback-correct-answer" class="text-2xl font-bold text-yellow-400 arabic-num" dir="ltr"></div>
-                    </div>
-                </div>
-                <button onclick="GameApp.nextStep()" class="mt-8 bg-white text-slate-900 px-8 py-3 rounded-xl font-bold hover:bg-gray-100 transition-colors shadow-lg">التالي ➜</button>
-            </div>
-
-            <!-- شاشة النتائج -->
-            <div id="screen-result" class="absolute inset-0 z-50 hidden flex flex-col justify-center items-center bg-slate-900 p-6">
-                <h2 class="text-3xl font-bold text-white mb-6">النتيجة النهائية</h2>
-                <div class="relative w-36 h-36 flex items-center justify-center mb-4">
-                    <svg class="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
-                        <circle cx="50" cy="50" r="45" fill="none" stroke="#334155" stroke-width="8" />
-                        <circle id="score-circle" cx="50" cy="50" r="45" fill="none" stroke="#10b981" stroke-width="8" stroke-dasharray="283" stroke-dashoffset="283" stroke-linecap="round" class="transition-all duration-1000" />
-                    </svg>
-                    <div class="absolute inset-0 flex flex-col items-center justify-center">
-                        <span id="final-score-val" class="text-4xl font-black text-white arabic-num">0</span>
-                        <span class="text-xs text-slate-400">من 5</span>
-                    </div>
-                </div>
-                <div class="bg-red-500/10 border border-red-500/20 px-4 py-2 rounded-lg mb-6 flex items-center gap-2">
-                    <span class="text-red-400 text-sm">الأخطاء:</span>
-                    <span id="final-mistakes-val" class="text-xl font-bold text-white arabic-num">0</span>
-                </div>
-                <div class="w-full bg-slate-800 rounded-xl p-4 mb-4 max-h-[150px] overflow-y-auto border border-slate-700">
-                    <h3 class="text-xs font-bold text-slate-400 mb-2 border-b border-slate-700 pb-1">لوحة الشرف</h3>
-                    <table class="w-full text-sm text-right text-slate-300"><tbody id="leaderboard-body"></tbody></table>
-                </div>
-                <div class="flex gap-2 w-full max-w-[300px]">
-                    <button onclick="location.reload()" class="flex-1 py-3 bg-indigo-600 text-white rounded-lg font-bold shadow">إعادة</button>
-                    <button onclick="GameApp.finishGame()" class="flex-1 py-3 bg-slate-700 text-slate-300 rounded-lg font-bold border border-slate-600">إنهاء</button>
+                <div class="bg-slate-800/80 px-2 py-0.5 rounded-md border border-slate-600 backdrop-blur-sm">
+                    <span class="text-[10px] text-slate-400">هدف</span>
+                    <span id="level-progress" class="font-mono font-bold text-emerald-400 text-xs mr-1">٠/١٥</span>
                 </div>
             </div>
-
-            <div id="loader" class="absolute inset-0 z-[100] bg-slate-900/90 hidden flex flex-col justify-center items-center">
-                <div class="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-                <p class="text-white text-sm animate-pulse">جاري الاتصال...</p>
+            
+            <div class="bg-slate-800/80 px-2 py-1 rounded-md border border-slate-600 flex gap-0.5 items-center backdrop-blur-sm">
+                <span id="lives-display" class="text-sm">❤️❤️❤️</span>
             </div>
+        </div>
+
+        <div id="canvas-wrapper" class="flex-1 w-full h-full relative overflow-hidden">
+            <canvas id="gameCanvas"></canvas>
+        </div>
+        
+        <div id="level-overlay">
+            <h2 id="overlay-title" class="text-4xl font-black text-white mb-2">ممتاز!</h2>
+            <div class="bg-slate-800 p-4 rounded-xl border border-slate-600 mb-4 text-center w-64">
+                <div class="text-slate-400 text-xs mb-1">أداء المرحلة</div>
+                <div id="overlay-stats" class="text-xl font-bold text-emerald-400">تم جمع الهدف</div>
+                <div id="overlay-lives" class="text-sm text-red-400 mt-1">❤️ متبقية</div>
+            </div>
+            <p id="overlay-subtitle" class="text-slate-300 text-lg">جاري الانتقال...</p>
         </div>
     </div>
 
-    <script>
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxqAQlGhNs8k5RwHs6jrWxDiDwaMABSx8a9Fl81O5oVVa5fHRWTwIEvsGy2cSDP4zGLWQ/exec';
+    <!-- Result Screen -->
+    <div id="result-screen" class="screen visually-hidden px-4 py-4 items-center pt-6">
+        <h2 class="text-2xl font-black text-white mb-2">النتيجة النهائية</h2>
         
-        const Utils = {
-            toArabicNum: (num) => {
-                if (num === null || num === undefined) return '';
-                const map = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
-                return num.toString().replace(/\d/g, d => map[d]);
-            },
-            getGameId: () => {
-                const params = new URLSearchParams(window.location.search);
-                return params.get('gameId') || 'g6_1_1';
-            },
-            getUrlParam: (key) => {
-                const params = new URLSearchParams(window.location.search);
-                const val = params.get(key);
-                return val ? decodeURIComponent(val) : null;
+        <!-- Score Card -->
+        <div class="bg-slate-800 w-full p-4 rounded-xl border border-slate-700 mb-4 text-center shadow-lg relative overflow-hidden">
+            <div class="absolute top-0 right-0 p-2 opacity-10 text-6xl">📊</div>
+            <div class="flex justify-around items-end border-b border-slate-700/50 pb-4 mb-3">
+                <div>
+                    <div class="text-slate-400 text-[10px] mb-1">صحيحة</div>
+                    <div class="text-2xl font-black text-white font-mono"><span id="total-collected">٠</span>/٣٠</div>
+                </div>
+                <div>
+                    <div class="text-slate-400 text-[10px] mb-1">بونص</div>
+                    <div class="text-2xl font-black text-red-400 font-mono">+<span id="hearts-bonus">٠</span></div>
+                </div>
+            </div>
+            
+            <div>
+                <div class="text-slate-400 text-xs mb-1">الدرجة المستحقة</div>
+                <div class="text-5xl font-black text-yellow-400 font-mono leading-none"><span id="final-grade">٠</span>/٥</div>
+            </div>
+            
+            <div id="feedback-text" class="text-xs text-slate-300 mt-3">أداء جيد!</div>
+            <div id="new-record-badge" class="hidden bg-yellow-500/20 text-yellow-300 text-[10px] px-3 py-1 rounded-full mt-2 inline-block border border-yellow-500/30 font-bold">
+                🏆 رقم قياسي جديد!
+            </div>
+        </div>
+
+        <!-- Buttons -->
+        <div class="w-full mt-auto space-y-2 pb-4">
+            <div class="flex gap-2 w-full">
+                <button id="restart-btn" class="btn-primary flex-[2] py-3 text-sm shadow-lg border-b-4 border-blue-700 active:border-b-0 active:translate-y-1">لعب مجدداً 🔄</button>
+                <button onclick="showLeaderboardModal()" class="btn-secondary flex-1 py-3 text-xl shadow-lg">🏆</button>
+            </div>
+            <button id="exit-btn" class="bg-slate-700 hover:bg-slate-600 text-white w-full py-3 rounded-xl font-bold text-xs transition">إنهاء وعودة للقائمة 🚪</button>
+        </div>
+    </div>
+
+    <!-- Full Screen Leaderboard Modal -->
+    <div id="leaderboard-modal">
+        <div class="flex justify-between items-center mb-6">
+            <div class="flex items-center gap-2">
+                <span class="text-2xl">🏆</span>
+                <h2 class="text-xl font-black text-white">سجل الأبطال</h2>
+            </div>
+            <button onclick="hideLeaderboardModal()" class="bg-slate-700 hover:bg-slate-600 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold transition">✕</button>
+        </div>
+        
+        <div class="bg-slate-800 rounded-xl flex-1 border border-slate-700 overflow-hidden flex flex-col shadow-2xl">
+            <div class="bg-slate-900/80 p-3 text-xs font-bold text-slate-400 border-b border-slate-700 flex justify-between">
+                <span>الترتيب / الاسم</span>
+                <span>النقاط</span>
+            </div>
+            <div class="leaderboard-list p-2 overflow-y-auto flex-1 text-sm text-slate-200 space-y-1">
+                <div class="text-center py-8 text-slate-500 text-xs flex flex-col items-center gap-2">
+                    <div class="loader"></div>
+                    <span>جاري تحميل البيانات...</span>
+                </div>
+            </div>
+        </div>
+        
+        <p class="text-center text-[10px] text-slate-500 mt-4">يتم ترتيب الأبطال بناءً على النقاط التراكمية</p>
+    </div>
+
+</div>
+
+<script>
+/**
+ * V25.4 - Final Layout Polish & Fraction Fix
+ */
+
+const CONFIG = {
+    gameId: 'g6_1_1', 
+    scriptUrl: 'https://script.google.com/macros/s/AKfycbxqAQlGhNs8k5RwHs6jrWxDiDwaMABSx8a9Fl81O5oVVa5fHRWTwIEvsGy2cSDP4zGLWQ/exec'
+};
+
+const STATE = {
+    studentName: 'ضيف',
+    bestScore: 0,
+    currentLevel: 1, levelScore: 0, totalScore: 0, lives: 3, totalLivesSaved: 0,
+    isPlaying: false, isTransitioning: false
+};
+
+const LEVELS = [
+    { id: 1, speed: 1.2, wrongRatio: 0.3, target: 15 },
+    { id: 2, speed: 1.8, wrongRatio: 0.5, target: 10 },
+    { id: 3, speed: 2.5, wrongRatio: 0.6, target: 5 }
+];
+
+const toArNum = (n) => (n || 0).toString().replace(/\d/g, d => "٠١٢٣٤٥٦٧٨٩"[d]);
+const getQueryParam = (param) => new URLSearchParams(window.location.search).get(param);
+
+// --- Modal Logic ---
+function showLeaderboardModal() {
+    document.getElementById('leaderboard-modal').classList.add('show');
+}
+function hideLeaderboardModal() {
+    document.getElementById('leaderboard-modal').classList.remove('show');
+}
+
+// --- API ---
+const API = {
+    async fetchStudentData() {
+        const idFromUrl = getQueryParam('gameId');
+        const finalId = idFromUrl || CONFIG.gameId;
+        try {
+            const response = await fetch(`${CONFIG.scriptUrl}?action=getStudentData&gameId=${finalId}`);
+            const data = await response.json();
+            if (data.result === 'success') {
+                STATE.studentName = data.name || 'طالب مجتهد';
+                STATE.bestScore = parseInt(data.bestScore) || 0;
+                document.getElementById('header-student-name').textContent = STATE.studentName;
+                document.getElementById('header-best-score').textContent = toArNum(STATE.bestScore);
             }
-        };
+        } catch (e) { console.error('Conn Error'); }
+    },
 
-        const AppState = {
-            studentName: 'ضيف',
-            studentId: '',
-            classId: '',
-            gameId: Utils.getGameId(),
-            prevScore: 0,
-            currentScore: 0,
-            totalMistakes: 0,
-            maxRounds: 5
-        };
+    async saveScore(score, grade) {
+        const idFromUrl = getQueryParam('gameId');
+        const finalId = idFromUrl || CONFIG.gameId;
+        try {
+            const url = `${CONFIG.scriptUrl}?action=saveScore&gameId=${finalId}&score=${score}&metricValue=${grade}&type=game`;
+            await fetch(url);
+            this.fetchLeaderboard();
+        } catch (e) { console.error('Save Error'); }
+    },
 
-        const QuestionBank = {
-            generate: (level) => {
-                const questions = [
-                    { coeff: 6, vars: {} }, { coeff: 10, vars: {} }, { coeff: 15, vars: {} },
-                    { coeff: 1, vars: { 'س': 2 } }, { coeff: 1, vars: { 'ص': 3 } },
-                    { coeff: 2, vars: { 'س': 1 } }, { coeff: 3, vars: { 'ص': 2 } }, { coeff: 4, vars: { 'س': 1 } },
-                    { coeff: 6, vars: { 'س': 2 } }, { coeff: 9, vars: { 'س': 2 } }, { coeff: 8, vars: { 'س': 1 } }
-                ];
-                const index = Math.floor(Math.random() * questions.length);
-                return QuestionBank.process(questions[index]);
-            },
-
-            process: (data) => {
-                let factors = [];
-                let num = data.coeff;
-                let d = 2;
-                while (d * d <= num) {
-                    while (num % d === 0) { factors.push(Utils.toArabicNum(d)); num /= d; }
-                    d++;
-                }
-                if (num > 1) factors.push(Utils.toArabicNum(num));
-                
-                for (let v in data.vars) {
-                    for (let i = 0; i < data.vars[v]; i++) factors.push(v);
-                }
-                
-                factors.sort((a, b) => {
-                    const isNumA = /[٠-٩]/.test(a);
-                    const isNumB = /[٠-٩]/.test(b);
-                    if (isNumA && !isNumB) return -1;
-                    if (!isNumA && isNumB) return 1;
-                    return a.localeCompare(b);
-                });
-
-                // --- بناء العرض بصرياً بدقة (Visual Math Construction) ---
-                let displayHTML = '';
-                // 1. المعامل الرقمي (يمين)
-                if (data.coeff !== 1 || Object.keys(data.vars).length === 0) {
-                    displayHTML += `<span class="inline-block">${Utils.toArabicNum(data.coeff)}</span>`;
-                }
-                
-                // 2. المتغيرات والأسس (يسار)
-                let keys = Object.keys(data.vars).sort();
-                for (let k of keys) {
-                    if (data.vars[k] > 1) {
-                        // تجميع الحرف والأس في كتلة واحدة لضمان الترتيب
-                        displayHTML += `<span class="var-group text-4xl">${k}<span class="exponent-style">${Utils.toArabicNum(data.vars[k])}</span></span>`;
-                    } else {
-                        displayHTML += `<span class="inline-block mx-px text-4xl">${k}</span>`;
-                    }
-                }
-
-                return {
-                    display: displayHTML,
-                    required: factors,
-                    remaining: [...factors],
-                    fullAnswer: factors.join(' × ')
-                };
+    async fetchLeaderboard() {
+        const idFromUrl = getQueryParam('gameId');
+        const finalId = idFromUrl || CONFIG.gameId;
+        const containers = document.querySelectorAll('.leaderboard-list');
+        
+        try {
+            const response = await fetch(`${CONFIG.scriptUrl}?action=getLeaderboard&gameId=${finalId}`);
+            const data = await response.json();
+            if (data.result === 'success') {
+                const html = data.data.map((p, i) => `
+                    <div class="leaderboard-row flex justify-between items-center py-3 px-3 rounded-lg text-xs border border-transparent hover:border-slate-600 transition-colors">
+                        <div class="flex items-center gap-3">
+                            <div class="${i < 3 ? `rank-${i+1} text-lg` : 'text-slate-500'} font-black w-6 text-center">${toArNum(i+1)}</div>
+                            <div class="flex flex-col">
+                                <span class="font-bold text-slate-200 text-sm truncate max-w-[140px]">${p.name}</span>
+                                <span class="text-[10px] text-slate-500">${p.date || ''}</span>
+                            </div>
+                        </div>
+                        <span class="font-mono font-bold text-emerald-400 text-base bg-slate-800/50 px-3 py-1 rounded-lg border border-slate-700/50">${toArNum(p.score)}</span>
+                    </div>
+                `).join('');
+                containers.forEach(c => c.innerHTML = html);
             }
-        };
-
-        class NinjaGame {
-            constructor() {
-                this.canvas = document.getElementById('gameCanvas');
-                this.ctx = this.canvas.getContext('2d');
-                this.width = 0; this.height = 0;
-                this.balls = []; this.particles = []; this.trail = []; this.collected = [];
-                this.input = { x: 0, y: 0 };
-                this.setupEvents();
-                window.addEventListener('resize', () => this.resize());
-            }
-
-            resize() {
-                const rect = this.canvas.parentElement.getBoundingClientRect();
-                this.width = this.canvas.width = rect.width;
-                this.height = this.canvas.height = rect.height;
-            }
-
-            setupEvents() {
-                const move = (x, y) => {
-                    const rect = this.canvas.getBoundingClientRect();
-                    this.input.x = x - rect.left;
-                    this.input.y = y - rect.top;
-                    this.trail.push({ x: this.input.x, y: this.input.y, life: 8 });
-                    if (this.trail.length > 8) this.trail.shift();
-                    this.checkCollision();
-                };
-                
-                this.canvas.addEventListener('mousemove', (e) => move(e.clientX, e.clientY));
-                this.canvas.addEventListener('touchmove', (e) => { e.preventDefault(); move(e.touches[0].clientX, e.touches[0].clientY); }, { passive: false });
-            }
-
-            init() { this.resize(); this.currentRound = 1; this.startRound(); this.loop(); }
-
-            startRound() {
-                this.isPaused = false; this.lives = 3; this.balls = []; this.collected = []; this.trail = [];
-                this.target = QuestionBank.generate(this.currentRound);
-                document.getElementById('current-round').innerText = Utils.toArabicNum(this.currentRound);
-                document.getElementById('target-monomial').innerHTML = this.target.display;
-                document.getElementById('lives-display').innerText = '❤️❤️❤️';
-                document.getElementById('feedback-question').innerHTML = this.target.display; // Pre-load feedback question
-                this.updateCollectedUI();
-                if (this.spawnTimer) clearInterval(this.spawnTimer);
-                this.spawnTimer = setInterval(() => { if (!this.isPaused && this.balls.length < 5) this.spawnBall(); }, 1200);
-            }
-
-            updateCollectedUI() {
-                const el = document.getElementById('collected-factors');
-                if (this.collected.length === 0) el.innerHTML = '<span class="text-slate-500 text-xs">لا شيء</span>';
-                else el.innerHTML = this.collected.map(item => `<span class="${item.correct ? 'text-emerald-400' : 'text-red-400'} mx-1">${item.val}</span>`).join('<span class="text-white text-xs">×</span>');
-            }
-
-            spawnBall() {
-                const r = 35;
-                const x = Math.random() * (this.width - 2 * r) + r;
-                let val, isCorrect;
-                if (Math.random() < 0.6 && this.target.remaining.length > 0) {
-                    const idx = Math.floor(Math.random() * this.target.remaining.length);
-                    val = this.target.remaining[idx]; isCorrect = true;
-                } else {
-                    const pool = ['٢', '٣', '٥', '٧', 'س', 'ص', 'أ', 'ب'];
-                    val = pool[Math.floor(Math.random() * pool.length)];
-                    isCorrect = this.target.remaining.includes(val);
-                }
-                this.balls.push({ x, y: this.height + r, r, val, isCorrect, vx: (Math.random() - 0.5) * 3, vy: -(Math.random() * 4 + 6), gravity: 0.1, angle: 0 });
-            }
-
-            // --- إصلاح التصادم الجذري (Reverse Loop) ---
-            checkCollision() {
-                if (this.trail.length < 1) return; // يكفي نقطة واحدة الآن
-                const p = this.trail[this.trail.length - 1]; // آخر نقطة للمؤشر
-
-                // استخدام حلقة عكسية للسماح بالحذف الآمن أثناء التكرار
-                for (let i = this.balls.length - 1; i >= 0; i--) {
-                    const ball = this.balls[i];
-                    // فحص المسافة بين رأس المؤشر ومركز الكرة
-                    const dist = Math.hypot(ball.x - p.x, ball.y - p.y);
-                    // زيادة منطقة الاصطدام قليلاً (+10) لتسهيل اللعب
-                    if (dist < ball.r + 10) {
-                        this.sliceBall(ball, i);
-                    }
-                }
-            }
-
-            sliceBall(ball, index) {
-                this.balls.splice(index, 1); // حذف الكرة فوراً
-                for (let i = 0; i < 10; i++) this.particles.push({ x: ball.x, y: ball.y, vx: (Math.random() - 0.5) * 10, vy: (Math.random() - 0.5) * 10, life: 1, color: ball.isCorrect ? '#10b981' : '#ef4444' });
-
-                if (ball.isCorrect) {
-                    const needIdx = this.target.remaining.indexOf(ball.val);
-                    if (needIdx > -1) {
-                        this.target.remaining.splice(needIdx, 1);
-                        this.collected.push({ val: ball.val, correct: true });
-                    } else {
-                        this.collected.push({ val: ball.val, correct: false });
-                        this.handleMistake();
-                    }
-                } else {
-                    this.collected.push({ val: ball.val, correct: false });
-                    this.handleMistake();
-                }
-                this.updateCollectedUI();
-            }
-
-            handleMistake() {
-                AppState.totalMistakes++; this.lives--;
-                let hearts = ''; for(let i=0; i<this.lives; i++) hearts += '❤️';
-                document.getElementById('lives-display').innerText = hearts;
-                if (this.lives <= 0) { this.isPaused = true; GameApp.showFeedback(false, this.target.display, this.target.fullAnswer); }
-            }
-
-            checkAnswer() {
-                if (this.isPaused) return;
-                const hasErrors = this.collected.some(c => !c.correct);
-                const isComplete = this.target.remaining.length === 0;
-                if (isComplete && !hasErrors) {
-                    this.isPaused = true; AppState.currentScore++;
-                    GameApp.showFeedback(true, this.target.display, this.target.fullAnswer);
-                } else {
-                    this.handleMistake();
-                    if (this.lives > 0) alert('إجابتك ناقصة أو تحتوي على أخطاء!');
-                }
-            }
-
-            loop() {
-                if (!this.isPaused) {
-                    this.ctx.clearRect(0, 0, this.width, this.height);
-                    this.balls.forEach((ball, i) => {
-                        ball.x += ball.vx; ball.y += ball.vy; ball.vy += ball.gravity; ball.angle += 0.05;
-                        if (ball.y > this.height + 100) { this.balls.splice(i, 1); return; }
-                        this.ctx.save(); this.ctx.translate(ball.x, ball.y); this.ctx.rotate(ball.angle);
-                        this.ctx.beginPath(); this.ctx.arc(0, 0, ball.r, 0, Math.PI * 2);
-                        const grad = this.ctx.createRadialGradient(-10, -10, 0, 0, 0, ball.r);
-                        grad.addColorStop(0, '#7dd3fc'); grad.addColorStop(1, '#0369a1');
-                        this.ctx.fillStyle = grad; this.ctx.fill();
-                        this.ctx.strokeStyle = 'white'; this.ctx.lineWidth = 3; this.ctx.stroke();
-                        this.ctx.fillStyle = 'white'; this.ctx.font = 'bold 28px Cairo';
-                        this.ctx.textAlign = 'center'; this.ctx.textBaseline = 'middle';
-                        this.ctx.fillText(ball.val, 0, 0);
-                        this.ctx.restore();
-                    });
-                    for (let i = this.particles.length - 1; i >= 0; i--) {
-                        const p = this.particles[i]; p.x += p.vx; p.y += p.vy; p.life -= 0.05;
-                        if (p.life <= 0) { this.particles.splice(i, 1); continue; }
-                        this.ctx.globalAlpha = p.life; this.ctx.fillStyle = p.color;
-                        this.ctx.beginPath(); this.ctx.arc(p.x, p.y, 5, 0, Math.PI * 2); this.ctx.fill(); this.ctx.globalAlpha = 1;
-                    }
-                    if (this.trail.length > 1) {
-                        this.ctx.beginPath(); this.ctx.moveTo(this.trail[0].x, this.trail[0].y);
-                        for (let i = 1; i < this.trail.length; i++) this.ctx.lineTo(this.trail[i].x, this.trail[i].y);
-                        this.ctx.strokeStyle = 'white'; this.ctx.lineWidth = 5; this.ctx.lineCap = 'round'; this.ctx.stroke();
-                    }
-                }
-                requestAnimationFrame(() => this.loop());
-            }
+        } catch (e) { 
+            containers.forEach(c => c.innerHTML = '<div class="text-center text-red-400 text-xs py-4">تعذر تحميل البيانات</div>');
         }
+    }
+};
 
-        const GameApp = {
-            ninja: new NinjaGame(),
-            init: async () => {
-                AppState.studentId = Utils.getUrlParam('studentId'); AppState.classId = Utils.getUrlParam('classId');
-                let nameParam = Utils.getUrlParam('studentName') || Utils.getUrlParam('name');
-                if (nameParam) { AppState.studentName = nameParam; document.getElementById('student-name-display').innerText = nameParam; GameApp.fetchData(true); }
-                else await GameApp.fetchData(false);
-                GameApp.showScreen('splash');
-            },
-            fetchData: async (scoreOnly = false) => {
-                if (!AppState.studentId) { AppState.studentName = "ضيف"; document.getElementById('student-name-display').innerText = "ضيف"; return; }
-                document.getElementById('loader').classList.remove('hidden');
-                try {
-                    const response = await fetch(`${SCRIPT_URL}?action=getStudentData&studentId=${AppState.studentId}&gameId=${AppState.gameId}`);
-                    const data = await response.json();
-                    if (!scoreOnly && data.name) { AppState.studentName = data.name; document.getElementById('student-name-display').innerText = data.name; }
-                    if (data.score) { AppState.prevScore = data.score; document.getElementById('prev-score-display').innerText = Utils.toArabicNum(data.score); }
-                } catch (e) { if(!scoreOnly) document.getElementById('student-name-display').innerText = "طالب"; }
-                finally { document.getElementById('loader').classList.add('hidden'); }
-            },
-            saveScore: async (finalScore) => {
-                if (!AppState.studentId) return;
-                try {
-                    const params = new URLSearchParams({ action: 'saveScore', studentId: AppState.studentId, classId: AppState.classId || '0', itemId: AppState.gameId, score: finalScore, metricValue: AppState.totalMistakes, type: 'game' });
-                    await fetch(SCRIPT_URL + "?" + params.toString());
-                } catch (e) {}
-            },
-            fetchLeaderboard: async () => {
-                document.getElementById('loader').classList.remove('hidden');
-                try {
-                    const response = await fetch(`${SCRIPT_URL}?action=getLeaderboard&gameId=${AppState.gameId}`);
-                    const data = await response.json();
-                    const tbody = document.getElementById('leaderboard-body'); tbody.innerHTML = '';
-                    if (!data || data.length === 0) tbody.innerHTML = '<tr><td class="text-center p-2">لا يوجد سجلات بعد</td></tr>';
-                    else data.slice(0, 5).forEach((row, i) => { const isMe = row.studentId == AppState.studentId ? 'text-yellow-400 font-bold' : ''; tbody.innerHTML += `<tr class="border-b border-slate-700 ${isMe}"><td class="p-2">${i+1}. ${row.name} ${isMe ? '(أنت)' : ''}</td><td class="p-2 text-left arabic-num">${Utils.toArabicNum(row.score)}</td></tr>`; });
-                    document.getElementById('screen-splash').classList.add('hidden'); document.getElementById('screen-result').classList.remove('hidden');
-                    document.querySelector('#screen-result button:first-child').style.display = 'none';
-                } catch(e) { alert('تعذر جلب السجل'); } finally { document.getElementById('loader').classList.add('hidden'); }
-            },
-            showFeedback: (isSuccess, question, answer) => {
-                const screen = document.getElementById('screen-feedback'); const icon = document.getElementById('feedback-icon'); const title = document.getElementById('feedback-title');
-                screen.classList.remove('hidden');
-                document.getElementById('feedback-question').innerHTML = question;
-                document.getElementById('feedback-correct-answer').innerText = answer;
-                if (isSuccess) { icon.innerText = '🎉'; title.innerText = 'أحسنت يا بطل!'; title.className = 'text-2xl font-bold text-emerald-400 mb-6'; }
-                else { icon.innerText = '💪'; title.innerText = 'حاول مرة أخرى!'; title.className = 'text-2xl font-bold text-yellow-400 mb-6'; }
-            },
-            nextStep: () => {
-                document.getElementById('screen-feedback').classList.add('hidden');
-                if (GameApp.ninja.currentRound < AppState.maxRounds) { GameApp.ninja.currentRound++; GameApp.ninja.startRound(); }
-                else GameApp.showResult();
-            },
-            showScreen: (id) => {
-                ['screen-splash', 'screen-game', 'screen-result', 'screen-feedback'].forEach(s => document.getElementById(s).classList.add('hidden'));
-                document.getElementById('screen-' + id).classList.remove('hidden');
-                if (id === 'game') GameApp.ninja.resize();
-            },
-            startGame: () => { AppState.currentScore = 0; AppState.totalMistakes = 0; GameApp.showScreen('game'); GameApp.ninja.init(); },
-            showResult: () => {
-                const score = AppState.currentScore; document.getElementById('final-score-val').innerText = Utils.toArabicNum(score); document.getElementById('final-mistakes-val').innerText = Utils.toArabicNum(AppState.totalMistakes);
-                setTimeout(() => { const offset = 283 - (score / 5) * 283; document.getElementById('score-circle').style.strokeDashoffset = offset; }, 100);
-                GameApp.showScreen('result'); document.querySelector('#screen-result button:first-child').style.display = 'block';
-                GameApp.saveScore(score);
-            },
-            finishGame: () => window.parent.postMessage({ event: 'gameFinished', gameId: AppState.gameId }, '*')
+// --- Game Engine ---
+const Game = {
+    canvas: null, ctx: null, animationId: null,
+    player: { x: 0, y: 0, width: 50, height: 70 },
+    items: [], particles: [], frameCount: 0, spawnRate: 60, wrapper: null,
+
+    levelData: {
+        1: {
+            monomials: [{ parts: [{v:'١٢'}] }, { parts: [{v:'س'}] }, { parts: [{v:'٥'}, {v:'س'}] }, { parts: [{v:'-'}, {v:'٢'}, {v:'أ'}] }, { parts: [{v:'ص'}] }, { parts: [{v:'٧'}] }],
+            nonMonomials: [{ parts: [{v:'س'}, {v:'+'}, {v:'ص'}] }, { parts: [{v:'أ'}, {v:'-'}, {v:'ب'}] }, { parts: [{v:'٥'}, {v:'+'}, {v:'س'}] }, { parts: [{v:'س'}, {v:'-'}, {v:'١'}] }]
+        },
+        2: {
+            monomials: [{ parts: [{v:'٥'}, {v:'س'}, {t:'sup', v:'٢'}] }, { parts: [{v:'٣'}, {v:'س'}, {v:'ص'}] }, { parts: [{t:'frac', n:'س', d:'٣'}] }, { parts: [{t:'frac', n:'١', d:'٢'}, {v:'م'}] }, { parts: [{v:'-'}, {v:'س'}, {t:'sup', v:'٣'}] }],
+            nonMonomials: [{ parts: [{t:'frac', n:'٥', d:'س'}] }, { parts: [{t:'frac', n:'٢', d:'ن'}] }, { parts: [{v:'٣'}, {v:'س'}, {t:'sup', v:'٢-'}] }, { parts: [{v:'ص'}, {t:'sup', v:'١-'}] }]
+        },
+        3: {
+            monomials: [{ parts: [{t:'sqrt', v:'١٦'}] }, { parts: [{t:'frac', n:'٣', d:'٤'}] }, { parts: [{t:'frac', n:'١', d:'٢'}, {v:'م'}, {t:'sup', v:'٢'}] }, { parts: [{v:'أ'}, {v:'ب'}, {v:'ج'}, {t:'sup', v:'٣'}] }, { parts: [{v:'ط'}, {v:'نق'}, {t:'sup', v:'٢'}] }],
+            nonMonomials: [{ parts: [{t:'sqrt', v:'س'}] }, { parts: [{t:'frac', n:'س', d:'ص'}] }, { parts: [{v:'س'}, {t:'sup', v:'٢'}, {v:'+'}, {v:'٤'}] }, { parts: [{v:'٣'}, {v:'س'}, {v:'+'}, {v:'١'}] }, { parts: [{t:'frac', n:'١', d:'٢'}, {v:'س'}, {t:'sup', v:'١-'}] }]
+        }
+    },
+
+    init() {
+        this.canvas = document.getElementById('gameCanvas');
+        this.ctx = this.canvas.getContext('2d');
+        this.wrapper = document.getElementById('canvas-wrapper');
+
+        const inputHandler = (e) => {
+            if (!STATE.isPlaying || STATE.isTransitioning) return;
+            if (!this.canvas.width || this.canvas.width < 10) return;
+            const rect = this.canvas.getBoundingClientRect();
+            if (rect.width === 0) return;
+            let clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            let relativeX = clientX - rect.left;
+            relativeX *= (this.canvas.width / rect.width);
+            this.player.x = Math.max(this.player.width/2, Math.min(this.canvas.width - this.player.width/2, relativeX));
         };
-        window.onload = GameApp.init;
-    </script>
+
+        window.addEventListener('mousemove', inputHandler);
+        window.addEventListener('touchmove', (e) => {
+            if(STATE.isPlaying && e.target === this.canvas) e.preventDefault();
+            inputHandler(e);
+        }, { passive: false });
+        window.addEventListener('resize', () => { if(STATE.isPlaying) this.resize(); });
+    },
+
+    resize() {
+        const w = this.wrapper.clientWidth;
+        const h = this.wrapper.clientHeight;
+        if (w === 0 || h === 0) { this.canvas.width = window.innerWidth * 2; this.canvas.height = window.innerHeight * 2; } 
+        else { this.canvas.width = w * 2; this.canvas.height = h * 2; }
+        this.player.y = this.canvas.height - 150;
+    },
+
+    start() {
+        this.resize();
+        STATE.totalScore = 0; STATE.totalLivesSaved = 0; STATE.currentLevel = 1;
+        this.startLevel(1);
+    },
+
+    startLevel(levelNum) {
+        STATE.isPlaying = true; STATE.isTransitioning = false; STATE.currentLevel = levelNum; STATE.levelScore = 0; STATE.lives = 3;
+        this.items = []; this.particles = []; this.frameCount = 0;
+        document.getElementById('level-display').textContent = toArNum(levelNum);
+        this.updateHUD();
+        document.getElementById('level-overlay').classList.remove('show');
+        this.loop();
+    },
+
+    updateHUD() {
+        const levelConfig = LEVELS[STATE.currentLevel - 1];
+        document.getElementById('level-progress').textContent = toArNum(STATE.levelScore) + "/" + toArNum(levelConfig.target);
+        document.getElementById('lives-display').textContent = "❤️".repeat(STATE.lives);
+    },
+
+    nextLevel() {
+        STATE.totalLivesSaved += STATE.lives;
+        STATE.isTransitioning = true;
+        const currentLvl = STATE.currentLevel;
+        if (currentLvl >= 3) { this.stop(); return; }
+
+        const overlay = document.getElementById('level-overlay');
+        document.getElementById('overlay-title').textContent = "ممتاز!";
+        document.getElementById('overlay-title').className = "text-4xl font-black text-blue-400 mb-2";
+        const config = LEVELS[currentLvl - 1];
+        document.getElementById('overlay-stats').textContent = "تم جمع: " + toArNum(STATE.levelScore) + "/" + toArNum(config.target);
+        document.getElementById('overlay-stats').className = "text-xl font-bold text-emerald-400";
+        document.getElementById('overlay-lives').textContent = "❤️".repeat(STATE.lives);
+        document.getElementById('overlay-subtitle').textContent = "جاري الانتقال...";
+        overlay.classList.add('show');
+        setTimeout(() => { this.startLevel(currentLvl + 1); }, 2000);
+    },
+
+    levelFailed() {
+        STATE.isTransitioning = true;
+        const currentLvl = STATE.currentLevel;
+        if (currentLvl >= 3) { this.stop(); return; }
+
+        const overlay = document.getElementById('level-overlay');
+        document.getElementById('overlay-title').textContent = "نفذت القلوب!";
+        document.getElementById('overlay-title').className = "text-4xl font-black text-red-500 mb-2";
+        const config = LEVELS[currentLvl - 1];
+        document.getElementById('overlay-stats').textContent = "تم جمع: " + toArNum(STATE.levelScore) + "/" + toArNum(config.target);
+        document.getElementById('overlay-stats').className = "text-xl font-bold text-slate-400";
+        document.getElementById('overlay-lives').textContent = "💔";
+        document.getElementById('overlay-subtitle').textContent = "تخطي للمرحلة التالية...";
+        overlay.classList.add('show');
+        setTimeout(() => { this.startLevel(currentLvl + 1); }, 2000);
+    },
+
+    stop() {
+        if (STATE.lives > 0) STATE.totalLivesSaved += STATE.lives;
+        STATE.isPlaying = false;
+        cancelAnimationFrame(this.animationId);
+        showScreen('result-screen');
+        
+        const totalTargets = 30; // 15+10+5
+        let grade = Math.ceil((STATE.totalScore / totalTargets) * 5);
+        if(grade > 5) grade = 5; if(grade < 0) grade = 0;
+        
+        const heartsBonus = STATE.totalLivesSaved * 50;
+        const lbScore = (STATE.totalScore * 100) + heartsBonus;
+
+        document.getElementById('total-collected').textContent = toArNum(STATE.totalScore);
+        document.getElementById('hearts-bonus').textContent = toArNum(heartsBonus);
+        document.getElementById('final-grade').textContent = toArNum(grade);
+        
+        const feedbackEl = document.getElementById('feedback-text');
+        if (grade === 5) feedbackEl.textContent = "مذهل! علامة كاملة! 🌟";
+        else if (grade >= 3) feedbackEl.textContent = "أداء جيد، يمكنك التحسن!";
+        else feedbackEl.textContent = "حاول مجدداً للوصول للقمة.";
+
+        if (lbScore > STATE.bestScore) { document.getElementById('new-record-badge').classList.remove('hidden'); } 
+        else { document.getElementById('new-record-badge').classList.add('hidden'); }
+        
+        API.saveScore(lbScore, grade);
+    },
+
+    spawnItem() {
+        if (this.canvas.width < 100) return;
+        const config = LEVELS[STATE.currentLevel - 1];
+        const isWrong = Math.random() < config.wrongRatio;
+        const currentLevelData = this.levelData[STATE.currentLevel];
+        const dataList = isWrong ? currentLevelData.nonMonomials : currentLevelData.monomials;
+        const data = dataList[Math.floor(Math.random() * dataList.length)];
+        const radius = 60; 
+        this.items.push({
+            x: Math.random() * (this.canvas.width - 2 * radius) + radius,
+            y: -120, parts: data.parts, type: isWrong ? "not-monomial" : "monomial",
+            speed: (4 + Math.random() * 3) * config.speed, radius: radius,
+            angle: Math.random() * Math.PI * 2, rotationSpeed: (Math.random() - 0.5) * 0.03
+        });
+    },
+
+    measureMath(parts, fontSize) {
+        this.ctx.save(); this.ctx.textAlign = 'left'; this.ctx.direction = 'ltr';
+        let width = 0; this.ctx.font = `bold ${fontSize}px "Cairo", sans-serif`;
+        parts.forEach(part => {
+            const type = part.t || 'text';
+            if (type === 'text') width += this.ctx.measureText(part.v).width;
+            else if (type === 'sup') { this.ctx.font = `bold ${fontSize * 0.7}px "Cairo", sans-serif`; width += this.ctx.measureText(part.v).width; this.ctx.font = `bold ${fontSize}px "Cairo", sans-serif`; }
+            else if (type === 'frac') { this.ctx.font = `bold ${fontSize * 0.8}px "Cairo", sans-serif`; const wNum = this.ctx.measureText(part.n).width; const wDen = this.ctx.measureText(part.d).width; width += Math.max(wNum, wDen) + 10; this.ctx.font = `bold ${fontSize}px "Cairo", sans-serif`; }
+            else if (type === 'sqrt') { width += this.ctx.measureText(part.v).width + 20; }
+        });
+        this.ctx.restore(); return width;
+    },
+
+    drawMath(parts, centerX, centerY, maxWidth) {
+        this.ctx.save(); this.ctx.textAlign = 'left'; this.ctx.direction = 'ltr'; 
+        const fontSize = 36; const totalWidth = this.measureMath(parts, fontSize);
+        this.ctx.translate(centerX, centerY);
+        if (maxWidth && totalWidth > maxWidth) { const scale = maxWidth / totalWidth; this.ctx.scale(scale, scale); }
+        let cursorX = totalWidth / 2; this.ctx.fillStyle = '#ffffff'; this.ctx.textBaseline = 'middle';
+        parts.forEach(part => {
+                const type = part.t || 'text'; this.ctx.font = `bold ${fontSize}px "Cairo", sans-serif`;
+                if (type === 'text') { const w = this.ctx.measureText(part.v).width; cursorX -= w; this.ctx.fillText(part.v, cursorX, 0); } 
+                else if (type === 'sup') { this.ctx.font = `bold ${fontSize * 0.7}px "Cairo", sans-serif`; const w = this.ctx.measureText(part.v).width; cursorX -= w; this.ctx.fillText(part.v, cursorX, -15); }
+                else if (type === 'frac') { const fSize = fontSize * 0.8; this.ctx.font = `bold ${fSize}px "Cairo", sans-serif`; const wNum = this.ctx.measureText(part.n).width; const wDen = this.ctx.measureText(part.d).width; const maxWidthPart = Math.max(wNum, wDen) + 10; cursorX -= maxWidthPart; this.ctx.fillText(part.n, cursorX + (maxWidthPart - wNum)/2, -20); this.ctx.fillText(part.d, cursorX + (maxWidthPart - wDen)/2, 24); this.ctx.fillRect(cursorX + 2, 0, maxWidthPart - 4, 3); }
+                else if (type === 'sqrt') { const wContent = this.ctx.measureText(part.v).width; const wTotal = wContent + 20; cursorX -= wTotal; this.ctx.lineWidth = 3; this.ctx.strokeStyle = '#fff'; this.ctx.beginPath(); this.ctx.moveTo(cursorX + wTotal, -8); this.ctx.lineTo(cursorX + wTotal - 6, 12); this.ctx.lineTo(cursorX + wTotal - 14, -22); this.ctx.lineTo(cursorX, -22); this.ctx.stroke(); this.ctx.fillText(part.v, cursorX + 6, 4); }
+                cursorX -= 2;
+        });
+        this.ctx.restore();
+    },
+
+    drawShip() {
+        this.ctx.save(); this.ctx.translate(this.player.x, this.player.y); const scale = 1.5;
+        this.ctx.beginPath(); this.ctx.moveTo(-10 * scale, 20 * scale); this.ctx.lineTo(0, (35 + Math.random()*10) * scale); this.ctx.lineTo(10 * scale, 20 * scale); this.ctx.fillStyle = '#f59e0b'; this.ctx.fill();
+        this.ctx.beginPath(); this.ctx.moveTo(0, -40 * scale); this.ctx.lineTo(25 * scale, 20 * scale); this.ctx.lineTo(0, 10 * scale); this.ctx.lineTo(-25 * scale, 20 * scale); this.ctx.closePath(); this.ctx.fillStyle = '#3b82f6'; this.ctx.fill(); this.ctx.lineWidth = 4; this.ctx.strokeStyle = '#60a5fa'; this.ctx.stroke();
+        this.ctx.beginPath(); this.ctx.ellipse(0, -5 * scale, 8 * scale, 15 * scale, 0, 0, Math.PI * 2); this.ctx.fillStyle = '#bae6fd'; this.ctx.fill(); this.ctx.restore();
+    },
+
+    loop() {
+        if (!STATE.isPlaying || STATE.isTransitioning) return;
+        if (this.canvas.width === 0) { this.animationId = requestAnimationFrame(() => this.loop()); return; }
+        this.ctx.fillStyle = '#0f172a'; this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.fillStyle = '#ffffff'; for(let i=0; i<8; i++) { this.ctx.fillRect(Math.random() * this.canvas.width, Math.random() * this.canvas.height, 3, 3); }
+        this.drawShip();
+        this.frameCount++; if (this.frameCount % Math.floor(this.spawnRate) === 0) { this.spawnItem(); }
+        for (let i = this.items.length - 1; i >= 0; i--) {
+            let item = this.items[i]; item.y += item.speed; item.angle += item.rotationSpeed;
+            this.ctx.save(); this.ctx.translate(item.x, item.y); this.ctx.rotate(item.angle);
+            this.ctx.beginPath(); this.ctx.arc(0, 0, item.radius, 0, Math.PI*2); this.ctx.fillStyle = 'rgba(59, 130, 246, 0.25)'; this.ctx.strokeStyle = '#60a5fa'; this.ctx.lineWidth = 4; this.ctx.fill(); this.ctx.stroke();
+            this.ctx.beginPath(); this.ctx.arc(0, 0, item.radius - 10, 0, Math.PI*2); this.ctx.strokeStyle = 'rgba(147, 197, 253, 0.5)'; this.ctx.lineWidth = 2; this.ctx.stroke();
+            this.ctx.rotate(-item.angle); this.ctx.shadowColor = "rgba(0,0,0,1)"; this.ctx.shadowBlur = 4;
+            this.drawMath(item.parts, 0, 0, item.radius * 2 - 30); this.ctx.shadowBlur = 0; this.ctx.restore();
+            const dx = item.x - this.player.x; const dy = item.y - this.player.y;
+            if (Math.sqrt(dx*dx + dy*dy) < item.radius + 30) {
+                if (item.type === 'monomial') {
+                    STATE.levelScore++; STATE.totalScore++; this.createParticles(item.x, item.y, '#4ade80'); this.updateHUD();
+                    const config = LEVELS[STATE.currentLevel - 1]; if (STATE.levelScore >= config.target) { this.nextLevel(); this.items = []; return; }
+                } else {
+                    STATE.lives--; this.updateHUD(); this.createParticles(item.x, item.y, '#f87171');
+                    if (STATE.lives <= 0) { this.levelFailed(); this.items = []; return; }
+                }
+                this.items.splice(i, 1); continue;
+            }
+            if (item.y > this.canvas.height + 100) this.items.splice(i, 1);
+        }
+        for (let i = this.particles.length - 1; i >= 0; i--) {
+            let p = this.particles[i]; p.x += p.vx; p.y += p.vy; p.life -= 0.05;
+            this.ctx.globalAlpha = p.life; this.ctx.fillStyle = p.color;
+            this.ctx.beginPath(); this.ctx.arc(p.x, p.y, 4, 0, Math.PI*2); this.ctx.fill(); this.ctx.globalAlpha = 1.0;
+            if (p.life <= 0) this.particles.splice(i, 1);
+        }
+        this.animationId = requestAnimationFrame(() => this.loop());
+    },
+
+    createParticles(x, y, color) { for(let i=0; i<10; i++) { this.particles.push({ x: x, y: y, vx: (Math.random() - 0.5) * 15, vy: (Math.random() - 0.5) * 15, life: 1.0, color: color }); } }
+};
+
+function showScreen(screenId) {
+    document.querySelectorAll('.screen').forEach(s => { s.classList.remove('active'); s.classList.add('visually-hidden'); });
+    const s = document.getElementById(screenId); s.classList.remove('visually-hidden');
+    setTimeout(() => s.classList.add('active'), 10);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    API.fetchStudentData(); API.fetchLeaderboard(); Game.init();
+    document.getElementById('start-btn').addEventListener('click', () => { showScreen('game-screen'); setTimeout(() => Game.start(), 50); });
+    document.getElementById('restart-btn').addEventListener('click', () => { showScreen('game-screen'); setTimeout(() => Game.start(), 50); });
+    document.getElementById('exit-btn').addEventListener('click', () => { if(window.parent) window.parent.postMessage('gameFinished', '*'); window.location.reload(); });
+});
+
+</script>
 </body>
 </html>

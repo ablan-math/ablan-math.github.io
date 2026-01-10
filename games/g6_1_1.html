@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>صائد وحيدات الحد | V25.4</title>
+    <title>صائد وحيدات الحد | V25.5</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
     <style>
@@ -142,12 +142,12 @@
     <header class="h-12 bg-slate-800 border-b border-slate-700 flex items-center justify-between px-4 z-50 shrink-0 relative shadow-md">
         <div class="flex items-center gap-2 text-slate-200">
             <span class="text-[10px] text-slate-400">الطالب:</span>
-            <span id="header-student-name" class="font-bold text-xs truncate max-w-[120px]">...</span>
+            <span id="header-student-name" class="font-bold text-xs truncate max-w-[120px]">جاري التحميل...</span>
         </div>
         <!-- Moved Best Score Here -->
         <div class="flex items-center gap-2">
             <span class="text-[10px] text-slate-400">أفضل نتيجة:</span>
-            <span id="header-best-score" class="font-mono font-black text-emerald-400 text-base">٠</span>
+            <span id="header-best-score" class="font-mono font-black text-emerald-400 text-base">...</span>
         </div>
     </header>
 
@@ -307,16 +307,22 @@
 
 <script>
 /**
- * V25.4 - Final Layout Polish & Fraction Fix
+ * V25.5 - FINAL FIX for Student ID & Saving Logic
  */
 
+// 1. تعريف المتغيرات والثوابت
 const CONFIG = {
     gameId: 'g6_1_1', 
+    // التأكد من صحة الرابط (تم استخدام الرابط المعتمد)
     scriptUrl: 'https://script.google.com/macros/s/AKfycbxqAQlGhNs8k5RwHs6jrWxDiDwaMABSx8a9Fl81O5oVVa5fHRWTwIEvsGy2cSDP4zGLWQ/exec'
 };
 
+const getQueryParam = (param) => new URLSearchParams(window.location.search).get(param);
+
 const STATE = {
     studentName: 'ضيف',
+    // 2. التقاط هوية الطالب من الرابط
+    studentId: getQueryParam('studentId') || getQueryParam('userId') || getQueryParam('id') || 'guest',
     bestScore: 0,
     currentLevel: 1, levelScore: 0, totalScore: 0, lives: 3, totalLivesSaved: 0,
     isPlaying: false, isTransitioning: false
@@ -329,7 +335,6 @@ const LEVELS = [
 ];
 
 const toArNum = (n) => (n || 0).toString().replace(/\d/g, d => "٠١٢٣٤٥٦٧٨٩"[d]);
-const getQueryParam = (param) => new URLSearchParams(window.location.search).get(param);
 
 // --- Modal Logic ---
 function showLeaderboardModal() {
@@ -339,31 +344,48 @@ function hideLeaderboardModal() {
     document.getElementById('leaderboard-modal').classList.remove('show');
 }
 
-// --- API ---
+// --- API (Fixed for Saving & Fetching) ---
 const API = {
     async fetchStudentData() {
         const idFromUrl = getQueryParam('gameId');
         const finalId = idFromUrl || CONFIG.gameId;
+        
         try {
-            const response = await fetch(`${CONFIG.scriptUrl}?action=getStudentData&gameId=${finalId}`);
+            // إضافة studentId للرابط
+            const url = `${CONFIG.scriptUrl}?action=getStudentData&gameId=${finalId}&studentId=${STATE.studentId}`;
+            console.log('Fetching Student:', url);
+            
+            const response = await fetch(url);
             const data = await response.json();
+            
             if (data.result === 'success') {
                 STATE.studentName = data.name || 'طالب مجتهد';
                 STATE.bestScore = parseInt(data.bestScore) || 0;
+                // تحديث الواجهة
                 document.getElementById('header-student-name').textContent = STATE.studentName;
                 document.getElementById('header-best-score').textContent = toArNum(STATE.bestScore);
+            } else {
+                document.getElementById('header-student-name').textContent = "ضيف";
+                document.getElementById('header-best-score').textContent = "٠";
             }
-        } catch (e) { console.error('Conn Error'); }
+        } catch (e) {
+            console.error('Connection Error:', e);
+            document.getElementById('header-student-name').textContent = "غير متصل";
+        }
     },
 
     async saveScore(score, grade) {
         const idFromUrl = getQueryParam('gameId');
         const finalId = idFromUrl || CONFIG.gameId;
         try {
-            const url = `${CONFIG.scriptUrl}?action=saveScore&gameId=${finalId}&score=${score}&metricValue=${grade}&type=game`;
+            // إضافة studentId للرابط للتأكد من الحفظ للشخص الصحيح
+            const url = `${CONFIG.scriptUrl}?action=saveScore&gameId=${finalId}&studentId=${STATE.studentId}&score=${score}&metricValue=${grade}&type=game`;
+            console.log('Saving Score:', url);
+            
             await fetch(url);
+            // تحديث السجل فوراً بعد الحفظ
             this.fetchLeaderboard();
-        } catch (e) { console.error('Save Error'); }
+        } catch (e) { console.error('Save Error:', e); }
     },
 
     async fetchLeaderboard() {

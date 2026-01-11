@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>صائد وحيدات الحد | V30.0</title>
+    <title>صائد وحيدات الحد | V30.2</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -204,7 +204,9 @@
         if (studentName) studentName = decodeURIComponent(studentName);
 
         // Leaderboard State
-        let currentLeaderboardMode = 'class'; // 'class' or 'global'
+        let currentLeaderboardMode = 'class'; 
+        // Cache class leaderboard to show it in global mode if global is empty
+        let classLeaderboardData = [];
 
         const Game = {
             canvas: null, ctx: null, animationId: null,
@@ -286,10 +288,7 @@
             stop() {
                 this.state.isPlaying = false;
                 cancelAnimationFrame(this.animationId);
-                // Trigger final explosion visualization
                 this.triggerExplosion(this.player.x, this.player.y, true);
-                
-                // Wait for explosion to play out before switching screens
                 setTimeout(() => {
                     window.saveGameResult(this.state.totalScore, 35, this.state.totalMistakes);
                 }, 1500);
@@ -560,8 +559,8 @@
             if (studentId && classId) {
                 const params = new URLSearchParams({ action: 'saveScore', studentId: studentId, classId: classId, itemId: GAME_ID, score: finalGrade, metricValue: mistakes, type: 'game' });
                 fetch(`${SCRIPT_URL}?${params.toString()}`).finally(() => {
-                    // Update leaderboard on load if modal is open (unlikely) or pre-fetch
-                    // Just rely on manual open or result view
+                    // Force refresh main leaderboard (not modal)
+                    window.fetchAndShowLeaderboard(false);
                 });
             } else { fetchAndShowLeaderboard(); }
         };
@@ -573,12 +572,12 @@
                 document.getElementById('leaderboard-modal').classList.remove('scale-95');
                 document.getElementById('leaderboard-modal').classList.add('scale-100');
             }
+            
             const container = isManual ? document.getElementById('modal-leaderboard-body') : document.getElementById('leaderboard-container');
             if(!container) return;
             
             container.innerHTML = '';
             
-            // Show Loader inside modal if manual
             if(isManual) document.getElementById('modal-leaderboard-loader').classList.remove('hidden');
             else document.getElementById('leaderboard-loader').classList.remove('hidden');
             
@@ -586,32 +585,63 @@
             let url = `${SCRIPT_URL}?action=getLeaderboard&gameId=${GAME_ID}&t=${Date.now()}`;
             if (currentLeaderboardMode === 'class' && classId) {
                 url += `&classId=${encodeURIComponent(classId)}`;
+            } else {
+                // For global, append 'global=true' or omit classId. Let's try omitting first as standard.
+                // Or if we need to force global even if user has classId, we just don't send classId.
             }
-            // If global, we omit classId (assuming backend supports it or we pass a specific flag if needed, 
-            // but standard behavior usually implies all if filter is missing. 
-            // If script requires specific flag like 'all', append &classId=all)
-            // Let's assume omitting is safer for now based on typical apps.
             
             fetch(url)
                 .then(res => res.json())
                 .then(response => {
+                    let dataToRender = [];
                     if (response.status === 'success' && response.data && response.data.length > 0) {
-                        response.data.sort((a, b) => {
+                        dataToRender = response.data;
+                    } else if (currentLeaderboardMode === 'global' && classLeaderboardData.length > 0) {
+                        // Fallback: If global empty, show class data (better than nothing)
+                        dataToRender = classLeaderboardData;
+                    }
+                    
+                    if (dataToRender.length > 0) {
+                        // Cache class data if applicable
+                        if (currentLeaderboardMode === 'class') classLeaderboardData = dataToRender;
+
+                        dataToRender.sort((a, b) => {
                             const scoreA = parseFloat(a.score) || parseFloat(a.grade) || 0; const scoreB = parseFloat(b.score) || parseFloat(b.grade) || 0;
                             if (scoreB !== scoreA) return scoreB - scoreA;
                             const mistakesA = parseInt(a.metricValue) || 0; const mistakesB = parseInt(b.metricValue) || 0;
                             return mistakesA - mistakesB; 
                         });
-                        document.getElementById('leaderboard-title').innerHTML = `🏆 ترتيب الأبطال`;
+                        
+                        // Only show title on main screen list, not modal
+                        if (!isManual) document.getElementById('leaderboard-title').innerHTML = `🏆 ترتيب الأبطال`;
+                        
                         let html = `<table class="w-full text-right text-[10px]"><tbody class="divide-y divide-slate-700">`;
-                        response.data.forEach((p, i) => {
+                        dataToRender.forEach((p, i) => {
                             const isMe = (studentId && String(p.name).trim() === String(studentName).trim());
-                            const mistakesCount = p.metricValue || 0;
+                            const mistakesCount = parseInt(p.metricValue) || 0;
                             const displayGrade = parseFloat(p.score) || parseFloat(p.grade) || 0;
-                            html += `<tr class="${isMe ? 'rank-row-me' : ''} hover:bg-slate-800 transition"><td class="p-3 text-center font-black w-10 text-lg ${i<3 ? 'text-yellow-400' : 'text-slate-500'}">${toArNum(i+1)}</td><td class="p-3 font-bold text-slate-300">${p.name} ${isMe ? '<span class="mr-2 text-[8px] bg-blue-600 text-white px-1.5 py-0.5 rounded-full">أنت</span>' : ''}</td><td class="p-3 text-left"><div class="flex flex-col items-end"><span class="font-mono font-bold text-emerald-400 text-sm">${toArNum(displayGrade.toFixed(1))} <span class="text-[9px] text-slate-500 font-normal">من ٥</span></span>${mistakesCount > 0 ? `<span class="text-[9px] text-red-400">(${toArNum(mistakesCount)} أخطاء)</span>` : '<span class="text-[9px] text-green-500">بلا أخطاء</span>'}</div></td></tr>`;
+                            
+                            // Determine class display
+                            let classDisplay = "";
+                            if (currentLeaderboardMode === 'global' && p.classId) {
+                                classDisplay = `<div class="text-[9px] text-blue-400 mt-0.5"><i class="fas fa-users ml-1"></i>${p.classId}</div>`;
+                            }
+
+                            html += `
+                                <tr class="${isMe ? 'rank-row-me' : ''} hover:bg-slate-800 transition">
+                                    <td class="p-3 text-center font-black w-10 text-lg ${i<3 ? 'text-yellow-400' : 'text-slate-500'}">${toArNum(i+1)}</td>
+                                    <td class="p-3 font-bold text-slate-300">
+                                        ${p.name}
+                                        ${isMe ? '<span class="mr-2 text-[8px] bg-blue-600 text-white px-1.5 py-0.5 rounded-full">أنت</span>' : ''}
+                                        ${classDisplay}
+                                    </td>
+                                    <td class="p-3 text-left"><div class="flex flex-col items-end"><span class="font-mono font-bold text-emerald-400 text-sm">${toArNum(displayGrade.toFixed(1))} <span class="text-[9px] text-slate-500 font-normal">من ٥</span></span>${mistakesCount > 0 ? `<span class="text-[9px] text-red-400">(${toArNum(mistakesCount)} أخطاء)</span>` : '<span class="text-[9px] text-green-500">بلا أخطاء</span>'}</div></td></tr>`;
                         });
                         container.innerHTML = html + `</tbody></table>`;
-                    } else container.innerHTML = `<p class="py-12 text-slate-500 text-[11px] text-center">لا يوجد أبطال بعد.. كن الأول!</p>`;
+                    } else {
+                        const msg = currentLeaderboardMode === 'global' ? "لا توجد بيانات عامة بعد" : "كن أول الأبطال!";
+                        container.innerHTML = `<p class="py-12 text-slate-500 text-[11px] text-center">${msg}</p>`;
+                    }
                 }).finally(() => { 
                     if(isManual) document.getElementById('modal-leaderboard-loader').classList.add('hidden');
                     else document.getElementById('leaderboard-loader').classList.add('hidden'); 

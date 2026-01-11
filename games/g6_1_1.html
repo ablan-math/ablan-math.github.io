@@ -3,13 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>صائد وحيدات الحد | V26.2</title>
+    <title>صائد وحيدات الحد | V26.3</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
         body { font-family: 'Cairo', sans-serif; overflow: hidden; touch-action: none; direction: rtl; }
-        .compact-card { width: 100%; max-width: 420px; background: #0f172a; border-radius: 2rem; box-shadow: 0 15px 35px rgba(0,0,0,0.3); border: 1px solid #1e293b; display: flex; flex-direction: column; max-height: 96vh; height: 96vh; overflow: hidden; position: relative; color: white; }
+        
+        /* البطاقة المركزية هي الحاوية المرجعية */
+        .compact-card { 
+            width: 100%; max-width: 420px; 
+            background: #0f172a; 
+            border-radius: 2rem; 
+            box-shadow: 0 15px 35px rgba(0,0,0,0.3); 
+            border: 1px solid #1e293b; 
+            display: flex; flex-direction: column; 
+            max-height: 96vh; height: 96vh; 
+            overflow: hidden; 
+            position: relative; /* مهم جداً لاحتواء المودال */
+            color: white; 
+        }
+        
         .top-info-bar { background: #1e293b; border-bottom: 1px solid #334155; padding: 8px 16px; display: flex; justify-content: space-between; align-items: center; font-size: 11px; font-weight: 800; color: #94a3b8; }
         .btn-touch { min-height: 52px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; border-radius: 1rem; font-weight: 800; cursor: pointer; }
         .btn-touch:active { transform: scale(0.97); opacity: 0.9; }
@@ -18,7 +32,15 @@
         .fraction-num { border-bottom: 1px solid currentColor; padding: 0 4px; }
         .fraction-den { padding: 0 4px; }
         
-        .leaderboard-scroll { max-height: 150px; overflow-y: auto; scrollbar-width: thin; border-radius: 12px; background: #1e293b; border: 1px solid #334155; }
+        /* تحسين مظهر السكرول */
+        .leaderboard-scroll { max-height: 100%; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #334155 transparent; }
+        
+        /* Modal Animation */
+        .modal-enter { opacity: 0; transform: scale(0.95); }
+        .modal-enter-active { opacity: 1; transform: scale(1); transition: opacity 0.2s, transform 0.2s; }
+        .modal-exit { opacity: 1; transform: scale(1); }
+        .modal-exit-active { opacity: 0; transform: scale(0.95); transition: opacity 0.2s, transform 0.2s; }
+
         .loader { border: 2px solid #334155; border-top: 2px solid #3b82f6; border-radius: 50%; width: 18px; height: 18px; animation: spin 1s linear infinite; display: inline-block; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         
@@ -27,9 +49,7 @@
         #gameCanvas { width: 100%; height: 100%; display: block; touch-action: none; }
         #canvas-wrapper { position: relative; width: 100%; height: 100%; overflow: hidden; border-radius: 1rem; background: #020617; }
         
-        /* Hide scrollbar for Chrome, Safari and Opera */
         .no-scrollbar::-webkit-scrollbar { display: none; }
-        /* Hide scrollbar for IE, Edge and Firefox */
         .no-scrollbar { -ms-overflow-style: none;  scrollbar-width: none; }
     </style>
 </head>
@@ -48,7 +68,7 @@
             </div>
         </div>
 
-        <!-- الشاشة 1: البداية (بدون سكرول) -->
+        <!-- الشاشة 1: البداية -->
         <div id="start-screen" class="p-5 text-center flex flex-col gap-3 h-full overflow-hidden relative">
             <div class="mt-1">
                 <span class="text-4xl animate-bounce inline-block">🚀</span>
@@ -129,24 +149,32 @@
             </div>
             
             <div id="leaderboard-loader" class="py-2 hidden"><div class="loader"></div></div>
-            <div id="leaderboard-container" class="leaderboard-scroll flex-grow shadow-inner"></div>
+            <!-- حاوية السجل المصغر -->
+            <div class="leaderboard-scroll flex-grow shadow-inner rounded-xl border border-slate-700 bg-slate-800/50">
+                <div id="leaderboard-container"></div>
+            </div>
             
             <div class="mt-4 flex gap-2">
                 <button onclick="location.reload()" class="btn-touch flex-1 bg-slate-800 text-slate-300 text-sm font-bold border border-slate-700">إعادة</button>
                 <button id="finish-game-btn" class="btn-touch flex-[2] bg-blue-600 text-white text-sm font-black shadow-lg">إنهاء العرض</button>
             </div>
         </div>
-    </div>
+        
+        <!-- Leaderboard Modal (المحبوس داخل البطاقة) -->
+        <div id="leaderboard-modal" class="absolute inset-0 bg-slate-900/98 z-[100] hidden flex-col p-4 opacity-0 transition-all duration-200 transform scale-95">
+            <div class="flex justify-between items-center mb-4 border-b border-slate-700 pb-2">
+                <h3 class="font-black text-white text-lg"><i class="fas fa-trophy text-yellow-500 mr-2"></i>سجل الأبطال</h3>
+                <button onclick="closeLeaderboardModal()" class="w-8 h-8 rounded-full bg-slate-800 text-white flex items-center justify-center hover:bg-red-500 transition"><i class="fas fa-times"></i></button>
+            </div>
+            <!-- حاوية السجل المكبر -->
+            <div class="flex-1 overflow-y-auto no-scrollbar space-y-1 bg-slate-800/50 rounded-xl p-2 border border-slate-700">
+                <div id="modal-leaderboard-body">
+                    <!-- Populated via JS -->
+                </div>
+            </div>
+            <p class="text-center text-[10px] text-slate-500 mt-2">الترتيب حسب: الدرجة الأعلى > الأخطاء الأقل</p>
+        </div>
 
-    <!-- Leaderboard Modal -->
-    <div id="leaderboard-modal" class="absolute inset-0 bg-slate-900/98 z-[100] hidden flex-col p-4 opacity-0 transition-opacity duration-200">
-        <div class="flex justify-between items-center mb-4 border-b border-slate-700 pb-2">
-            <h3 class="font-black text-white text-lg"><i class="fas fa-trophy text-yellow-500 mr-2"></i>سجل الأبطال</h3>
-            <button onclick="closeLeaderboardModal()" class="w-8 h-8 rounded-full bg-slate-800 text-white flex items-center justify-center hover:bg-red-500 transition"><i class="fas fa-times"></i></button>
-        </div>
-        <div id="modal-leaderboard-body" class="flex-1 overflow-y-auto no-scrollbar space-y-1">
-            <!-- Populated via JS -->
-        </div>
     </div>
 
     <script>
@@ -179,7 +207,6 @@
                     nonMonomials: [{ parts: [{v:'س'}, {v:'+'}, {v:'ص'}] }, { parts: [{v:'أ'}, {v:'-'}, {v:'ب'}] }, { parts: [{v:'٥'}, {v:'+'}, {v:'س'}] }, { parts: [{v:'س'}, {v:'-'}, {v:'١'}] }]
                 },
                 2: {
-                    // Fix: Using '-٢' for correct RTL visual placement "Before Exponent"
                     monomials: [{ parts: [{v:'٥'}, {v:'س'}, {t:'sup', v:'٢'}] }, { parts: [{v:'٣'}, {v:'س'}, {v:'ص'}] }, { parts: [{t:'frac', n:'س', d:'٣'}] }, { parts: [{t:'frac', n:'١', d:'٢'}, {v:'م'}] }, { parts: [{v:'-'}, {v:'س'}, {t:'sup', v:'٣'}] }],
                     nonMonomials: [{ parts: [{t:'frac', n:'٥', d:'س'}] }, { parts: [{t:'frac', n:'٢', d:'ن'}] }, { parts: [{v:'٣'}, {v:'س'}, {t:'sup', v:'-٢'}] }, { parts: [{v:'ص'}, {t:'sup', v:'-١'}] }]
                 },
@@ -240,7 +267,7 @@
             stop() {
                 this.state.isPlaying = false;
                 cancelAnimationFrame(this.animationId);
-                // Call Save: Points, Total, Grade(Auto), Mistakes(Secondary)
+                // Secondary Metric: Mistakes (send as metricValue)
                 window.saveGameResult(this.state.totalScore, 30, this.state.totalMistakes);
             },
 
@@ -297,14 +324,8 @@
             loop() {
                 if (!this.state.isPlaying) return;
                 this.ctx.fillStyle = '#0f172a'; this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-                // Stars
                 this.ctx.fillStyle = '#ffffff'; for(let i=0; i<8; i++) { this.ctx.fillRect(Math.random()*this.canvas.width, Math.random()*this.canvas.height, 3, 3); }
-                // Ship
-                this.ctx.save(); this.ctx.translate(this.player.x, this.player.y); const s = 1.5;
-                this.ctx.beginPath(); this.ctx.moveTo(0,-40*s); this.ctx.lineTo(25*s,20*s); this.ctx.lineTo(0,10*s); this.ctx.lineTo(-25*s,20*s); this.ctx.fillStyle='#3b82f6'; this.ctx.fill();
-                this.ctx.beginPath(); this.ctx.moveTo(-10*s,20*s); this.ctx.lineTo(0,(30+Math.random()*15)*s); this.ctx.lineTo(10*s,20*s); this.ctx.fillStyle='#f59e0b'; this.ctx.fill();
-                this.ctx.restore();
-                
+                this.drawShip();
                 this.frameCount++; if (this.frameCount % this.spawnRate === 0) this.spawnItem();
 
                 for (let i = this.items.length - 1; i >= 0; i--) {
@@ -337,7 +358,6 @@
             createParticles(x, y, c) { for(let i=0; i<8; i++) this.particles.push({x,y,vx:(Math.random()-0.5)*20,vy:(Math.random()-0.5)*20,life:1,c}); }
         };
 
-        // --- Master Template Logic ---
         document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('top-student-name').textContent = studentName;
             Game.init();
@@ -355,13 +375,11 @@
                     if (res.data.name) {
                         studentName = res.data.name;
                         document.getElementById('top-student-name').textContent = studentName;
-                        document.getElementById('header-student-name').textContent = studentName;
                     }
                     const games = res.data.games || {};
                     if (games[GAME_ID]) {
                         const score = parseFloat(games[GAME_ID].grade).toFixed(1);
                         document.getElementById('top-prev-score').innerHTML = toArNum(score) + " <span class='text-[8px]'>من</span> ٥";
-                        document.getElementById('header-best-score').innerHTML = toArNum(score) + " <span class='text-[8px]'>من</span> ٥";
                     }
                 }
             } catch (e) { console.log("Init failed"); }
@@ -373,8 +391,15 @@
             setTimeout(() => Game.start(), 100);
         };
 
+        // دالة الحفظ مع منطق "كسر التعادل"
         window.saveGameResult = function(achievedPoints, totalPoints, mistakes = 0) {
             const finalGrade = ((achievedPoints / totalPoints) * 5).toFixed(1);
+            
+            // معادلة الترتيب الذكي:
+            // النقاط الأساسية = الدرجة × 1000 (لإعطاء الأولوية للدرجة)
+            // عقوبة الأخطاء = عدد الأخطاء × 10 (لخفض الترتيب عند التساوي)
+            const sortingScore = (finalGrade * 1000) - (mistakes * 10);
+
             document.getElementById('game-screen').classList.add('hidden');
             document.getElementById('result-screen').classList.remove('hidden');
             
@@ -401,10 +426,10 @@
             `;
 
             if (studentId && classId) {
-                // Secondary metric: mistakes
+                // إرسال: score للترتيب (المعدلة)، metricValue للأخطاء (للعرض الثانوي)
                 const params = new URLSearchParams({ 
                     action: 'saveScore', studentId: studentId, classId: classId, 
-                    itemId: GAME_ID, score: finalGrade, metricValue: mistakes, type: 'game' 
+                    itemId: GAME_ID, score: sortingScore, metricValue: mistakes, type: 'game' 
                 });
                 fetch(`${SCRIPT_URL}?${params.toString()}`).finally(fetchAndShowLeaderboard);
             } else {
@@ -416,22 +441,31 @@
             if (isManual) { 
                 document.getElementById('leaderboard-modal').classList.remove('hidden', 'opacity-0', 'pointer-events-none');
                 document.getElementById('leaderboard-modal').classList.add('flex', 'opacity-100', 'pointer-events-auto');
+                document.getElementById('leaderboard-modal').classList.remove('scale-95');
+                document.getElementById('leaderboard-modal').classList.add('scale-100');
             }
             
             const container = isManual ? document.getElementById('modal-leaderboard-body') : document.getElementById('leaderboard-container');
             if(!container) return;
             
             container.innerHTML = '';
-            document.getElementById('leaderboard-loader').classList.remove('hidden');
+            if(!isManual) document.getElementById('leaderboard-loader').classList.remove('hidden');
             
             fetch(`${SCRIPT_URL}?action=getLeaderboard&gameId=${GAME_ID}&classId=${encodeURIComponent(classId)}&t=${Date.now()}`)
                 .then(res => res.json())
                 .then(response => {
                     if (response.status === 'success' && response.data && response.data.length > 0) {
+                        // الفرز المحلي للتأكد (الدرجة الأعلى أولاً، ثم الأخطاء الأقل)
+                        // ملاحظة: الـ API تعيد score، وهنا score يمثل المعادلة المحسوبة
+                        
                         document.getElementById('leaderboard-title').innerHTML = `🏆 ترتيب الأبطال`;
                         let html = `<table class="w-full text-right text-[10px]"><tbody class="divide-y divide-slate-700">`;
                         response.data.forEach((p, i) => {
                             const isMe = (studentId && String(p.name).trim() === String(studentName).trim());
+                            // استرجاع الدرجة الأصلية من المعادلة العكسية إذا لزم، أو استخدام grade المخزنة
+                            // هنا نعتمد على grade للعرض، و metricValue للأخطاء
+                            const mistakesCount = p.metricValue || 0;
+                            
                             html += `
                                 <tr class="${isMe ? 'rank-row-me' : ''} hover:bg-slate-800 transition">
                                     <td class="p-3 text-center font-black w-10 text-lg ${i<3 ? 'text-yellow-400' : 'text-slate-500'}">${toArNum(i+1)}</td>
@@ -439,17 +473,24 @@
                                         ${p.name}
                                         ${isMe ? '<span class="mr-2 text-[8px] bg-blue-600 text-white px-1.5 py-0.5 rounded-full">أنت</span>' : ''}
                                     </td>
-                                    <td class="p-3 text-left font-mono font-bold text-emerald-400 text-sm">${toArNum(parseFloat(p.grade).toFixed(1))}</td>
+                                    <td class="p-3 text-left">
+                                        <div class="flex flex-col items-end">
+                                            <span class="font-mono font-bold text-emerald-400 text-sm">${toArNum(parseFloat(p.grade).toFixed(1))}</span>
+                                            ${mistakesCount > 0 ? `<span class="text-[9px] text-red-400">(${toArNum(mistakesCount)} أخطاء)</span>` : '<span class="text-[9px] text-green-500">بلا أخطاء</span>'}
+                                        </div>
+                                    </td>
                                 </tr>`;
                         });
                         container.innerHTML = html + `</tbody></table>`;
                     } else container.innerHTML = `<p class="py-12 text-slate-500 text-[11px] text-center">لا يوجد أبطال بعد.. كن الأول!</p>`;
-                }).finally(() => document.getElementById('leaderboard-loader').classList.add('hidden'));
+                }).finally(() => {
+                    if(!isManual) document.getElementById('leaderboard-loader').classList.add('hidden');
+                });
         }
         
         window.closeLeaderboardModal = function() {
-            document.getElementById('leaderboard-modal').classList.add('hidden', 'opacity-0', 'pointer-events-none');
-            document.getElementById('leaderboard-modal').classList.remove('flex', 'opacity-100', 'pointer-events-auto');
+            document.getElementById('leaderboard-modal').classList.add('hidden', 'opacity-0', 'pointer-events-none', 'scale-95');
+            document.getElementById('leaderboard-modal').classList.remove('flex', 'opacity-100', 'pointer-events-auto', 'scale-100');
         }
 
     })();

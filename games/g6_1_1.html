@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>صائد وحيدات الحد | V28.3</title>
+    <title>صائد وحيدات الحد | V29.4</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -18,7 +18,6 @@
         .fraction-num { border-bottom: 1px solid currentColor; padding: 0 4px; }
         .fraction-den { padding: 0 4px; }
         
-        /* تحسين رسم الجذر العربي */
         .rtl-root { display: inline-flex; align-items: baseline; direction: ltr; vertical-align: middle; }
         .root-content { border-top: 2px solid currentColor; padding-top: 1px; display: inline-block; direction: rtl; }
         .root-symbol { display: inline-block; transform: scaleX(-1) translateY(1px); margin-left: -1px; font-family: sans-serif; font-size: 1.2em; line-height: 1; }
@@ -31,6 +30,12 @@
         
         #gameCanvas { width: 100%; height: 100%; display: block; touch-action: none; }
         #canvas-wrapper { position: relative; width: 100%; height: 100%; overflow: hidden; border-radius: 1rem; background: #020617; }
+        
+        #damage-overlay {
+            position: absolute; inset: 0; 
+            background: radial-gradient(circle, transparent 20%, rgba(220, 38, 38, 0.6) 100%);
+            opacity: 0; pointer-events: none; transition: opacity 0.1s; z-index: 40;
+        }
         
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none;  scrollbar-width: none; }
@@ -63,11 +68,11 @@
                 <div class="text-[11px] text-slate-300 leading-loose space-y-2">
                     <div>
                         <p class="font-bold text-white mb-1">🎯 الأهداف (٣٥ كرة):</p>
-                        <ul class="list-disc list-inside mr-1 text-slate-400 leading-snug">
-                            <li>المرحلة ١: <span class="text-white">١٥</span> كرة.</li>
-                            <li>المرحلة ٢: <span class="text-white">١٣</span> كرة.</li>
-                            <li>المرحلة ٣: <span class="text-white">٧</span> كرات.</li>
-                        </ul>
+                        <p class="text-slate-400 mr-2 font-mono text-xs">
+                            المرحلة ١: <span class="text-white">١٥</span> ⬅️ 
+                            المرحلة ٢: <span class="text-white">١٣</span> ⬅️ 
+                            المرحلة ٣: <span class="text-white">٧</span>
+                        </p>
                     </div>
                     
                     <div>
@@ -81,7 +86,6 @@
                                 <span class="text-white text-sm font-bold bg-slate-700 px-1 rounded inline-block" dir="ltr">س<sup>-٢</sup></span>
                                 <span>).</span>
                             </li>
-                            <!-- التعديل في السطر الأخير -->
                             <li class="flex items-center gap-1">
                                 <span class="text-red-500 font-black text-lg align-middle">• لا</span> 
                                 <span>يوجد جذر على المتغير (مثال:</span>
@@ -109,6 +113,8 @@
 
         <!-- الشاشة 2: اللعبة -->
         <div id="game-screen" class="hidden p-0 h-full relative">
+            <div id="damage-overlay"></div>
+
             <div class="absolute top-3 left-3 right-3 flex justify-between items-start z-30 pointer-events-none">
                 <div class="flex flex-col gap-1 items-start">
                     <div class="bg-blue-600/90 px-2 py-0.5 rounded-md border border-blue-400 shadow-sm backdrop-blur-sm">
@@ -186,12 +192,12 @@
             canvas: null, ctx: null, animationId: null,
             player: { x: 0, y: 0, width: 50, height: 70 },
             items: [], particles: [], frameCount: 0, spawnRate: 60, wrapper: null,
-            state: { score: 0, totalScore: 0, level: 1, lives: 3, levelScore: 0, bonus: 0, totalMistakes: 0, isPlaying: false },
+            state: { score: 0, totalScore: 0, level: 1, lives: 3, levelScore: 0, bonus: 0, totalMistakes: 0, isPlaying: false, shake: 0, isTransitioning: false },
             
             levels: [
-                { id: 1, speed: 1.5, target: 15, wrongRatio: 0.3 },
-                { id: 2, speed: 2.2, target: 13, wrongRatio: 0.5 },
-                { id: 3, speed: 3.0, target: 7, wrongRatio: 0.6 }
+                { id: 1, speed: 1.0, target: 15, wrongRatio: 0.3 }, 
+                { id: 2, speed: 1.3, target: 13, wrongRatio: 0.5 }, 
+                { id: 3, speed: 1.6, target: 7, wrongRatio: 0.6 }
             ],
 
             levelData: {
@@ -215,7 +221,6 @@
                 this.wrapper = document.getElementById('canvas-wrapper');
                 this.resize();
                 window.addEventListener('resize', () => { if(this.state.isPlaying) this.resize(); });
-                
                 const inputHandler = (e) => {
                     if (!this.state.isPlaying) return;
                     e.preventDefault();
@@ -237,13 +242,16 @@
 
             start() {
                 this.resize();
-                this.state = { score: 0, totalScore: 0, level: 1, lives: 3, levelScore: 0, bonus: 0, totalMistakes: 0, isPlaying: true };
+                this.state = { score: 0, totalScore: 0, level: 1, lives: 3, levelScore: 0, bonus: 0, totalMistakes: 0, isPlaying: true, shake: 0, isTransitioning: false };
                 this.startLevel(1);
             },
 
             startLevel(lvl) {
+                if (this.animationId) cancelAnimationFrame(this.animationId);
+                
                 this.state.level = lvl; this.state.levelScore = 0; this.state.lives = 3;
                 this.items = []; this.particles = [];
+                this.state.isTransitioning = false;
                 this.updateHUD();
                 document.getElementById('level-overlay').classList.remove('opacity-100', 'pointer-events-auto');
                 document.getElementById('level-overlay').classList.add('opacity-0', 'pointer-events-none');
@@ -259,13 +267,18 @@
 
             stop() {
                 this.state.isPlaying = false;
-                cancelAnimationFrame(this.animationId);
-                window.saveGameResult(this.state.totalScore, 35, this.state.totalMistakes);
+                this.triggerExplosion(this.player.x, this.player.y, true);
+                setTimeout(() => {
+                    cancelAnimationFrame(this.animationId);
+                    window.saveGameResult(this.state.totalScore, 35, this.state.totalMistakes);
+                }, 2000);
             },
 
             nextLevel() {
                 const mistakesInLevel = 3 - this.state.lives;
                 const config = this.levels[this.state.level - 1];
+                this.state.isTransitioning = true;
+                
                 if (this.state.level >= 3) {
                     this.showOverlay("ممتاز!", `النتيجة: ${toArNum(this.state.levelScore)}/${toArNum(config.target)}`, `أخطاء المرحلة: ${toArNum(mistakesInLevel)}`);
                     setTimeout(() => { this.stop(); }, 2500);
@@ -277,13 +290,18 @@
 
             failLevel() {
                 const config = this.levels[this.state.level - 1];
-                if (this.state.level >= 3) {
-                    this.showOverlay("نفذت القلوب!", `النتيجة: ${toArNum(this.state.levelScore)}/${toArNum(config.target)}`, "تجاوزت الحد المسموح");
-                    setTimeout(() => { this.stop(); }, 2500);
-                } else {
-                    this.showOverlay("نفذت القلوب!", `النتيجة: ${toArNum(this.state.levelScore)}/${toArNum(config.target)}`, "تخطي للمرحلة التالية...");
-                    setTimeout(() => this.startLevel(this.state.level + 1), 2500);
-                }
+                this.state.isTransitioning = true;
+                this.triggerExplosion(this.player.x, this.player.y, true); 
+                
+                setTimeout(() => {
+                    if (this.state.level >= 3) {
+                        this.showOverlay("نفذت القلوب!", `النتيجة: ${toArNum(this.state.levelScore)}/${toArNum(config.target)}`, "تجاوزت الحد المسموح");
+                        setTimeout(() => { this.stop(); }, 2500);
+                    } else {
+                        this.showOverlay("نفذت القلوب!", `النتيجة: ${toArNum(this.state.levelScore)}/${toArNum(config.target)}`, "تخطي للمرحلة التالية...");
+                        setTimeout(() => this.startLevel(this.state.level + 1), 2500);
+                    }
+                }, 2000);
             },
 
             showOverlay(title, stat1, stat2) {
@@ -293,6 +311,28 @@
                 document.getElementById('overlay-mistakes').textContent = stat2;
                 ov.classList.remove('opacity-0', 'pointer-events-none');
                 ov.classList.add('opacity-100', 'pointer-events-auto');
+            },
+
+            triggerShake(intensity) {
+                this.state.shake = intensity;
+                const flash = document.getElementById('damage-overlay');
+                flash.style.opacity = intensity > 15 ? "0.8" : (intensity > 5 ? "0.5" : "0.3");
+                setTimeout(() => flash.style.opacity = "0", 200);
+            },
+
+            triggerExplosion(x, y, big = false) {
+                const count = big ? 80 : 25; 
+                for(let i=0; i<count; i++) {
+                    const speed = big ? 25 : 12;
+                    this.particles.push({
+                        x: x, y: y,
+                        vx: (Math.random() - 0.5) * speed,
+                        vy: (Math.random() - 0.5) * speed,
+                        life: 1.0,
+                        type: big ? (Math.random()>0.5 ? 'fire' : 'spark') : 'smoke',
+                        size: Math.random() * 10 + 3
+                    });
+                }
             },
 
             spawnItem() {
@@ -323,41 +363,97 @@
                 this.ctx.restore();
             },
 
-            loop() {
-                if (!this.state.isPlaying) return;
-                this.ctx.fillStyle = '#0f172a'; this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-                this.ctx.fillStyle = '#ffffff'; for(let i=0; i<8; i++) { this.ctx.fillRect(Math.random()*this.canvas.width, Math.random()*this.canvas.height, 3, 3); }
-                this.ctx.save(); this.ctx.translate(this.player.x, this.player.y); const s = 1.5;
+            drawShip() {
+                if (this.state.lives <= 0 && this.state.isTransitioning) return;
+                this.ctx.save();
+                this.ctx.translate(this.player.x, this.player.y);
+                const s = 1.5;
+                if (this.state.lives < 3) {
+                    if (Math.random() > 0.5) {
+                        this.particles.push({
+                            x: this.player.x + (Math.random()-0.5)*20, 
+                            y: this.player.y + 40,
+                            vx: (Math.random()-0.5)*2,
+                            vy: 5 + Math.random()*5,
+                            life: 1.0,
+                            type: this.state.lives === 1 ? 'fire' : 'smoke',
+                            size: 5 + Math.random()*5
+                        });
+                    }
+                }
                 this.ctx.beginPath(); this.ctx.moveTo(0,-40*s); this.ctx.lineTo(25*s,20*s); this.ctx.lineTo(0,10*s); this.ctx.lineTo(-25*s,20*s); this.ctx.fillStyle='#3b82f6'; this.ctx.fill();
                 this.ctx.beginPath(); this.ctx.moveTo(-10*s,20*s); this.ctx.lineTo(0,(30+Math.random()*15)*s); this.ctx.lineTo(10*s,20*s); this.ctx.fillStyle='#f59e0b'; this.ctx.fill();
                 this.ctx.restore();
-                this.frameCount++; if (this.frameCount % this.spawnRate === 0) this.spawnItem();
-                for (let i = this.items.length - 1; i >= 0; i--) {
-                    let item = this.items[i]; item.y += item.speed; item.angle += item.rotSpeed;
-                    this.ctx.save(); this.ctx.translate(item.x, item.y); this.ctx.rotate(item.angle);
-                    this.ctx.beginPath(); this.ctx.arc(0,0,60,0,6.28); this.ctx.fillStyle='rgba(30,41,59,0.8)'; this.ctx.strokeStyle='#64748b'; this.ctx.lineWidth=3; this.ctx.fill(); this.ctx.stroke();
-                    this.ctx.rotate(-item.angle); this.drawMath(item.parts, 0, 0); this.ctx.restore();
-                    const dx = item.x - this.player.x; const dy = item.y - this.player.y;
-                    if (Math.sqrt(dx*dx + dy*dy) < 90) {
-                        if (item.type === 'good') {
-                            this.state.levelScore++; this.state.totalScore++; this.updateHUD(); this.createParticles(item.x, item.y, '#4ade80');
-                            if (this.state.levelScore >= this.levels[this.state.level-1].target) { this.items=[]; this.nextLevel(); return; }
-                        } else {
-                            this.state.lives--; this.state.totalMistakes++; this.updateHUD(); this.createParticles(item.x, item.y, '#f87171');
-                            if (this.state.lives <= 0) { this.items=[]; this.failLevel(); return; }
-                        }
-                        this.items.splice(i, 1); continue;
-                    }
-                    if (item.y > this.canvas.height + 100) this.items.splice(i, 1);
+            },
+
+            loop() {
+                if (!this.state.isPlaying) return;
+                
+                let shakeX = 0, shakeY = 0;
+                if (this.state.shake > 0) {
+                    shakeX = (Math.random() - 0.5) * this.state.shake;
+                    shakeY = (Math.random() - 0.5) * this.state.shake;
+                    this.state.shake *= 0.9; 
+                    if(this.state.shake < 0.5) this.state.shake = 0;
                 }
+
+                this.ctx.save();
+                this.ctx.translate(shakeX, shakeY);
+
+                this.ctx.fillStyle = '#0f172a'; this.ctx.fillRect(-20, -20, this.canvas.width+40, this.canvas.height+40);
+                this.ctx.fillStyle = '#ffffff'; for(let i=0; i<8; i++) { this.ctx.fillRect(Math.random()*this.canvas.width, Math.random()*this.canvas.height, 3, 3); }
+                
+                this.drawShip();
+                
+                if (this.state.isPlaying && !this.state.isTransitioning) {
+                    this.frameCount++; 
+                    if (this.frameCount % this.spawnRate === 0) this.spawnItem();
+
+                    for (let i = this.items.length - 1; i >= 0; i--) {
+                        let item = this.items[i]; item.y += item.speed; item.angle += item.rotSpeed;
+                        this.ctx.save(); this.ctx.translate(item.x, item.y); this.ctx.rotate(item.angle);
+                        this.ctx.beginPath(); this.ctx.arc(0,0,60,0,6.28); this.ctx.fillStyle='rgba(30,41,59,0.8)'; this.ctx.strokeStyle='#64748b'; this.ctx.lineWidth=3; this.ctx.fill(); this.ctx.stroke();
+                        this.ctx.rotate(-item.angle); this.drawMath(item.parts, 0, 0); this.ctx.restore();
+
+                        const dx = item.x - this.player.x; const dy = item.y - this.player.y;
+                        if (Math.sqrt(dx*dx + dy*dy) < 90) {
+                            if (item.type === 'good') {
+                                this.state.levelScore++; this.state.totalScore++; this.updateHUD(); this.createParticles(item.x, item.y, '#4ade80');
+                                if (this.state.levelScore >= this.levels[this.state.level-1].target) { this.items=[]; this.nextLevel(); break; } 
+                            } else {
+                                this.state.lives--; this.state.totalMistakes++; this.updateHUD(); 
+                                this.triggerExplosion(item.x, item.y, false);
+                                
+                                if(this.state.lives === 2) this.triggerShake(10);
+                                else if(this.state.lives === 1) this.triggerShake(20);
+                                else if(this.state.lives <= 0) { this.triggerShake(40); this.items=[]; this.failLevel(); break; }
+                            }
+                            if (i < this.items.length) this.items.splice(i, 1); 
+                            continue;
+                        }
+                        if (item.y > this.canvas.height + 100) this.items.splice(i, 1);
+                    }
+                }
+                
                 for (let i = this.particles.length - 1; i >= 0; i--) {
-                    let p = this.particles[i]; p.x += p.vx; p.y += p.vy; p.life -= 0.05;
-                    this.ctx.globalAlpha = p.life; this.ctx.fillStyle = p.c; this.ctx.beginPath(); this.ctx.arc(p.x, p.y, 5, 0, 6.28); this.ctx.fill(); this.ctx.globalAlpha = 1;
+                    let p = this.particles[i]; p.x += p.vx; p.y += p.vy; 
+                    p.life -= 0.02; 
+                    this.ctx.globalAlpha = p.life; 
+                    if (p.type === 'fire') this.ctx.fillStyle = '#f97316';
+                    else if (p.type === 'smoke') this.ctx.fillStyle = '#94a3b8';
+                    else if (p.type === 'spark') this.ctx.fillStyle = '#facc15';
+                    else this.ctx.fillStyle = p.c || '#fff';
+                    this.ctx.beginPath(); this.ctx.arc(p.x, p.y, p.size || 5, 0, 6.28); this.ctx.fill();
+                    this.ctx.globalAlpha = 1;
                     if (p.life <= 0) this.particles.splice(i, 1);
                 }
-                this.animationId = requestAnimationFrame(() => this.loop());
+                
+                this.ctx.restore(); 
+                if (this.state.isPlaying || this.state.isTransitioning) {
+                    this.animationId = requestAnimationFrame(() => this.loop());
+                }
             },
-            createParticles(x, y, c) { for(let i=0; i<8; i++) this.particles.push({x,y,vx:(Math.random()-0.5)*20,vy:(Math.random()-0.5)*20,life:1,c}); }
+            createParticles(x, y, c) { for(let i=0; i<8; i++) this.particles.push({x,y,vx:(Math.random()-0.5)*20,vy:(Math.random()-0.5)*20,life:1,c, size: 4}); }
         };
 
         document.addEventListener('DOMContentLoaded', () => {
@@ -422,7 +518,7 @@
                 </div>
             `;
             if (studentId && classId) {
-                const params = new URLSearchParams({ action: 'saveScore', studentId: studentId, classId: classId, itemId: GAME_ID, score: sortingScore, metricValue: mistakes, type: 'game' });
+                const params = new URLSearchParams({ action: 'saveScore', studentId: studentId, classId: classId, itemId: GAME_ID, score: finalGrade, metricValue: mistakes, type: 'game' });
                 fetch(`${SCRIPT_URL}?${params.toString()}`).finally(fetchAndShowLeaderboard);
             } else { fetchAndShowLeaderboard(); }
         };
@@ -443,7 +539,7 @@
                 .then(response => {
                     if (response.status === 'success' && response.data && response.data.length > 0) {
                         response.data.sort((a, b) => {
-                            const scoreA = parseFloat(a.score) || 0; const scoreB = parseFloat(b.score) || 0;
+                            const scoreA = parseFloat(a.score) || parseFloat(a.grade) || 0; const scoreB = parseFloat(b.score) || parseFloat(b.grade) || 0;
                             if (scoreB !== scoreA) return scoreB - scoreA;
                             const mistakesA = parseInt(a.metricValue) || 0; const mistakesB = parseInt(b.metricValue) || 0;
                             return mistakesA - mistakesB; 
@@ -453,19 +549,8 @@
                         response.data.forEach((p, i) => {
                             const isMe = (studentId && String(p.name).trim() === String(studentName).trim());
                             const mistakesCount = p.metricValue || 0;
-                            
-                            // Reconstruct grade from score if not explicitly passed, or use stored calculation logic
-                            // Since we store sortingScore, we might want to display based on the sorting score logic, but cleaner to rely on what user sees.
-                            // Let's calculate Grade from score assuming score = (grade * 1000) - (mistakes * 10)
-                            // grade = (score + mistakes*10) / 1000
-                            let displayedGrade = 0;
-                            if (p.score) {
-                                displayedGrade = (parseFloat(p.score) + (mistakesCount * 10)) / 1000;
-                            }
-                            // Fallback if grade is stored separately or logical shift
-                            if (displayedGrade > 5) displayedGrade = 5; // Cap just in case
-
-                            html += `<tr class="${isMe ? 'rank-row-me' : ''} hover:bg-slate-800 transition"><td class="p-3 text-center font-black w-10 text-lg ${i<3 ? 'text-yellow-400' : 'text-slate-500'}">${toArNum(i+1)}</td><td class="p-3 font-bold text-slate-300">${p.name} ${isMe ? '<span class="mr-2 text-[8px] bg-blue-600 text-white px-1.5 py-0.5 rounded-full">أنت</span>' : ''}</td><td class="p-3 text-left"><div class="flex flex-col items-end"><span class="font-mono font-bold text-emerald-400 text-sm">${toArNum(displayedGrade.toFixed(1))} <span class="text-[9px] text-slate-500 font-normal">من ٥</span></span>${mistakesCount > 0 ? `<span class="text-[9px] text-red-400">(${toArNum(mistakesCount)} أخطاء)</span>` : '<span class="text-[9px] text-green-500">بلا أخطاء</span>'}</div></td></tr>`;
+                            const displayGrade = parseFloat(p.score) || parseFloat(p.grade) || 0;
+                            html += `<tr class="${isMe ? 'rank-row-me' : ''} hover:bg-slate-800 transition"><td class="p-3 text-center font-black w-10 text-lg ${i<3 ? 'text-yellow-400' : 'text-slate-500'}">${toArNum(i+1)}</td><td class="p-3 font-bold text-slate-300">${p.name} ${isMe ? '<span class="mr-2 text-[8px] bg-blue-600 text-white px-1.5 py-0.5 rounded-full">أنت</span>' : ''}</td><td class="p-3 text-left"><div class="flex flex-col items-end"><span class="font-mono font-bold text-emerald-400 text-sm">${toArNum(displayGrade.toFixed(1))} <span class="text-[9px] text-slate-500 font-normal">من ٥</span></span>${mistakesCount > 0 ? `<span class="text-[9px] text-red-400">(${toArNum(mistakesCount)} أخطاء)</span>` : '<span class="text-[9px] text-green-500">بلا أخطاء</span>'}</div></td></tr>`;
                         });
                         container.innerHTML = html + `</tbody></table>`;
                     } else container.innerHTML = `<p class="py-12 text-slate-500 text-[11px] text-center">لا يوجد أبطال بعد.. كن الأول!</p>`;

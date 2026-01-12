@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>تحدي الأبطال V19.2 - المطور</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body { font-family: 'Cairo', sans-serif; overflow: hidden; touch-action: manipulation; direction: rtl; }
+        .compact-card {
+            width: 100%; max-width: 420px; background: white; border-radius: 2rem;
+            box-shadow: 0 15px 35px -5px rgba(0,0,0,0.1); border: 1px solid #f1f5f9;
+            display: flex; flex-direction: column; max-height: 96vh; overflow: hidden; position: relative;
+        }
+        .top-info-bar {
+            background: #f8fafc; border-bottom: 1px solid #e2e8f0; padding: 8px 16px;
+            display: flex; justify-content: space-between; align-items: center;
+            font-size: 11px; font-weight: 800; color: #64748b;
+        }
+        .btn-touch { 
+            min-height: 50px; display: flex; align-items: center; justify-content: center; 
+            transition: all 0.2s; border-radius: 1rem; font-weight: 800; cursor: pointer;
+        }
+        .btn-touch:active { transform: scale(0.97); }
+        .fraction { display: inline-flex; flex-direction: column; vertical-align: middle; align-items: center; line-height: 1.1; margin: 0 5px; }
+        .fraction-num { border-bottom: 2.5px solid currentColor; padding: 0 4px; }
+        .leaderboard-scroll { max-height: 140px; overflow-y: auto; border-radius: 12px; }
+        .rank-row-me { background-color: #f5f3ff !important; border-right: 4px solid #2563eb !important; }
+        .loader { border: 2px solid #f3f3f3; border-top: 2px solid #2563eb; border-radius: 50%; width: 18px; height: 18px; animation: spin 1s linear infinite; display: inline-block; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        /* Modal for Enlarged Leaderboard */
+        #enlarged-modal {
+            position: fixed; inset: 0; background: rgba(15, 23, 42, 0.9);
+            backdrop-filter: blur(4px); z-index: 100; display: none;
+            padding: 15px; align-items: center; justify-content: center;
+        }
+        .modal-content {
+            background: white; width: 100%; max-width: 500px; border-radius: 1.5rem;
+            max-height: 90vh; overflow: hidden; display: flex; flex-direction: column;
+        }
+
+        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance: textfield; }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 h-screen w-screen flex items-center justify-center p-3">
+
+    <div class="compact-card">
+        <!-- الشريط العلوي -->
+        <div class="top-info-bar">
+            <div class="flex items-center gap-2">
+                <i class="fas fa-user-graduate text-blue-500"></i>
+                <span id="top-student-name">جاري التحميل..</span>
+            </div>
+            <div class="bg-white px-2 py-0.5 rounded-full border shadow-sm">
+                <i class="fas fa-star text-yellow-500 text-[10px]"></i>
+                <span id="top-prev-score">٠ / ٥</span>
+            </div>
+        </div>
+
+        <!-- الشاشة 1: البداية -->
+        <div id="start-screen" class="p-6 text-center flex flex-col gap-4">
+            <h1 class="text-xl font-black text-slate-800">تحدي المرجع المعياري</h1>
+            <div class="text-right bg-blue-50 p-4 rounded-2xl border border-blue-100">
+                <p class="text-[11px] text-blue-700 leading-relaxed font-bold italic text-center">
+                    نافس زملاءك في الفصل وعلى مستوى المدرسة!
+                </p>
+            </div>
+            <button onclick="startGame()" class="btn-touch bg-blue-600 text-white shadow-lg shadow-blue-200">
+                بدء التحدي <i class="fas fa-play-circle mr-2"></i>
+            </button>
+            <button onclick="fetchAndShowLeaderboard(true)" class="btn-touch bg-white text-slate-600 border border-slate-200 text-sm">
+                <i class="fas fa-trophy ml-2 text-yellow-500"></i> سجل الأبطال
+            </button>
+            <p class="text-[10px] text-slate-400 font-bold mt-2 tracking-widest uppercase">أ. عبد العزيز خالد العبلان</p>
+        </div>
+
+        <!-- الشاشة 2: اللعبة -->
+        <div id="game-screen" class="hidden p-6 flex flex-col gap-4 overflow-y-auto">
+            <div class="space-y-3 text-center">
+                <h2 class="text-lg font-black text-slate-700">تسجيل نتائج التحدي</h2>
+                <div class="bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                    <label class="block text-[10px] font-bold text-slate-400 mb-1 italic">النقاط</label>
+                    <div class="flex items-center gap-2">
+                        <input type="number" id="input-achieved" placeholder="المحقق" class="w-1/2 p-2 rounded-xl border-2 text-center text-xl font-bold outline-none focus:border-blue-500">
+                        <span class="font-black text-slate-300">/</span>
+                        <input type="number" id="input-max" value="100" class="w-1/2 p-2 rounded-xl border-2 text-center text-xl font-bold outline-none focus:border-slate-300">
+                    </div>
+                </div>
+
+                <div class="bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                    <label class="block text-[10px] font-bold text-slate-400 mb-2 italic">معيار المفاضلة</label>
+                    <div class="flex gap-2">
+                        <button id="btn-metric-time" onclick="setMetricType('time')" class="flex-1 py-2 rounded-lg border-2 border-blue-500 bg-blue-50 text-[11px] font-black">
+                            <i class="fas fa-clock mb-1 block"></i> الوقت
+                        </button>
+                        <button id="btn-metric-error" onclick="setMetricType('error')" class="flex-1 py-2 rounded-lg border-2 border-transparent bg-white text-[11px] font-black">
+                            <i class="fas fa-exclamation-triangle mb-1 block"></i> الأخطاء
+                        </button>
+                    </div>
+                    <input type="number" id="input-metric-value" placeholder="القيمة" class="w-full mt-3 p-2 rounded-xl border-2 text-center text-2xl font-bold outline-none focus:border-green-500">
+                </div>
+
+                <button onclick="processResults()" class="btn-touch w-full bg-green-500 text-white text-lg shadow-lg">
+                    اعتماد النتيجة <i class="fas fa-check-circle mr-2"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- الشاشة 3: النتائج -->
+        <div id="result-screen" class="hidden p-5 flex flex-col h-full overflow-hidden">
+            <div id="final-stats" class="grid grid-cols-2 gap-2 mb-3"></div>
+            
+            <div class="flex flex-col flex-grow overflow-hidden">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="flex bg-slate-100 p-1 rounded-lg">
+                        <button onclick="changeLeaderboardScope('class')" class="scope-class-btn px-3 py-1 text-[10px] font-bold rounded-md bg-white shadow-sm text-blue-600">فصلي</button>
+                        <button onclick="changeLeaderboardScope('all')" class="scope-all-btn px-3 py-1 text-[10px] font-bold rounded-md text-slate-500">العام</button>
+                    </div>
+                    <button onclick="toggleEnlargeLeaderboard(true)" class="p-2 text-slate-400 hover:text-blue-500">
+                        <i class="fas fa-expand-alt"></i>
+                    </button>
+                </div>
+                
+                <div id="leaderboard-loader" class="py-2 text-center hidden"><div class="loader"></div></div>
+                <div id="leaderboard-container" class="leaderboard-scroll bg-slate-50 border border-slate-100 flex-grow"></div>
+            </div>
+
+            <div class="mt-4 flex gap-2">
+                <button onclick="location.reload()" class="btn-touch flex-1 bg-slate-100 text-slate-600 text-sm font-bold">إعادة</button>
+                <button id="finish-btn" class="btn-touch flex-[2] bg-slate-900 text-white text-sm font-bold">إنهاء العرض</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- نافذة التكبير المحدثة مع خيارات التحكم -->
+    <div id="enlarged-modal">
+        <div class="modal-content shadow-2xl">
+            <div class="p-4 border-b bg-slate-50 flex justify-between items-center">
+                <div class="flex items-center gap-4">
+                    <h3 class="font-black text-slate-800 text-sm"><i class="fas fa-trophy text-yellow-500 ml-1"></i> سجل الأبطال</h3>
+                    <div class="flex bg-slate-200 p-1 rounded-lg">
+                        <button onclick="changeLeaderboardScope('class')" class="scope-class-btn px-3 py-1 text-[10px] font-bold rounded-md bg-white shadow-sm text-blue-600">فصلي</button>
+                        <button onclick="changeLeaderboardScope('all')" class="scope-all-btn px-3 py-1 text-[10px] font-bold rounded-md text-slate-500">العام</button>
+                    </div>
+                </div>
+                <button onclick="toggleEnlargeLeaderboard(false)" class="bg-red-50 text-red-500 w-8 h-8 rounded-full flex items-center justify-center hover:bg-red-100">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div id="leaderboard-container-large" class="p-2 overflow-y-auto flex-grow bg-white"></div>
+        </div>
+    </div>
+
+    <script>
+    (function() {
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxqAQlGhNs8k5RwHs6jrWxDiDwaMABSx8a9Fl81O5oVVa5fHRWTwIEvsGy2cSDP4zGLWQ/exec";
+        const urlParams = new URLSearchParams(window.location.search);
+        const GAME_ID = urlParams.get('gameId') || 'g6_2_2';
+        const studentId = urlParams.get('studentId');
+        const classId = urlParams.get('classId');
+        let studentName = decodeURIComponent(urlParams.get('name') || urlParams.get('studentName') || urlParams.get('username') || "بطل زائر");
+        let currentMetricType = 'time';
+        let currentScope = 'class';
+
+        const toAr = (n) => String(n).replace(/\d/g, d => "٠١٢٣٤٥٦٧٨٩"[d]);
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('top-student-name').textContent = studentName;
+            if (studentId && classId) fetchInitial();
+            document.getElementById('finish-btn').onclick = () => window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*');
+        });
+
+        async function fetchInitial() {
+            try {
+                const res = await (await fetch(`${SCRIPT_URL}?action=getStudentData&studentId=${studentId}&classId=${encodeURIComponent(classId)}&itemId=${GAME_ID}&t=${Date.now()}`)).json();
+                if (res.status === 'success' && res.data) {
+                    if (res.data.name) { studentName = res.data.name; document.getElementById('top-student-name').textContent = studentName; }
+                    if (res.data.games?.[GAME_ID]) document.getElementById('top-prev-score').textContent = toAr(parseFloat(res.data.games[GAME_ID].grade).toFixed(1)) + " / ٥";
+                }
+            } catch (e) { console.log("Cloud Error"); }
+        }
+
+        window.setMetricType = (type) => {
+            currentMetricType = type;
+            document.getElementById('btn-metric-time').className = type === 'time' ? 'flex-1 py-2 rounded-lg border-2 border-blue-500 bg-blue-50 text-[11px] font-black' : 'flex-1 py-2 rounded-lg border-2 border-transparent bg-white text-[11px] font-black';
+            document.getElementById('btn-metric-error').className = type === 'error' ? 'flex-1 py-2 rounded-lg border-2 border-blue-500 bg-blue-50 text-[11px] font-black' : 'flex-1 py-2 rounded-lg border-2 border-transparent bg-white text-[11px] font-black';
+        };
+
+        window.startGame = () => { document.getElementById('start-screen').classList.add('hidden'); document.getElementById('game-screen').classList.remove('hidden'); };
+
+        window.processResults = () => {
+            const ach = parseFloat(document.getElementById('input-achieved').value);
+            const max = parseFloat(document.getElementById('input-max').value);
+            const met = parseFloat(document.getElementById('input-metric-value').value) || 0;
+            if (isNaN(ach) || isNaN(max) || max <= 0) return;
+            const grade = ((ach / max) * 5).toFixed(1);
+            showResult(ach, max, grade, met);
+            if (studentId && classId) save(grade, met); else fetchAndShowLeaderboard();
+        };
+
+        function showResult(a, m, g, met) {
+            document.getElementById('game-screen').classList.add('hidden');
+            document.getElementById('result-screen').classList.remove('hidden');
+            document.getElementById('final-stats').innerHTML = `
+                <div class="bg-blue-50 p-2 rounded-xl border border-blue-100 text-center"><p class="text-[9px] font-bold text-blue-400">الدرجة</p><p class="text-lg font-black text-blue-900">${toAr(g)}</p></div>
+                <div class="bg-purple-50 p-2 rounded-xl border border-purple-100 text-center"><p class="text-[9px] font-bold text-purple-400">${currentMetricType === 'time' ? 'الوقت (ث)' : 'الأخطاء'}</p><p class="text-lg font-black text-purple-900">${toAr(met)}</p></div>
+            `;
+        }
+
+        async function save(g, met) {
+            document.getElementById('leaderboard-loader').classList.remove('hidden');
+            const p = new URLSearchParams({ action: 'saveScore', studentId, classId, itemId: GAME_ID, score: g, metricValue: met, type: 'game' });
+            try { await fetch(`${SCRIPT_URL}?${p.toString()}`); } finally { fetchAndShowLeaderboard(); }
+        }
+
+        window.changeLeaderboardScope = (scope) => {
+            currentScope = scope;
+            // تحديث حالة الأزرار في الواجهة الرئيسية والمكبرة
+            document.querySelectorAll('.scope-class-btn').forEach(btn => {
+                btn.className = scope === 'class' ? 'px-3 py-1 text-[10px] font-bold rounded-md bg-white shadow-sm text-blue-600' : 'px-3 py-1 text-[10px] font-bold rounded-md text-slate-500';
+            });
+            document.querySelectorAll('.scope-all-btn').forEach(btn => {
+                btn.className = scope === 'all' ? 'px-3 py-1 text-[10px] font-bold rounded-md bg-white shadow-sm text-blue-600' : 'px-3 py-1 text-[10px] font-bold rounded-md text-slate-500';
+            });
+            fetchAndShowLeaderboard();
+        };
+
+        window.toggleEnlargeLeaderboard = (show) => {
+            document.getElementById('enlarged-modal').style.display = show ? 'flex' : 'none';
+        };
+
+        window.fetchAndShowLeaderboard = function(manual = false) {
+            if (manual) { document.getElementById('start-screen').classList.add('hidden'); document.getElementById('result-screen').classList.remove('hidden'); }
+            
+            const containers = [document.getElementById('leaderboard-container'), document.getElementById('leaderboard-container-large')];
+            document.getElementById('leaderboard-loader').classList.remove('hidden');
+            
+            let url = `${SCRIPT_URL}?action=getLeaderboard&gameId=${GAME_ID}&t=${Date.now()}`;
+            // جلب سجل الفصل فقط إذا كان النطاق 'class'
+            if (currentScope === 'class' && classId) url += `&classId=${encodeURIComponent(classId)}`;
+
+            fetch(url).then(r => r.json()).then(res => {
+                let html = "";
+                if (res.status === 'success' && res.data?.length > 0) {
+                    html = `<table class="w-full text-right text-[10px]"><thead class="bg-slate-800 text-white sticky top-0"><tr><th class="p-2 text-center">#</th><th class="p-2">البطل</th><th class="p-2 text-center">الدرجة</th><th class="p-2 text-center">المعيار</th></tr></thead><tbody class="divide-y divide-slate-100 bg-white">`;
+                    res.data.forEach((p, i) => {
+                        const isMe = (studentId && String(p.name).trim() === String(studentName).trim());
+                        html += `<tr class="${isMe ? 'rank-row-me font-black' : ''}"><td class="p-2 text-center font-bold">${i < 3 ? ['🥇','🥈','🥉'][i] : toAr(i+1)}</td><td class="p-2 font-bold">${p.name} ${isMe ? '<span class="text-[7px] bg-blue-600 text-white px-1 rounded-full mr-1">أنت</span>' : ''}</td><td class="p-2 text-blue-600 font-black text-center">${toAr(parseFloat(p.grade).toFixed(1))}</td><td class="p-2 text-slate-400 text-center font-bold">${toAr(p.metric || 0)}</td></tr>`;
+                    });
+                    html += `</tbody></table>`;
+                } else {
+                    html = `<p class="py-10 text-center text-slate-400 text-[10px] italic">بانتظار تسجيل الأبطال..</p>`;
+                }
+                containers.forEach(c => c.innerHTML = html);
+            }).finally(() => document.getElementById('leaderboard-loader').classList.add('hidden'));
+        }
+    })();
+    </script>
+</body>
+</html>

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>نينجا وحيدات الحد - V20.0 (Comprehensive Leaderboard)</title>
+    <title>نينجا وحيدات الحد - V20.1 (Instant & Smart)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -62,6 +62,10 @@
         .tab-inactive { background-color: #1e293b; color: #94a3b8; border: 1px solid #334155; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* تأثير النبض للمزامنة */
+        .sync-pulse { animation: syncPulse 1.5s infinite; display: inline-block; width: 6px; height: 6px; background-color: #10b981; border-radius: 50%; margin-right: 5px; }
+        @keyframes syncPulse { 0% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.5); } 100% { opacity: 1; transform: scale(1); } }
     </style>
 </head>
 <body>
@@ -72,12 +76,26 @@
             <div class="bg-indigo-900/50 border border-indigo-500/30 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-2">
                 <span class="text-indigo-300">السابق:</span>
                 <span id="prev-score-display" class="arabic-num text-white">--</span>
+                <span id="sync-indicator" class="sync-pulse hidden"></span> <!-- مؤشر المزامنة -->
             </div>
             <div class="flex items-center gap-2">
                 <i class="fas fa-user-ninja text-indigo-400"></i>
                 <div id="student-name-display" class="font-bold text-sm truncate max-w-[150px] text-indigo-100">
-                    جاري الربط...
+                    <!-- سيتم تعبئته فوراً بواسطة السكريبت أدناه -->
                 </div>
+                <!-- سكريبت العرض اللحظي (Zero-Latency) -->
+                <script>
+                    (function(){
+                        try {
+                            const p = new URLSearchParams(window.location.search);
+                            const n = p.get('name') || p.get('studentName');
+                            const el = document.getElementById('student-name-display');
+                            // العرض الفوري للاسم أو اللقب الافتراضي اللبق
+                            if(n) el.innerText = decodeURIComponent(n);
+                            else el.innerText = "بطل التحدي";
+                        } catch(e){}
+                    })();
+                </script>
             </div>
         </div>
 
@@ -109,10 +127,10 @@
                 <p class="text-slate-400 text-sm mb-8">كن بطلاً واقطع العوامل الصحيحة!</p>
                 <div class="space-y-3 w-full max-w-[260px]">
                     <button onclick="GameApp.startGame()" class="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold shadow-lg border-b-4 border-emerald-800 active:border-b-0 active:translate-y-1 transition-all">بدء التحدي ⚔️</button>
-                    <!-- تم تعديل استدعاء سجل الأبطال للنافذة الجديدة -->
+                    <!-- استدعاء سجل الأبطال -->
                     <button onclick="window.fetchAndShowLeaderboard(true)" class="w-full py-3 bg-slate-700 text-slate-200 rounded-xl font-bold border border-slate-600 text-sm">سجل الأبطال 🏆</button>
                 </div>
-                <div class="mt-auto pt-6 text-[10px] text-slate-600 font-Cairo">أ. عبد العزيز خالد العبلان (V20.0)</div>
+                <div class="mt-auto pt-6 text-[10px] text-slate-600 font-Cairo">أ. عبد العزيز خالد العبلان (V20.1)</div>
             </div>
 
             <!-- شاشة اللعبة -->
@@ -183,7 +201,7 @@
                         <h3 id="leaderboard-title" class="text-xs font-bold text-slate-400">لوحة الشرف</h3>
                         <div class="flex items-center gap-2">
                             <div id="leaderboard-loader" class="hidden"><div class="loader"></div></div>
-                            <!-- زر التكبير يستدعي النافذة الجديدة -->
+                            <!-- زر التكبير -->
                             <button onclick="window.fetchAndShowLeaderboard(true)" class="bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 text-[10px] px-2 py-1 rounded transition-colors flex items-center gap-1">
                                 <i class="fas fa-expand"></i> تكبير
                             </button>
@@ -200,7 +218,7 @@
                 </div>
             </div>
 
-            <!-- نافذة سجل الأبطال (Modal V20) -->
+            <!-- نافذة سجل الأبطال (Modal V20.1) -->
             <div id="leaderboard-modal" class="absolute inset-0 bg-slate-900 z-[100] hidden flex-col p-4 opacity-0 transition-all duration-200 transform scale-95" dir="rtl">
                 <!-- الشريط العلوي وزر الإغلاق -->
                 <div class="flex justify-between items-center mb-2 border-b border-slate-700 pb-2">
@@ -212,8 +230,8 @@
                 
                 <!-- أزرار التبديل (Tabs) -->
                 <div class="flex gap-2 mb-2">
-                    <button onclick="window.switchLeaderboardTab('class')" id="tab-class" class="tab-btn tab-active">أبطال فصلي</button>
-                    <button onclick="window.switchLeaderboardTab('global')" id="tab-global" class="tab-btn tab-inactive">أبطال المملكة (الكل)</button>
+                    <button onclick="window.switchLeaderboardTab('class')" id="tab-class" class="tab-btn tab-active hidden">أبطال فصلي</button>
+                    <button onclick="window.switchLeaderboardTab('global')" id="tab-global" class="tab-btn tab-inactive">أبطال اللعبة (الكل)</button>
                 </div>
 
                 <!-- منطقه عرض الجدول -->
@@ -228,7 +246,7 @@
 
             <div id="loader" class="absolute inset-0 z-[100] bg-slate-900/90 hidden flex flex-col justify-center items-center">
                 <div class="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-                <p class="text-white text-sm animate-pulse">جاري الاتصال بالسحابة...</p>
+                <p class="text-white text-sm animate-pulse">جاري تحميل البيانات...</p>
             </div>
         </div>
     </div>
@@ -241,12 +259,12 @@
             gameId: urlParams.get('gameId') || 'g7_1_2',
             studentId: urlParams.get('studentId'),
             classId: urlParams.get('classId'),
-            studentName: urlParams.get('name') || urlParams.get('studentName') || "بطل نينجا"
+            // الاسم يتم معالجته فوراً في السكريبت المضمن، لكن نحتفظ به هنا أيضاً
+            studentName: urlParams.get('name') || urlParams.get('studentName')
         };
 
-        // --- كود سجل الأبطال الشامل V20 ---
         let currentLeaderboardMode = 'class'; 
-        let classLeaderboardData = []; // تخزين مؤقت لتقليل الطلبات
+        let classLeaderboardData = []; 
 
         const Utils = {
             toArabicNum: (num) => {
@@ -261,7 +279,6 @@
             }
         };
 
-        // 1. دالة التبديل
         window.switchLeaderboardTab = function(mode) {
             currentLeaderboardMode = mode;
             if (mode === 'class') {
@@ -274,8 +291,22 @@
             window.fetchAndShowLeaderboard(true);
         };
 
-        // 2. دالة الجلب والعرض
         window.fetchAndShowLeaderboard = function(isManual = false) {
+            // منطق الإخفاء الذكي: إذا لم يوجد فصل، اخف التبويب وحول إلى العام
+            if (!AppConfig.classId) {
+                document.getElementById('tab-class').style.display = 'none';
+                currentLeaderboardMode = 'global';
+                // تحديث واجهة التبويبات لتظهر أن "الكل" هو النشط
+                document.getElementById('tab-global').className = 'tab-btn tab-active w-full';
+            } else {
+                document.getElementById('tab-class').style.display = 'block';
+                // استعادة العرض الافتراضي للأزرار
+                if(currentLeaderboardMode === 'global') {
+                     document.getElementById('tab-global').className = 'tab-btn tab-active';
+                     document.getElementById('tab-class').className = 'tab-btn tab-inactive';
+                }
+            }
+
             if (isManual) { 
                 const modal = document.getElementById('leaderboard-modal');
                 modal.classList.remove('hidden', 'opacity-0', 'pointer-events-none', 'scale-95');
@@ -305,7 +336,7 @@
                         let html = `<table class="w-full text-right text-[10px]"><tbody class="divide-y divide-slate-700">`;
                         dataToRender.forEach((p, i) => {
                             const isMe = (AppConfig.studentId && String(p.studentId) === String(AppConfig.studentId));
-                            const metricVal = parseFloat(p.metricValue) || 0; // الوقت هنا
+                            const metricVal = parseFloat(p.metricValue) || 0;
                             const gradeVal = parseFloat(p.grade) || 0;
                             
                             let classDisplay = "";
@@ -339,7 +370,6 @@
                 });
         };
 
-        // 3. دالة الإغلاق
         window.closeLeaderboardModal = function() {
             const modal = document.getElementById('leaderboard-modal');
             modal.classList.add('hidden', 'opacity-0', 'pointer-events-none', 'scale-95');
@@ -649,11 +679,16 @@
         const GameApp = {
             ninja: new NinjaGame(),
             init: async () => {
-                document.getElementById('student-name-display').innerText = decodeURIComponent(AppConfig.studentName);
-                if (AppConfig.studentId && AppConfig.classId) {
-                    await GameApp.fetchInitialDataV19();
+                if (AppConfig.studentId) {
+                    // تشغيل المزامنة الصامتة
+                    document.getElementById('sync-indicator').classList.remove('hidden');
+                    // المزامنة في الخلفية (عدم انتظارها)
+                    GameApp.fetchInitialDataV19(); 
                 } else {
-                    document.getElementById('student-name-display').innerText = "زائر";
+                    // إذا لم يوجد معرف، فهو زائر مؤكد
+                    setTimeout(() => {
+                        document.getElementById('student-name-display').innerText = "زائر";
+                    }, 500);
                 }
                 GameApp.showScreen('splash');
             },
@@ -662,9 +697,11 @@
                     const url = `${SCRIPT_URL}?action=getStudentData&studentId=${AppConfig.studentId}&classId=${encodeURIComponent(AppConfig.classId)}&itemId=${AppConfig.gameId}&t=${Date.now()}`;
                     const res = await fetch(url);
                     const response = await res.json();
+                    
                     if (response.status === 'success' && response.data) {
                         if (response.data.name) {
                             AppConfig.studentName = response.data.name;
+                            // تحديث الاسم بهدوء
                             document.getElementById('student-name-display').innerText = response.data.name;
                         }
                         const games = response.data.games || {};
@@ -673,7 +710,13 @@
                             document.getElementById('prev-score-display').innerText = Utils.toArabicNum(AppState.prevScore.toFixed(1));
                         }
                     }
-                } catch (e) { console.error("Connection error"); }
+                } catch (e) { 
+                    // في حال الفشل، إذا لم يكن هناك اسم مسبقاً، نضعه "زائر"
+                    if(!AppConfig.studentName) document.getElementById('student-name-display').innerText = "زائر";
+                } finally {
+                    // إخفاء مؤشر المزامنة
+                    document.getElementById('sync-indicator').classList.add('hidden');
+                }
             },
             saveDataV19: async (grade, metric) => {
                 if (!AppConfig.studentId) return;
@@ -690,15 +733,9 @@
                 try { await fetch(`${SCRIPT_URL}?${params.toString()}`); } 
                 catch(e) { console.error("Save failed"); } 
                 finally { 
-                    // نقوم باستدعاء الدالة الجديدة لتحديث الجدول الصغير (وهي تستخدم نفس منطق الجلب)
-                    // لكن هنا نمرر false لعدم فتح النافذة الكبيرة، ونقوم بتحديث الجدول الصغير يدوياً
-                    // للتبسيط، سنستدعي الدالة المصغرة القديمة إذا أردنا تحديث الجدول الصغير فقط،
-                    // أو نستخدم الدالة الجديدة لجلب البيانات وتحديث الجدول الصغير يدوياً.
-                    // هنا سنستدعي fetchLeaderboardV19 القديمة (التي سنعيد تعريفها لتعمل مع النظام الجديد)
                     GameApp.updateMiniLeaderboard(); 
                 }
             },
-            // دالة تحديث الجدول الصغير (Mini Leaderboard)
             updateMiniLeaderboard: () => {
                 const tbody = document.getElementById('leaderboard-body');
                 document.getElementById('leaderboard-loader').classList.remove('hidden');
@@ -721,7 +758,7 @@
                     tbody.innerHTML = '<tr><td colspan="3" class="text-center p-4 text-slate-500 text-xs">كن أول الأبطال!</td></tr>';
                     return;
                 }
-                data.slice(0, 10).forEach((row, i) => { // عرض أول 10 فقط في الجدول الصغير
+                data.slice(0, 10).forEach((row, i) => { 
                     const isMe = (AppConfig.studentId && String(row.studentId) === String(AppConfig.studentId));
                     const padding = 'p-2 text-xs';
                     const iconSize = 'text-xs';
@@ -741,7 +778,6 @@
                 });
                 tbody.innerHTML = html;
             },
-            // تم دمج fetchLeaderboardV19 القديمة مع updateMiniLeaderboard
             fetchLeaderboardV19: (showModal = false) => {
                if (showModal) window.fetchAndShowLeaderboard(true);
                else GameApp.updateMiniLeaderboard();

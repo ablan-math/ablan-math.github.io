@@ -225,12 +225,9 @@
         <!-- Level Complete Modal (Instructional) -->
         <div id="level-modal" class="absolute inset-0 z-50 hidden flex flex-col items-center justify-center p-6 text-center">
             <div class="bg-slate-800 border-2 border-blue-500 rounded-2xl p-6 shadow-2xl w-full max-w-sm relative overflow-hidden">
-                <!-- Shine effect -->
                 <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-blue-400 to-transparent"></div>
-                
                 <h3 class="text-2xl font-black text-white mb-2">أحسنت! 🎉</h3>
                 <p class="text-slate-300 text-xs mb-4">أنهيت هذا المستوى. إليك القاعدة:</p>
-                
                 <div class="bg-slate-900 rounded-xl p-4 border border-slate-700 mb-6 text-right">
                     <h4 class="text-yellow-400 font-bold text-sm mb-2" id="modal-rule-title">قاعدة المستوى</h4>
                     <p class="text-white text-sm leading-relaxed mb-3" id="modal-rule-text">...</p>
@@ -239,7 +236,6 @@
                         <span class="math-arabic text-lg font-bold text-white" id="modal-rule-example" dir="rtl">...</span>
                     </div>
                 </div>
-
                 <div class="flex gap-2">
                     <button onclick="retryLevel()" class="flex-1 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-bold text-sm border border-slate-600 transition-colors">
                         <i class="fas fa-redo ml-1"></i> إعادة المستوى
@@ -310,6 +306,7 @@
 
         let currentMetricType = 'time'; 
         let currentLeaderboardMode = classId ? 'class' : 'global';
+        let currentSessionScore = null; // Store guest score locally
 
         // --- Helper Functions ---
         const toAr = (str) => {
@@ -598,11 +595,10 @@
             
             // Reset for retry
             enemyCurrentHP = 100;
-            playerCurrentHP = 100; // Give a fresh start for health to pass level
+            playerCurrentHP = 100; 
             updateHP();
             prepareLevelQuestions();
             generateQuestion();
-            // Timer keeps running
         };
 
         window.nextLevel = function() {
@@ -614,13 +610,6 @@
             } else {
                 level++;
                 enemyCurrentHP = 100;
-                // Player health carries over? Or resets? 
-                // "Instruction: continue... basically continue the game"
-                // Usually next level means new challenge. Let's keep existing HP or maybe heal slightly?
-                // Let's reset HP to be fair for the new level challenge since it's "Stages".
-                // But Scenario 3 was Survival. 
-                // However, with "Retry", Survival becomes tricky. 
-                // Let's stick to the prompt: "Continue...". Let's keep HP as is for survival challenge.
                 updateHP();
                 prepareLevelQuestions();
                 feedbackMsg.innerText = `المستوى ${toAr(level)}`;
@@ -647,6 +636,9 @@
 
             const grade = ((achieved / max) * 5).toFixed(1);
             
+            // Store score locally for Guest display
+            currentSessionScore = { grade: grade, metric: timeTaken };
+
             // UI Updates
             const resultIcon = document.getElementById('result-icon');
             const resultTitle = document.getElementById('result-title');
@@ -675,6 +667,14 @@
         }
 
         async function saveScore(g, met) {
+            // New Logic: If no studentId, do NOT fetch.
+            if (!studentId) {
+                // It's a guest. Just update leaderboard locally.
+                fetchAndShowLeaderboard(false);
+                return;
+            }
+
+            // Normal logic for registered students
             const sId = effectiveStudentId;
             const cId = classId || 'global'; 
             const p = new URLSearchParams({ action: 'saveScore', studentId: sId, classId: cId, itemId: GAME_ID, score: g, metricValue: met, type: 'game' });
@@ -691,10 +691,38 @@
             const url = `${SCRIPT_URL}?action=getLeaderboard&gameId=${GAME_ID}&classId=${encodeURIComponent(reqClassId || 'all')}&t=${Date.now()}`;
 
             fetch(url).then(r => r.json()).then(res => {
+                let data = [];
                 if (res.status === 'success' && res.data?.length > 0) {
+                    data = res.data;
+                }
+
+                // If Guest & has a score, inject it locally
+                if (!studentId && currentSessionScore) {
+                    // Check if not already in (simple check, though data is from server so likely not there)
+                    data.push({
+                        name: "بطل زائر (أنت)",
+                        grade: currentSessionScore.grade,
+                        metric: currentSessionScore.metric,
+                        studentId: effectiveStudentId,
+                        isLocal: true
+                    });
+                }
+
+                // Sort: Grade DESC, then Metric ASC
+                data.sort((a, b) => {
+                    const gA = parseFloat(a.grade) || 0;
+                    const gB = parseFloat(b.grade) || 0;
+                    if (gA !== gB) return gB - gA;
+                    
+                    const mA = parseFloat(a.metric || a.metricValue) || 0;
+                    const mB = parseFloat(b.metric || b.metricValue) || 0;
+                    return mA - mB; 
+                });
+
+                if (data.length > 0) {
                     let h = `<table class="w-full text-right text-[10px] border-collapse"><thead class="text-slate-400 border-b border-slate-100 bg-slate-50/50"><tr><th class="p-2 text-center">#</th><th class="p-2 text-right">البطل</th><th class="p-2 text-center">الدرجة</th></tr></thead><tbody class="divide-y divide-slate-50">`;
-                    res.data.forEach((p, i) => {
-                        const isMe = (String(p.studentId || "").trim() === String(effectiveStudentId).trim()) || (studentId && String(p.name).trim() === String(studentName).trim());
+                    data.forEach((p, i) => {
+                        const isMe = p.isLocal || (String(p.studentId || "").trim() === String(effectiveStudentId).trim()) || (studentId && String(p.name).trim() === String(studentName).trim());
                         let displayName = p.name;
                         if (!displayName && isMe) displayName = studentName || "بطل زائر";
                         if (!displayName) displayName = "بطل زائر";
@@ -709,7 +737,9 @@
                         </tr>`;
                     });
                     content.innerHTML = h + `</tbody></table>`;
-                } else content.innerHTML = `<div class="py-10 text-center text-slate-400 text-xs italic">بانتظار الأبطال..</div>`;
+                } else {
+                    content.innerHTML = `<div class="py-10 text-center text-slate-400 text-xs italic">بانتظار الأبطال..</div>`;
+                }
             }).finally(() => document.getElementById('modal-loader').classList.add('hidden'));
         };
 

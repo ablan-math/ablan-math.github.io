@@ -619,6 +619,7 @@
         let attemptsLeft = 0; 
         let currentQuestions = [];
         let timerInterval;
+        let isQuizResultShown = false; 
 
         const tabs = [
             { id: 'learn1', icon: 'search', label: 'التحليل' },
@@ -1204,6 +1205,9 @@
                         scoreEl.textContent = lessonData.grade;
                         if(badge) badge.classList.remove('hidden');
                     }
+                    if(jsonResponse.data.name) {
+                        document.getElementById('student-name').textContent = jsonResponse.data.name;
+                    }
                 }
             } catch (error) {
                 console.error("Sync Error:", error);
@@ -1368,10 +1372,9 @@
             const countEl = document.getElementById('attempts-count');
             if(countEl) countEl.textContent = convertToArabic(attemptsLeft);
             const submitBtn = document.getElementById('quiz-action-btn');
-            // If results are showing, do NOT touch the button text to avoid overwriting "Retake"
-            const resultsVisible = document.getElementById('quiz-results') && !document.getElementById('quiz-results').classList.contains('hidden');
             
-            if (resultsVisible) return; // Exit if in result mode
+            // ROBUST CHECK: If results are shown, do not update button text from here
+            if (isQuizResultShown) return;
 
             if (submitBtn) {
                  if (attemptsLeft > 0) {
@@ -1379,11 +1382,14 @@
                     submitBtn.classList.remove('opacity-50', 'cursor-not-allowed', 'bg-gray-400');
                     submitBtn.classList.add('bg-purple-600', 'hover:bg-purple-700');
                     submitBtn.innerHTML = '<i class="fas fa-check-circle"></i> تحقق من الإجابات';
+                    submitBtn.onclick = null; // Ensure standard submit behavior
+                    submitBtn.type = "submit";
                 } else {
                     submitBtn.disabled = true;
                     submitBtn.classList.add('opacity-50', 'cursor-not-allowed', 'bg-gray-400');
                     submitBtn.classList.remove('bg-purple-600', 'hover:bg-purple-700');
-                    submitBtn.textContent = "المحاولات مستنفذة";
+                    submitBtn.textContent = "انتهت المحاولات";
+                    submitBtn.type = "button";
                 }
             }
         }
@@ -1472,6 +1478,8 @@
             const submitBtn = document.getElementById('quiz-action-btn');
             if (attemptsLeft <= 0) { alert("عذراً، لقد استنفذت محاولاتك."); return; }
             attemptsLeft--;
+            
+            // ... (storage logic) ...
             const sId = urlParams.get('studentId') || 'visitor';
             if (sId === 'visitor') {
                 localStorage.setItem(`${ATTEMPTS_KEY}_visitor`, attemptsLeft);
@@ -1519,21 +1527,21 @@
 
             const finalScore = score * 2; 
             saveScoreToBackend(LESSON_KEY, finalScore);
+            
             const resultCard = document.getElementById('quiz-results');
             resultCard.classList.remove('hidden', 'result-card-trophy', 'result-card-star', 'result-card-retry');
             
-            if (finalScore > 8) {
-                 resultCard.classList.add('result-card-trophy'); 
-            } else if (finalScore >= 5) {
-                 resultCard.classList.add('result-card-star'); 
-            } else {
-                 resultCard.classList.add('result-card-retry'); 
-            }
+            if (finalScore > 8) { resultCard.classList.add('result-card-trophy'); } 
+            else if (finalScore >= 5) { resultCard.classList.add('result-card-star'); } 
+            else { resultCard.classList.add('result-card-retry'); }
 
             document.getElementById('quiz-score').textContent = `${convertToArabic(finalScore)} / ١٠`;
             const inputs = document.querySelectorAll('#quizForm input');
             inputs.forEach(i => i.disabled = true);
             
+            // SET FLAG TRUE
+            isQuizResultShown = true;
+
             // Force Update Button State for Retake
             submitBtn.type = "button"; 
             submitBtn.classList.remove('opacity-50', 'cursor-not-allowed', 'bg-blue-600', 'hover:bg-blue-700', 'bg-gray-400');
@@ -1555,11 +1563,14 @@
         function resetQuizView() {
             document.getElementById('quiz-results').classList.add('hidden');
             
+            // SET FLAG FALSE
+            isQuizResultShown = false;
+
             // Reset Button State Back to Submit
             const submitBtn = document.getElementById('quiz-action-btn');
             if(submitBtn) {
                 submitBtn.innerHTML = '<i class="fas fa-check-circle"></i> تحقق من الإجابات';
-                submitBtn.onclick = null; // Let the form handle submit
+                submitBtn.onclick = null; 
                 submitBtn.type = "submit";
             }
 

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <!-- SYSTEM COMPLIANCE LOG: SmartIdentity_Protocol_Active=YES | ZeroLatency=YES | QuizButton_Logic_Fixed=YES -->
+    <!-- SYSTEM COMPLIANCE LOG: QuizButton_StateLogic_Refactored=YES | RobustUI_Update=YES -->
     <title>٦-١ ضرب وحيدات الحد</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -360,11 +360,16 @@
     <!-- Game Modal Structure -->
     <div id="game-modal" class="fixed inset-0 bg-black/80 hidden flex items-center justify-center backdrop-blur-sm p-4">
         <div id="game-frame-container" class="bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col relative modal-default-size border border-gray-600">
-            <!-- Game Header -->
+            <!-- Game Header - Updated Close Button Position -->
             <div class="text-white px-3 py-1 flex justify-between items-center shadow-md select-none h-8 shrink-0" style="background-color: var(--theme-hex)">
-                <div class="flex items-center gap-2">
-                    <i class="fas fa-gamepad text-yellow-400 text-sm"></i>
-                    <span id="game-modal-title" class="font-bold text-xs md:text-sm truncate max-w-[200px]">عنوان اللعبة</span>
+                <div class="flex items-center gap-1">
+                     <button onclick="closeGameModal()" class="hover:bg-red-600 p-1 rounded text-red-100 hover:text-white transition bg-red-900/20 flex items-center justify-center w-6 h-6 mr-2" title="إغلاق">
+                        <i class="fas fa-times text-xs"></i>
+                    </button>
+                    <div class="flex items-center gap-2 border-r border-white/20 pr-2">
+                        <i class="fas fa-gamepad text-yellow-400 text-sm"></i>
+                        <span id="game-modal-title" class="font-bold text-xs md:text-sm truncate max-w-[200px]">عنوان اللعبة</span>
+                    </div>
                 </div>
                 <div class="flex items-center gap-1">
                     <button onclick="toggleMinimize()" class="hover:bg-black/20 p-1 rounded text-gray-100 hover:text-white transition flex items-center justify-center w-6 h-6" title="تصغير (Minimize)">
@@ -372,9 +377,6 @@
                     </button>
                     <button onclick="toggleMaximize()" class="hover:bg-black/20 p-1 rounded text-gray-100 hover:text-white transition flex items-center justify-center w-6 h-6" title="تكبير/استعادة (Toggle Fullscreen)">
                         <i id="max-icon" class="fas fa-expand text-xs"></i>
-                    </button>
-                    <button onclick="closeGameModal()" class="hover:bg-red-600 p-1 rounded text-red-100 hover:text-white transition bg-red-900/20 ml-1 flex items-center justify-center w-6 h-6" title="إغلاق">
-                        <i class="fas fa-times text-xs"></i>
                     </button>
                 </div>
             </div>
@@ -594,13 +596,9 @@
                         if (timerInterval) clearInterval(timerInterval);
                         document.getElementById('timer-top-container').classList.add('hidden');
                         document.getElementById('timer-bottom-container').classList.add('hidden');
-                        const submitBtn = document.getElementById('quiz-action-btn');
-                        if(submitBtn) {
-                             submitBtn.disabled = false;
-                             submitBtn.classList.remove('opacity-50', 'cursor-not-allowed', 'bg-gray-400');
-                             submitBtn.classList.add('bg-blue-600', 'hover:bg-blue-700');
-                             submitBtn.textContent = "تحقق من الإجابات";
-                        }
+                        
+                        // Removed button update logic from here to prevent overwrite. 
+                        // updateAttemptsUI() called in finally block will handle it.
                     } else {
                         attemptsLeft = 0;
                         if (lessonData.waitTime > 0) {
@@ -811,13 +809,35 @@
             const countEl = document.getElementById('attempts-count');
             if(countEl) countEl.textContent = convertToArabic(attemptsLeft);
             const submitBtn = document.getElementById('quiz-action-btn');
+            
+            // Logic for when result IS shown (Enforce "Try Again" state)
+            if (isQuizResultShown && submitBtn) {
+                 if (attemptsLeft > 0) {
+                    submitBtn.textContent = "إعادة الاختبار";
+                    submitBtn.disabled = false;
+                    submitBtn.classList.remove('opacity-50', 'cursor-not-allowed', 'bg-gray-400');
+                    submitBtn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+                    // Ensure onclick is set to reset logic
+                    submitBtn.onclick = resetQuizView; 
+                } else {
+                    submitBtn.textContent = "انتهت المحاولات";
+                    submitBtn.disabled = true;
+                    submitBtn.classList.add('bg-gray-400', 'text-white', 'cursor-not-allowed');
+                    submitBtn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+                }
+                return;
+            }
+
+            // Logic for when result is NOT shown (Check Answers state)
             const resultsVisible = document.getElementById('quiz-results') && !document.getElementById('quiz-results').classList.contains('hidden');
-            if (!isQuizResultShown && submitBtn) {
+            if (!isQuizResultShown && !resultsVisible && submitBtn) {
                  if (attemptsLeft > 0) {
                     submitBtn.disabled = false;
                     submitBtn.classList.remove('opacity-50', 'cursor-not-allowed', 'bg-gray-400');
                     submitBtn.classList.add('bg-blue-600', 'hover:bg-blue-700');
                     submitBtn.textContent = "تحقق من الإجابات";
+                    // Reset onclick to default behavior (form submission is handled via onsubmit)
+                    submitBtn.onclick = null; 
                 } else {
                     submitBtn.disabled = true;
                     submitBtn.classList.add('opacity-50', 'cursor-not-allowed', 'bg-gray-400');
@@ -976,19 +996,9 @@
             const inputs = document.querySelectorAll('#quizForm input');
             inputs.forEach(i => i.disabled = true);
             
-            submitBtn.type = "button"; 
-            submitBtn.classList.remove('opacity-50', 'cursor-not-allowed', 'bg-blue-600', 'hover:bg-blue-700', 'bg-gray-400');
-            if (attemptsLeft > 0) {
-                submitBtn.textContent = "إعادة الاختبار";
-                submitBtn.classList.add('bg-blue-600', 'text-white', 'hover:bg-blue-700', 'shadow-lg', 'transform', 'active:scale-95');
-                submitBtn.disabled = false;
-                submitBtn.onclick = resetQuizView; 
-            } else {
-                submitBtn.textContent = "انتهت المحاولات";
-                submitBtn.classList.add('bg-gray-400', 'text-white', 'cursor-not-allowed');
-                submitBtn.disabled = true;
-                document.getElementById('timer-bottom-container').classList.remove('hidden');
-            }
+            // Force Update UI immediately to reflect "Try Again" or "Exhausted"
+            updateAttemptsUI();
+
             renderDynamicGames();
         }
 

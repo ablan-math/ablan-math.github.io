@@ -4,9 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <!-- 
-        MASTER TEMPLATE VERSION 5.1 (TEST READY)
-        - Updated LESSON_KEY to 'c6_l3' for testing purposes.
-        - All logic (Smart Ordering, 4-Options, Vertical Explanation) is active.
+        MASTER TEMPLATE VERSION 7.0 (DIAGNOSTIC EDITION)
+        - Added: Diagnostic Panel to inspect URL parameters.
+        - Enhanced: Multi-format parameter fetching (g1_score OR gX_Y_1_score).
+        - Fixed: Title fetching logic strictly prioritized.
     -->
     <title>{عنوان الدرس يظهر هنا}</title>
     
@@ -54,17 +55,16 @@
         .option-label { display: flex; align-items: center; justify-content: center; padding: 12px 8px; border: 2px solid #e5e7eb; border-radius: 12px; cursor: pointer; transition: all 0.2s; height: 100%; min-height: 50px; background: white; }
         input[type="radio"]:checked + .option-label { border-color: #2563eb; background-color: #eff6ff; color: #2563eb; font-weight: bold; box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2); }
         
+        /* Result Cards */
         .result-card-base { position: relative; overflow: hidden; padding: 1.5rem !important; transition: all 0.3s ease; }
-        .result-card-trophy { background-color: #fffbeb; border-color: #fcd34d; } 
-        .result-card-star { background-color: #fff7ed; border-color: #fdba74; } 
-        .result-card-retry { background-color: #fef2f2; border-color: #fca5a5; } 
+        .result-card-trophy { background-color: #fffbeb; border-color: #fcd34d !important; border-width: 2px; } 
+        .result-card-star { background-color: #fff7ed; border-color: #fdba74 !important; border-width: 2px; } 
+        .result-card-retry { background-color: #fef2f2; border-color: #fca5a5 !important; border-width: 2px; } 
         
         .loader { border: 4px solid #f3f3f3; border-radius: 50%; border-top: 4px solid #2563eb; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 0 auto; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         
         .lesson-footer { text-align: center; margin-top: 40px; margin-bottom: 80px; padding-top: 20px; border-top: 1px dashed #e5e7eb; color: #9ca3af; font-size: 0.75rem; }
-        
-        /* Explanation Styles */
         .v-step { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
         .v-arrow { color: #9ca3af; margin: 4px 0; font-size: 1.2rem; }
 
@@ -75,35 +75,38 @@
         #game-modal-header { padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; color: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         #game-frame { flex-grow: 1; width: 100%; height: 100%; border: none; background: #f3f4f6; }
         #minimized-game-bar { display: none; position: fixed; bottom: 80px; left: 20px; background: white; border: 2px solid; border-radius: 50px; padding: 8px 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); z-index: 9998; cursor: pointer; align-items: center; gap: 10px; font-weight: bold; transition: transform 0.2s; animation: slideInUp 0.3s ease-out; }
+
+        /* Diagnostic Panel */
+        #debug-panel { position: fixed; bottom: 80px; left: 10px; width: 300px; background: rgba(0,0,0,0.9); color: #00ff00; font-family: monospace; font-size: 10px; padding: 10px; border-radius: 8px; z-index: 9999; direction: ltr; max-height: 200px; overflow-y: auto; display: none; }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800">
 
     <script>
+        // [PLATINUM] Dynamic Identity & Title Loader
         (function() {
             try {
                 const params = new URLSearchParams(window.location.search);
                 const name = params.get('name');
+                // Try multiple title keys
+                const dynamicTitle = params.get('title') || params.get('lesson_title');
+                
                 if (name) { window.__studentName = name; }
-            } catch(e) { console.error("Identity Error", e); }
+                if (dynamicTitle) { window.__lessonTitle = dynamicTitle; document.title = dynamicTitle; }
+            } catch(e) { console.error("Init Error", e); }
         })();
     </script>
 
     <!-- Header -->
     <header id="main-header" class="w-full text-white shadow-lg px-4 py-3 sticky top-0 z-50 transition-colors overflow-hidden relative bg-gradient-to-r from-blue-600 to-blue-800">
-        <!-- [VISUAL FIX] Background Pattern with increased visibility and spread -->
         <div class="absolute inset-0 pointer-events-none overflow-hidden">
             <i id="header-bg-icon" class="fas fa-book-open absolute -left-6 -bottom-8 text-8xl md:text-9xl text-white opacity-10 transform -rotate-12"></i>
             <span id="chapter-num-bg" class="absolute top-[-10px] right-10 text-9xl font-black text-white opacity-5 font-sans leading-none select-none">{#}</span>
-            
-            <!-- Mathematical Symbols (Distributed & Visible) -->
             <i class="fas fa-plus absolute top-4 left-[20%] text-xl text-white opacity-10 transform rotate-12"></i>
             <i class="fas fa-minus absolute bottom-4 right-[30%] text-2xl text-white opacity-10 transform -rotate-6"></i>
             <i class="fas fa-times absolute top-8 right-12 text-lg text-white opacity-10"></i>
             <i class="fas fa-divide absolute bottom-6 left-8 text-xl text-white opacity-10 transform rotate-45"></i>
-            <i class="fas fa-superscript absolute top-1/2 left-1/2 text-sm text-white opacity-10"></i>
         </div>
-        
         <div class="container mx-auto max-w-4xl flex justify-between items-center relative z-10">
             <div class="flex items-center gap-3">
                 <div class="w-10 h-10 md:w-14 md:h-14 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center border border-white/20 shadow-md">
@@ -113,7 +116,8 @@
                     <span class="text-[9px] md:text-xs font-bold opacity-80">منصة الرياضيات التفاعلية</span>
                     <h1 class="text-base md:text-xl font-black flex items-center gap-2">
                         <span class="bg-white/20 px-2 rounded text-sm md:text-base font-sans pt-1">{رقم الدرس}</span>
-                        <span>{عنوان الدرس}</span>
+                        <!-- Dynamic Title Target -->
+                        <span id="lesson-title-text">{عنوان الدرس}</span>
                         <span id="header-score-badge" class="hidden flex items-center gap-1 bg-yellow-400/20 text-yellow-100 px-2 py-0.5 rounded-full text-xs border border-yellow-400/30 animate-pulse">
                             <i class="fas fa-star text-[10px]"></i> <span id="student-score">0</span>
                         </span>
@@ -219,6 +223,17 @@
         <div class="h-20"></div>
     </main>
 
+    <!-- Debug Panel -->
+    <div id="debug-panel" class="hidden">
+        <div class="flex justify-between items-center mb-2 border-b border-green-700 pb-1">
+            <span class="font-bold text-white">🛠️ تشخيص الاتصال</span>
+            <button onclick="document.getElementById('debug-panel').style.display='none'" class="text-red-400 hover:text-red-200 font-bold">x</button>
+        </div>
+        <div id="debug-content" class="space-y-1">Waiting...</div>
+        <button onclick="hardReset()" class="mt-2 w-full bg-red-700 text-white text-xs py-1 rounded hover:bg-red-600">تصفير الذاكرة</button>
+    </div>
+    <button onclick="document.getElementById('debug-panel').style.display='block'; showDebugInfo();" class="fixed bottom-2 left-2 text-[10px] text-gray-300 hover:text-gray-500 opacity-50 z-50">🛠️ تشخيص</button>
+
     <nav class="bottom-nav" id="bottom-nav-container"></nav>
     <div id="modal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-end sm:items-center justify-center backdrop-blur-sm"><div class="bg-white w-full sm:w-96 rounded-t-2xl sm:rounded-xl p-6 transform transition-transform duration-300 shadow-2xl"><div class="flex justify-between mb-4 items-center"><div class="flex items-center gap-2" style="color: var(--theme-hex)"><i id="modal-icon" data-lucide="info" class="w-5 h-5"></i><h3 id="modal-title" class="font-bold text-lg">توضيح</h3></div><button onclick="closeModal()" class="bg-gray-100 p-1 rounded-full text-gray-500 hover:bg-gray-200"><i data-lucide="x" class="w-5 h-5"></i></button></div><div id="modal-content" class="text-sm text-gray-600 leading-relaxed max-h-[60vh] overflow-y-auto pl-1"></div></div></div>
 
@@ -235,11 +250,9 @@
     <div id="minimized-game-bar" onclick="restoreGameModal()" class="border-blue-600 text-blue-600"><i class="fas fa-gamepad"></i><span id="minimized-game-title">اللعبة جارية...</span><i class="fas fa-chevron-up"></i></div>
 
     <script>
-        // --- 1. GLOBAL VARIABLES & CONFIGURATION ---
-        
+        // --- 1. CONFIGURATION ---
         const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxqAQlGhNs8k5RwHs6jrWxDiDwaMABSx8a9Fl81O5oVVa5fHRWTwIEvsGy2cSDP4zGLWQ/exec"; 
-
-        const LESSON_KEY = 'c6_l3'; // <-- قم بتغيير هذا القيمة لكل درس جديد (نمط: cX_lY)
+        const LESSON_KEY = 'c6_l3'; 
         
         const ATTEMPTS_KEY = 'quiz_attempts_' + LESSON_KEY;
         const NEXT_ATTEMPT_KEY = 'quiz_next_attempt_' + LESSON_KEY;
@@ -260,10 +273,6 @@
             'learn1': 'المفهوم الأول', 'learn2': 'المفهوم الثاني', 'learn3': 'المفهوم الثالث', 'learn4': 'المفهوم الرابع', 'mixed': 'تحدي / شامل' 
         };
 
-        // [AI_INSTRUCTION: QUESTION BANK]
-        // يجب أن يحتوي كل نوع (learn1, learn2, ...) على 3 أسئلة بديلة على الأقل لضمان العشوائية.
-        // يجب أن تحتوي جميع الأسئلة على 4 خيارات (a, b, c, d).
-        // الشرح (e) يجب أن يكون بتنسيق HTML العمودي (step-box).
         const questionBank = [
              // --- CONCEPT 1 VARIANTS ---
              { 
@@ -478,20 +487,16 @@
              }, 1000);
         }
 
-        // [GENIUS: Smart Ordering Algorithm]
         function generateQuiz() { 
             currentQuestions = [];
-            // Order: Concept 1 -> Concept 2 -> Concept 3 -> Concept 4 (if exists) -> Mixed
             const requiredTypes = ['learn1', 'learn2', 'learn3', 'learn4', 'mixed'];
             
             requiredTypes.forEach(type => {
                 const pool = questionBank.filter(q => q.type === type);
                 if(pool.length > 0) {
-                    // Pick 1 random variant from this concept
                     const randomQ = pool[Math.floor(Math.random() * pool.length)];
                     currentQuestions.push(randomQ);
                 } else {
-                    // Fallback: If learn4 is missing (concept 4), try filling with mixed/challenge
                     if (type === 'learn4') {
                         const extraMixed = questionBank.filter(q => q.type === 'mixed' && !currentQuestions.includes(q));
                         if(extraMixed.length > 0) {
@@ -501,7 +506,6 @@
                     }
                 }
             });
-            
             renderQuiz(); 
         }
 
@@ -538,7 +542,6 @@
         function handleQuizSubmit(e) {
             e.preventDefault();
             if (attemptsLeft <= 0) return;
-            
             attemptsLeft--;
             
             const sId = urlParams.get('studentId') || 'visitor';
@@ -583,13 +586,14 @@
 
         function resetQuizView() {
             document.getElementById('quiz-results').classList.add('hidden');
-            generateQuiz(); // Smart Ordering Reshuffle
+            generateQuiz(); 
             document.getElementById('tab-quiz').scrollIntoView({behavior: 'smooth'});
             const sId = urlParams.get('studentId');
             if(sId && sId !== 'visitor') fetchStudentData();
             else updateAttemptsUI();
         }
 
+        // [PLATINUM] Platform-Connected Game Logic with Smart Fallbacks
         function renderDynamicGames() {
             const container = document.getElementById('dynamic-games-container');
             if (!container) return;
@@ -600,23 +604,62 @@
             const ch = match[1]; 
             const ls = match[2]; 
             
-            const games = [
-                { id: `g${ch}_${ls}_1`, title: 'لعبة الاختيار (تفاعلي)', icon: 'fa-gamepad' },
-                { id: `g${ch}_${ls}_2`, title: 'سباق التحدي (تفاعلي)', icon: 'fa-trophy' }
+            const gamesDefaults = [
+                { suffix: '1', defaultTitle: '{اسم اللعبة 1}', icon: 'fa-gamepad', defaultMax: 5 },
+                { suffix: '2', defaultTitle: '{اسم اللعبة 2}', icon: 'fa-trophy', defaultMax: 5 }
             ];
 
             const sId = urlParams.get('studentId') || '';
             const cId = urlParams.get('classId') || '';
             
-            games.forEach(g => {
-                const gameUrl = `https://ablan-math.github.io/games/${g.id}.html?studentId=${sId}&classId=${cId}`;
+            gamesDefaults.forEach((gDef, idx) => {
+                const i = idx + 1; // 1 or 2
+                const gameId = `g${ch}_${ls}_${gDef.suffix}`; // e.g. g6_3_1
+                
+                // [GENIUS FALLBACK] Try fetching score using multiple common patterns
+                const scoreStandard = urlParams.get(`g${i}_score`);
+                const scoreSpecific = urlParams.get(`${gameId}_score`);
+                const scoreSimple = urlParams.get(`game${i}_score`);
+                
+                const score = parseInt(scoreStandard || scoreSpecific || scoreSimple) || 0;
+                
+                // Check if ANY score param exists to determine "Played" status
+                const hasPlayed = (scoreStandard !== null || scoreSpecific !== null || scoreSimple !== null);
+
+                // Fetch Title similarly
+                const title = urlParams.get(`g${i}_title`) || urlParams.get(`${gameId}_title`) || gDef.defaultTitle;
+                const max = parseInt(urlParams.get(`g${i}_max`)) || gDef.defaultMax;
+                
+                let cardClass = "bg-white border-gray-200"; 
+                let iconHtml = `<div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600"><i class="fas ${gDef.icon}"></i></div>`;
+                let statusText = "اضغط للبدء";
+
+                if (hasPlayed) {
+                    if (score >= max) {
+                        cardClass = "result-card-trophy";
+                        iconHtml = `<div class="w-10 h-10 rounded-full bg-yellow-100 text-yellow-600 flex items-center justify-center"><i class="fas fa-trophy"></i></div>`;
+                        statusText = `أحسنت! (${score}/${max})`;
+                    } else if (score >= max / 2) {
+                        cardClass = "result-card-star";
+                        iconHtml = `<div class="w-10 h-10 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center"><i class="fas fa-star"></i></div>`;
+                        statusText = `جيد جداً (${score}/${max})`;
+                    } else {
+                        cardClass = "result-card-retry";
+                        iconHtml = `<div class="w-10 h-10 rounded-full bg-red-100 text-red-600 flex items-center justify-center"><i class="fas fa-redo"></i></div>`;
+                        statusText = `حاول مرة أخرى (${score}/${max})`;
+                    }
+                }
+
+                const gameUrl = `https://ablan-math.github.io/games/${gameId}.html?studentId=${sId}&classId=${cId}`;
+                
                 container.innerHTML += `
-                <div class="p-4 border rounded-xl flex items-center gap-3 cursor-pointer hover:shadow-md transition bg-white" 
-                     onclick="openGameModal('${gameUrl}', '${g.title}')">
-                    <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
-                        <i class="fas ${g.icon}"></i>
+                <div class="p-4 border rounded-xl flex items-center gap-3 cursor-pointer hover:shadow-md transition ${cardClass}" 
+                     onclick="openGameModal('${gameUrl}', '${title}')">
+                    ${iconHtml}
+                    <div class="flex flex-col">
+                        <span class="font-bold text-gray-800 text-sm">${title}</span>
+                        <span class="text-[10px] font-bold opacity-70">${statusText}</span>
                     </div>
-                    <span class="font-bold text-gray-700">${g.title}</span>
                 </div>`;
             });
             document.getElementById('games-wrapper').classList.remove('hidden');
@@ -625,6 +668,14 @@
         function showExplain(i) { document.getElementById('modal-content').innerHTML = currentQuestions[i].e; document.getElementById('modal').classList.remove('hidden'); }
         function showSmart(i) { document.getElementById('modal-content').innerHTML = `<p class="font-bold text-purple-700 mb-2">💡 الحل الذكي:</p>${currentQuestions[i].smart}`; document.getElementById('modal').classList.remove('hidden'); }
         function closeModal() { document.getElementById('modal').classList.add('hidden'); }
+        
+        function hardReset() { localStorage.clear(); window.location.reload(); }
+        function showDebugInfo() {
+            const p = document.getElementById('debug-content');
+            let s = `<strong>URL Params:</strong><br>`;
+            for(const [key, val] of urlParams.entries()) { s += `${key}: ${val}<br>`; }
+            p.innerHTML = s || "No parameters found.";
+        }
 
         window.onload = function() {
             document.documentElement.style.setProperty('--theme-hex', themeColor.hex);
@@ -634,6 +685,10 @@
                     nav.innerHTML += `<div class="nav-item ${i===0?'active':''}" id="nav-${t.id}" onclick="switchTab('${t.id}')"><i data-lucide="${t.icon}"></i><span>${t.label}</span></div>`;
                 });
                 lucide.createIcons();
+            }
+            if(window.__lessonTitle) {
+               const titleEl = document.getElementById('lesson-title-text');
+               if(titleEl) titleEl.textContent = window.__lessonTitle;
             }
             initInteractive();
             initAttempts();

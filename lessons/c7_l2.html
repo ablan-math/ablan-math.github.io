@@ -842,15 +842,22 @@
                     }
 
                     if (data && data.grade !== undefined && data.grade !== null) {
-                         // [LOGIC UPDATE V16.5] 
-                         // الحل الجذري الشامل: أي درجة صفرية تعتبر "لم يلعب" بغض النظر عن المحاولات.
-                         // هذا يمنع ظهور الكرت الأحمر للطالب الذي فتح اللعبة فقط.
+                         // [LOGIC FIX V16.6] التمييز الدقيق باستخدام عدد المحاولات
                          const parsedGrade = parseFloat(data.grade);
+                         // تأكد من قراءة المحاولات بشكل صحيح، واعتبر عدم وجودها صفراً
+                         const attempts = (data.attempts !== undefined && data.attempts !== null) ? parseInt(data.attempts) : 0;
                          
-                         if (parsedGrade === 0 || isNaN(parsedGrade)) {
-                             score = null; // فرض حالة "لم يلعب"
-                         } else {
+                         if (parsedGrade > 0) {
                              score = parsedGrade;
+                         } else if (parsedGrade === 0) {
+                             // هنا مربط الفرس:
+                             // درجة صفر + محاولات > 0 = صفر حقيقي (لعب وفشل) -> نمرر 0
+                             // درجة صفر + محاولات = 0 = صفر افتراضي (لم يلعب) -> نمرر null
+                             if (attempts > 0) {
+                                 score = 0; 
+                             } else {
+                                 score = null;
+                             }
                          }
                     }
                 }
@@ -875,9 +882,10 @@
             let statusText = '';
             let iconClass = '';
 
-            // [LOGIC UPDATE V16.5] Treat 0 as null in UI logic explicitly
-            if (score === null || score === undefined || score === 0) {
-                // Case: Not Played Yet -> Reset to Default
+            // [LOGIC FIX V16.6] التعامل مع score بدقة
+            // إذا كان null أو undefined فهذا يعني "لم يلعب" (الصفر الافتراضي تم تحويله لـ null في الدالة السابقة)
+            if (score === null || score === undefined) {
+                // Case: Not Played -> Reset to Default Gray
                 const isTrophy = iconId.includes('2'); 
                 const defIcon = isTrophy ? 'fa-trophy' : 'fa-gamepad';
                 
@@ -887,6 +895,12 @@
                 iconContainer.style.backgroundColor = `${currentTheme.hex}15`;
                 iconContainer.style.color = currentTheme.hex;
                 iconClass = "w-10 h-10 rounded-full flex items-center justify-center transition-colors";
+                
+                // تنظيف أي ستايل سابق
+                iconContainer.removeAttribute('style'); 
+                // إعادة تطبيق ألوان الثيم يدوياً لأن removeAttribute يمسحها
+                iconContainer.style.backgroundColor = `${currentTheme.hex}15`;
+                iconContainer.style.color = currentTheme.hex;
                 
             } else if (score >= max) {
                 // Full Mark -> Gold
@@ -903,7 +917,8 @@
                 iconClass = "w-10 h-10 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center";
                 iconContainer.removeAttribute('style');
             } else {
-                // Less than half (Played) -> Red
+                // Less than half (Played, including REAL ZERO) -> Red
+                // الصفر الحقيقي سيصل هنا لأنه ليس null ولن يدخل الشروط السابقة
                 card.className = "p-4 border rounded-xl flex items-center gap-3 cursor-pointer hover:shadow-md transition result-card-retry";
                 iconHtml = `<i class="fas fa-redo"></i>`;
                 statusText = `حاول مرة أخرى (${score}/${max})`;

@@ -441,6 +441,12 @@
         let timerInterval;
         let studentData = null; // Global store for user data
 
+        // GLOBAL GAMES CONFIG FOR SYNC
+        const gamesDefaults = [
+            { suffix: '1', defaultTitle: 'صائد الأسس', icon: 'fa-gamepad', defaultMax: 5 },
+            { suffix: '2', defaultTitle: 'تحدي القسمة', icon: 'fa-trophy', defaultMax: 5 }
+        ];
+
         const tabs = [
             { id: 'learn1', icon: 'book', label: 'قسمة القوى' },
             { id: 'learn2', icon: 'layers', label: 'قوة القسمة' },
@@ -589,11 +595,14 @@
                     let d = json.data.lessons && json.data.lessons[LESSON_KEY] ? json.data.lessons[LESSON_KEY] : { attempts: 0, grade: 0 };
                     attemptsLeft = Math.max(0, 3 - (d.attempts || 0));
                     if (attemptsLeft === 0 && d.waitTime > 0) { startTimer(Date.now() + d.waitTime); }
-                    if (d.grade > 0) { document.getElementById('student-score').textContent = d.grade; document.getElementById('header-score-badge').classList.remove('hidden'); }
+                    if (d.grade > 0) { 
+                        document.getElementById('student-score').textContent = d.grade; 
+                        document.getElementById('header-score-badge').classList.remove('hidden'); 
+                    }
                     // Update name again just in case server has better data
                     if (json.data.name) document.getElementById('student-name').textContent = json.data.name;
                     
-                    // Trigger game updates if they are rendered
+                    // Trigger game updates IF games are currently visible
                     syncGamesWithData();
                 }
             } catch (e) { console.error(e); } finally { updateAttemptsUI(); document.getElementById('loading-attempts').classList.add('hidden'); document.getElementById('attempts-display').classList.remove('hidden'); }
@@ -765,11 +774,6 @@
             const ch = match[1]; 
             const ls = match[2]; 
             
-            const gamesDefaults = [
-                { suffix: '1', defaultTitle: 'صائد الأسس', icon: 'fa-gamepad', defaultMax: 5 },
-                { suffix: '2', defaultTitle: 'تحدي القسمة', icon: 'fa-trophy', defaultMax: 5 }
-            ];
-
             const sId = urlParams.get('studentId') || '';
             const cId = urlParams.get('classId') || '';
             
@@ -830,18 +834,57 @@
             document.getElementById('games-wrapper').classList.remove('hidden');
         }
 
+        // [NEW FUNCTION] Sync games using already loaded studentData
+        function syncGamesWithData() {
+            const container = document.getElementById('dynamic-games-container');
+            // If games are not rendered yet, do nothing (will be handled by renderDynamicGames later)
+            if (!container || container.innerHTML === "") return;
+
+            const match = LESSON_KEY.match(/c(\d+)_l(\d+)/);
+            if (!match) return; 
+            const ch = match[1]; 
+            const ls = match[2];
+
+            gamesDefaults.forEach((gDef, idx) => {
+                const i = idx + 1; 
+                const gameId = `g${ch}_${ls}_${gDef.suffix}`;
+                const max = gDef.defaultMax; 
+                const cardId = `game-card-${i}`;
+                const statusId = `game-status-${i}`;
+                const iconId = `game-icon-${i}`;
+
+                // Call verification logic which now checks studentData first
+                verifyGameScore(gameId, max, cardId, statusId, iconId);
+            });
+        }
+
         async function verifyGameScore(gameId, max, cardId, statusId, iconId) {
             const sId = urlParams.get('studentId');
             const cId = urlParams.get('classId');
-            const url = `${APPS_SCRIPT_URL}?action=getStudentData&studentId=${sId}&classId=${cId}&itemId=${gameId}&t=${Date.now()}`;
             
+            // Check global cache first
+            if (studentData && studentData.status === "success" && studentData.data) {
+                 let data = null;
+                 if (studentData.data.games && studentData.data.games[gameId]) {
+                     data = studentData.data.games[gameId];
+                 } else if (studentData.data.lessons && studentData.data.lessons[gameId]) {
+                     data = studentData.data.lessons[gameId];
+                 } else if (studentData.data[gameId]) {
+                     data = studentData.data[gameId];
+                 }
+
+                 if (data) {
+                     processGameData(data, max, cardId, statusId, iconId);
+                     return; // Data found in cache, no need to fetch
+                 }
+            }
+
+            // Fallback: Fetch specific game data if not in global cache
+            const url = `${APPS_SCRIPT_URL}?action=getStudentData&studentId=${sId}&classId=${cId}&itemId=${gameId}&t=${Date.now()}`;
             try {
                 const response = await fetch(url);
                 const json = await response.json();
                 
-                // Default score is null (Not Played)
-                let score = null;
-
                 if (json.status === "success" && json.data) {
                     let data = null;
                     if (json.data.games && json.data.games[gameId]) {
@@ -851,32 +894,30 @@
                     } else if (json.data[gameId]) {
                         data = json.data[gameId];
                     }
-
-                    if (data && data.grade !== undefined && data.grade !== null) {
-                         // [LOGIC V16.9] الفيصل النهائي: المحاولات
-                         const parsedGrade = parseFloat(data.grade);
-                         // نعتبر المحاولات 0 إذا كانت غير موجودة أو فارغة
-                         const attempts = (data.attempts !== undefined && data.attempts !== null && data.attempts !== "") ? parseInt(data.attempts) : 0;
-                         
-                         if (!isNaN(parsedGrade)) {
-                             if (parsedGrade > 0) {
-                                 score = parsedGrade; // درجة موجبة = لعب
-                             } else {
-                                 // الدرجة صفر: نفحص المحاولات
-                                 if (attempts > 0) {
-                                     score = 0; // يوجد محاولات = صفر حقيقي (لعب وفشل)
-                                 } else {
-                                     score = null; // لا يوجد محاولات = صفر افتراضي (لم يلعب)
-                                 }
-                             }
-                         }
+                    
+                    if (data) {
+                        processGameData(data, max, cardId, statusId, iconId);
+                    } else {
+                        // Explicitly handle "Not Played" if data is missing from backend
+                        updateGameCard(null, max, cardId, statusId, iconId);
                     }
                 }
-                
-                // Always call update
-                updateGameCard(score, max, cardId, statusId, iconId);
-
             } catch(e) { console.log("Game Verification Silent Fail", e); }
+        }
+
+        function processGameData(data, max, cardId, statusId, iconId) {
+             if (data && data.grade !== undefined && data.grade !== null) {
+                 // [LOGIC V17.0] الفيصل النهائي
+                 const parsedGrade = parseFloat(data.grade);
+                 let score = null;
+                 
+                 if (!isNaN(parsedGrade)) {
+                     score = parsedGrade; // 0 is a valid score here
+                 }
+                 updateGameCard(score, max, cardId, statusId, iconId);
+             } else {
+                 updateGameCard(null, max, cardId, statusId, iconId);
+             }
         }
 
         function updateGameCard(score, max, cardId, statusId, iconId) {

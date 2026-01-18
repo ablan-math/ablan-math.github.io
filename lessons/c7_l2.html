@@ -723,9 +723,20 @@
                 document.querySelectorAll(`input[name="q${i}"]`).forEach(inp => inp.disabled = true);
             });
             
-            saveScoreToBackend(LESSON_KEY, score * 2);
+            const finalScore = score * 2;
+            saveScoreToBackend(LESSON_KEY, finalScore);
+            
             document.getElementById('quiz-results').classList.remove('hidden');
-            document.getElementById('quiz-score').textContent = `${convertToArabic(score * 2)} / ١٠`;
+            document.getElementById('quiz-score').textContent = `${convertToArabic(finalScore)} / ١٠`;
+            
+            // [FIX] تحديث النجمة في الرأس فوراً
+            if (finalScore > 0) {
+                const headerScore = document.getElementById('student-score');
+                const headerBadge = document.getElementById('header-score-badge');
+                if(headerScore) headerScore.textContent = finalScore;
+                if(headerBadge) headerBadge.classList.remove('hidden');
+            }
+
             updateAttemptsUI();
         }
 
@@ -842,12 +853,22 @@
                     }
 
                     if (data && data.grade !== undefined && data.grade !== null) {
-                         // [LOGIC V16.8] عودة إلى المنطق البسيط:
-                         // إذا وجدت درجة (حتى لو كانت 0) فهي درجة حقيقية.
-                         // إذا لم توجد درجة، يبقى score = null (الافتراضي).
+                         // [LOGIC V16.9] الفيصل النهائي: المحاولات
                          const parsedGrade = parseFloat(data.grade);
+                         // نعتبر المحاولات 0 إذا كانت غير موجودة أو فارغة
+                         const attempts = (data.attempts !== undefined && data.attempts !== null && data.attempts !== "") ? parseInt(data.attempts) : 0;
+                         
                          if (!isNaN(parsedGrade)) {
-                             score = parsedGrade;
+                             if (parsedGrade > 0) {
+                                 score = parsedGrade; // درجة موجبة = لعب
+                             } else {
+                                 // الدرجة صفر: نفحص المحاولات
+                                 if (attempts > 0) {
+                                     score = 0; // يوجد محاولات = صفر حقيقي (لعب وفشل)
+                                 } else {
+                                     score = null; // لا يوجد محاولات = صفر افتراضي (لم يلعب)
+                                 }
+                             }
                          }
                     }
                 }
@@ -865,43 +886,42 @@
             
             if(!card || !status || !iconContainer) return;
 
-            // 1. تنظيف شامل للحالة السابقة (Reset)
+            // 1. تنظيف شامل للحالة السابقة (Reset) لضمان عدم تداخل الألوان
             card.className = "p-4 border rounded-xl flex items-center gap-3 cursor-pointer hover:shadow-md transition bg-white border-gray-200";
-            iconContainer.className = ""; // مسح الكلاسات
-            iconContainer.removeAttribute('style'); // مسح الألوان المباشرة
+            iconContainer.className = ""; 
+            iconContainer.removeAttribute('style'); // مسح أي ألوان سابقة (مهم جداً للأيقونة)
 
-            // 2. تطبيق الحالة الجديدة مباشرة (Direct Update)
-            if (score === null || score === undefined) {
-                // --- حالة: لم يلعب ---
+            // 2. بناء الواجهة بناءً على قيمة score النهائية
+            if (score === null) {
+                // --- حالة: لم يلعب (الوضع الافتراضي) ---
                 const isTrophy = iconId.includes('2'); 
                 const defIcon = isTrophy ? 'fa-trophy' : 'fa-gamepad';
                 
-                // أيقونة رمادية (ألوان الثيم)
+                // إعادة تطبيق ستايل "لم يلعب" الرمادي
                 iconContainer.className = "w-10 h-10 rounded-full flex items-center justify-center transition-colors";
-                iconContainer.style.backgroundColor = `${currentTheme.hex}15`;
+                iconContainer.style.backgroundColor = `${currentTheme.hex}15`; // لون شفاف من الثيم
                 iconContainer.style.color = currentTheme.hex;
                 iconContainer.innerHTML = `<i class="fas ${defIcon}"></i>`;
                 
-                // نص البدء
                 status.textContent = "اضغط للبدء";
                 
             } else {
-                // --- حالة: لعب (يوجد درجة بما فيها الصفر الحقيقي) ---
+                // --- حالة: لعب (يوجد درجة، بما فيها الصفر الحقيقي) ---
                 if (score >= max) {
-                    // ممتاز
-                    card.className = "p-4 border rounded-xl flex items-center gap-3 cursor-pointer hover:shadow-md transition result-card-trophy";
+                    // ممتاز (ذهبي)
+                    card.classList.add("result-card-trophy");
                     iconContainer.className = "w-10 h-10 rounded-full bg-yellow-100 text-yellow-600 flex items-center justify-center";
                     iconContainer.innerHTML = `<i class="fas fa-trophy"></i>`;
                     status.textContent = `أحسنت! (${score}/${max})`;
                 } else if (score >= max / 2) {
-                    // جيد
-                    card.className = "p-4 border rounded-xl flex items-center gap-3 cursor-pointer hover:shadow-md transition result-card-star";
+                    // جيد (برتقالي)
+                    card.classList.add("result-card-star");
                     iconContainer.className = "w-10 h-10 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center";
                     iconContainer.innerHTML = `<i class="fas fa-star"></i>`;
                     status.textContent = `جيد جداً (${score}/${max})`;
                 } else {
-                    // محاولة (بما فيها الصفر)
-                    card.className = "p-4 border rounded-xl flex items-center gap-3 cursor-pointer hover:shadow-md transition result-card-retry";
+                    // محاولة (أحمر) - يشمل الصفر الحقيقي
+                    card.classList.add("result-card-retry");
                     iconContainer.className = "w-10 h-10 rounded-full bg-red-100 text-red-600 flex items-center justify-center";
                     iconContainer.innerHTML = `<i class="fas fa-redo"></i>`;
                     status.textContent = `حاول مرة أخرى (${score}/${max})`;

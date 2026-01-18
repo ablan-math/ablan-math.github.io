@@ -842,13 +842,18 @@
                     }
 
                     if (data && data.grade !== undefined && data.grade !== null) {
-                         // [LOGIC UPDATE V16.4] التمييز بين الصفر الحقيقي والصفر الافتراضي
+                         // [LOGIC UPDATE V16.4 FINAL PATCH] 
+                         // Check strictly: if score is 0, ONLY accept it if attempts > 0.
+                         // If attempts is missing or 0, treat score 0 as NULL (Not Played).
                          const parsedGrade = parseFloat(data.grade);
                          const attempts = data.attempts ? parseInt(data.attempts) : 0;
                          
-                         // إذا كانت الدرجة صفر والمحاولات صفر، فهذا يعني أنه لم يلعب (صفر افتراضي)
-                         if (parsedGrade === 0 && attempts === 0) {
-                             score = null;
+                         if (parsedGrade === 0) {
+                             if (attempts > 0) {
+                                 score = 0; // Real zero score
+                             } else {
+                                 score = null; // Default zero (Not played)
+                             }
                          } else {
                              score = parsedGrade;
                          }
@@ -875,13 +880,10 @@
             let statusText = '';
             let iconClass = '';
 
-            // [LOGIC UPDATE V16.4] Handle "Not Played" (null) vs "Played but 0"
-            if (score === null) {
+            // [LOGIC UPDATE V16.4 FINAL PATCH] Robust Null Handling
+            if (score === null || score === undefined) {
                 // Case: Not Played Yet -> Reset to Default
-                // Use default game icon (we need to know which icon, logic below infers from ID or keeps existing if possible)
-                // For simplicity, we keep the existing icon HTML structure but reset styling
-                // Re-inject default icon based on card index (inferred from ID)
-                const isTrophy = iconId.includes('2'); // Simple heuristic: Game 2 is trophy, 1 is gamepad
+                const isTrophy = iconId.includes('2'); 
                 const defIcon = isTrophy ? 'fa-trophy' : 'fa-gamepad';
                 
                 iconHtml = `<i class="fas ${defIcon}"></i>`;

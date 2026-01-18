@@ -441,12 +441,6 @@
         let timerInterval;
         let studentData = null; // Global store for user data
 
-        // GLOBAL GAMES CONFIG FOR SYNC
-        const gamesDefaults = [
-            { suffix: '1', defaultTitle: 'صائد الأسس', icon: 'fa-gamepad', defaultMax: 5 },
-            { suffix: '2', defaultTitle: 'تحدي القسمة', icon: 'fa-trophy', defaultMax: 5 }
-        ];
-
         const tabs = [
             { id: 'learn1', icon: 'book', label: 'قسمة القوى' },
             { id: 'learn2', icon: 'layers', label: 'قوة القسمة' },
@@ -595,15 +589,12 @@
                     let d = json.data.lessons && json.data.lessons[LESSON_KEY] ? json.data.lessons[LESSON_KEY] : { attempts: 0, grade: 0 };
                     attemptsLeft = Math.max(0, 3 - (d.attempts || 0));
                     if (attemptsLeft === 0 && d.waitTime > 0) { startTimer(Date.now() + d.waitTime); }
-                    if (d.grade > 0) { 
-                        document.getElementById('student-score').textContent = d.grade; 
-                        document.getElementById('header-score-badge').classList.remove('hidden'); 
-                    }
+                    if (d.grade > 0) { document.getElementById('student-score').textContent = d.grade; document.getElementById('header-score-badge').classList.remove('hidden'); }
                     // Update name again just in case server has better data
                     if (json.data.name) document.getElementById('student-name').textContent = json.data.name;
                     
-                    // Trigger game updates IF games are currently visible
-                    syncGamesWithData();
+                    // Trigger game updates if they are rendered
+                    // syncGamesWithData(); // DELETED TO RESPECT STRICT PROTOCOL - Moved logic to verifyGameScore
                 }
             } catch (e) { console.error(e); } finally { updateAttemptsUI(); document.getElementById('loading-attempts').classList.add('hidden'); document.getElementById('attempts-display').classList.remove('hidden'); }
         }
@@ -738,7 +729,7 @@
             document.getElementById('quiz-results').classList.remove('hidden');
             document.getElementById('quiz-score').textContent = `${convertToArabic(finalScore)} / ١٠`;
             
-            // [FIX] تحديث النجمة في الرأس فوراً
+            // [FIX] Force UI update for Star Badge locally
             if (finalScore > 0) {
                 const headerScore = document.getElementById('student-score');
                 const headerBadge = document.getElementById('header-score-badge');
@@ -774,6 +765,11 @@
             const ch = match[1]; 
             const ls = match[2]; 
             
+            const gamesDefaults = [
+                { suffix: '1', defaultTitle: 'صائد الأسس', icon: 'fa-gamepad', defaultMax: 5 },
+                { suffix: '2', defaultTitle: 'تحدي القسمة', icon: 'fa-trophy', defaultMax: 5 }
+            ];
+
             const sId = urlParams.get('studentId') || '';
             const cId = urlParams.get('classId') || '';
             
@@ -834,57 +830,18 @@
             document.getElementById('games-wrapper').classList.remove('hidden');
         }
 
-        // [NEW FUNCTION] Sync games using already loaded studentData
-        function syncGamesWithData() {
-            const container = document.getElementById('dynamic-games-container');
-            // If games are not rendered yet, do nothing (will be handled by renderDynamicGames later)
-            if (!container || container.innerHTML === "") return;
-
-            const match = LESSON_KEY.match(/c(\d+)_l(\d+)/);
-            if (!match) return; 
-            const ch = match[1]; 
-            const ls = match[2];
-
-            gamesDefaults.forEach((gDef, idx) => {
-                const i = idx + 1; 
-                const gameId = `g${ch}_${ls}_${gDef.suffix}`;
-                const max = gDef.defaultMax; 
-                const cardId = `game-card-${i}`;
-                const statusId = `game-status-${i}`;
-                const iconId = `game-icon-${i}`;
-
-                // Call verification logic which now checks studentData first
-                verifyGameScore(gameId, max, cardId, statusId, iconId);
-            });
-        }
-
         async function verifyGameScore(gameId, max, cardId, statusId, iconId) {
             const sId = urlParams.get('studentId');
             const cId = urlParams.get('classId');
-            
-            // Check global cache first
-            if (studentData && studentData.status === "success" && studentData.data) {
-                 let data = null;
-                 if (studentData.data.games && studentData.data.games[gameId]) {
-                     data = studentData.data.games[gameId];
-                 } else if (studentData.data.lessons && studentData.data.lessons[gameId]) {
-                     data = studentData.data.lessons[gameId];
-                 } else if (studentData.data[gameId]) {
-                     data = studentData.data[gameId];
-                 }
-
-                 if (data) {
-                     processGameData(data, max, cardId, statusId, iconId);
-                     return; // Data found in cache, no need to fetch
-                 }
-            }
-
-            // Fallback: Fetch specific game data if not in global cache
             const url = `${APPS_SCRIPT_URL}?action=getStudentData&studentId=${sId}&classId=${cId}&itemId=${gameId}&t=${Date.now()}`;
+            
             try {
                 const response = await fetch(url);
                 const json = await response.json();
                 
+                // Default score is null (Not Played)
+                let score = null;
+
                 if (json.status === "success" && json.data) {
                     let data = null;
                     if (json.data.games && json.data.games[gameId]) {
@@ -894,30 +851,24 @@
                     } else if (json.data[gameId]) {
                         data = json.data[gameId];
                     }
-                    
-                    if (data) {
-                        processGameData(data, max, cardId, statusId, iconId);
-                    } else {
-                        // Explicitly handle "Not Played" if data is missing from backend
-                        updateGameCard(null, max, cardId, statusId, iconId);
+
+                    if (data && data.grade !== undefined && data.grade !== null) {
+                         // [LOGIC V17.1] The Strict Fix for 0 vs Null
+                         // If data exists and grade is defined, it is a played game.
+                         // Even if grade is 0, it means the student played and failed.
+                         // If data didn't exist, we wouldn't be inside this block (data would be null).
+                         const parsedGrade = parseFloat(data.grade);
+                         
+                         if (!isNaN(parsedGrade)) {
+                             score = parsedGrade;
+                         }
                     }
                 }
-            } catch(e) { console.log("Game Verification Silent Fail", e); }
-        }
+                
+                // Always call update
+                updateGameCard(score, max, cardId, statusId, iconId);
 
-        function processGameData(data, max, cardId, statusId, iconId) {
-             if (data && data.grade !== undefined && data.grade !== null) {
-                 // [LOGIC V17.0] الفيصل النهائي
-                 const parsedGrade = parseFloat(data.grade);
-                 let score = null;
-                 
-                 if (!isNaN(parsedGrade)) {
-                     score = parsedGrade; // 0 is a valid score here
-                 }
-                 updateGameCard(score, max, cardId, statusId, iconId);
-             } else {
-                 updateGameCard(null, max, cardId, statusId, iconId);
-             }
+            } catch(e) { console.log("Game Verification Silent Fail", e); }
         }
 
         function updateGameCard(score, max, cardId, statusId, iconId) {
@@ -927,41 +878,38 @@
             
             if(!card || !status || !iconContainer) return;
 
-            // 1. تنظيف شامل للحالة السابقة (Reset) لضمان عدم تداخل الألوان
+            // 1. Reset Base State (Clean Slate)
             card.className = "p-4 border rounded-xl flex items-center gap-3 cursor-pointer hover:shadow-md transition bg-white border-gray-200";
             iconContainer.className = ""; 
-            iconContainer.removeAttribute('style'); // مسح أي ألوان سابقة (مهم جداً للأيقونة)
+            iconContainer.removeAttribute('style'); // Critical: Wipe previous inline styles
 
-            // 2. بناء الواجهة بناءً على قيمة score النهائية
+            // 2. Apply New State
             if (score === null) {
-                // --- حالة: لم يلعب (الوضع الافتراضي) ---
+                // [NOT PLAYED] -> Grey/Theme Color
                 const isTrophy = iconId.includes('2'); 
                 const defIcon = isTrophy ? 'fa-trophy' : 'fa-gamepad';
                 
-                // إعادة تطبيق ستايل "لم يلعب" الرمادي
                 iconContainer.className = "w-10 h-10 rounded-full flex items-center justify-center transition-colors";
-                iconContainer.style.backgroundColor = `${currentTheme.hex}15`; // لون شفاف من الثيم
+                iconContainer.style.backgroundColor = `${currentTheme.hex}15`; 
                 iconContainer.style.color = currentTheme.hex;
                 iconContainer.innerHTML = `<i class="fas ${defIcon}"></i>`;
                 
                 status.textContent = "اضغط للبدء";
                 
             } else {
-                // --- حالة: لعب (يوجد درجة، بما فيها الصفر الحقيقي) ---
+                // [PLAYED] -> Apply Score Color (Including 0)
                 if (score >= max) {
-                    // ممتاز (ذهبي)
                     card.classList.add("result-card-trophy");
                     iconContainer.className = "w-10 h-10 rounded-full bg-yellow-100 text-yellow-600 flex items-center justify-center";
                     iconContainer.innerHTML = `<i class="fas fa-trophy"></i>`;
                     status.textContent = `أحسنت! (${score}/${max})`;
                 } else if (score >= max / 2) {
-                    // جيد (برتقالي)
                     card.classList.add("result-card-star");
                     iconContainer.className = "w-10 h-10 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center";
                     iconContainer.innerHTML = `<i class="fas fa-star"></i>`;
                     status.textContent = `جيد جداً (${score}/${max})`;
                 } else {
-                    // محاولة (أحمر) - يشمل الصفر الحقيقي
+                    // Fail (Red) - Catches 0 score
                     card.classList.add("result-card-retry");
                     iconContainer.className = "w-10 h-10 rounded-full bg-red-100 text-red-600 flex items-center justify-center";
                     iconContainer.innerHTML = `<i class="fas fa-redo"></i>`;

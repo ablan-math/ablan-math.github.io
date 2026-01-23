@@ -716,6 +716,33 @@
             root.style.setProperty('--gradient-end', themeConfig.gradientEnd);
         }
 
+        // دالة قوية لتحويل النصوص إلى أرقام بأمان (تدعم العربية والفواصل)
+        function safeParseFloat(val) {
+            if (val === undefined || val === null) return 0;
+            
+            // إذا كانت القيمة رقماً بالفعل
+            if (typeof val === 'number') {
+                return isNaN(val) ? 0 : val;
+            }
+            
+            // تحويل للنص وإزالة المسافات
+            let str = String(val).trim();
+            if (str === '') return 0;
+
+            // تحويل الأرقام العربية/الفارسية إلى إنجليزية
+            const arabicIndic = /[\u0660-\u0669\u06f0-\u06f9]/;
+            if (arabicIndic.test(str)) {
+                str = str.replace(/[٠-٩]/g, d => "٠١٢٣٤٥٦٧٨٩".indexOf(d))
+                         .replace(/[۰-۹]/g, d => "۰۱۲۳۴۵۶۷۸۹".indexOf(d));
+            }
+
+            // استبدال الفاصلة بالنقطة (للأرقام العشرية)
+            str = str.replace(',', '.');
+
+            const parsed = parseFloat(str);
+            return isNaN(parsed) ? 0 : parsed;
+        }
+
         // --- Existing Functions ---
         function renderInterface() {
             const cTabsContainer = document.getElementById('chapter-tabs');
@@ -809,20 +836,25 @@
                 
                 span.className = `lesson-tab ${index === currentLessonIndex ? 'active' : ''} ${lockStatus.isLocked ? 'locked' : ''}`;
                 
+                // تعريف المتغيرات المفقودة
                 let bgIcon = '';
                 let lessonTotalEarned = 0;
                 let lessonTotalMax = lesson.maxScore; 
-                
+
+                // Add Lesson Score
                 const lData = currentUser?.lessons?.[lesson.id];
                 const hasLessonScore = (lData && lData.grade !== undefined && lData.grade !== null);
-                if (hasLessonScore) lessonTotalEarned += parseFloat(lData.grade);
+                if (hasLessonScore) {
+                    lessonTotalEarned += safeParseFloat(lData.grade);
+                }
                 
+                // Add Games Scores
                 let hasAnyGameScore = false;
                 lesson.games.forEach(g => {
                     lessonTotalMax += g.maxScore;
                     const gData = currentUser?.games?.[g.id];
                     if (gData && gData.grade !== undefined && gData.grade !== null) {
-                        lessonTotalEarned += parseFloat(gData.grade);
+                        lessonTotalEarned += safeParseFloat(gData.grade);
                         hasAnyGameScore = true;
                     }
                 });
@@ -869,8 +901,8 @@
             const lockStatus = checkLessonLockStatus(lesson, currentLessonIndex, chapter);
 
             const lGradeRaw = currentUser?.lessons?.[lesson.id]?.grade;
-            const lGrade = (lGradeRaw !== undefined && lGradeRaw !== null) ? parseFloat(lGradeRaw) : 0;
-            const isStarted = (lGradeRaw !== undefined && lGradeRaw !== null);
+            const lGrade = safeParseFloat(lGradeRaw);
+            const isStarted = (lGradeRaw !== undefined && lGradeRaw !== null && lGradeRaw !== '');
 
             let lessonBgIcon = '';
             let lessonBgClass = '';
@@ -907,8 +939,8 @@
 
             const gamesHtml = lesson.games.map(g => {
                 const gGradeRaw = currentUser?.games?.[g.id]?.grade;
-                const gGrade = (gGradeRaw !== undefined && gGradeRaw !== null) ? parseFloat(gGradeRaw) : 0;
-                const gIsStarted = (gGradeRaw !== undefined && gGradeRaw !== null);
+                const gGrade = safeParseFloat(gGradeRaw);
+                const gIsStarted = (gGradeRaw !== undefined && gGradeRaw !== null && gGradeRaw !== '');
                 if(gIsStarted) totalPoints += gGrade;
                 maxTotalPoints += g.maxScore;
 
@@ -1003,8 +1035,8 @@
             if(!currentUser) return;
             document.getElementById('header-name').textContent = currentUser.name.split(' ')[0];
             let total = 0;
-            if(currentUser.lessons) Object.values(currentUser.lessons).forEach(v => total += (v.grade || 0));
-            if(currentUser.games) Object.values(currentUser.games).forEach(v => total += (v.grade || 0));
+            if(currentUser.lessons) Object.values(currentUser.lessons).forEach(v => total += safeParseFloat(v.grade));
+            if(currentUser.games) Object.values(currentUser.games).forEach(v => total += safeParseFloat(v.grade));
             document.getElementById('header-score').textContent = total;
         }
 
@@ -1037,20 +1069,20 @@
             }
 
             let totalScore = 0;
-            if(currentUser.lessons) Object.values(currentUser.lessons).forEach(v => totalScore += (v.grade || 0));
-            if(currentUser.games) Object.values(currentUser.games).forEach(v => totalScore += (v.grade || 0));
+            if(currentUser.lessons) Object.values(currentUser.lessons).forEach(v => totalScore += safeParseFloat(v.grade));
+            if(currentUser.games) Object.values(currentUser.games).forEach(v => totalScore += safeParseFloat(v.grade));
 
             const studentId = currentUser.id || 'visitor';
             const classId = currentUser.classIdentifier || 'visitor';
             const studentName = encodeURIComponent(currentUser.name || 'زائر');
             const timestamp = new Date().getTime();
-            const currentLessonScore = currentUser?.lessons?.[lesson.id]?.grade || 0;
+            const currentLessonScore = safeParseFloat(currentUser?.lessons?.[lesson.id]?.grade);
             const currentLessonMax = lesson.maxScore;
 
             let lessonUrl = `${BASE_LESSON_URL}${lessonId}.html?studentId=${studentId}&name=${studentName}&classId=${classId}&totalScore=${totalScore}&lessonScore=${currentLessonScore}&lessonMax=${currentLessonMax}&v=${timestamp}`;
             
             lesson.games.forEach((game, idx) => {
-                const gameScore = currentUser?.games?.[game.id]?.grade || 0;
+                const gameScore = safeParseFloat(currentUser?.games?.[game.id]?.grade);
                 const gameMax = game.maxScore || 5;
                 lessonUrl += `&g${idx+1}_title=${encodeURIComponent(game.title)}`;
                 lessonUrl += `&g${idx+1}_id=${game.id}`;
@@ -1086,7 +1118,7 @@
             const studentId = currentUser?.id || 'visitor';
             const classId = currentUser?.classIdentifier || 'visitor';
             const studentName = encodeURIComponent(currentUser?.name || 'زائر');
-            let gameScore = currentUser?.games?.[gameId]?.grade || 0;
+            let gameScore = safeParseFloat(currentUser?.games?.[gameId]?.grade);
             let maxScore = 5; 
             
             let gameFound = false;
@@ -1104,8 +1136,8 @@
             }
             
             let totalScore = 0;
-            if(currentUser?.lessons) Object.values(currentUser.lessons).forEach(v => totalScore += (v.grade || 0));
-            if(currentUser?.games) Object.values(currentUser.games).forEach(v => totalScore += (v.grade || 0));
+            if(currentUser?.lessons) Object.values(currentUser.lessons).forEach(v => totalScore += safeParseFloat(v.grade));
+            if(currentUser?.games) Object.values(currentUser.games).forEach(v => totalScore += safeParseFloat(v.grade));
 
             const timestamp = new Date().getTime();
             const gameUrl = `${BASE_GAME_URL}${gameId}.html?studentId=${studentId}&classId=${classId}&name=${studentName}&score=${gameScore}&maxScore=${maxScore}&totalScore=${totalScore}&v=${timestamp}`;
@@ -1243,7 +1275,7 @@
                     }
 
                     const lData = currentUser.lessons?.[lesson.id];
-                    const lGrade = (lData && lData.grade !== undefined) ? parseFloat(lData.grade) : 0;
+                    const lGrade = safeParseFloat(lData?.grade);
                     
                     if (lData?.grade) totalPoints += lGrade;
 
@@ -1262,7 +1294,7 @@
                         }
 
                         const gData = currentUser.games?.[game.id];
-                        const gGrade = (gData && gData.grade !== undefined) ? parseFloat(gData.grade) : 0;
+                        const gGrade = safeParseFloat(gData?.grade);
                         
                         if (gData?.grade) {
                             totalPoints += gGrade;

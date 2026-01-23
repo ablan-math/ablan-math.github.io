@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>تحدي الأبطال V19.6 - سباق القسمة</title>
+    <title>تحدي الأبطال V19.6 - فورمولا القسمة</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -79,7 +79,8 @@
             text-align: center;
         }
         sup {
-            font-size: 0.6em;
+            font-size: 0.75em;
+            font-weight: 800;
             vertical-align: super;
             margin-right: 2px;
         }
@@ -102,7 +103,6 @@
         
         .control-area { display: none; } 
 
-        /* شاشة الانتقال بين المستويات */
         #level-transition-screen {
             position: absolute; inset: 0; background: rgba(255,255,255,0.95); z-index: 50;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -115,6 +115,10 @@
             background: #f0f9ff; color: #0369a1; padding: 8px 20px; 
             border-radius: 99px; font-weight: 800; border: 2px solid #bae6fd;
             margin-bottom: 15px; font-size: 1.1rem;
+        }
+        
+        .turbo-active #gameCanvas {
+            box-shadow: 0 0 15px #3b82f6;
         }
     </style>
 </head>
@@ -146,13 +150,14 @@
             <div class="w-24 h-24 bg-blue-100 rounded-full mx-auto flex items-center justify-center mb-2">
                 <i class="fas fa-flag-checkered text-4xl text-blue-600"></i>
             </div>
-            <h1 class="text-2xl font-black text-slate-800">سباق القسمة</h1>
+            <h1 class="text-2xl font-black text-slate-800">فورمولا القسمة</h1>
             <h2 class="text-sm font-bold text-slate-500 -mt-2">قسمة وحيدات الحد (٥ مستويات)</h2>
             
             <div class="bg-blue-50 p-4 rounded-2xl border border-blue-100 text-[11px] font-bold text-blue-700 leading-relaxed text-center">
-                تدرج في الصعوبة عبر ٥ مستويات!
-                <br>سيتم اختيار ٣ أسئلة عشوائية من كل مستوى لتحدٍ جديد كل مرة.
-                <br>المس الشاشة في المكان المطلوب لتحريك السيارة.
+                <p class="mb-2">تدرج في الصعوبة عبر ٥ مستويات! اختر البوابة الصحيحة.</p>
+                <p class="text-red-500 bg-red-50 p-1 rounded font-black border border-red-100">
+                    <i class="fas fa-tachometer-alt"></i> تلميح: استمر بالضغط لزيادة السرعة!
+                </p>
             </div>
             
             <div class="flex flex-row gap-2 items-stretch mt-4">
@@ -169,7 +174,7 @@
         </div>
 
         <!-- الشاشة 2: اللعبة (Canvas) -->
-        <div id="game-screen" class="hidden w-full h-full relative bg-slate-800">
+        <div id="game-screen" class="hidden w-full h-full relative bg-slate-800 transition-all duration-200">
             <canvas id="gameCanvas"></canvas>
             <div class="hud-panel">
                 <div id="level-indicator" class="text-[10px] text-blue-500 font-bold mb-1">المستوى ١: القسمة المباشرة</div>
@@ -200,10 +205,7 @@
                 <i class="fas fa-trophy text-3xl text-green-600"></i>
             </div>
             <h2 class="text-xl font-black text-slate-800 mb-6">نتيجة السباق</h2>
-            
-            <!-- تم تحديث الشبكة لثلاثة أعمدة هنا -->
             <div id="final-stats" class="grid grid-cols-3 gap-2 mb-6"></div>
-            
             <div class="bg-green-50 p-4 rounded-2xl border border-green-100 mb-4">
                 <p id="save-msg" class="font-black text-green-800 text-xs">جاري حفظ نتيجتك...</p>
             </div>
@@ -248,6 +250,7 @@
                 questionCount: 0,
                 maxQuestions: 15,
                 startTime: 0,
+                baseSpeed: 0.7, 
                 speed: 0.7, 
                 roadOffset: 0,
                 gates: [],
@@ -256,7 +259,8 @@
                 isTransitioning: false,
                 particles: [],
                 sessionQuestions: [],
-                questionAnswered: false 
+                questionAnswered: false,
+                isBoosting: false 
             };
 
             const LANES = [0.25, 0.5, 0.75]; 
@@ -274,11 +278,9 @@
                 return `${cStr}${variable}<sup>${toArDigit(exp)}</sup>`;
             };
 
-            // تعديل دالة تنسيق النص لتقلب الأسس السالبة إلى كسور
             const formatTermText = (coeff, exp, variable = 'س') => {
                 if (exp === 0) return toArDigit(coeff);
                 
-                // الأس السالب -> كسر
                 if (exp < 0) {
                     let num = toArDigit(coeff); 
                     let denExp = Math.abs(exp);
@@ -306,9 +308,11 @@
                 {n:2, m:1, p:5}, {n:6, m:4, p:2}, {n:7, m:5, p:3}
             ].map(p => createQ_Power(p));
 
+            // Level 3: 6 questions (Modified)
+            // Added multipliers for Q1 and Q2 as requested
             const getLevel3Bank = () => [
-                {extra:' ص', n:2, m:1, type:'zero_power'}, 
-                {coeff:5, n:3, m:2, type:'zero_power'}, 
+                {extra:' ص', n:2, m:1, type:'zero_power', mult:'٢'}, // Answer is 2
+                {coeff:5, n:3, m:2, type:'zero_power', mult:'٢س'}, // Answer is 2s
                 {n:2, m:5, p:-2, type:'neg_power'}, 
                 {n:3, m:7, p:-3, type:'neg_power'}, 
                 {n:5, m:2, p:-2, type:'neg_power'}, 
@@ -349,9 +353,16 @@
                 if (p.type === 'zero_power') {
                     const termTop = formatTermHTML(p.coeff || 1, p.n) + (p.extra || '');
                     const termBot = formatTermHTML(1, p.m);
-                    const html = `<div class="power-wrapper"><span class="big-paren">(</span><div class="fraction-container"><span class="fraction-top">${termTop}</span><span class="fraction-bottom">${termBot}</span></div><span class="big-paren">)</span><sup>٠</sup></div>`;
-                    const correct = "١";
-                    return { html, correct, type: 'zero_ans' };
+                    
+                    // Show multiplier if it exists
+                    const multHtml = p.mult ? `<span class="mx-2 text-2xl font-bold">${p.mult}</span>` : '';
+                    
+                    const powerHtml = `<div class="power-wrapper"><span class="big-paren">(</span><div class="fraction-container"><span class="fraction-top">${termTop}</span><span class="fraction-bottom">${termBot}</span></div><span class="big-paren">)</span><sup style="font-size:1.2em; font-weight:900; color:#1e293b;">٠</sup></div>`;
+                    
+                    const html = `<div class="flex items-center justify-center">${multHtml}${powerHtml}</div>`;
+                    const correct = p.mult || "١";
+                    
+                    return { html, correct, type: 'zero_ans', mult: p.mult };
                 } else {
                     const html = `<div class="power-wrapper"><span class="big-paren">(</span><div class="fraction-container"><span class="fraction-top">${formatTermHTML(1, p.n)}</span><span class="fraction-bottom">${formatTermHTML(1, p.m)}</span></div><span class="big-paren">)</span><sup>${toArDigit(p.p)}</sup></div>`;
                     const innerExp = p.n - p.m; 
@@ -399,7 +410,15 @@
 
             function generateDistractors(q) {
                 if (q.type === 'multivar') return q.options;
-                if (q.type === 'zero_ans') return shuffle(["١", "٠", "س"]);
+                
+                if (q.type === 'zero_ans') {
+                    if (q.mult) {
+                        if (q.mult === '٢') return shuffle(['٢', '١', '٤']); // e.g. for 2
+                        if (q.mult === '٢س') return shuffle(['٢س', '١', '٢']); // e.g. for 2s
+                        return shuffle([q.mult, '١', '٠']); // fallback
+                    }
+                    return shuffle(["١", "٠", "س"]);
+                }
 
                 let distractors = [];
                 const coeff = q.coeff;
@@ -447,23 +466,58 @@
                 state.isGameOver = false;
                 state.roadOffset = 0;
                 state.questionAnswered = false; 
+                state.isBoosting = false; // Reset boost
+                
+                // Input Listeners for Boost Logic
+                window.addEventListener('keydown', handleKeyStart);
+                window.addEventListener('keyup', handleKeyEnd);
+                
+                canvas.addEventListener('mousedown', handleInputStart);
+                canvas.addEventListener('mouseup', handleInputEnd);
+                canvas.addEventListener('mouseleave', handleInputEnd);
+                
+                canvas.addEventListener('touchstart', handleInputStart, {passive: false});
+                canvas.addEventListener('touchend', handleInputEnd);
+
                 spawnGate();
                 loop();
-                window.addEventListener('keydown', handleKey);
-                canvas.addEventListener('mousedown', handleInput);
-                canvas.addEventListener('touchstart', handleInput, {passive: false});
             }
 
-            function handleInput(e) {
+            // --- INPUT HANDLING (BOOST LOGIC) ---
+            
+            function handleInputStart(e) {
                 if (!state.active || state.isGameOver || state.isTransitioning) return;
                 if (e.type === 'touchstart') e.preventDefault();
+                
+                state.isBoosting = true; // Activate Turbo
+                document.getElementById('game-screen').classList.add('turbo-active');
+
                 const rect = canvas.getBoundingClientRect();
                 const clientX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
                 const x = clientX - rect.left;
                 const width = rect.width;
+
                 if (x < width / 3) { state.lane = 0; } 
                 else if (x < (width * 2) / 3) { state.lane = 1; } 
                 else { state.lane = 2; }
+            }
+
+            function handleInputEnd(e) {
+                state.isBoosting = false; // Deactivate Turbo
+                document.getElementById('game-screen').classList.remove('turbo-active');
+            }
+
+            function handleKeyStart(e) {
+                if (!state.active || state.isGameOver) return;
+                state.isBoosting = true;
+                document.getElementById('game-screen').classList.add('turbo-active');
+                if (e.key === 'ArrowLeft' && state.lane > 0) state.lane--;
+                if (e.key === 'ArrowRight' && state.lane < 2) state.lane++;
+            }
+
+            function handleKeyEnd(e) {
+                state.isBoosting = false;
+                document.getElementById('game-screen').classList.remove('turbo-active');
             }
 
             function resize() {
@@ -475,6 +529,9 @@
             function showLevelTransition() {
                 state.isTransitioning = true;
                 state.active = false; 
+                state.isBoosting = false; // Reset boost on pause
+                document.getElementById('game-screen').classList.remove('turbo-active');
+
                 const overlay = document.getElementById('level-transition-screen');
                 const nextLevel = Math.floor(state.questionCount / 3) + 1;
                 
@@ -526,6 +583,10 @@
                 const secs = String(elapsed % 60).padStart(2, '0');
                 document.getElementById('time-display').textContent = `الوقت: ${toArDigit(mins)}:${toArDigit(secs)}`;
 
+                // Calculate Speed (Turbo Logic)
+                let currentSpeed = state.isBoosting ? state.baseSpeed * 3 : state.baseSpeed;
+                state.speed = currentSpeed;
+
                 state.roadOffset = (state.roadOffset + state.speed * 2) % 40; 
 
                 let passedGates = false;
@@ -535,9 +596,7 @@
                     if (!gate.hit && gate.y + 80 > canvas.height - CAR_HEIGHT - 20 && gate.y < canvas.height - 20) {
                         if (gate.lane === state.lane) {
                             
-                            if (state.questionAnswered) {
-                                return; 
-                            }
+                            if (state.questionAnswered) return; 
 
                             state.questionAnswered = true; 
                             gate.hit = true; 
@@ -569,6 +628,21 @@
                             spawnGate();
                         }
                     }
+                }
+
+                // Add trail particles if boosting
+                if (state.isBoosting) {
+                    const carX = canvas.width * LANES[state.lane];
+                    const carY = canvas.height - CAR_HEIGHT - 20 + CAR_HEIGHT;
+                    state.particles.push({
+                        x: carX + (Math.random() - 0.5) * 20, 
+                        y: carY, 
+                        vx: (Math.random() - 0.5) * 2, 
+                        vy: Math.random() * 5 + 2, 
+                        life: 10, 
+                        color: Math.random() > 0.5 ? '#f59e0b' : '#ef4444', 
+                        size: Math.random() * 3 + 1
+                    });
                 }
 
                 state.particles.forEach(p => { p.x += p.vx; p.y += p.vy; p.life--; });
@@ -629,19 +703,26 @@
 
                 const carX = canvas.width * LANES[state.lane];
                 const carY = canvas.height - CAR_HEIGHT - 20;
+                
+                // Shake effect when boosting
+                let drawX = carX;
+                if (state.isBoosting) {
+                    drawX += (Math.random() - 0.5) * 4;
+                }
+
                 ctx.fillStyle = CAR_COLOR; 
-                ctx.beginPath(); ctx.roundRect(carX - CAR_WIDTH/2, carY, CAR_WIDTH, CAR_HEIGHT, 10); ctx.fill();
+                ctx.beginPath(); ctx.roundRect(drawX - CAR_WIDTH/2, carY, CAR_WIDTH, CAR_HEIGHT, 10); ctx.fill();
                 ctx.fillStyle = '#1e293b';
                 ctx.beginPath(); 
-                ctx.moveTo(carX - CAR_WIDTH/2 + 5, carY + 20);
-                ctx.lineTo(carX + CAR_WIDTH/2 - 5, carY + 20);
-                ctx.lineTo(carX + CAR_WIDTH/2 - 8, carY + 45);
-                ctx.lineTo(carX - CAR_WIDTH/2 + 8, carY + 45);
+                ctx.moveTo(drawX - CAR_WIDTH/2 + 5, carY + 20);
+                ctx.lineTo(drawX + CAR_WIDTH/2 - 5, carY + 20);
+                ctx.lineTo(drawX + CAR_WIDTH/2 - 8, carY + 45);
+                ctx.lineTo(drawX - CAR_WIDTH/2 + 8, carY + 45);
                 ctx.fill();
                 ctx.fillStyle = '#991b1b'; 
-                ctx.fillRect(carX - CAR_WIDTH/2 - 4, carY + CAR_HEIGHT - 12, CAR_WIDTH + 8, 8);
+                ctx.fillRect(drawX - CAR_WIDTH/2 - 4, carY + CAR_HEIGHT - 12, CAR_WIDTH + 8, 8);
                 ctx.fillStyle = 'rgba(255,255,255,0.8)'; 
-                ctx.fillRect(carX - 4, carY + 5, 8, CAR_HEIGHT - 15);
+                ctx.fillRect(drawX - 4, carY + 5, 8, CAR_HEIGHT - 15);
 
                 state.particles.forEach(p => {
                     ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
@@ -676,9 +757,14 @@
                     let smallFont = 'bold 12px "Cairo", sans-serif'; 
                     parts.forEach(p => {
                         if (p.startsWith('^')) {
-                            ctx.font = smallFont;
+                            // Check if exponent is zero (or contains zero like ٠)
+                            if(p.includes('٠')) {
+                                ctx.font = 'bold 18px "Cairo", sans-serif'; // Bigger font for zero
+                            } else {
+                                ctx.font = smallFont;
+                            }
                             let w = ctx.measureText(p.substring(1)).width;
-                            widths.push({text: p.substring(1), w: w, type: 'exp'});
+                            widths.push({text: p.substring(1), w: w, type: 'exp', isZero: p.includes('٠')});
                         } else if (p) {
                             ctx.font = 'bold 18px "Cairo", sans-serif';
                             let w = ctx.measureText(p).width;
@@ -694,8 +780,13 @@
                             ctx.fillText(item.text, currentX, y);
                             currentX -= item.w;
                         } else {
-                            ctx.font = smallFont;
-                            ctx.fillText(item.text, currentX, y - 6); 
+                            if(item.isZero) {
+                                ctx.font = 'bold 18px "Cairo", sans-serif';
+                                ctx.fillText(item.text, currentX, y - 8); 
+                            } else {
+                                ctx.font = smallFont;
+                                ctx.fillText(item.text, currentX, y - 6); 
+                            }
                             currentX -= item.w;
                         }
                     }
@@ -722,10 +813,6 @@
                 document.getElementById('input-metric-value').value = totalTime;
                 window.setMetricType('time');
                 window.processResults();
-            }
-            function handleKey(e) { 
-                if (e.key === 'ArrowLeft' && state.lane > 0) state.lane--;
-                if (e.key === 'ArrowRight' && state.lane < 2) state.lane++;
             }
             
             return { init };

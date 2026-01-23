@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>صائد وحيدات الحد | V35.0</title>
+    <title>صائد وحيدات الحد | V35.1</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -552,10 +552,10 @@
                 // If pure guest, maybe try to load local best score
                 const localBest = localStorage.getItem('spaceMonomials_guest_bestScore');
                 if (localBest) {
-                    // Try to extract grade from stored score (assuming score = (grade*1000) - errors*10)
-                    // Or we just stored the grade directly. Let's assume we store grade.
-                    // For simplicity, let's just show what we have or '--'
-                     const localGrade = localStorage.getItem('spaceMonomials_guest_grade');
+                    // We saved the grade in bestScore for guest in V35.1
+                    // Actually we saved grade in localStorage key 'spaceMonomials_guest_bestGrade' in V35.0
+                    // Let's use that key properly
+                     const localGrade = localStorage.getItem('spaceMonomials_guest_bestGrade');
                      if(localGrade) document.getElementById('top-prev-score').innerHTML = toArNum(localGrade) + " <span class='text-[8px]'>من</span> ٥";
                 }
                 // Update name to "زائر" if it's the default
@@ -648,17 +648,17 @@
                 </div>
             `;
             
+            // STRICT GUARD CLAUSE FOR GUEST
             if (studentId && classId) {
                 const params = new URLSearchParams({ action: 'saveScore', studentId: studentId, classId: classId, itemId: GAME_ID, score: finalGrade, metricValue: mistakes, type: 'game' });
                 fetch(`${SCRIPT_URL}?${params.toString()}`).finally(() => {
                     window.fetchAndShowLeaderboard(false);
                 });
             } else {
-                // Local Storage Logic for Guest
+                // LOCAL STORAGE ONLY FOR GUEST
                 const currentBest = parseFloat(localStorage.getItem('spaceMonomials_guest_bestGrade') || 0);
                 if (parseFloat(finalGrade) > currentBest) {
                     localStorage.setItem('spaceMonomials_guest_bestGrade', finalGrade);
-                    // Update UI immediately
                     document.getElementById('top-prev-score').innerHTML = toArNum(finalGrade) + " <span class='text-[8px]'>من</span> ٥";
                 }
                 // Show global leaderboard (read-only)
@@ -696,10 +696,15 @@
                     let dataToRender = [];
                     if (response.status === 'success' && response.data && response.data.length > 0) {
                         dataToRender = response.data;
-                    } 
-                    // Note: For global mode, we don't fallback to class data because class data might be empty for guests
+                    } else if (currentLeaderboardMode === 'global' && classLeaderboardData.length > 0) {
+                        // Fallback: If global empty, show class data (better than nothing)
+                        dataToRender = classLeaderboardData;
+                    }
                     
                     if (dataToRender.length > 0) {
+                        // Cache class data if applicable
+                        if (currentLeaderboardMode === 'class') classLeaderboardData = dataToRender;
+
                         dataToRender.sort((a, b) => {
                             const scoreA = parseFloat(a.score) || parseFloat(a.grade) || 0; const scoreB = parseFloat(b.score) || parseFloat(b.grade) || 0;
                             if (scoreB !== scoreA) return scoreB - scoreA;

@@ -282,12 +282,12 @@
     (function() {
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxqAQlGhNs8k5RwHs6jrWxDiDwaMABSx8a9Fl81O5oVVa5fHRWTwIEvsGy2cSDP4zGLWQ/exec";
         const urlParams = new URLSearchParams(window.location.search);
-        const GAME_ID = urlParams.get('gameId') || 'g6_1_2'; // تم تحديث معرف اللعبة
+        const GAME_ID = urlParams.get('gameId') || 'g6_1_2';
         const studentId = urlParams.get('studentId') || urlParams.get('userId');
         const classId = urlParams.get('classId');
         
         let studentName = decodeURIComponent(urlParams.get('name') || urlParams.get('studentName') || urlParams.get('username') || "بطل التحدي");
-        let currentMetricType = 'time'; // اللعبة تعتمد على الوقت
+        let currentMetricType = 'time'; 
         let currentLeaderboardMode = classId ? 'class' : 'global';
         
         let localVisitorResult = null;
@@ -353,7 +353,8 @@
         document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('top-student-name').textContent = studentName;
             
-            if (!classId) {
+            // STRICT CHECK: Only enable class tab if classId is valid (not null/undefined/empty)
+            if (!classId || classId === "null" || classId === "undefined") {
                 document.getElementById('tab-class').style.display = 'none';
                 currentLeaderboardMode = 'global';
             } else {
@@ -361,7 +362,7 @@
                 document.getElementById('tab-global').className = 'tab-btn tab-inactive';
             }
 
-            if (studentId && classId) {
+            if (studentId && classId && studentId !== "null" && studentId !== "undefined") {
                 document.getElementById('sync-icon').classList.remove('hidden');
                 fetchInitialCloudData();
             } else if (!urlParams.get('name')) {
@@ -589,22 +590,21 @@
             let max = 100;
             
             if (victory) {
-                // الفوز: النقاط تعتمد على صحة اللاعب المتبقية + بونوس الفوز
                 achieved = playerCurrentHP;
             } else {
-                // الخسارة: النقاط تعتمد على التقدم في المستويات
                 let progress = ((level - 1) * 33) + ((100 - enemyCurrentHP) * 0.33);
                 achieved = Math.min(90, Math.floor(progress));
             }
 
-            // حساب الدرجة من 5
-            const grade = victory ? ((4 + (playerCurrentHP/100)).toFixed(1)) : ((achieved / 100) * 4).toFixed(1); // معادلة موزونة أكثر
+            const grade = victory ? ((4 + (playerCurrentHP/100)).toFixed(1)) : ((achieved / 100) * 4).toFixed(1);
             
             showResult(achieved, max, grade, timeTaken, victory);
             
-            if (studentId && classId) {
+            // STRICT GUARD: Ensure valid params before saving
+            if (studentId && classId && studentId !== "null" && studentId !== "undefined") {
                 saveScore(grade, timeTaken);
             } else {
+                // Visitor Logic: Local result only
                 localVisitorResult = { name: studentName, grade: grade, metric: timeTaken, isLocal: true };
                 document.getElementById('save-msg').textContent = "تم تجهيز نتيجتك للعرض!";
                 fetchAndShowLeaderboard(false);
@@ -655,8 +655,13 @@
             const content = document.getElementById('leaderboard-content');
             document.getElementById('modal-loader').classList.remove('hidden');
             
-            let reqClassId = (currentLeaderboardMode === 'class') ? classId : 'all';
-            const url = `${SCRIPT_URL}?action=getLeaderboard&gameId=${GAME_ID}&classId=${encodeURIComponent(reqClassId || 'all')}&t=${Date.now()}`;
+            // GUARD: Do not request class data if classId is missing/invalid
+            let reqClassId = 'all';
+            if (currentLeaderboardMode === 'class' && classId && classId !== "null" && classId !== "undefined") {
+                reqClassId = classId;
+            }
+
+            const url = `${SCRIPT_URL}?action=getLeaderboard&gameId=${GAME_ID}&classId=${encodeURIComponent(reqClassId)}&t=${Date.now()}`;
 
             fetch(url).then(r => r.json()).then(res => {
                 let data = (res.status === 'success' && res.data) ? res.data : [];
@@ -664,7 +669,6 @@
                     if (!data.find(p => p.name === localVisitorResult.name)) data.push(localVisitorResult);
                 }
                 
-                // Sort: Grade Descending, then Time Ascending (Lower time is better)
                 data.sort((a, b) => parseFloat(b.grade) - parseFloat(a.grade) || parseFloat(a.metric) - parseFloat(b.metric));
 
                 if (data.length > 0) {

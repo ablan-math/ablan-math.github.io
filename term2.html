@@ -721,8 +721,8 @@
             <div class="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
                 <i class="fas fa-lock text-4xl text-gray-400"></i>
             </div>
-            <h2 class="text-2xl font-black text-gray-700 mb-2">عذراً، هذا الدرس مغلق</h2>
-            <p class="text-gray-500 mb-6">لم يحن موعد فتح هذا الدرس بعد أو تم إغلاقه من قبل الإدارة.</p>
+            <h2 id="locked-title" class="text-2xl font-black text-gray-700 mb-2">عذراً، هذا الدرس مغلق</h2>
+            <p id="locked-desc" class="text-gray-500 mb-6">لم يحن موعد فتح هذا الدرس بعد أو تم إغلاقه من قبل الإدارة.</p>
             <div class="bg-blue-50 text-blue-700 px-6 py-3 rounded-xl inline-block font-bold border border-blue-100">
                 <i class="fas fa-calendar-alt ml-2"></i> الحالة: <span id="unlock-date-display">...</span>
             </div>
@@ -1125,7 +1125,7 @@
                 // 1. Check Main Lesson Content
                 const lData = currentUser?.lessons?.[lesson.id];
                 if (!lData || !lData.grade || safeParseFloat(lData.grade) === 0) {
-                     hasUnattemptedItem = true;
+                      hasUnattemptedItem = true;
                 }
 
                 // 2. Check Games
@@ -1292,8 +1292,9 @@
                     }
                 }
                 
+                // *** UPDATED: Using checkAndOpenGame instead of direct open ***
                 return `
-                <div class="game-sm-btn ${gClass} ${gamePulse}" onclick="openGameInDashboard('${g.id}', '${g.title}')">
+                <div class="game-sm-btn ${gClass} ${gamePulse}" onclick="checkAndOpenGame('${lesson.id}', '${g.id}', '${g.title}')">
                     ${largeBgIcon}${gIcon}
                     <i class="fas fa-gamepad game-icon text-theme"></i>
                     <span class="relative z-10">${g.title}</span>
@@ -1376,6 +1377,10 @@
                 document.getElementById('locked-view').classList.remove('hidden');
                 document.getElementById('open-view').classList.add('hidden');
                 
+                // Set text for Lesson
+                document.getElementById('locked-title').textContent = "عذراً، هذا الدرس مغلق";
+                document.getElementById('locked-desc').textContent = "لم يحن موعد فتح هذا الدرس بعد أو تم إغلاقه من قبل الإدارة.";
+
                 const dateDisplay = document.getElementById('unlock-date-display');
                 if (lockStatus.date) {
                     dateDisplay.textContent = lockStatus.date;
@@ -1409,6 +1414,54 @@
 
             console.log("Redirecting to Lesson URL:", lessonUrl);
             window.location.href = lessonUrl;
+        }
+
+        // *** NEW FUNCTION: Check lock status before opening game ***
+        function checkAndOpenGame(lessonId, gameId, gameTitle) {
+            // Find lesson and chapter
+            let foundLesson = null;
+            let foundChapter = null;
+            let foundIndex = -1;
+
+            // Search logic (since we only have IDs)
+            for (const chKey in curriculumIndex) {
+                const ch = curriculumIndex[chKey];
+                const lIndex = ch.lessons.findIndex(l => l.id === lessonId);
+                if (lIndex !== -1) {
+                    foundChapter = ch;
+                    foundLesson = ch.lessons[lIndex];
+                    foundIndex = lIndex;
+                    break;
+                }
+            }
+
+            if (!foundLesson) return;
+
+            // Check Lock
+            const lockStatus = checkLessonLockStatus(foundLesson, foundIndex, foundChapter);
+
+            if (lockStatus.isLocked) {
+                // Show Locked Screen (Same as lesson)
+                document.getElementById('app-container').classList.add('hidden');
+                document.getElementById('lesson-view').classList.remove('hidden');
+                document.getElementById('locked-view').classList.remove('hidden');
+                document.getElementById('open-view').classList.add('hidden');
+
+                // Update text for Game
+                document.getElementById('locked-title').textContent = "عذراً، هذه اللعبة مغلقة";
+                document.getElementById('locked-desc').textContent = "لم يحن موعد فتح هذه اللعبة بعد أو تم إغلاقها من قبل الإدارة.";
+
+                // Update text reason
+                const dateDisplay = document.getElementById('unlock-date-display');
+                if (lockStatus.date) {
+                    dateDisplay.textContent = lockStatus.date;
+                } else {
+                    dateDisplay.textContent = "غير محدد";
+                }
+            } else {
+                // Open Game normally
+                openGameInDashboard(gameId, gameTitle);
+            }
         }
 
         function closeLesson() {

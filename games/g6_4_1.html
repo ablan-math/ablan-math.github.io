@@ -1,0 +1,515 @@
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+
+// --- إعدادات الربط والقالب المطور V19.16 (الاسم الجديد: التوائم الجبرية) ---
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxqAQlGhNs8k5RwHs6jrWxDiDwaMABSx8a9Fl81O5oVVa5fHRWTwIEvsGy2cSDP4zGLWQ/exec";
+const GAME_ID = "g6_4_1"; 
+
+const toAr = (n) => {
+  if (n === null || n === undefined || n === "") return '';
+  return String(n).replace(/\d/g, d => "٠١٢٣٤٥٦٧٨٩"[d]);
+};
+
+// أيقونات SVG محسنة ومتناسقة
+const GoldenTrophyIcon = ({ className = "w-16 h-16" }) => (
+  <svg viewBox="0 0 100 100" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M30 20C30 10 40 10 50 10C60 10 70 10 70 20V40C70 60 60 70 50 70C40 70 30 60 30 40V20Z" fill="#FFD700"/>
+    <path d="M30 30H20C15 30 15 45 20 45H30" stroke="#FFD700" strokeWidth="6" strokeLinecap="round"/>
+    <path d="M70 30H80C85 30 85 45 80 45H70" stroke="#FFD700" strokeWidth="6" strokeLinecap="round"/>
+    <path d="M50 70V85" stroke="#FFD700" strokeWidth="8" strokeLinecap="round"/>
+    <path d="M35 85H65" stroke="#FFD700" strokeWidth="8" strokeLinecap="round"/>
+    <path d="M50 25L55 35H65L57 42L60 52L50 45L40 52L43 42L35 35H45L50 25Z" fill="#FFF5" />
+  </svg>
+);
+
+const Icon = ({ name, className = "w-4 h-4" }) => {
+  const icons = {
+    star: <path d="m12 2 3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />,
+    sync: <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.85.83 6.74 2.74L21 8" />,
+    times: <path d="M18 6 6 18M6 6l12 12" />,
+    check: <path d="M20 6 9 17l-5-5" />,
+    home: <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />,
+    crown: <path d="m2 4 3 12h14l3-12-6 7-4-7-4 7-6-7Z" />,
+    play: <path d="m5 3 14 9-14 9V3z" />,
+    clock: <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+  };
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      {icons[name]}
+    </svg>
+  );
+};
+
+// بطاقة الحد الجبري
+const TermCard = ({ coeff, variable, exponent, isHeader = false }) => {
+  if (coeff === 0 && variable && !isHeader) return null; 
+  const absCoeff = Math.abs(coeff);
+  const showCoeff = (absCoeff !== 1 || !variable);
+
+  return (
+    <div className={`bg-white rounded-xl shadow-sm border border-slate-100 flex items-center justify-center relative ${isHeader ? 'px-4 py-2' : 'p-2'}`}>
+      <div className="flex items-center gap-0.5 relative" dir="rtl">
+        {coeff < 0 && <span className="text-xl font-bold text-red-600 ml-0.5">−</span>}
+        {showCoeff && <span className={`${isHeader ? 'text-3xl md:text-4xl' : 'text-xl md:text-2xl'} font-black text-slate-800`}>{toAr(absCoeff)}</span>}
+        {variable && (
+          <div className="relative flex items-center">
+            <span className={`${isHeader ? 'text-3xl md:text-4xl' : 'text-xl md:text-2xl'} font-serif italic ${variable === 'س' ? 'text-blue-700' : 'text-purple-700'}`}>{variable}</span>
+            {exponent > 1 && (
+              <span className={`absolute ${isHeader ? '-top-2' : '-top-2'} -left-4 text-[12px] md:text-lg font-black bg-amber-400 text-amber-950 px-1.5 py-0 rounded shadow-md z-10 border border-amber-500/20`}>
+                {toAr(exponent)}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const App = () => {
+  const [studentInfo, setStudentInfo] = useState({ id: null, classId: null, name: "بطل زائر", prevGrade: "٠ / ٥" });
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [gameState, setGameState] = useState('start');
+  const [level, setLevel] = useState(1);
+  const [score, setScore] = useState(0); 
+  const [wrongCount, setWrongCount] = useState(0); 
+  const [questionsCount, setQuestionsCount] = useState(0);
+  const [currentTarget, setCurrentTarget] = useState(null);
+  const [options, setOptions] = useState([]);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [feedback, setFeedback] = useState(null);
+  const [leaderboard, setLeaderboard] = useState({ visible: false, mode: 'global', data: [], loading: false });
+  
+  const [timer, setTimer] = useState(0);
+  const timerRef = useRef(null);
+
+  const levelPlan = [1, 1, 1, 2, 2];
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const sId = params.get('studentId') || params.get('userId');
+    const cId = params.get('classId');
+    const sName = decodeURIComponent(params.get('name') || params.get('studentName') || "");
+    if (sId && cId) { 
+        setStudentInfo(prev => ({ ...prev, id: sId, classId: cId, name: sName || "بطل التحدي" })); 
+        fetchCloudData(sId, cId); 
+    } else { 
+        setStudentInfo(prev => ({ ...prev, name: sName || "بطل زائر" })); 
+    }
+    return () => clearInterval(timerRef.current);
+  }, []);
+
+  const fetchCloudData = async (id, cid) => {
+    setIsSyncing(true);
+    try {
+      const url = `${SCRIPT_URL}?action=getStudentData&studentId=${id}&classId=${encodeURIComponent(cid)}&itemId=${GAME_ID}&t=${Date.now()}`;
+      const res = await fetch(url).then(r => r.json());
+      if (res.status === 'success' && res.data) {
+        setStudentInfo(prev => ({ ...prev, prevGrade: res.data.games?.[GAME_ID] ? `${toAr(parseFloat(res.data.games[GAME_ID].grade).toFixed(1))} / ٥` : "٠ / ٥" }));
+      }
+    } catch (e) {} finally { setIsSyncing(false); }
+  };
+
+  const generateProblem = useCallback((currLevel, qIdx) => {
+    setFeedback(null); 
+    setSelectedIds([]);
+    
+    if (currLevel <= 2) {
+      const vars = currLevel === 1 ? ['س'] : ['س', 'ص'];
+      const tVar = vars[Math.floor(Math.random() * vars.length)];
+      const tExp = Math.floor(Math.random() * 3) + 1;
+      const tCoeff = (Math.random() > 0.5 ? 1 : -1) * (Math.floor(Math.random() * 5) + 2);
+      
+      setCurrentTarget({ type: 'match', coeff: tCoeff, variable: tVar, exponent: tExp });
+      
+      let opts = [];
+      const numCorrect = levelPlan[qIdx] || 1;
+      const usedOptionsStrings = new Set();
+      usedOptionsStrings.add(`${tCoeff}${tVar}${tExp}`);
+
+      while (opts.length < numCorrect) {
+        let c = (Math.random() > 0.5 ? 1 : -1) * (Math.floor(Math.random() * 9) + 2);
+        let optStr = `${c}${tVar}${tExp}`;
+        if (!usedOptionsStrings.has(optStr)) {
+            usedOptionsStrings.add(optStr);
+            opts.push({ id: `c-${opts.length}-${Math.random()}`, coeff: c, variable: tVar, exponent: tExp, isCorrect: true });
+        }
+      }
+
+      let safety = 0;
+      while (opts.length < 4 && safety < 100) {
+        safety++;
+        let c = (Math.random() > 0.5 ? 1 : -1) * (Math.floor(Math.random() * 9) + 2);
+        let v = vars[Math.floor(Math.random() * vars.length)];
+        let e = Math.floor(Math.random() * 3) + 1;
+        
+        if (v === tVar && e === tExp) {
+            if (Math.random() > 0.5) v = (v === 'س' ? 'ص' : 'س');
+            else e = (e % 3) + 1;
+        }
+
+        let optStr = `${c}${v}${e}`;
+        if (!usedOptionsStrings.has(optStr)) {
+            usedOptionsStrings.add(optStr);
+            opts.push({ id: `w-${opts.length}-${Math.random()}`, coeff: c, variable: v, exponent: e, isCorrect: false });
+        }
+      }
+      setOptions(opts.sort(() => Math.random() - 0.5));
+    } else {
+      const scenarios = [
+        { t: [{coeff: 5, v: 'س', e: 1}, {op: '-', coeff: -2, v: 'س', e: 1}], c: { id: 'cor', isCorrect: true, coeff: 3, variable: 'س', exponent: 1 } },
+        { t: [{coeff: 3, v: 'س', e: 2}, {op: '+', coeff: 2, v: 'ص', e: 1}], c: { id: 'cor', isCorrect: true, isSpecial: true, text: 'لا يمكن التبسيط' } },
+        { t: [{coeff: 2, v: 'س', e: 3}, {op: '+', coeff: 4, v: 'س', e: 3}, {op: '+', coeff: 3, v: 'س', e: 3}], c: { id: 'cor', isCorrect: true, coeff: 9, variable: 'س', exponent: 3 } },
+        { t: [{coeff: 4, v: 'س', e: 2}, {op: '+', coeff: 2, v: 'س', e: 2}, {op: '+', coeff: 2, v: 'ص', e: 1}], c: { id: 'cor', isCorrect: true, terms: [{coeff: 6, variable: 'س', exponent: 2}, {coeff: 2, variable: 'ص', exponent: 1}] } },
+        { t: [{coeff: 5, v: 'س', e: 3}, {op: '-', coeff: -3, v: 'س', e: 2}, {op: '+', coeff: 3, v: 'ص', e: 1}], c: { id: 'cor', isCorrect: true, isSpecial: true, text: 'لا يمكن التبسيط' } },
+        { t: [{coeff: 6, v: 'س', e: 2}, {op: '-', coeff: -6, v: 'س', e: 2}], c: { id: 'cor', isCorrect: true, coeff: 0 } },
+      ];
+      
+      const sc = scenarios[qIdx] || scenarios[0];
+      setCurrentTarget({ type: 'operation', terms: sc.t.map(x => ({...x, variable: x.v, exponent: x.e})) });
+      
+      let opts = [sc.c];
+      const usedKeys = new Set();
+      if (sc.c.isSpecial) usedKeys.add(sc.c.text);
+      else if (sc.c.terms) usedKeys.add(sc.c.terms.map(t => `${t.coeff}${t.variable}${t.exponent}`).join('+'));
+      else usedKeys.add(`${sc.c.coeff}${sc.c.variable || ''}${sc.c.exponent || ''}`);
+
+      let safety = 0;
+      while(opts.length < 4 && safety < 100) {
+          safety++;
+          let fake = { id: `f-${opts.length}-${Math.random()}`, isCorrect: false };
+          
+          if (sc.c.isSpecial || sc.c.terms) {
+              fake.coeff = Math.floor(Math.random()*15)+1;
+              fake.variable = 'س';
+              fake.exponent = Math.floor(Math.random()*3)+1;
+          } else {
+              if (opts.length === 1) {
+                  fake.isSpecial = true;
+                  fake.text = 'لا يمكن التبسيط';
+              } else {
+                  fake.coeff = sc.c.coeff + (Math.random() > 0.5 ? 2 : -2);
+                  fake.variable = sc.c.variable || 'س';
+                  fake.exponent = sc.c.exponent || 1;
+              }
+          }
+
+          let key = fake.isSpecial ? fake.text : `${fake.coeff}${fake.variable || ''}${fake.exponent || ''}`;
+          if (!usedKeys.has(key)) {
+              usedKeys.add(key);
+              opts.push(fake);
+          }
+      }
+      setOptions(opts.sort(() => Math.random() - 0.5));
+    }
+  }, [levelPlan]);
+
+  const startGame = () => { 
+    setGameState('playing'); 
+    setLevel(1); 
+    setScore(0); 
+    setWrongCount(0); 
+    setQuestionsCount(0); 
+    setTimer(0);
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => setTimer(t => t + 1), 1000);
+    generateProblem(1, 0); 
+  };
+
+  const checkAnswers = () => {
+    const correctIds = options.filter(o => o.isCorrect).map(o => o.id);
+    const selCorrect = selectedIds.filter(id => correctIds.includes(id));
+    const selWrong = selectedIds.filter(id => !correctIds.includes(id));
+    
+    let pts = 0;
+    if (level <= 2) { 
+        pts = Math.max(0, selCorrect.length - selWrong.length); 
+        if (correctIds.length > 1 && selCorrect.length === 1 && selWrong.length === 1) pts = 0.5; 
+    } else { 
+        pts = (selCorrect.length === 1 && selWrong.length === 0) ? 1 : 0; 
+    }
+    
+    if (pts <= 0 && selectedIds.length > 0) setWrongCount(w => w + 1);
+    setScore(s => s + pts);
+    setFeedback(selCorrect.length === correctIds.length && selWrong.length === 0 ? 'correct' : 'reveal');
+  };
+
+  const handleNext = () => {
+    const nextQ = questionsCount + 1;
+    const maxQ = level === 3 ? 6 : 5;
+    if (nextQ >= maxQ) { 
+        if (level < 3) { 
+            const nextLvl = level + 1;
+            setLevel(nextLvl); 
+            setQuestionsCount(0); 
+            generateProblem(nextLvl, 0); 
+        } else {
+            finishGame();
+        } 
+    } else { 
+        setQuestionsCount(nextQ); 
+        generateProblem(level, nextQ); 
+    }
+  };
+
+  const finishGame = () => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    const totalPossiblePoints = 16; 
+    const grade = ((score / totalPossiblePoints) * 5).toFixed(1); 
+    setGameState('result');
+    if (studentInfo.id) saveScoreCloud(grade, wrongCount);
+  };
+
+  const saveScoreCloud = async (g, m) => {
+    const p = new URLSearchParams({ 
+        action: 'saveScore', 
+        studentId: studentInfo.id, 
+        classId: studentInfo.classId, 
+        itemId: GAME_ID, 
+        score: g, 
+        metricValue: m, 
+        type: 'game' 
+    });
+    try { await fetch(`${SCRIPT_URL}?${p.toString()}`); } catch (e) {}
+  };
+
+  const fetchLeaderboard = async (mode) => {
+    setLeaderboard({ visible: true, mode, data: [], loading: true });
+    const rid = mode === 'class' ? studentInfo.classId : 'all';
+    try {
+      const url = `${SCRIPT_URL}?action=getLeaderboard&gameId=${GAME_ID}&classId=${encodeURIComponent(rid)}&t=${Date.now()}`;
+      const res = await fetch(url).then(r => r.json());
+      setLeaderboard(prev => ({ ...prev, data: res.data || [], loading: false }));
+    } catch (e) { setLeaderboard(prev => ({ ...prev, loading: false })); }
+  };
+
+  return (
+    <div className="h-screen w-full bg-slate-100 flex items-center justify-center p-2 overflow-hidden font-sans" dir="rtl">
+      <div className="w-full max-w-md bg-white rounded-[2rem] shadow-2xl flex flex-col h-full max-h-[96vh] relative overflow-hidden border border-slate-50">
+        
+        {/* الشريط العلوي */}
+        <div className="bg-slate-50 border-b border-slate-200 px-5 py-2 flex justify-between items-center text-[10px] font-black text-slate-500 shrink-0">
+          <div className="flex items-center gap-2 truncate max-w-[60%]">
+            <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+            <span className="truncate">{studentInfo.name}</span>
+          </div>
+          <div className="flex items-center gap-2 bg-white px-2 py-0.5 rounded-full border shadow-sm">
+            {isSyncing && <Icon name="sync" className="w-3 h-3 animate-spin text-blue-400" />}
+            <Icon name="star" className="w-3 h-3 text-yellow-500" />
+            <span>{studentInfo.prevGrade}</span>
+          </div>
+        </div>
+
+        <main className="flex-1 p-4 flex flex-col overflow-hidden">
+          {/* شاشة البداية */}
+          {gameState === 'start' && (
+            <div className="h-full flex flex-col items-center justify-center text-center space-y-6">
+              <div className="bg-blue-600 p-6 rounded-[2.5rem] shadow-xl shadow-blue-200 mb-4">
+                 <Icon name="crown" className="w-16 h-16 text-white opacity-90" />
+              </div>
+              <h1 className="text-2xl font-black text-slate-800">التوائم الجبرية</h1>
+              <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 text-[13px] font-bold text-blue-700 leading-relaxed max-w-xs">
+                أهلاً بك يا بطل! نافس زملاءك في مهارات تبسيط الحدود الجبرية وحقق المركز الأول.
+              </div>
+              <div className="flex flex-col gap-3 w-full max-w-xs mt-2">
+                <button onClick={startGame} className="bg-blue-600 text-white shadow-lg text-lg font-black py-4 rounded-2xl flex items-center justify-center gap-3 active:scale-95 transition-all">
+                  بدء التحدي <Icon name="play" className="w-5 h-5 fill-white" />
+                </button>
+                <button onClick={() => fetchLeaderboard('global')} className="bg-white text-slate-600 border border-slate-200 font-black py-3 rounded-2xl active:scale-95 transition-all shadow-sm flex items-center justify-center gap-2">
+                  <Icon name="crown" className="w-4 h-4 text-amber-500" />
+                  <span>سجل الأبطال</span>
+                </button>
+              </div>
+              <p className="text-[10px] text-slate-400 font-bold tracking-widest mt-4">أ. عبد العزيز العبلان</p>
+            </div>
+          )}
+
+          {/* شاشة اللعب */}
+          {gameState === 'playing' && currentTarget && (
+            <div className="flex flex-col h-full overflow-hidden">
+              <div className="flex justify-between items-center text-[11px] font-black text-slate-400 mb-2">
+                <span className="bg-blue-600 text-white px-3 py-1 rounded-full">المستوى {toAr(level)}</span>
+                <div className="flex items-center gap-2 bg-slate-100 px-3 py-1 rounded-full text-slate-600">
+                    <Icon name="clock" className="w-3 h-3" />
+                    <span>{toAr(timer)} ثانية</span>
+                </div>
+                <span>المسألة: {toAr(questionsCount + 1)} / {toAr(level === 3 ? 6 : 5)}</span>
+              </div>
+
+              <div className="w-full bg-[#1e293b] rounded-[2rem] p-6 shadow-xl flex flex-col items-center relative shrink-0 mb-4 min-h-[140px] justify-center">
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-amber-400 text-amber-950 text-[11px] font-black px-6 py-1 rounded-full shadow-md border-2 border-white">
+                  {level === 3 ? 'أوجد الناتج بأبسط صورة' : 'اختر الحدود المتشابهة لـ'}
+                </div>
+                <div className="flex flex-wrap items-center justify-center gap-4 mt-2">
+                  {currentTarget.type === 'operation' ? (
+                    currentTarget.terms.map((t, i) => (
+                      <React.Fragment key={i}>
+                        {i > 0 && <span className="text-2xl font-black text-white">{t.op || '+'}</span>}
+                        <TermCard coeff={Math.abs(t.coeff)} variable={t.variable} exponent={t.exponent} isHeader={true} />
+                      </React.Fragment>
+                    ))
+                  ) : (
+                    <TermCard {...currentTarget} isHeader={true} />
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 overflow-y-auto flex-1 pb-2">
+                {options.map((opt) => (
+                  <button 
+                    key={opt.id} 
+                    disabled={feedback} 
+                    onClick={() => setSelectedIds(prev => level === 3 ? [opt.id] : (prev.includes(opt.id) ? prev.filter(i=>i!==opt.id) : [...prev, opt.id]))}
+                    className={`min-h-[90px] rounded-3xl border-2 flex items-center justify-center transition-all p-3 relative
+                      ${selectedIds.includes(opt.id) ? 'border-blue-500 bg-blue-50 scale-[0.98]' : 'border-slate-100 bg-white shadow-md'}
+                      ${feedback && opt.isCorrect ? 'border-emerald-500 bg-emerald-100 !scale-100' : ''}
+                      ${feedback === 'reveal' && selectedIds.includes(opt.id) && !opt.isCorrect ? 'border-red-500 bg-red-50' : ''}
+                    `}
+                  >
+                    {opt.isSpecial ? (
+                      <span className="text-sm font-black text-slate-700">{opt.text}</span>
+                    ) : opt.terms ? (
+                      <div className="flex flex-wrap items-center justify-center gap-1">
+                        {opt.terms.map((t, idx) => (
+                          <React.Fragment key={idx}>
+                            {idx > 0 && <span className="text-lg font-bold text-slate-400">{t.coeff >= 0 ? '+' : ''}</span>}
+                            <div className="flex items-center relative">
+                                <span className="text-xl font-black">{toAr(Math.abs(t.coeff))}</span>
+                                <span className="text-xl italic font-serif text-blue-700 mr-0.5">{t.variable}</span>
+                                {t.exponent > 1 && <span className="absolute -top-3 -left-3 text-[10px] font-black bg-amber-400 px-1 rounded shadow-sm">{toAr(t.exponent)}</span>}
+                            </div>
+                          </React.Fragment>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="flex items-center relative">
+                        {opt.coeff === 0 ? <span className="text-3xl font-black">{toAr(0)}</span> : (
+                          <>
+                            <span className="text-3xl font-black">{toAr(Math.abs(opt.coeff))}</span>
+                            {opt.variable && <span className={`text-3xl italic font-serif ${opt.variable === 'س' ? 'text-blue-700' : 'text-purple-700'} mr-0.5`}>{opt.variable}</span>}
+                            {opt.exponent > 1 && <span className="absolute -top-3 -left-4 text-[12px] font-black bg-amber-400 text-amber-950 px-1.5 py-0.5 rounded shadow-md">{toAr(opt.exponent)}</span>}
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+
+              <div className="mt-3 shrink-0 space-y-4 pb-2">
+                {feedback ? (
+                  <button onClick={handleNext} className="w-full py-5 bg-blue-600 text-white rounded-2xl font-black text-xl shadow-lg active:scale-95 transition-all animate-bounce-subtle">السؤال التالي</button>
+                ) : (
+                  <button onClick={checkAnswers} disabled={selectedIds.length === 0} className={`w-full py-5 rounded-2xl font-black text-xl transition-all ${selectedIds.length === 0 ? 'bg-slate-100 text-slate-300' : 'bg-emerald-500 text-white shadow-xl active:scale-95'}`}>تحقق من الإجابة</button>
+                )}
+                <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden shadow-inner"><div className="bg-blue-600 h-full transition-all duration-700" style={{ width: `${((questionsCount + (feedback ? 1 : 0)) / (level === 3 ? 6 : 5)) * 100}%` }}></div></div>
+              </div>
+            </div>
+          )}
+
+          {/* شاشة النتائج */}
+          {gameState === 'result' && (
+            <div className="h-full flex flex-col items-center justify-between text-center py-4 animate-in fade-in zoom-in duration-500">
+              
+              <div className="flex flex-col items-center gap-2">
+                <GoldenTrophyIcon className="w-24 h-24 drop-shadow-lg" />
+                <h2 className="text-2xl font-black text-slate-800">أداء رائع يا بطل!</h2>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3 w-full">
+                <div className="bg-blue-50 p-4 rounded-3xl border border-blue-100 flex flex-col items-center justify-center">
+                  <span className="text-[10px] font-black text-blue-400 mb-1">النقاط</span>
+                  <p className="text-xl font-black text-blue-900">{toAr(score.toFixed(1))} / {toAr(16)}</p>
+                </div>
+
+                <div className="bg-amber-50 p-5 rounded-[2rem] border-2 border-amber-200 shadow-lg ring-4 ring-amber-50 flex flex-col items-center justify-center scale-110">
+                  <span className="text-[11px] font-black text-amber-600 mb-1">الدرجة النهائية</span>
+                  <p className="text-3xl font-black text-amber-900">{toAr(((score / 16) * 5).toFixed(1))}</p>
+                </div>
+
+                <div className="bg-purple-50 p-4 rounded-3xl border border-purple-100 flex flex-col items-center justify-center">
+                  <span className="text-[10px] font-black text-purple-400 mb-1">الوقت</span>
+                  <p className="text-xl font-black text-purple-900">{toAr(timer)} ث</p>
+                </div>
+              </div>
+
+              <div className="bg-emerald-500 p-4 rounded-2xl w-full flex items-center justify-center gap-3 shadow-lg shadow-emerald-100">
+                <div className="w-6 h-6 rounded-full bg-white text-emerald-500 flex items-center justify-center"><Icon name="check" className="w-4 h-4" /></div>
+                <p className="font-black text-white text-[14px]">تم اعتماد نتيجتك بنجاح في السجلات!</p>
+              </div>
+
+              <button onClick={() => fetchLeaderboard('global')} className="w-full bg-slate-800 text-white py-4 rounded-2xl font-black text-lg shadow-lg flex items-center justify-center gap-3 active:scale-95 transition-all">
+                  عرض سجل الأبطال <Icon name="crown" className="w-5 h-5 text-amber-400" />
+              </button>
+
+              <div className="flex w-full gap-3 pt-2">
+                <button onClick={() => window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*')} className="flex-1 bg-slate-200 text-slate-700 py-4 rounded-2xl font-black text-md active:scale-95 transition-all">إغلاق التحدي</button>
+                <button onClick={() => window.location.reload()} className="flex-1 bg-blue-100 text-blue-700 py-4 rounded-2xl font-black text-md active:scale-95 transition-all">محاولة أخرى</button>
+              </div>
+            </div>
+          )}
+        </main>
+
+        {/* شاشة المتصدرين */}
+        {leaderboard.visible && (
+          <div className="absolute inset-0 bg-white z-[100] flex flex-col p-6 animate-in slide-in-from-bottom duration-300">
+            <div className="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
+              <h3 className="font-black text-slate-800 text-2xl flex items-center gap-3">
+                <Icon name="crown" className="text-amber-500 w-8 h-8" /> سجل المتصدرين
+              </h3>
+              <button onClick={() => setLeaderboard({ ...leaderboard, visible: false })} className="w-12 h-12 rounded-full bg-slate-50 text-slate-400 flex items-center justify-center hover:bg-red-50 transition-colors">
+                <Icon name="times" className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <div className="flex gap-2 mb-4 bg-slate-100 p-1.5 rounded-2xl">
+              {studentInfo.classId && (
+                <button onClick={() => fetchLeaderboard('class')} className={`flex-1 py-3 rounded-xl text-xs font-black transition-all ${leaderboard.mode === 'class' ? 'bg-white text-blue-600 shadow-md' : 'text-slate-500'}`}>أبطال فصلي</button>
+              )}
+              <button onClick={() => fetchLeaderboard('global')} className={`flex-1 py-3 rounded-xl text-xs font-black transition-all ${leaderboard.mode === 'global' ? 'bg-white text-blue-600 shadow-md' : 'text-slate-500'}`}>أبطال اللعبة</button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto bg-slate-50 rounded-3xl p-3 relative shadow-inner">
+              {leaderboard.loading ? (
+                <div className="absolute inset-0 flex items-center justify-center bg-white/60">
+                  <Icon name="sync" className="w-10 h-10 text-blue-500 animate-spin" />
+                </div>
+              ) : leaderboard.data.length > 0 ? (
+                <table className="w-full text-right text-[13px] border-separate border-spacing-y-2">
+                  <thead>
+                    <tr className="text-slate-400"><th className="p-3 text-center">#</th><th className="p-3">البطل</th><th className="p-3 text-center">الدرجة</th></tr>
+                  </thead>
+                  <tbody>
+                    {leaderboard.data.map((p, i) => (
+                      <tr key={i} className={`shadow-sm rounded-xl overflow-hidden ${studentInfo.name === p.name ? 'bg-blue-600 text-white' : 'bg-white text-slate-700'}`}>
+                        <td className="p-4 text-center font-black rounded-r-2xl w-12">{i < 3 ? ['🥇','🥈','🥉'][i] : toAr(i+1)}</td>
+                        <td className="p-4 font-black truncate max-w-[150px]">{p.name} {studentInfo.name === p.name && <span className="mr-2 text-[9px] bg-white/20 px-2 py-0.5 rounded-full">أنت</span>}</td>
+                        <td className="p-4 text-center font-black rounded-l-2xl">{toAr(parseFloat(p.grade).toFixed(1))}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center text-slate-400 gap-3">
+                  <Icon name="star" className="w-12 h-12 opacity-20" />
+                  <p className="font-bold italic">لا يوجد مسجلون حالياً</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes bounce-subtle {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-3px); }
+        }
+        .animate-bounce-subtle {
+          animation: bounce-subtle 2s infinite ease-in-out;
+        }
+      `}} />
+    </div>
+  );
+};
+
+export default App;

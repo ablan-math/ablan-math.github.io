@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>تحدي العباقرة V19.10 - كثيرات الحدود</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body { font-family: 'Cairo', sans-serif; overflow: hidden; touch-action: manipulation; direction: rtl; }
+        
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+
+        .compact-card {
+            width: 100%; max-width: 450px; background: white; border-radius: 2rem;
+            box-shadow: 0 15px 35px -5px rgba(0,0,0,0.1); border: 1px solid #f1f5f9;
+            display: flex; flex-direction: column; max-height: 96vh; overflow: hidden; position: relative;
+        }
+        .top-info-bar {
+            background: #f8fafc; border-bottom: 1px solid #e2e8f0; padding: 6px 12px;
+            display: flex; justify-content: space-between; align-items: center;
+            font-size: 10px; font-weight: 800; color: #64748b;
+        }
+        .btn-touch { min-height: 48px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; border-radius: 1rem; font-weight: 800; cursor: pointer; }
+        .btn-touch:active { transform: scale(0.97); }
+        
+        .jeopardy-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.4rem; padding: 8px; }
+        .card-inner {
+            height: 75px; border: 2px solid #3b82f6; border-radius: 1rem;
+            background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            cursor: pointer; transition: all 0.2s;
+        }
+        .card-inner.disabled-correct { background: #ecfdf5; border-color: #10b981; color: #059669; cursor: not-allowed; }
+        .card-inner.disabled-wrong { background: #fef2f2; border-color: #ef4444; color: #b91c1c; cursor: not-allowed; }
+
+        /* التنسيق الرياضي العربي المصحح */
+        .math-term { display: inline-flex; flex-direction: row; align-items: baseline; margin: 0 0.1rem; }
+        .math-var { font-style: italic; font-size: 1.1em; margin-right: 1px; }
+        .math-pow { font-size: 0.65em; transform: translate(-1px, -0.6em); font-weight: bold; color: #2563eb; }
+        .math-frac { display: inline-flex; flex-direction: column; align-items: center; vertical-align: middle; line-height: 1; }
+        .frac-num { border-bottom: 2px solid #1e293b; padding: 0 4px; }
+        .frac-den { padding: 1px 4px 0 4px; }
+
+        .game-modal { position: absolute; inset: 0; background: white; z-index: 50; display: none; flex-direction: column; padding: 1rem; }
+        .game-modal.active { display: flex; }
+        .options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; width: 100%; }
+        .option-btn { background: #f8fafc; border: 2px solid #e2e8f0; border-radius: 0.75rem; min-height: 60px; display: flex; align-items: center; justify-content: center; font-weight: 800; transition: 0.2s; padding: 4px; font-size: 0.95rem; }
+
+        .leaderboard-modal { position: absolute; inset: 0; background: #ffffff; z-index: 100; display: flex; flex-direction: column; padding: 1.25rem; transition: all 0.3s; }
+        .hidden-modal { opacity: 0; pointer-events: none; transform: scale(0.95); display: none; }
+        .visible-modal { opacity: 1; pointer-events: auto; transform: scale(1); display: flex; }
+        
+        .section-tag { font-size: 8px; padding: 2px 6px; border-radius: 50px; background: #f1f5f9; color: #64748b; font-weight: 800; border: 1px solid #e2e8f0; }
+        .section-tag.success { background: #ecfdf5; color: #059669; border-color: #10b981; }
+        .sync-loader { font-size: 10px; animation: spin 1s linear infinite; display: inline-block; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        #instruction-popup, #warning-popup { z-index: 60; background: rgba(15, 23, 42, 0.9); }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 h-screen w-screen flex items-center justify-center p-2 text-right">
+
+    <div class="compact-card">
+        <!-- الشريط العلوي -->
+        <div class="top-info-bar">
+            <div class="flex items-center gap-2 overflow-hidden">
+                <i class="fas fa-user-graduate text-blue-500 text-xs"></i>
+                <span id="top-student-name" class="truncate font-black">جاري التحميل..</span>
+            </div>
+            <div class="flex items-center gap-2 bg-white px-2 py-0.5 rounded-full border shadow-sm font-bold">
+                <span id="sync-icon" class="hidden"><i class="fas fa-sync sync-loader text-blue-400"></i></span>
+                <i class="fas fa-star text-yellow-500 text-[9px]"></i>
+                <span id="top-prev-score">٠ / ٥</span>
+            </div>
+        </div>
+
+        <!-- الشاشة 1: البداية -->
+        <div id="start-screen" class="p-6 text-center flex flex-col gap-3 h-full justify-center">
+            <div>
+                <i class="fas fa-brain text-4xl text-blue-600 mb-2"></i>
+                <h1 class="text-xl font-black text-slate-800 leading-tight">تحدي العباقرة المطور</h1>
+                <p class="text-xs font-bold text-slate-400 uppercase tracking-tighter">كثيرات الحدود V19.10</p>
+            </div>
+            <div class="bg-blue-50 p-3 rounded-xl border border-blue-100 text-[10px] font-bold text-blue-700 leading-relaxed">
+                قاعدة النجاح: يجب حل سؤال صحيح من كل قسم (الدرجة، المعامل، الصورة) لتسجيل نتيجتك!
+            </div>
+            <div class="flex flex-row gap-2 items-stretch mt-1">
+                <button onclick="showInstructions()" class="btn-touch flex-[2.5] bg-blue-600 text-white shadow-lg text-lg">
+                    دخول السباق <i class="fas fa-bolt mr-1"></i>
+                </button>
+                <button onclick="fetchAndShowLeaderboard(true)" class="btn-touch flex-1 bg-white text-slate-600 border border-slate-200 text-[9px] flex-col py-2">
+                    <i class="fas fa-trophy text-yellow-500 text-lg mb-1"></i>
+                    <span>الأبطال</span>
+                </button>
+            </div>
+            <p class="text-[9px] text-slate-400 font-bold mt-1 tracking-widest uppercase text-center w-full">أ. عبد العزيز خالد العبلان</p>
+        </div>
+
+        <!-- شاشة التعليمات -->
+        <div id="instruction-popup" class="hidden absolute inset-0 flex items-center justify-center p-6">
+            <div class="bg-white rounded-3xl p-6 shadow-2xl text-center max-w-[340px] border-4 border-blue-500">
+                <h2 class="text-lg font-black text-blue-600 mb-4">💡 استراتيجية الحل (٢٧ سؤالاً)</h2>
+                <div class="space-y-4 text-xs font-bold text-slate-600 text-right leading-relaxed">
+                    <div class="flex gap-2">
+                        <span class="text-xl">🟢</span>
+                        <p><span class="text-blue-600 font-black">المستوى السهل:</span> وحيدات حد بسيطة (لاحظ المعاملات المختفية!).</p>
+                    </div>
+                    <div class="flex gap-2 border-t pt-3">
+                        <span class="text-xl">🟡</span>
+                        <p><span class="text-yellow-600 font-black">المستوى المتوسط:</span> كثيرات مبعثرة تتطلب البحث عن الحد الرئيسي.</p>
+                    </div>
+                    <div class="flex gap-2 border-t pt-3">
+                        <span class="text-xl">🔴</span>
+                        <p><span class="text-red-600 font-black">المستوى الصعب:</span> تحتاج لجمع الحدود المتشابهة ذهنياً أولاً.</p>
+                    </div>
+                </div>
+                <button onclick="startGame()" class="btn-touch w-full bg-blue-600 text-white mt-6 shadow-lg shadow-blue-200">لنبدأ التحدي! 🚀</button>
+            </div>
+        </div>
+
+        <!-- شاشة التحذير -->
+        <div id="warning-popup" class="hidden absolute inset-0 flex items-center justify-center p-6">
+            <div class="bg-white rounded-3xl p-6 shadow-2xl text-center max-w-[340px] border-4 border-red-500">
+                <i class="fas fa-exclamation-triangle text-red-500 text-4xl mb-4"></i>
+                <h2 class="text-lg font-black text-red-600 mb-2">تنبيه حرج!</h2>
+                <p class="text-xs font-bold text-slate-600 leading-relaxed mb-6">
+                    لم تقم بحل سؤال صحيح واحد على الأقل من كل قسم. <br>
+                    <span class="text-red-500 underline font-black">ستكون درجتك (صفر) في السجل إذا أنهيت الآن.</span>
+                </p>
+                <div class="flex flex-col gap-2">
+                    <button onclick="hideWarning()" class="btn-touch w-full bg-blue-600 text-white shadow-md">العودة لإكمال الحل ✍️</button>
+                    <button onclick="confirmFinishWithZero()" class="text-[10px] font-black text-red-400 py-2">الاعتماد برصيد صفر على أي حال</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- الشاشة 2: اللعبة -->
+        <div id="game-screen" class="hidden flex flex-col h-full bg-slate-50">
+            <div class="p-2 bg-white border-b flex justify-between items-center shadow-sm">
+                <div class="flex gap-1">
+                    <div id="ind-deg" class="section-tag">الدرجة ✕</div>
+                    <div id="ind-coeff" class="section-tag">المعامل ✕</div>
+                    <div id="ind-std" class="section-tag">الصورة ✕</div>
+                </div>
+                <div class="text-[10px] font-black text-blue-600">النقاط: <span id="live-points">٠</span></div>
+            </div>
+
+            <div class="p-1.5 grid grid-cols-3 gap-2 text-center bg-blue-900 text-white text-[9px] font-black">
+                <div>درجة الكثيرة</div>
+                <div>المعامل الرئيسي</div>
+                <div>الصورة القياسية</div>
+            </div>
+
+            <div id="jeopardy-main-grid" class="jeopardy-grid overflow-y-auto"></div>
+            
+            <div class="mt-auto p-3 text-center border-t bg-white">
+                <button onclick="checkAndFinish()" class="text-[10px] font-black text-blue-500 bg-blue-50 px-4 py-1 rounded-full border border-blue-100">اعتماد النتيجة النهائية</button>
+            </div>
+        </div>
+
+        <!-- الشاشة 3: سؤال Modal -->
+        <div id="question-modal" class="game-modal">
+            <div class="flex-1 overflow-y-auto pr-1">
+                <div class="flex justify-between items-center mb-3">
+                    <span id="modal-category" class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-[9px] font-black">التصنيف</span>
+                    <span id="modal-points" class="text-blue-600 font-black text-xs italic">١٠٠ نقطة</span>
+                </div>
+                
+                <div class="text-center mb-4">
+                    <h2 class="text-md font-black mb-3 text-slate-700 leading-tight" id="question-text">؟</h2>
+                    <div id="math-display" class="bg-slate-50 rounded-xl p-4 border-2 border-dashed border-slate-200 shadow-inner text-xl"></div>
+                </div>
+
+                <div class="options-grid" id="options-container"></div>
+            </div>
+            
+            <div class="mt-2 pt-2 border-t flex flex-col gap-2">
+                <div id="modal-feedback" class="text-center font-black text-xs hidden"></div>
+                <button id="modal-next-btn" onclick="closeQuestionModal()" class="hidden btn-touch w-full bg-blue-600 text-white shadow-lg text-sm">متابعة التحدي <i class="fas fa-arrow-left ml-1"></i></button>
+            </div>
+        </div>
+
+        <!-- الشاشة 4: النتائج -->
+        <div id="result-screen" class="hidden p-5 flex flex-col h-full text-center justify-center">
+            <div id="final-stats" class="grid grid-cols-3 gap-2 mb-4"></div>
+            <div id="success-box" class="p-3 rounded-xl border mb-4">
+                <i id="status-icon" class="text-2xl mb-1"></i>
+                <p id="save-msg" class="font-black text-xs"></p>
+            </div>
+            <button onclick="fetchAndShowLeaderboard(true)" class="btn-touch w-full bg-blue-600 text-white mb-3 shadow-md text-sm">
+                <i class="fas fa-crown ml-1"></i> سجل أبطال العالم
+            </button>
+            <div class="flex gap-2">
+                <button onclick="location.reload()" class="btn-touch flex-1 bg-slate-100 text-slate-600 text-[10px] font-bold">إعادة</button>
+                <button id="finish-btn" class="btn-touch flex-[2] bg-slate-900 text-white text-[10px] font-bold">إنهاء اللعبة</button>
+            </div>
+        </div>
+
+        <!-- سجل الأبطال -->
+        <div id="leaderboard-modal" class="leaderboard-modal hidden-modal">
+            <div class="flex justify-between items-center mb-3 border-b border-slate-100 pb-2">
+                <h3 class="font-black text-slate-800 text-md"><i class="fas fa-trophy text-yellow-500 ml-1"></i>المتصدرون</h3>
+                <button onclick="closeLeaderboardModal()" class="w-7 h-7 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center transition-all hover:bg-red-50 hover:text-red-500"><i class="fas fa-times text-xs"></i></button>
+            </div>
+            <div class="flex gap-2 mb-3">
+                <button onclick="switchTab('class')" id="tab-class" class="tab-btn tab-inactive">أبطال فصلي</button>
+                <button onclick="switchTab('global')" id="tab-global" class="tab-btn tab-active">الكل</button>
+            </div>
+            <div id="modal-body" class="flex-1 overflow-y-auto bg-slate-50 rounded-xl border border-slate-100 p-1 relative">
+                <div id="modal-loader" class="absolute inset-0 flex items-center justify-center hidden bg-white/80 z-10"><div class="sync-loader text-blue-500 text-2xl"><i class="fas fa-sync"></i></div></div>
+                <div id="leaderboard-content" class="space-y-1"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    (function() {
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxqAQlGhNs8k5RwHs6jrWxDiDwaMABSx8a9Fl81O5oVVa5fHRWTwIEvsGy2cSDP4zGLWQ/exec";
+        const urlParams = new URLSearchParams(window.location.search);
+        const GAME_ID = urlParams.get('gameId') || 'g6_3_1';
+        const studentId = urlParams.get('studentId') || urlParams.get('userId');
+        const classId = urlParams.get('classId');
+        
+        let studentName = decodeURIComponent(urlParams.get('name') || urlParams.get('studentName') || urlParams.get('username') || "بطل التحدي");
+        let currentPoints = 0, questionsDone = 0, startTime = 0;
+        let solvedSections = { deg: false, coeff: false, std: false };
+        let currentLeaderboardMode = classId ? 'class' : 'global';
+        let localVisitorResult = null;
+
+        const toAr = (n) => String(n).replace(/\d/g, d => "٠١٢٣٤٥٦٧٨٩"[d]);
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('top-student-name').textContent = studentName;
+            if (!classId) document.getElementById('tab-class').style.display = 'none';
+            if (studentId && classId) {
+                document.getElementById('sync-icon').classList.remove('hidden');
+                fetchInitialCloudData();
+            }
+            renderJeopardyGrid();
+        });
+
+        async function fetchInitialCloudData() {
+            try {
+                const url = `${SCRIPT_URL}?action=getStudentData&studentId=${studentId}&classId=${encodeURIComponent(classId)}&itemId=${GAME_ID}&t=${Date.now()}`;
+                const res = await (await fetch(url)).json();
+                if (res.status === 'success' && res.data) {
+                    if (res.data.name) { studentName = res.data.name; document.getElementById('top-student-name').textContent = studentName; }
+                    if (res.data.games && res.data.games[GAME_ID]) document.getElementById('top-prev-score').textContent = toAr(parseFloat(res.data.games[GAME_ID].grade).toFixed(1)) + " / ٥";
+                }
+            } catch (e) {} finally { document.getElementById('sync-icon').classList.add('hidden'); }
+        }
+
+        // --- بنك الأسئلة المحدث (27 سؤالاً مع تعديل المعامل 1 المضمر) ---
+        const gameBank = {
+            deg: {
+                easy: [
+                    { pts: 100, q: "ما درجة وحيدة الحد التالية؟", math: [{type:'poly', c:'٣', p:'٢'}], options: [[{type:'const', v:'١'}], [{type:'const', v:'٢'}], [{type:'const', v:'٣'}], [{type:'const', v:'٠'}]], correct: 1 },
+                    { pts: 100, q: "ما درجة وحيدة الحد التالية؟", math: [{type:'poly', c:'٥', p:'٤'}], options: [[{type:'const', v:'٥'}], [{type:'const', v:'٤'}], [{type:'const', v:'٩'}], [{type:'const', v:'٠'}]], correct: 1 },
+                    { pts: 100, q: "ما درجة وحيدة الحد التالية؟", math: [{type:'poly', c:'-٢', p:'٣'}], options: [[{type:'const', v:'٣'}], [{type:'const', v:'-٢'}], [{type:'const', v:'١'}], [{type:'const', v:'٠'}]], correct: 0 }
+                ],
+                med: [
+                    { pts: 200, q: "حدد درجة كثيرة الحدود (المبعثرة):", math: [{type:'const', v:'٢'}, {type:'op', v:'+'}, {type:'poly', c:'٧', p:'١'}, {type:'op', v:'-'}, {type:'poly', c:'٤', p:'٣'}], options: [[{type:'const', v:'١'}], [{type:'const', v:'٢'}], [{type:'const', v:'٣'}], [{type:'const', v:'٧'}]], correct: 2 },
+                    { pts: 200, q: "حدد درجة كثيرة الحدود (المبعثرة):", math: [{type:'poly', c:'٥', p:'٢'}, {type:'op', v:'-'}, {type:'const', v:'١'}, {type:'op', v:'+'}, {type:'poly', c:'', p:'٤'}], options: [[{type:'const', v:'٢'}], [{type:'const', v:'١'}], [{type:'const', v:'٤'}], [{type:'const', v:'٥'}]], correct: 2 },
+                    { pts: 200, q: "حدد درجة كثيرة الحدود (المبعثرة):", math: [{type:'poly', c:'', p:'١'}, {type:'op', v:'-'}, {type:'const', v:'٩'}, {type:'op', v:'+'}, {type:'poly', c:'٣', p:'٢'}], options: [[{type:'const', v:'١'}], [{type:'const', v:'٢'}], [{type:'const', v:'٣'}], [{type:'const', v:'٩'}]], correct: 1 }
+                ],
+                hard: [
+                    { pts: 300, q: "بسط ثم أوجد الدرجة (اجمع الحدود المتشابهة):", math: [{type:'poly', c:'٤', p:'٦'}, {type:'op', v:'+'}, {type:'poly', c:'', p:'٥'}, {type:'op', v:'-'}, {type:'poly', c:'٢', p:'٦'}], options: [[{type:'const', v:'٥'}], [{type:'const', v:'٦'}], [{type:'const', v:'١١'}], [{type:'const', v:'١'}]], correct: 1 },
+                    { pts: 300, q: "بسط ثم أوجد الدرجة (اجمع الحدود المتشابهة):", math: [{type:'poly', c:'٣', p:'٢'}, {type:'op', v:'+'}, {type:'poly', c:'٥', p:'٣'}, {type:'op', v:'-'}, {type:'poly', c:'٣', p:'٢'}], options: [[{type:'const', v:'٢'}], [{type:'const', v:'٣'}], [{type:'const', v:'٥'}], [{type:'const', v:'٠'}]], correct: 2 },
+                    { pts: 300, q: "بسط ثم أوجد الدرجة (اجمع الحدود المتشابهة):", math: [{type:'poly', c:'', p:'٤'}, {type:'op', v:'+'}, {type:'poly', c:'٢', p:'٤'}, {type:'op', v:'+'}, {type:'const', v:'٥'}], options: [[{type:'const', v:'٤'}], [{type:'const', v:'٨'}], [{type:'const', v:'٥'}], [{type:'const', v:'٣'}]], correct: 0 }
+                ]
+            },
+            coeff: {
+                easy: [
+                    { pts: 100, q: "ما المعامل الرئيسي لوحيدة الحد؟", math: [{type:'poly', c:'٥', p:'٣'}], options: [[{type:'const', v:'٥'}], [{type:'const', v:'٣'}], [{type:'const', v:'١٥'}], [{type:'const', v:'١'}]], correct: 0 },
+                    { pts: 100, q: "ما المعامل الرئيسي لوحيدة الحد؟", math: [{type:'poly', c:'-٧', p:'٤'}], options: [[{type:'const', v:'٤'}], [{type:'const', v:'-٧'}], [{type:'const', v:'٧'}], [{type:'const', v:'-٤'}]], correct: 1 },
+                    { pts: 100, q: "ما المعامل الرئيسي لوحيدة الحد؟", math: [{type:'poly', c:'', p:'٢'}], options: [[{type:'const', v:'٢'}], [{type:'const', v:'١'}], [{type:'const', v:'س'}], [{type:'const', v:'٠'}]], correct: 1 }
+                ],
+                med: [
+                    { pts: 200, q: "حدد المعامل الرئيسي (المبعثرة):", math: [{type:'poly', c:'٤', p:'١'}, {type:'op', v:'-'}, {type:'poly', c:'', p:'٢'}, {type:'op', v:'+'}, {type:'const', v:'٥'}], options: [[{type:'const', v:'٤'}], [{type:'const', v:'١'}], [{type:'const', v:'-١'}], [{type:'const', v:'٠'}]], correct: 2 },
+                    { pts: 200, q: "حدد المعامل الرئيسي (المبعثرة):", math: [{type:'const', v:'١٢'}, {type:'op', v:'+'}, {type:'poly', c:'٣', p:'٤'}, {type:'op', v:'-'}, {type:'poly', c:'', p:'١'}], options: [[{type:'const', v:'١٢'}], [{type:'const', v:'٣'}], [{type:'const', v:'-١'}], [{type:'const', v:'٤'}]], correct: 1 },
+                    { pts: 200, q: "حدد المعامل الرئيسي (المبعثرة):", math: [{type:'poly', c:'-٨', p:'١'}, {type:'op', v:'+'}, {type:'const', v:'٢'}, {type:'op', v:'-'}, {type:'poly', c:'٥', p:'٣'}], options: [[{type:'const', v:'-٨'}], [{type:'const', v:'٢'}], [{type:'const', v:'-٥'}], [{type:'const', v:'٥'}]], correct: 2 }
+                ],
+                hard: [
+                    { pts: 300, q: "بسط ثم حدد المعامل الرئيسي:", math: [{type:'poly', c:'٧', p:'٢'}, {type:'op', v:'+'}, {type:'poly', c:'٥', p:'٣'}, {type:'op', v:'-'}, {type:'poly', c:'٢', p:'٣'}], options: [[{type:'const', v:'٧'}], [{type:'const', v:'٥'}], [{type:'const', v:'٣'}], [{type:'const', v:'٢'}]], correct: 2 },
+                    { pts: 300, q: "بسط ثم حدد المعامل الرئيسي:", math: [{type:'poly', c:'', p:'٤'}, {type:'op', v:'+'}, {type:'poly', c:'٢', p:'٤'}, {type:'op', v:'+'}, {type:'const', v:'٥'}], options: [[{type:'const', v:'١'}], [{type:'const', v:'٢'}], [{type:'const', v:'٣'}], [{type:'const', v:'٥'}]], correct: 2 },
+                    { pts: 300, q: "بسط ثم حدد المعامل الرئيسي:", math: [{type:'poly', c:'١٠', p:'٢'}, {type:'op', v:'-'}, {type:'poly', c:'٤', p:'٢'}, {type:'op', v:'+'}, {type:'poly', c:'', p:'١'}], options: [[{type:'const', v:'١٠'}], [{type:'const', v:'٦'}], [{type:'const', v:'٤'}], [{type:'const', v:'١'}]], correct: 1 }
+                ]
+            },
+            std: {
+                easy: [
+                    { pts: 100, q: "أي مما يلي يمثل الصورة القياسية لـ:", math: [{type:'const', v:'٢'}, {type:'op', v:'+'}, {type:'poly', c:'', p:'٢'}], options: [[{type:'const', v:'٢'}, {type:'op', v:'+'}, {type:'poly', c:'', p:'٢'}], [{type:'poly', c:'', p:'٢'}, {type:'op', v:'+'}, {type:'const', v:'٢'}], [{type:'poly', c:'٢', p:'٢'}], [{type:'const', v:'٤'}]], correct: 1 },
+                    { pts: 100, q: "أي مما يلي يمثل الصورة القياسية لـ:", math: [{type:'const', v:'٥'}, {type:'op', v:'+'}, {type:'poly', c:'٣', p:'١'}], options: [[{type:'poly', c:'٣', p:'١'}, {type:'op', v:'+'}, {type:'const', v:'٥'}], [{type:'const', v:'٥'}, {type:'op', v:'+'}, {type:'poly', c:'٣', p:'١'}], [{type:'poly', c:'٨', p:'١'}], [{type:'const', v:'٨'}]], correct: 0 },
+                    { pts: 100, q: "أي مما يلي يمثل الصورة القياسية لـ:", math: [{type:'poly', c:'', p:'١'}, {type:'op', v:'+'}, {type:'const', v:'٨'}], options: [[{type:'const', v:'٨'}, {type:'op', v:'+'}, {type:'poly', c:'', p:'١'}], [{type:'poly', c:'', p:'١'}, {type:'op', v:'+'}, {type:'const', v:'٨'}], [{type:'poly', c:'٨', p:'١'}], [{type:'const', v:'٠'}]], correct: 1 }
+                ],
+                med: [
+                    { pts: 200, q: "حول المبعثرة للصورة القياسية:", math: [{type:'poly', c:'٥', p:'١'}, {type:'op', v:'-'}, {type:'poly', c:'٣', p:'٢'}, {type:'op', v:'+'}, {type:'const', v:'٧'}], options: [[{type:'poly', c:'-٣', p:'٢'}, {type:'op', v:'+'}, {type:'poly', c:'٥', p:'١'}, {type:'op', v:'+'}, {type:'const', v:'٧'}], [{type:'const', v:'٧'}, {type:'op', v:'+'}, {type:'poly', c:'٥', p:'١'}, {type:'op', v:'-'}, {type:'poly', c:'٣', p:'٢'}], [{type:'poly', c:'٣', p:'٢'}, {type:'op', v:'+'}, {type:'poly', c:'٥', p:'١'}, {type:'op', v:'+'}, {type:'const', v:'٧'}], [{type:'const', v:'٥'}]], correct: 0 },
+                    { pts: 200, q: "حول المبعثرة للصورة القياسية:", math: [{type:'const', v:'٤'}, {type:'op', v:'+'}, {type:'poly', c:'', p:'٣'}, {type:'op', v:'-'}, {type:'poly', c:'٢', p:'١'}], options: [[{type:'poly', c:'', p:'٣'}, {type:'op', v:'-'}, {type:'poly', c:'٢', p:'١'}, {type:'op', v:'+'}, {type:'const', v:'٤'}], [{type:'poly', c:'٣', p:'٣'}, {type:'const', v:'٤'}]], correct: 0 },
+                    { pts: 200, q: "حول المبعثرة للصورة القياسية:", math: [{type:'poly', c:'٩', p:'٢'}, {type:'op', v:'+'}, {type:'const', v:'١'}, {type:'op', v:'-'}, {type:'poly', c:'', p:'٤'}], options: [[{type:'poly', c:'-١', p:'٤'}, {type:'op', v:'+'}, {type:'poly', c:'٩', p:'٢'}, {type:'op', v:'+'}, {type:'const', v:'١'}], [{type:'poly', c:'٩', p:'٢'}, {type:'const', v:'١'}]], correct: 0 }
+                ],
+                hard: [
+                    { pts: 300, q: "بسط ثم اكتب الصورة القياسية:", math: [{type:'poly', c:'', p:'٢'}, {type:'op', v:'+'}, {type:'poly', c:'٣', p:'٣'}, {type:'op', v:'-'}, {type:'poly', c:'', p:'٢'}, {type:'op', v:'+'}, {type:'const', v:'١'}], options: [[{type:'poly', c:'', p:'٢'}, {type:'op', v:'+'}, {type:'poly', c:'٣', p:'٣'}], [{type:'poly', c:'٣', p:'٣'}, {type:'op', v:'+'}, {type:'const', v:'١'}], [{type:'const', v:'١'}, {type:'op', v:'+'}, {type:'poly', c:'٣', p:'٣'}], [{type:'const', v:'٣'}]], correct: 1 },
+                    { pts: 300, q: "بسط ثم اكتب الصورة القياسية:", math: [{type:'poly', c:'٥', p:'٤'}, {type:'op', v:'+'}, {type:'const', v:'٢'}, {type:'op', v:'-'}, {type:'poly', c:'', p:'٤'}], options: [[{type:'poly', c:'٤', p:'٤'}, {type:'op', v:'+'}, {type:'const', v:'٢'}], [{type:'poly', c:'٦', p:'٤'}, {type:'op', v:'+'}, {type:'const', v:'٢'}]], correct: 0 },
+                    { pts: 300, q: "بسط ثم اكتب الصورة القياسية:", math: [{type:'poly', c:'', p:'١'}, {type:'op', v:'+'}, {type:'poly', c:'٤', p:'٢'}, {type:'op', v:'+'}, {type:'poly', c:'', p:'١'}], options: [[{type:'poly', c:'٤', p:'٢'}, {type:'op', v:'+'}, {type:'poly', c:'٢', p:'١'}], [{type:'poly', c:'٦', p:'٢'}]], correct: 0 }
+                ]
+            }
+        };
+
+        function renderJeopardyGrid() {
+            const container = document.getElementById('jeopardy-main-grid');
+            const ptsList = ['easy', 'med', 'hard'], cats = ['deg', 'coeff', 'std'];
+            const labels = {easy: 'سهل', med: 'متوسط', hard: 'صعب'}, ptsVal = {easy: '١٠٠', med: '٢٠٠', hard: '٣٠٠'};
+            container.innerHTML = '';
+            ptsList.forEach(lvl => {
+                cats.forEach(c => {
+                    const card = document.createElement('div');
+                    card.className = 'card-inner shadow-sm';
+                    card.id = `card-${c}-${lvl}`;
+                    card.innerHTML = `<span class="level-label">${labels[lvl]}</span><span class="pts-label">${ptsVal[lvl]}</span>`;
+                    card.onclick = () => openQuestion(c, lvl, card);
+                    container.appendChild(card);
+                });
+            });
+        }
+
+        function createMathHTML(terms) {
+            let html = '<div class="flex flex-wrap items-center justify-center gap-1" dir="rtl">';
+            terms.forEach(t => {
+                if (t.type === 'poly') {
+                    html += `<div class="math-term">`;
+                    let c = t.c || ''; if (c === '١') c = ''; else if (c === '-١') c = '-';
+                    if (c) html += `<span>${toAr(c)}</span>`;
+                    html += `<span class="math-var">س</span>`;
+                    if (t.p && t.p !== '١' && t.p !== '') html += `<span class="math-pow">${toAr(t.p)}</span>`;
+                    html += `</div>`;
+                } else if (t.type === 'frac_poly') {
+                    html += `<div class="flex items-center"><div class="math-frac"><span class="frac-num">${toAr(t.n)}</span><span class="frac-den">${toAr(t.d)}</span></div><div class="math-term"><span class="math-var">س</span>${t.p ? `<span class="math-pow">${toAr(t.p)}</span>`: ''}</div></div>`;
+                } else if (t.type === 'const') html += `<span>${toAr(t.v)}</span>`;
+                else if (t.type === 'op') html += `<span class="mx-0.5 text-blue-500 font-bold">${t.v}</span>`;
+            });
+            return html + '</div>';
+        }
+
+        window.showInstructions = () => { document.getElementById('instruction-popup').classList.remove('hidden'); };
+        window.hideWarning = () => { document.getElementById('warning-popup').classList.add('hidden'); };
+
+        window.startGame = () => { 
+            document.getElementById('start-screen').classList.add('hidden'); 
+            document.getElementById('instruction-popup').classList.add('hidden');
+            document.getElementById('game-screen').classList.remove('hidden'); 
+            startTime = Date.now();
+        };
+
+        function openQuestion(cat, lvl, element) {
+            if (element.classList.contains('disabled-correct') || element.classList.contains('disabled-wrong')) return;
+            const questionsArray = gameBank[cat][lvl];
+            const data = questionsArray[Math.floor(Math.random() * questionsArray.length)];
+            document.getElementById('modal-category').textContent = {deg:'الدرجة', coeff:'المعامل', std:'الصورة'}[cat];
+            document.getElementById('modal-points').textContent = toAr(data.pts) + ' نقطة';
+            document.getElementById('question-text').textContent = data.q;
+            document.getElementById('math-display').innerHTML = createMathHTML(data.math);
+            const container = document.getElementById('options-container');
+            container.innerHTML = '';
+            data.options.forEach((opt, idx) => {
+                const btn = document.createElement('button');
+                btn.className = 'option-btn shadow-sm';
+                btn.innerHTML = createMathHTML(opt);
+                btn.onclick = () => handleAnswer(idx, data.correct, data.pts, cat, btn, element);
+                container.appendChild(btn);
+            });
+            document.getElementById('modal-feedback').classList.add('hidden');
+            document.getElementById('modal-next-btn').classList.add('hidden');
+            document.getElementById('question-modal').classList.add('active');
+        }
+
+        function handleAnswer(idx, correct, pts, cat, btn, element) {
+            const feedback = document.getElementById('modal-feedback');
+            const btns = document.querySelectorAll('.option-btn');
+            btns.forEach(b => b.onclick = null);
+            if (idx === correct) {
+                btn.classList.add('bg-green-100', 'border-green-500', 'text-green-700');
+                feedback.textContent = 'صحيح! + ' + toAr(pts);
+                feedback.className = 'text-center font-black text-xs text-green-600';
+                currentPoints += pts; solvedSections[cat] = true; updateIndicators();
+                element.className = 'card-inner disabled-correct shadow-inner';
+                element.innerHTML = '<i class="fas fa-check-circle text-2xl"></i>';
+            } else {
+                btn.classList.add('bg-red-100', 'border-red-500', 'text-red-700');
+                btns[correct].classList.add('bg-green-50', 'border-green-300');
+                feedback.textContent = 'إجابة غير صحيحة';
+                feedback.className = 'text-center font-black text-xs text-red-500';
+                element.className = 'card-inner disabled-wrong shadow-inner';
+                element.innerHTML = '<i class="fas fa-times-circle text-2xl"></i>';
+            }
+            document.getElementById('live-points').textContent = toAr(currentPoints);
+            feedback.classList.remove('hidden');
+            document.getElementById('modal-next-btn').classList.remove('hidden');
+            questionsDone++;
+        }
+
+        function updateIndicators() {
+            if (solvedSections.deg) document.getElementById('ind-deg').className = 'section-tag success';
+            if (solvedSections.coeff) document.getElementById('ind-coeff').className = 'section-tag success';
+            if (solvedSections.std) document.getElementById('ind-std').className = 'section-tag success';
+        }
+
+        window.closeQuestionModal = () => {
+            document.getElementById('question-modal').classList.remove('active');
+            if (questionsDone === 9) checkAndFinish();
+        };
+
+        window.checkAndFinish = () => {
+            const isQualified = solvedSections.deg && solvedSections.coeff && solvedSections.std;
+            if (!isQualified) document.getElementById('warning-popup').classList.remove('hidden');
+            else processFinalResult();
+        };
+
+        window.confirmFinishWithZero = () => {
+            document.getElementById('warning-popup').classList.add('hidden');
+            processFinalResult();
+        };
+
+        function processFinalResult() {
+            const timeElapsed = Math.floor((Date.now() - startTime) / 1000);
+            const isQualified = solvedSections.deg && solvedSections.coeff && solvedSections.std;
+            const finalGrade = isQualified ? ((currentPoints / 1800) * 5).toFixed(1) : "0.0";
+            document.getElementById('game-screen').classList.add('hidden');
+            document.getElementById('result-screen').classList.remove('hidden');
+            document.getElementById('final-stats').innerHTML = `
+                <div class="bg-blue-50 p-2 rounded-xl border border-blue-100 flex flex-col justify-center text-center">
+                    <p class="text-[8px] font-bold text-blue-400 uppercase">النقاط</p>
+                    <p class="text-[10px] font-black">${toAr(currentPoints)}</p>
+                </div>
+                <div class="bg-emerald-50 p-2 rounded-xl border border-emerald-100 flex flex-col justify-center shadow-sm text-center">
+                    <p class="text-[8px] font-bold text-emerald-600 uppercase">الدرجة</p>
+                    <p class="text-xl font-black text-emerald-900">${toAr(finalGrade)}</p>
+                </div>
+                <div class="bg-purple-50 p-2 rounded-xl border border-purple-100 flex flex-col justify-center text-center">
+                    <p class="text-[8px] font-bold text-purple-400 uppercase">الوقت</p>
+                    <p class="text-xl font-black text-purple-900">${toAr(timeElapsed)}ث</p>
+                </div>`;
+            const box = document.getElementById('success-box'), msg = document.getElementById('save-msg'), icon = document.getElementById('status-icon');
+            if (isQualified) {
+                box.className = "p-3 rounded-xl border mb-4 bg-green-50 border-green-100";
+                icon.className = "fas fa-medal text-green-500 text-2xl mb-1";
+                msg.textContent = "أبدعت يا بطل! لقد حققت شرط النجاح في جميع الأقسام بنجاح.";
+                saveToCloud(finalGrade, timeElapsed);
+            } else {
+                box.className = "p-3 rounded-xl border mb-4 bg-red-50 border-red-100";
+                icon.className = "fas fa-exclamation-circle text-red-500 text-2xl mb-1";
+                msg.textContent = "عذراً! لم تحقق شرط الحل في كل قسم. درجتك صفر.";
+                saveToCloud(0, timeElapsed);
+            }
+            document.getElementById('finish-btn').onclick = () => window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*');
+        }
+
+        async function saveToCloud(g, met) {
+            if (!studentId || !classId) {
+                localVisitorResult = { name: studentName, grade: g, metric: met, isLocal: true };
+                fetchAndShowLeaderboard(false);
+                return;
+            }
+            const p = new URLSearchParams({ action: 'saveScore', studentId, classId, itemId: GAME_ID, score: g, metricValue: met, type: 'game' });
+            try { 
+                await fetch(`${SCRIPT_URL}?${p.toString()}`); 
+            } catch (e) {
+                console.warn("Cloud connection error (Save):", e);
+            } finally { 
+                fetchAndShowLeaderboard(false); 
+            }
+        }
+
+        window.fetchAndShowLeaderboard = async function(isManual = false) {
+            const modal = document.getElementById('leaderboard-modal');
+            if (isManual) { modal.classList.remove('hidden-modal'); modal.classList.add('visible-modal'); }
+            const content = document.getElementById('leaderboard-content');
+            document.getElementById('modal-loader').classList.remove('hidden');
+            
+            let reqClassId = (currentLeaderboardMode === 'class') ? classId : 'all';
+            const url = `${SCRIPT_URL}?action=getLeaderboard&gameId=${GAME_ID}&classId=${encodeURIComponent(reqClassId || 'all')}&t=${Date.now()}`;
+            
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error("HTTP error");
+                const res = await response.json();
+                
+                let data = (res.status === 'success' && res.data) ? res.data : [];
+                
+                if (localVisitorResult && (currentLeaderboardMode === 'global' || !classId)) {
+                    if (!data.find(p => p.name === localVisitorResult.name)) data.push(localVisitorResult);
+                    data.sort((a, b) => parseFloat(b.grade) - parseFloat(a.grade) || parseFloat(a.metric) - parseFloat(b.metric));
+                }
+
+                if (data.length > 0) {
+                    let h = `<table class="w-full text-right text-[10px] border-collapse"><thead class="text-slate-400 border-b border-slate-100 bg-slate-50/50"><tr><th class="p-2 text-center">#</th><th class="p-2 text-right">البطل</th><th class="p-2 text-center">الدرجة</th></tr></thead><tbody class="divide-y divide-slate-50">`;
+                    data.forEach((p, i) => {
+                        const isMe = (studentId && String(p.name).trim() === String(studentName).trim()) || p.isLocal;
+                        h += `<tr class="${isMe ? 'rank-row-me' : ''}">
+                            <td class="p-2 text-center ${i<3 ? 'text-xs' : 'text-slate-400'} font-black">${i < 3 ? ['🥇','🥈','🥉'][i] : toAr(i+1)}</td>
+                            <td class="p-2 font-black ${isMe ? 'text-blue-700' : 'text-slate-700'}">${p.name} ${isMe ? '<span class="bg-blue-600 text-white text-[7px] px-1 rounded-full mx-1">أنت</span>' : ''}</td>
+                            <td class="p-2 text-center"><span class="text-emerald-600 font-black">${toAr(parseFloat(p.grade).toFixed(1))}</span></td>
+                        </tr>`;
+                    });
+                    content.innerHTML = h + `</tbody></table>`;
+                } else {
+                    content.innerHTML = `<div class="py-6 text-center text-slate-400 text-[10px] italic font-bold">بانتظار تسجيل الأبطال..</div>`;
+                }
+            } catch (e) {
+                console.warn("Leaderboard fetch failed:", e);
+                content.innerHTML = `<div class="py-10 text-center flex flex-col items-center gap-2">
+                    <i class="fas fa-wifi text-slate-300 text-2xl"></i>
+                    <p class="text-slate-400 text-[10px] font-bold">عذراً، تعذر الاتصال بالسجل السحابي حالياً.</p>
+                </div>`;
+            } finally { 
+                document.getElementById('modal-loader').classList.add('hidden'); 
+            }
+        };
+
+        window.switchTab = (mode) => { currentLeaderboardMode = mode; document.getElementById('tab-class').className = mode === 'class' ? 'tab-btn tab-active' : 'tab-btn tab-inactive'; document.getElementById('tab-global').className = mode === 'global' ? 'tab-btn tab-active' : 'tab-btn tab-inactive'; fetchAndShowLeaderboard(false); };
+        window.closeLeaderboardModal = () => document.getElementById('leaderboard-modal').classList.replace('visible-modal', 'hidden-modal');
+    })();
+    </script>
+</body>
+</html>

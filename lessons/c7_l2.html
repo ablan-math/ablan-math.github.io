@@ -2,8 +2,24 @@
     🛑🛑 منطقة محظورة للمطورين والذكاء الاصطناعي (STRICT PROTOCOL) 🛑🛑
     =========================================================================
     بروتوكول التعامل مع هذا القالب (Master Template V2):
-    1. الثوابت المقدسة (Do Not Touch): دوال الاتصال، محرك الهوية، منطق جلب الألعاب، زر التحقق، المؤقت.
-    2. مرونة المفاهيم: القالب يحتوي على 4 مفاهيم (Tabs).
+
+    1. الثوابت المقدسة (Do Not Touch):
+       - ممنوع منعاً باتاً تعديل أو حذف دوال الاتصال (fetchStudentData, saveScoreToBackend).
+       - ممنوع تعديل "محرك الهوية" (Theme Engine) أو قاموس الألوان (CHAPTER_THEMES).
+       - ممنوع تغيير منطق "جلب الألعاب" (renderDynamicGames).
+       - ⚠️ ممنوع المساس بمنطق "زر التحقق" (Quiz Button Logic): تحوله التلقائي من (تحقق) -> (إعادة) -> (انتهت المحاولات).
+       - ⚠️ ممنوع حذف أو إخفاء "المؤقت العلوي و السفلي" (Bottom Timer) الذي يظهر عند استنفاد المحاولات.
+       - ⚠️ ممنوع تغيير هيكلية "أزرار التوجيه الثلاثة" (لماذا؟ - الحل الذكي - مراجعة الدرس) بعد الإجابة (يسمح فقط بتغيير نص الشرح داخلها).
+
+    2. مرونة المفاهيم (Concept Flexibility):
+       - القالب يحتوي افتراضياً على 4 مفاهيم (Tabs).
+       - ✅ مسموح جداً ومتوقع حذف "المفهوم الرابع" (Tab 4) أو "الثالث" إذا كان الدرس قصيراً.
+       - عند حذف تبويب، تأكد من حذف كود HTML الخاص به فقط. الكود البرمجي (JS) ذكي وسيتأقلم تلقائياً.
+
+    3. التخصيص المسموح (Allowed Edits):
+       - تغيير قيمة LESSON_KEY في الـ <head> لتطابق الدرس (نمط: cX_lY).
+       - تغيير النصوص العربية في بنك الأسئلة (questionBank).
+       - تغيير النصوص والعناوين داخل التبويبات.
     =========================================================================
 -->
 <!DOCTYPE html>
@@ -13,49 +29,29 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>٧-٢ استعمال خاصية التوزيع</title>
     
+    <!-- LIBRARIES -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <script src="https://unpkg.com/lucide@latest"></script>
 
-    <!-- [THEME DICTIONARY & GLOBAL VARS] -->
+    <!-- [THEME DICTIONARY] -->
     <script>
         const LESSON_KEY = 'c7_l2'; 
-        const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxqAQlGhNs8k5RwHs6jrWxDiDwaMABSx8a9Fl81O5oVVa5fHRWTwIEvsGy2cSDP4zGLWQ/exec"; 
-        const urlParams = new URLSearchParams(window.location.search);
-        
-        const ATTEMPTS_KEY = 'quiz_attempts_' + LESSON_KEY;
-        const NEXT_ATTEMPT_KEY = 'quiz_next_attempt_' + LESSON_KEY;
-        const COOLDOWN_MS = 24 * 60 * 60 * 1000;
-
         function convertToArabic(n) { return n.toString().replace(/\d/g, d => "٠١٢٣٤٥٦٧٨٩"[d]); }
 
-        const tabs = [
-            { id: 'learn1', icon: 'share-2', label: 'التوزيع' },
-            { id: 'learn2', icon: 'layers', label: 'تجميع الحدود' },
-            { id: 'learn3', icon: 'crosshair', label: 'الضرب الصفري' },
-            { id: 'learn4', icon: 'globe', label: 'واقع الحياة' },
-            { id: 'quiz', icon: 'clipboard-check', label: 'الاختبار' }
-        ];
-
-        const typeLabels = { 
-            'learn1': 'خاصية التوزيع', 
-            'learn2': 'تجميع الحدود', 
-            'learn3': 'الضرب الصفري', 
-            'learn4': 'واقع الحياة', 
-            'mixed': 'تحدي ذكاء' 
-        };
-
         const CHAPTER_THEMES = {
+            '6': { name: 'كثيرات الحدود', gradient: 'from-blue-600 to-blue-800', baseColor: 'blue', hex: '#2563eb', icon: 'fa-graduation-cap' },
             '7': { name: 'التحليل والمعادلات التربيعية', gradient: 'from-purple-600 to-purple-800', baseColor: 'purple', hex: '#9333ea', icon: 'fa-puzzle-piece' },
+            '8': { name: 'الدوال التربيعية', gradient: 'from-emerald-600 to-emerald-800', baseColor: 'emerald', hex: '#059669', icon: 'fa-bezier-curve' },
             'default': { gradient: 'from-gray-700 to-gray-900', baseColor: 'gray', hex: '#374151', icon: 'fa-book' }
         };
 
         function getTheme() {
             const match = LESSON_KEY.match(/c(\d+)/);
-            const chNum = match ? match[1] : '7';
+            const chNum = match ? match[1] : 'default';
             const theme = CHAPTER_THEMES[chNum] || CHAPTER_THEMES['default'];
-            theme.chNum = chNum;
+            theme.chNum = chNum === 'default' ? '#' : chNum;
             return theme;
         }
         const currentTheme = getTheme();
@@ -70,68 +66,70 @@
         :root { --theme-hex: #9333ea; }
 
         .math-eq { font-family: 'Cairo', sans-serif; font-weight: 700; color: #4338ca; background-color: #f3f4f6; border: 1px solid #d1d5db; padding: 2px 8px; border-radius: 4px; display: inline-block; direction: rtl; unicode-bidi: embed; vertical-align: middle; line-height: 1.8; }
-        .tiny-sup { font-size: 0.7em; vertical-align: baseline; position: relative; top: -0.6em; line-height: 0; }
+        .tiny-sup { font-size: 0.7em; vertical-align: baseline; position: relative; top: -0.6em; margin-right: 1px; line-height: 0; }
         
         .btn-theme { background-color: var(--theme-hex); color: white; transition: all 0.3s ease; }
         .btn-theme:hover { filter: brightness(0.85); transform: translateY(-1px); }
 
-        .step-box { border-right: 4px solid var(--theme-hex); background: #f9fafb; padding: 12px; margin-bottom: 12px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-        .step-interactive { display: none; opacity: 0; } 
-        .step-interactive.active { display: block; opacity: 1; animation: slideIn 0.4s ease-out; }
+        .step-box { border-right: 3px solid var(--theme-hex); background: #f9fafb; padding: 10px; margin-bottom: 8px; border-radius: 6px; }
         
-        @keyframes slideIn { from { transform: translateY(10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-
-        .factor-circle { border-radius: 50%; padding: 0 4px; display: inline-block; margin: 0 1px; font-weight: 800; transform: scale(1.05); box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
-        .factor-green { border: 2.5px solid #16a34a; background-color: #f0fdf4; color: #166534; }
-        .factor-red { border: 2.5px solid #dc2626; background-color: #fef2f2; color: #991b1b; }
-        .factor-orange { border: 2.5px solid #ea580c; background-color: #ffedd5; color: #9a3412; }
-
         .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: white; border-top: 1px solid #e5e7eb; padding: 8px 0; display: flex; justify-content: space-around; z-index: 50; box-shadow: 0 -4px 20px rgba(0,0,0,0.05); }
-        .nav-item { display: flex; flex-direction: column; align-items: center; color: #9ca3af; font-size: 0.6rem; width: 100%; cursor: pointer; transition: all 0.3s; padding: 4px 2px; }
-        .nav-item.active { color: var(--theme-hex); font-weight: 800; }
+        .nav-item { display: flex; flex-direction: column; align-items: center; color: #9ca3af; font-size: 0.6rem; width: 100%; cursor: pointer; transition: all 0.3s; padding: 4px 2px; position: relative; }
+        .nav-item.active { color: var(--theme-hex); font-weight: 800; transform: translateY(-2px); }
         
+        .step-interactive { display: none; opacity: 0; transition: opacity 0.3s; } .step-interactive.active { display: block; opacity: 1; }
         .options-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
         .option-label { display: flex; align-items: center; justify-content: center; padding: 12px 8px; border: 2px solid #e5e7eb; border-radius: 12px; cursor: pointer; transition: all 0.2s; background: white; text-align: center; }
-        input[type="radio"]:checked + .option-label { border-color: var(--theme-hex); background-color: #f5f3ff; color: var(--theme-hex); font-weight: bold; }
-
+        input[type="radio"]:checked + .option-label { border-color: var(--theme-hex); background-color: #eff6ff; color: var(--theme-hex); font-weight: bold; }
+        
         .loader { border: 4px solid #f3f3f3; border-radius: 50%; border-top: 4px solid var(--theme-hex); width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 0 auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
         .lesson-footer { text-align: center; margin-top: 40px; margin-bottom: 80px; padding-top: 20px; border-top: 1px dashed #e5e7eb; color: #9ca3af; font-size: 0.75rem; }
+
+        #game-modal-container { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 9999; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
+        #game-modal-content { background: white; width: 90%; height: 85%; max-width: 1200px; border-radius: 16px; overflow: hidden; display: flex; flex-direction: column; position: relative; }
+        #game-frame { flex-grow: 1; width: 100%; height: 100%; border: none; }
+
+        .factor-circle { border-radius: 50%; padding: 0 4px; display: inline-block; margin: 0 1px; font-weight: 800; transform: scale(1.05); box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+        .factor-orange { border: 2.5px solid #ea580c; background-color: #ffedd5; color: #9a3412; }
     </style>
 </head>
-<body class="bg-gray-50">
+<body class="bg-gray-50 text-gray-800 text-right">
 
     <script>document.documentElement.style.setProperty('--theme-hex', currentTheme.hex);</script>
 
-    <!-- Header with Decoration Layer -->
-    <header id="main-header" class="w-full text-white shadow-lg px-4 py-3 sticky top-0 z-50 transition-colors overflow-hidden relative text-right">
+    <!-- [STRICT HEADER: Matched to Template V2] -->
+    <header id="main-header" class="w-full text-white shadow-lg px-4 py-3 sticky top-0 z-50 transition-colors overflow-hidden relative">
         <script>document.getElementById('main-header').className += ` bg-gradient-to-r ${currentTheme.gradient}`;</script>
         
         <div class="absolute inset-0 pointer-events-none overflow-hidden select-none">
-            <span class="absolute top-[-20px] right-10 text-9xl font-black text-white opacity-10 font-sans leading-none">
+            <i id="bg-giant-icon" class="fas absolute -left-6 -bottom-8 text-8xl md:text-9xl text-white opacity-10 transform -rotate-12"></i>
+            <script>document.getElementById('bg-giant-icon').classList.add(currentTheme.icon);</script>
+            <span class="absolute top-[-10px] right-10 text-9xl font-black text-white opacity-5 font-sans leading-none">
                 <script>document.write(currentTheme.chNum)</script>
             </span>
             <i class="fas fa-plus absolute top-4 left-[20%] text-xl text-white opacity-10 transform rotate-12"></i>
             <i class="fas fa-minus absolute bottom-4 right-[30%] text-2xl text-white opacity-10 transform -rotate-6"></i>
             <i class="fas fa-times absolute top-8 right-12 text-lg text-white opacity-10"></i>
             <i class="fas fa-divide absolute bottom-6 left-8 text-xl text-white opacity-10 transform rotate-45"></i>
-            <i id="bg-giant-icon" class="fas absolute -left-6 -bottom-8 text-8xl md:text-9xl text-white opacity-10 transform -rotate-12"></i>
-            <script>document.getElementById('bg-giant-icon').classList.add(currentTheme.icon);</script>
         </div>
-        
-        <div class="container mx-auto max-w-4xl flex justify-between items-center relative z-10">
+
+        <div class="container mx-auto max-w-4xl flex justify-between items-center relative z-10 text-right">
             <div class="flex items-center gap-3">
                 <div class="w-10 h-10 md:w-14 md:h-14 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center border border-white/20 shadow-md">
-                    <i id="header-icon" class="fas text-lg md:text-2xl"></i>
+                    <i id="header-icon" class="fas text-lg md:text-2xl text-white"></i>
                     <script>document.getElementById('header-icon').classList.add(currentTheme.icon);</script>
                 </div>
                 <div class="flex flex-col">
-                    <span class="text-[10px] font-bold opacity-80">منصة الرياضيات التفاعلية</span>
+                    <span class="text-[9px] md:text-xs font-bold opacity-80">منصة الرياضيات التفاعلية</span>
                     <h1 class="text-base md:text-xl font-black flex items-center gap-2">
-                        <span class="bg-white/20 px-2 rounded font-sans">٧-٢</span>
+                        <span class="bg-white/20 px-2 rounded pt-1 font-sans">٧-٢</span>
                         <span>استعمال خاصية التوزيع</span>
                     </h1>
                 </div>
             </div>
+
             <div class="flex flex-col items-end gap-1.5">
                 <div class="bg-black/10 px-3 py-0.5 rounded-lg border border-white/10 flex items-center gap-2 text-[10px] md:text-sm font-bold">
                     <i class="fas fa-user"></i> <span id="student-name">مرحبا بك</span>
@@ -145,377 +143,298 @@
 
     <main class="container mx-auto max-w-4xl p-4 md:p-8 transition-all duration-300">
         
-        <!-- Tab 1: Distributive -->
+        <!-- [TAB 1: Distributive] -->
         <div id="tab-learn1" class="tab-content">
             <div class="flex items-center gap-2 mb-4">
-                <span class="w-10 h-10 rounded-full flex items-center justify-center font-bold text-xl bg-purple-100 text-purple-700 border border-purple-200 shadow-sm">١</span>
+                <span class="w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center font-bold text-lg bg-purple-100 text-purple-700 border border-purple-200">١</span>
                 <h2 class="font-bold text-xl md:text-2xl text-gray-800">التحليل باستعمال خاصية التوزيع</h2>
             </div>
-            <div class="bg-white rounded-xl p-5 shadow-sm mb-6 border-r-4 border-purple-500 transition hover:shadow-md text-sm md:text-base leading-relaxed text-right">
-                لتحليل مقدار جبري، نبحث عن <strong>القاسم المشترك الأكبر (ق.م.أ)</strong> لجميع الحدود ونخرجه خارج القوس، ثم نكتب ما تبقى داخل القوس.
+            <div class="bg-white rounded-xl p-5 shadow-sm mb-6 border-r-4 border-purple-500 transition hover:shadow-md">
+                <p class="text-gray-600 text-sm md:text-lg font-bold mb-1">التعريف:</p>
+                <p class="text-gray-500 text-sm md:text-base leading-relaxed">نبحث عن القاسم المشترك الأكبر لجميع الحدود ونخرجه خارج القوس، ثم نكتب ما تبقى داخل القوس.</p>
             </div>
 
-            <!-- Example 1-1 -->
-            <div id="interactive-container-1-1" class="bg-white rounded-xl p-6 shadow-md border-2 border-purple-50 mb-8 text-center">
-                <h3 class="font-bold text-purple-800 mb-6 border-b pb-2">مثال ١: حلل <span class="math-eq">١٨ ص<sup class="tiny-sup">٢</sup> + ٩ ص</span></h3>
-                <div class="min-h-[160px] mb-6 flex flex-col gap-4 text-right">
-                    <div class="interactive-placeholder text-center text-gray-400 py-6 text-sm">اضغط "التالي" لمشاهدة الخطوات التفصيلية...</div>
+            <div id="interactive-container-1-1" class="bg-white rounded-xl p-4 shadow-sm border-2 border-purple-50 mb-4">
+                <h3 class="font-bold text-purple-800 mb-4 border-b pb-1">مثال ١: حلل <span class="math-eq">١٨ ص<sup class="tiny-sup">٢</sup> + ٩ ص</span></h3>
+                <div class="min-h-[140px] mb-4 bg-gray-50 rounded-lg p-3">
+                    <div class="interactive-placeholder text-center text-gray-400 py-4 text-sm">اضغط "التالي" لمشاهدة الخطوات التفصيلية...</div>
                     <div class="step-interactive step-box">
-                        <h4 class="text-[10px] font-bold text-gray-400 mb-2">١. تحليل كل حد إلى عوامله الأولية:</h4>
-                        <div class="text-center text-lg font-mono">
-                            ١٨ ص<sup class="tiny-sup">٢</sup> = ٢ × ٣ × ٣ × ص × ص<br>
-                            ٩ ص = ٣ × ٣ × ص
-                        </div>
+                        <h4 class="text-[10px] font-bold text-gray-400 mb-1">١. تحليل كل حد إلى عوامله الأولية:</h4>
+                        <div class="text-center font-mono text-sm leading-relaxed">١٨ ص² = ٢ × ٣ × ٣ × ص × ص | ٩ ص = ٣ × ٣ × ص</div>
                     </div>
                     <div class="step-interactive step-box border-orange-500 bg-orange-50">
-                        <h4 class="text-[10px] font-bold text-orange-600 mb-2">٢. تحديد العوامل المشتركة بالدوائر:</h4>
-                        <div class="text-center text-lg font-mono">
+                        <h4 class="text-[10px] font-bold text-orange-600 mb-1">٢. تحديد العوامل المشتركة:</h4>
+                        <div class="text-center font-mono text-sm leading-relaxed">
                             ١٨ ص<sup class="tiny-sup">٢</sup> = ٢ × <span class="factor-circle factor-orange">٣</span> × <span class="factor-circle factor-orange">٣</span> × ص × <span class="factor-circle factor-orange">ص</span><br>
                             ٩ ص = <span class="factor-circle factor-orange">٣</span> × <span class="factor-circle factor-orange">٣</span> × <span class="factor-circle factor-orange">ص</span>
                         </div>
-                        <p class="text-center font-bold mt-2 text-orange-800">ق.م.أ = ٣ × ٣ × ص = ٩ ص</p>
+                        <p class="text-center font-bold mt-1 text-xs text-orange-800">ق.م.أ = ٩ ص</p>
                     </div>
                     <div class="step-interactive step-box border-green-600 bg-green-50">
-                        <h4 class="text-[10px] font-bold text-green-700 mb-2">٣. التحليل النهائي:</h4>
-                        <p class="text-center text-2xl font-black">٩ ص (٢ ص + ١)</p>
+                        <h4 class="text-[10px] font-bold text-green-700 mb-1">٣. التحليل النهائي:</h4>
+                        <p class="text-center text-xl font-black text-purple-900">٩ ص (٢ ص + ١)</p>
                     </div>
                 </div>
-                <div class="flex justify-between items-center px-2">
-                    <button class="prev-btn w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 text-gray-400 shadow-sm transition"><i class="fas fa-chevron-right"></i></button>
-                    <button class="next-btn btn-theme px-10 py-2 rounded-xl font-bold shadow-md">التالي</button>
-                    <button class="reset-btn px-6 py-2 bg-purple-100 text-purple-700 rounded-xl font-bold hidden shadow-sm">إعادة</button>
+                <div class="flex justify-between items-center">
+                    <button class="prev-btn w-10 h-10 flex items-center justify-center rounded-full bg-gray-200 text-gray-600"><i class="fas fa-chevron-right"></i></button>
+                    <button class="next-btn btn-theme px-8 py-2 rounded-lg font-bold shadow-md">التالي</button>
+                    <button class="reset-btn px-6 py-2 bg-purple-100 text-purple-700 rounded-lg font-bold hidden">إعادة</button>
                 </div>
             </div>
 
-            <!-- Example 1-2 (ADDITIONAL) -->
-            <div id="interactive-container-1-2" class="bg-white rounded-xl p-6 shadow-md border-2 border-purple-50 mb-8 text-center">
-                <h3 class="font-bold text-purple-800 mb-6 border-b pb-2">مثال ٢: حلل <span class="math-eq">١٢ أ<sup class="tiny-sup">٢</sup>ب + ٨ أب</span></h3>
-                <div class="min-h-[160px] mb-6 flex flex-col gap-4 text-right">
-                    <div class="interactive-placeholder text-center text-gray-400 py-6 text-sm">اضغط "التالي" لمشاهدة الخطوات التفصيلية...</div>
-                    <div class="step-interactive step-box">
-                        <h4 class="text-[10px] font-bold text-gray-400 mb-2">١. تحليل كل حد إلى عوامله الأولية:</h4>
-                        <div class="text-center text-lg font-mono">
-                            ١٢ أ<sup class="tiny-sup">٢</sup>ب = ٢ × ٢ × ٣ × أ × أ × ب<br>
-                            ٨ أب = ٢ × ٢ × ٢ × أ × ب
-                        </div>
-                    </div>
-                    <div class="step-interactive step-box border-orange-500 bg-orange-50">
-                        <h4 class="text-[10px] font-bold text-orange-600 mb-2">٢. تحديد العوامل المشتركة بالدوائر:</h4>
-                        <div class="text-center text-lg font-mono">
-                            ١٢ أ<sup class="tiny-sup">٢</sup>ب = <span class="factor-circle factor-orange">٢</span> × <span class="factor-circle factor-orange">٢</span> × ٣ × <span class="factor-circle factor-orange">أ</span> × أ × <span class="factor-circle factor-orange">ب</span><br>
-                            ٨ أب = <span class="factor-circle factor-orange">٢</span> × <span class="factor-circle factor-orange">٢</span> × ٢ × <span class="factor-circle factor-orange">أ</span> × <span class="factor-circle factor-orange">ب</span>
-                        </div>
-                        <p class="text-center font-bold mt-2 text-orange-800">ق.م.أ = ٢ × ٢ × أ × ب = ٤ أب</p>
-                    </div>
-                    <div class="step-interactive step-box border-green-600 bg-green-50">
-                        <h4 class="text-[10px] font-bold text-green-700 mb-2">٣. التحليل النهائي:</h4>
-                        <p class="text-center text-2xl font-black">٤ أب (٣ أ + ٢)</p>
-                    </div>
+            <div id="interactive-container-1-2" class="bg-white rounded-xl p-4 shadow-sm border-2 border-purple-50 mb-4">
+                <h3 class="font-bold text-purple-800 mb-4 border-b pb-1">مثال ٢: حلل <span class="math-eq">١٢ أ<sup class="tiny-sup">٢</sup>ب + ٨ أب</span></h3>
+                <div class="min-h-[140px] mb-4 bg-gray-50 rounded-lg p-3">
+                    <div class="interactive-placeholder text-center text-gray-400 py-4 text-sm">اضغط "التالي" لمشاهدة الخطوات...</div>
+                    <div class="step-interactive step-box"><h4 class="text-[10px] font-bold text-gray-400 mb-1">١. تحليل الحدود:</h4><div class="text-center font-mono text-sm leading-relaxed">١٢أ²ب = ٢×٢×٣×أ×أ×ب | ٨أب = ٢×٢×٢×أ×ب</div></div>
+                    <div class="step-interactive step-box border-orange-500 bg-orange-50"><h4 class="text-[10px] font-bold text-orange-600 mb-1">٢. تحديد ق.م.أ:</h4><p class="text-center font-bold text-xs text-orange-800">ق.م.أ = ٤ أب</p></div>
+                    <div class="step-interactive step-box border-green-600 bg-green-50"><h4 class="text-[10px] font-bold text-green-700 mb-1">٣. الناتج:</h4><p class="text-center text-xl font-black text-purple-900">٤ أب (٣ أ + ٢)</p></div>
                 </div>
-                <div class="flex justify-between items-center px-2">
-                    <button class="prev-btn w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 text-gray-400 shadow-sm transition"><i class="fas fa-chevron-right"></i></button>
-                    <button class="next-btn btn-theme px-10 py-2 rounded-xl font-bold shadow-md">التالي</button>
-                    <button class="reset-btn px-6 py-2 bg-purple-100 text-purple-700 rounded-xl font-bold hidden shadow-sm">إعادة</button>
+                <div class="flex justify-between items-center">
+                    <button class="prev-btn w-10 h-10 flex items-center justify-center rounded-full bg-gray-200 text-gray-600"><i class="fas fa-chevron-right"></i></button>
+                    <button class="next-btn btn-theme px-8 py-2 rounded-lg font-bold shadow-md">التالي</button>
+                    <button class="reset-btn px-6 py-2 bg-purple-100 text-purple-700 rounded-lg font-bold hidden">إعادة</button>
                 </div>
             </div>
 
-            <button onclick="switchTab('learn2')" class="btn-theme w-full py-4 rounded-xl font-bold shadow-lg flex items-center justify-center gap-2"><span>المفهوم التالي: تجميع الحدود</span><i data-lucide="arrow-left"></i></button>
+            <button onclick="switchTab('learn2')" class="btn-theme w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg mt-4"><span>المفهوم التالي: تجميع الحدود</span><i data-lucide="arrow-left"></i></button>
         </div>
 
-        <!-- Tab 2: Grouping -->
+        <!-- [TAB 2: Grouping] -->
         <div id="tab-learn2" class="tab-content hidden">
             <div class="flex items-center gap-2 mb-4">
-                <span class="w-10 h-10 rounded-full flex items-center justify-center font-bold text-xl bg-purple-100 text-purple-700 border border-purple-200 shadow-sm">٢</span>
+                <span class="w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center font-bold text-lg bg-purple-100 text-purple-700 border border-purple-200 shadow-sm">٢</span>
                 <h2 class="font-bold text-xl md:text-2xl text-gray-800">التحليل بتجميع الحدود</h2>
             </div>
+            <div class="bg-white rounded-xl p-5 shadow-sm mb-6 border-r-4 border-purple-500 transition hover:shadow-md">
+                <p class="text-gray-600 text-sm md:text-lg font-bold mb-1">التعريف:</p>
+                <p class="text-gray-500 text-sm md:text-base leading-relaxed">نستخدم تجميع الحدود عندما تتكون كثيرة الحدود من ٤ حدود أو أكثر، حيث نجمع كل حدين لهما قاسم مشترك معاً ثم نسحب القوس المشترك كعامل أخير.</p>
+            </div>
             
-            <!-- Example 2-1 -->
-            <div id="interactive-container-2-1" class="bg-white rounded-xl p-6 shadow-md border-2 border-purple-50 mb-8 text-center">
-                <h3 class="font-bold text-purple-800 mb-4">مثال ١: حلل <span class="math-eq">٤س ص + ١٢س + ٣ص + ٩</span></h3>
-                <div class="min-h-[160px] mb-4 flex flex-col gap-3 text-right">
-                    <div class="interactive-placeholder text-center text-gray-400 py-6 text-sm">اضغط "التالي" لمشاهدة الخطوات التفصيلية...</div>
-                    <div class="step-interactive step-box">
-                        <h4 class="text-xs font-bold text-purple-600 mb-1">١. تجميع الحدود (كل اثنين معاً):</h4>
-                        <p class="text-center font-bold text-lg leading-loose">(٤س ص + ١٢س) + (٣ص + ٩)</p>
-                    </div>
-                    <div class="step-interactive step-box border-slate-400 bg-slate-50">
-                        <h4 class="text-xs font-bold text-slate-700 mb-1">٢. تحديد المشترك في كل مجموعة:</h4>
-                        <p class="text-center font-mono leading-loose">
-                            (<span class="factor-circle factor-green">٢</span>×<span class="factor-circle factor-green">٢</span>×<span class="factor-circle factor-green">س</span>×ص + <span class="factor-circle factor-green">٢</span>×<span class="factor-circle factor-green">٢</span>×٣×<span class="factor-circle factor-green">س</span>) + (<span class="factor-circle factor-red">٣</span>×ص + <span class="factor-circle factor-red">٣</span>×٣)
-                        </p>
-                    </div>
-                    <div class="step-interactive step-box border-orange-200">
-                        <h4 class="text-xs font-bold text-orange-700 mb-1">٣. إخراج ق.م.أ لكل مجموعة:</h4>
-                        <p class="text-center font-bold text-xl"><span class="text-green-600">٤س</span> <span class="underline">(ص + ٣)</span> + <span class="text-red-600">٣</span> <span class="underline">(ص + ٣)</span></p>
-                    </div>
-                    <div class="step-interactive step-box border-green-500 bg-green-50">
-                        <h4 class="text-xs font-bold text-green-700 mb-1">٤. الناتج النهائي (سحب القوس المشترك):</h4>
-                        <p class="text-center font-bold text-xl text-indigo-700">(ص + ٣) (٤س + ٣)</p>
-                    </div>
+            <div id="interactive-container-2-1" class="bg-white rounded-xl p-4 shadow-sm border-2 border-purple-50 mb-4">
+                <h3 class="font-bold text-purple-800 mb-4 border-b pb-1 text-center">مثال ١: حلل <span class="math-eq">٤س ص + ١٢س + ٣ص + ٩</span></h3>
+                <div class="min-h-[160px] mb-4 bg-gray-50 rounded-lg p-3">
+                    <div class="interactive-placeholder text-center text-gray-400 py-6 text-sm">اضغط "التالي" للحل بالتجميع...</div>
+                    <div class="step-interactive step-box"><h4 class="text-[10px] font-bold text-purple-600 mb-1">١. تجميع الحدود:</h4><p class="text-center font-bold text-sm leading-loose">(٤س ص + ١٢س) + (٣ص + ٩)</p></div>
+                    <div class="step-interactive step-box border-orange-400"><h4 class="text-[10px] font-bold text-orange-700 mb-1">٢. إخراج ق.م.أ لكل مجموعة:</h4><p class="text-center font-bold text-sm leading-loose">٤س <span class="underline">(ص + ٣)</span> + ٣ <span class="underline">(ص + ٣)</span></p></div>
+                    <div class="step-interactive step-box border-green-500 bg-green-50"><h4 class="text-[10px] font-bold text-green-700 mb-1">٣. الناتج النهائي:</h4><p class="text-center font-bold text-xl text-indigo-700">(ص + ٣) (٤س + ٣)</p></div>
                 </div>
-                <div class="flex justify-between items-center px-2">
-                    <button class="prev-btn w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 text-gray-400 shadow-sm"><i class="fas fa-chevron-right"></i></button>
+                <div class="flex justify-between items-center">
+                    <button class="prev-btn w-10 h-10 flex items-center justify-center rounded-full bg-gray-200 text-gray-600"><i class="fas fa-chevron-right"></i></button>
                     <button class="next-btn btn-theme px-8 py-2 rounded-lg font-bold shadow-md">التالي</button>
-                    <button class="reset-btn px-6 py-2 bg-purple-100 text-purple-700 rounded-xl font-bold hidden shadow-sm">إعادة</button>
+                    <button class="reset-btn px-6 py-2 bg-purple-100 text-purple-700 rounded-lg font-bold hidden">إعادة</button>
                 </div>
             </div>
 
-            <!-- Example 2-2 (ADDITIONAL) -->
-            <div id="interactive-container-2-2" class="bg-white rounded-xl p-6 shadow-md border-2 border-purple-50 mb-8 text-center">
-                <h3 class="font-bold text-purple-800 mb-4">مثال ٢: حلل <span class="math-eq">٢رس + ١٠ر + ٣س + ١٥</span></h3>
-                <div class="min-h-[160px] mb-4 flex flex-col gap-3 text-right">
-                    <div class="interactive-placeholder text-center text-gray-400 py-6 text-sm">اضغط "التالي" لمشاهدة الخطوات التفصيلية...</div>
-                    <div class="step-interactive step-box">
-                        <h4 class="text-xs font-bold text-purple-600 mb-1">١. تجميع الحدود:</h4>
-                        <p class="text-center font-bold text-lg leading-loose">(٢رس + ١٠ر) + (٣س + ١٥)</p>
-                    </div>
-                    <div class="step-interactive step-box border-slate-400 bg-slate-50">
-                        <h4 class="text-xs font-bold text-slate-700 mb-1">٢. تحديد المشترك:</h4>
-                        <p class="text-center font-mono leading-loose">
-                            (<span class="factor-circle factor-green">٢</span>×<span class="factor-circle factor-green">ر</span>×س + <span class="factor-circle factor-green">٢</span>×٥×<span class="factor-circle factor-green">ر</span>) + (<span class="factor-circle factor-red">٣</span>×س + <span class="factor-circle factor-red">٣</span>×٥)
-                        </p>
-                    </div>
-                    <div class="step-interactive step-box border-orange-200">
-                        <h4 class="text-xs font-bold text-orange-700 mb-1">٣. إخراج ق.م.أ:</h4>
-                        <p class="text-center font-bold text-xl"><span class="text-green-600">٢ر</span> <span class="underline">(س + ٥)</span> + <span class="text-red-600">٣</span> <span class="underline">(س + ٥)</span></p>
-                    </div>
-                    <div class="step-interactive step-box border-green-500 bg-green-50">
-                        <h4 class="text-xs font-bold text-green-700 mb-1">٤. الناتج النهائي:</h4>
-                        <p class="text-center font-bold text-xl text-indigo-700">(س + ٥) (٢ر + ٣)</p>
-                    </div>
+            <div id="interactive-container-2-2" class="bg-white rounded-xl p-4 shadow-sm border-2 border-purple-50 mb-4">
+                <h3 class="font-bold text-purple-800 mb-4 border-b pb-1 text-center">مثال ٢: حلل <span class="math-eq">٢رس + ١٠ر + ٣س + ١٥</span></h3>
+                <div class="min-h-[160px] mb-4 bg-gray-50 rounded-lg p-3">
+                    <div class="interactive-placeholder text-center text-gray-400 py-6 text-sm">اضغط "التالي" للحل...</div>
+                    <div class="step-interactive step-box"><h4 class="text-[10px] font-bold text-purple-600 mb-1">١. التجميع:</h4><p class="text-center font-bold text-sm leading-loose">(٢رس + ١٠ر) + (٣س + ١٥)</p></div>
+                    <div class="step-interactive step-box border-orange-400"><h4 class="text-[10px] font-bold text-orange-700 mb-1">٢. سحب العوامل:</h4><p class="text-center font-bold text-sm leading-loose">٢ر (س + ٥) + ٣ (س + ٥)</p></div>
+                    <div class="step-interactive step-box border-green-500 bg-green-50"><h4 class="text-[10px] font-bold text-green-700 mb-1">٣. الناتج:</h4><p class="text-center font-bold text-xl text-indigo-700">(س + ٥) (٢ر + ٣)</p></div>
                 </div>
-                <div class="flex justify-between items-center px-2">
-                    <button class="prev-btn w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 text-gray-400 shadow-sm"><i class="fas fa-chevron-right"></i></button>
+                <div class="flex justify-between items-center">
+                    <button class="prev-btn w-10 h-10 flex items-center justify-center rounded-full bg-gray-200 text-gray-600 transition"><i class="fas fa-chevron-right"></i></button>
                     <button class="next-btn btn-theme px-8 py-2 rounded-lg font-bold shadow-md">التالي</button>
-                    <button class="reset-btn px-6 py-2 bg-purple-100 text-purple-700 rounded-xl font-bold hidden shadow-sm">إعادة</button>
+                    <button class="reset-btn px-6 py-2 bg-purple-100 text-purple-700 rounded-lg font-bold hidden">إعادة</button>
                 </div>
             </div>
 
-            <button onclick="switchTab('learn3')" class="btn-theme w-full py-4 rounded-xl font-bold shadow-lg flex items-center justify-center gap-2"><span>المفهوم التالي: الضرب الصفري</span><i data-lucide="arrow-left"></i></button>
+            <button onclick="switchTab('learn3')" class="btn-theme w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg mt-4"><span>المفهوم التالي: الضرب الصفري</span><i data-lucide="arrow-left"></i></button>
         </div>
 
-        <!-- Tab 3: Zero Product -->
+        <!-- [TAB 3: Zero Product] -->
         <div id="tab-learn3" class="tab-content hidden">
             <div class="flex items-center gap-2 mb-4">
-                <span class="w-10 h-10 rounded-full flex items-center justify-center font-bold text-xl bg-purple-100 text-purple-700 border border-purple-200 shadow-sm">٣</span>
+                <span class="w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center font-bold text-lg bg-purple-100 text-purple-700 border border-purple-200 shadow-sm">٣</span>
                 <h2 class="font-bold text-xl md:text-2xl text-gray-800">خاصية الضرب الصفري</h2>
             </div>
+            <div class="bg-white rounded-xl p-5 shadow-sm mb-6 border-r-4 border-purple-500 transition hover:shadow-md">
+                <p class="text-gray-600 text-sm md:text-lg font-bold mb-1">التعريف:</p>
+                <p class="text-gray-500 text-sm md:text-base leading-relaxed">إذا كان حاصل ضرب عاملين يساوي صفراً، فإن أحد العاملين على الأقل يجب أن يكون صفراً، ونستخدمها لإيجاد حلول المعادلة.</p>
+            </div>
             
-            <!-- Example 3-1 -->
-            <div id="interactive-container-3-1" class="bg-white rounded-xl p-6 shadow-md border-2 border-purple-50 mb-8 text-center">
-                <h3 class="font-bold text-purple-800 mb-6">مثال ١: حل المعادلة <span class="math-eq">(س - ٢)(س + ٥) = ٠</span></h3>
-                <div class="min-h-[120px] mb-6">
+            <div id="interactive-container-3-1" class="bg-white rounded-xl p-4 shadow-sm border-2 border-purple-50 mb-4">
+                <h3 class="font-bold text-purple-800 mb-6 text-center">مثال ١: حل المعادلة <span class="math-eq">(س - ٢)(س + ٥) = ٠</span></h3>
+                <div class="min-h-[140px] mb-4 bg-gray-50 rounded-lg p-3">
                     <div class="interactive-placeholder text-center text-gray-400 py-6 text-sm">اضغط "التالي" لمشاهدة الحل بالأعمدة...</div>
                     <div class="step-interactive">
-                        <div class="grid grid-cols-2 gap-4">
-                            <div class="p-5 bg-blue-50 border-2 border-blue-200 rounded-2xl shadow-sm">
-                                <h4 class="text-sm font-black text-blue-700 mb-3">إما</h4>
-                                <p class="math-eq mb-4 text-lg">س - ٢ = ٠</p>
-                                <div class="step-interactive-sub hidden"><hr class="my-3 border-blue-200"><p class="text-2xl font-black text-blue-900 animate-bounce">س = ٢</p></div>
-                            </div>
-                            <div class="p-5 bg-red-50 border-2 border-red-200 rounded-2xl shadow-sm">
-                                <h4 class="text-sm font-black text-red-700 mb-3">أو</h4>
-                                <p class="math-eq mb-4 text-lg">س + ٥ = ٠</p>
-                                <div class="step-interactive-sub hidden"><hr class="my-3 border-red-200"><p class="text-2xl font-black text-red-900 animate-bounce">س = -٥</p></div>
-                            </div>
+                        <div class="grid grid-cols-2 gap-4 text-center">
+                            <div class="p-3 bg-blue-50 border border-blue-200 rounded-xl shadow-sm"><h4 class="text-xs font-black text-blue-700 mb-2">إما</h4><p class="math-eq text-xs">س - ٢ = ٠</p></div>
+                            <div class="p-3 bg-red-50 border border-red-200 rounded-xl shadow-sm"><h4 class="text-xs font-black text-red-700 mb-2">أو</h4><p class="math-eq text-xs">س + ٥ = ٠</p></div>
+                        </div>
+                    </div>
+                    <div class="step-interactive mt-[-20px] pointer-events-none">
+                        <div class="grid grid-cols-2 gap-4 text-center">
+                            <div class="p-2"><div class="step-interactive-sub hidden"><hr class="my-2 border-blue-100"><p class="text-xl font-black text-blue-900 animate-bounce">س = ٢</p></div></div>
+                            <div class="p-2"><div class="step-interactive-sub hidden"><hr class="my-2 border-red-100"><p class="text-xl font-black text-red-900 animate-bounce">س = -٥</p></div></div>
                         </div>
                     </div>
                 </div>
-                <div class="flex justify-between items-center px-2">
-                    <button class="prev-btn w-12 h-12 flex items-center justify-center rounded-full bg-gray-100 text-gray-400 shadow-sm"><i class="fas fa-chevron-right"></i></button>
-                    <button class="next-btn btn-theme px-10 py-3 rounded-xl font-bold shadow-lg">التالي</button>
-                    <button class="reset-btn px-6 py-3 bg-purple-100 text-purple-700 rounded-xl font-bold hidden shadow-sm">إعادة الحل</button>
+                <div class="flex justify-between items-center">
+                    <button class="prev-btn w-10 h-10 flex items-center justify-center rounded-full bg-gray-200 text-gray-600 transition"><i class="fas fa-chevron-right"></i></button>
+                    <button class="next-btn btn-theme px-10 py-2 rounded-lg font-bold shadow-md">التالي</button>
+                    <button class="reset-btn px-6 py-2 bg-purple-100 text-purple-700 rounded-lg font-bold hidden shadow-sm">إعادة</button>
                 </div>
             </div>
 
-            <!-- Example 3-2 (ADDITIONAL) -->
-            <div id="interactive-container-3-2" class="bg-white rounded-xl p-6 shadow-md border-2 border-purple-50 mb-8 text-center">
-                <h3 class="font-bold text-purple-800 mb-6">مثال ٢: حل المعادلة <span class="math-eq">(٢ص - ٦)(ص + ١) = ٠</span></h3>
-                <div class="min-h-[120px] mb-6">
+            <div id="interactive-container-3-2" class="bg-white rounded-xl p-4 shadow-sm border-2 border-purple-50 mb-4">
+                <h3 class="font-bold text-purple-800 mb-6 text-center">مثال ٢: حل المعادلة <span class="math-eq">(٢ص - ٦)(ص + ١) = ٠</span></h3>
+                <div class="min-h-[140px] mb-4 bg-gray-50 rounded-lg p-3">
                     <div class="interactive-placeholder text-center text-gray-400 py-6 text-sm">اضغط "التالي" لمشاهدة الحل بالأعمدة...</div>
                     <div class="step-interactive">
-                        <div class="grid grid-cols-2 gap-4">
-                            <div class="p-5 bg-blue-50 border-2 border-blue-200 rounded-2xl shadow-sm">
-                                <h4 class="text-sm font-black text-blue-700 mb-3">إما</h4>
-                                <p class="math-eq mb-4 text-lg">٢ص - ٦ = ٠</p>
-                                <div class="step-interactive-sub hidden"><hr class="my-3 border-blue-200"><p class="text-2xl font-black text-blue-900 animate-bounce">ص = ٣</p></div>
-                            </div>
-                            <div class="p-5 bg-red-50 border-2 border-red-200 rounded-2xl shadow-sm">
-                                <h4 class="text-sm font-black text-red-700 mb-3">أو</h4>
-                                <p class="math-eq mb-4 text-lg">ص + ١ = ٠</p>
-                                <div class="step-interactive-sub hidden"><hr class="my-3 border-red-200"><p class="text-2xl font-black text-red-900 animate-bounce">ص = -١</p></div>
-                            </div>
+                        <div class="grid grid-cols-2 gap-4 text-center">
+                            <div class="p-3 bg-blue-50 border border-blue-200 rounded-xl shadow-sm"><h4 class="text-xs font-black text-blue-700 mb-2">إما</h4><p class="math-eq text-xs">٢ص - ٦ = ٠</p></div>
+                            <div class="p-3 bg-red-50 border border-red-200 rounded-xl shadow-sm"><h4 class="text-xs font-black text-red-700 mb-2">أو</h4><p class="math-eq text-xs">ص + ١ = ٠</p></div>
+                        </div>
+                    </div>
+                    <div class="step-interactive mt-[-20px] pointer-events-none">
+                        <div class="grid grid-cols-2 gap-4 text-center">
+                            <div class="p-2"><div class="step-interactive-sub hidden"><hr class="my-2 border-blue-100"><p class="text-xl font-black text-blue-900">ص = ٣</p></div></div>
+                            <div class="p-2"><div class="step-interactive-sub hidden"><hr class="my-2 border-red-100"><p class="text-xl font-black text-red-900">ص = -١</p></div></div>
                         </div>
                     </div>
                 </div>
-                <div class="flex justify-between items-center px-2">
-                    <button class="prev-btn w-12 h-12 flex items-center justify-center rounded-full bg-gray-100 text-gray-400 shadow-sm"><i class="fas fa-chevron-right"></i></button>
-                    <button class="next-btn btn-theme px-10 py-3 rounded-xl font-bold shadow-lg">التالي</button>
-                    <button class="reset-btn px-6 py-3 bg-purple-100 text-purple-700 rounded-xl font-bold hidden shadow-sm">إعادة الحل</button>
+                <div class="flex justify-between items-center">
+                    <button class="prev-btn w-10 h-10 flex items-center justify-center rounded-full bg-gray-200 text-gray-600 transition"><i class="fas fa-chevron-right"></i></button>
+                    <button class="next-btn btn-theme px-10 py-2 rounded-lg font-bold shadow-md">التالي</button>
+                    <button class="reset-btn px-6 py-2 bg-purple-100 text-purple-700 rounded-lg font-bold hidden shadow-sm">إعادة</button>
                 </div>
             </div>
 
-            <button onclick="switchTab('learn4')" class="btn-theme w-full py-4 rounded-xl font-bold shadow-lg flex items-center justify-center gap-2"><span>المفهوم التالي: واقع الحياة</span><i data-lucide="arrow-left"></i></button>
+            <button onclick="switchTab('learn4')" class="btn-theme w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg mt-4"><span>المفهوم التالي: واقع الحياة</span><i data-lucide="arrow-left"></i></button>
         </div>
 
-        <!-- Tab 4: Realistic Application -->
-        <div id="tab-learn4" class="tab-content hidden">
+        <!-- [TAB 4: Realistic Application] -->
+        <div id="tab-learn4" class="tab-content hidden text-right">
             <div class="flex items-center gap-2 mb-4">
-                <span class="w-10 h-10 rounded-full flex items-center justify-center font-bold text-xl bg-purple-100 text-purple-700 border border-purple-200 shadow-sm">٤</span>
+                <span class="w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center font-bold text-lg bg-purple-100 text-purple-700 border border-purple-200 shadow-sm">٤</span>
                 <h2 class="font-bold text-xl md:text-2xl text-gray-800">تطبيقات من واقع الحياة</h2>
             </div>
+            <div class="bg-white rounded-xl p-5 shadow-sm mb-6 border-r-4 border-purple-500 transition hover:shadow-md">
+                <p class="text-gray-600 text-sm md:text-lg font-bold mb-1">التعريف:</p>
+                <p class="text-gray-500 text-sm md:text-base leading-relaxed">تُستخدم المعادلات التربيعية لحساب ارتفاع الأجسام المقذوفة، حيث يمثل الصفر لحظة الانطلاق من الأرض أو لحظة السقوط عليها.</p>
+            </div>
 
-            <!-- Example 4-1 -->
-            <div id="interactive-container-4-1" class="bg-white rounded-xl p-6 shadow-md border-2 border-emerald-100 mb-8 text-center">
-                <h3 class="font-bold text-emerald-800 mb-4">مثال ١: ارتفاع كرة تقفز</h3>
-                <p class="text-sm text-gray-500 mb-6 leading-relaxed text-right">إذا كانت كثيرة الحدود <span class="math-eq">٨ن - ٤ن<sup class="tiny-sup">٢</sup></span> تمثل ارتفاع كرة، متى تعود للأرض؟</p>
-                <div class="min-h-[140px] mb-6 flex flex-col gap-4 text-right">
-                    <div class="interactive-placeholder text-center text-gray-400 py-4 text-sm">اضغط "التالي" لمتابعة الخطوات التفسيرية...</div>
-                    <div class="step-interactive step-box">
-                        <h4 class="text-xs font-bold text-emerald-700 mb-1">١. المساواة بالصفر (لماذا؟):</h4>
-                        <p class="text-xs text-gray-600 mb-2">لأن عودة الكرة للأرض تعني أن الارتفاع أصبح صفراً، لذا نضع:</p>
-                        <p class="math-eq text-center w-full text-xl font-black">٨ن - ٤ن<sup class="tiny-sup">٢</sup> = ٠</p>
-                    </div>
-                    <div class="step-interactive step-box border-purple-400">
-                        <h4 class="text-xs font-bold text-purple-700 mb-1">٢. التحليل بإخراج القاسم المشترك (٤ن):</h4>
-                        <p class="math-eq text-center w-full text-xl">٤ن (٢ - ن) = ٠</p>
-                    </div>
-                    <div class="step-interactive step-box border-amber-400 bg-amber-50">
-                        <h4 class="text-xs font-bold text-amber-700 mb-2">٣. استخدام خاصية الضرب الصفري:</h4>
-                        <div class="grid grid-cols-2 gap-4 text-center">
-                            <div class="bg-white p-3 rounded-xl border border-amber-200 shadow-sm"><p class="math-eq">٤ن = ٠</p></div>
-                            <div class="bg-white p-3 rounded-xl border border-amber-200 shadow-sm"><p class="math-eq">٢ - ن = ٠</p></div>
-                        </div>
-                    </div>
-                    <div class="step-interactive step-box border-green-600 bg-green-50 shadow-md">
-                        <h4 class="text-xs font-bold text-green-700 mb-2">٤. حل كل معادلة (النتيجة النهائية):</h4>
-                        <div class="grid grid-cols-2 gap-4 text-center">
-                            <div class="p-2"><p class="font-bold text-red-600">ن = ٠</p><p class="text-[9px] text-gray-400">(الانطلاق)</p></div>
-                            <div class="p-2"><p class="font-bold text-emerald-600 text-lg">ن = ٢ ثانية</p><p class="text-[9px] text-gray-400">(الهبوط)</p></div>
-                        </div>
-                    </div>
+            <div id="interactive-container-4-1" class="bg-white rounded-xl p-4 shadow-sm border-2 border-emerald-50 mb-4">
+                <h3 class="font-bold text-emerald-800 mb-2">مثال ١: ارتفاع كرة تقفز</h3>
+                <p class="text-sm text-gray-500 mb-3 leading-relaxed">إذا كانت كثيرة الحدود <span class="math-eq">٨ن - ٤ن<sup class="tiny-sup">٢</sup></span> تمثل ارتفاع كرة، متى تعود للأرض؟</p>
+                <div class="min-h-[190px] mb-4 bg-gray-50 rounded-lg p-3">
+                    <div class="interactive-placeholder text-center text-gray-400 py-6 text-sm">اضغط "التالي" لمتابعة الخطوات التفسيرية...</div>
+                    <div class="step-interactive step-box"><h4 class="text-xs font-bold text-emerald-700 mb-1">١. المساواة بالصفر:</h4><p class="math-eq w-full text-center py-1">٨ن - ٤ن<sup class="tiny-sup">٢</sup> = ٠</p></div>
+                    <div class="step-interactive step-box border-purple-400"><h4 class="text-xs font-bold text-purple-700 mb-1">٢. التحليل بإخراج (٤ن):</h4><p class="math-eq w-full text-center py-1 font-sans">٤ن (٢ - ن) = ٠</p></div>
+                    <div class="step-interactive"><div class="grid grid-cols-2 gap-4 text-center mt-2"><div class="p-2 bg-white border border-amber-200 rounded-lg"><h4 class="text-[10px] font-bold text-amber-700 mb-1">يمين</h4><p class="math-eq text-xs">٤ن = ٠</p></div><div class="p-2 bg-white border border-amber-200 rounded-lg"><h4 class="text-[10px] font-bold text-amber-700 mb-1">يسار</h4><p class="math-eq text-xs">٢ - ن = ٠</p></div></div></div>
+                    <div class="step-interactive step-box border-green-600 bg-green-50 shadow-md"><h4 class="text-xs font-bold text-green-700 mb-1">٤. الناتج النهائي:</h4><p class="text-center font-bold text-emerald-700 text-sm">تعود الكرة للأرض بعد ٢ ثانية (ن=٢)</p></div>
                 </div>
-                <div class="flex justify-between items-center px-2">
-                    <button class="prev-btn w-12 h-12 flex items-center justify-center rounded-full bg-gray-100 text-gray-400 shadow-sm"><i class="fas fa-chevron-right"></i></button>
-                    <button class="next-btn btn-theme px-10 py-3 rounded-xl font-bold shadow-lg text-lg flex items-center gap-2"><span>التالي</span> <i class="fas fa-chevron-left"></i></button>
-                    <button class="reset-btn px-6 py-3 bg-purple-100 text-purple-700 rounded-xl font-bold hidden shadow-sm">إعادة</button>
+                <div class="flex justify-between items-center">
+                    <button class="prev-btn w-10 h-10 flex items-center justify-center rounded-full bg-gray-200 text-gray-600 transition"><i class="fas fa-chevron-right"></i></button>
+                    <button class="next-btn btn-theme px-10 py-2 rounded-lg font-bold shadow-md">التالي</button>
+                    <button class="reset-btn px-6 py-2 bg-purple-100 text-purple-700 rounded-lg font-bold hidden shadow-sm">إعادة</button>
                 </div>
             </div>
 
-            <!-- Example 4-2 (ADDITIONAL) -->
-            <div id="interactive-container-4-2" class="bg-white rounded-xl p-6 shadow-md border-2 border-emerald-100 mb-8 text-center">
-                <h3 class="font-bold text-emerald-800 mb-4">مثال ٢: قذف جسم للأعلى</h3>
-                <p class="text-sm text-gray-500 mb-6 leading-relaxed text-right">إذا كانت المعادلة <span class="math-eq">١٠ن - ٥ن<sup class="tiny-sup">٢</sup> = ٠</span> تمثل ارتفاع جسم، متى يعود لسطح الأرض؟</p>
-                <div class="min-h-[140px] mb-6 flex flex-col gap-4 text-right">
-                    <div class="interactive-placeholder text-center text-gray-400 py-4 text-sm">اضغط "التالي" لمتابعة الخطوات التفسيرية...</div>
-                    <div class="step-interactive step-box">
-                        <h4 class="text-xs font-bold text-emerald-700 mb-1">١. تحديد المعادلة:</h4>
-                        <p class="math-eq text-center w-full text-xl font-black">١٠ن - ٥ن<sup class="tiny-sup">٢</sup> = ٠</p>
-                    </div>
-                    <div class="step-interactive step-box border-purple-400">
-                        <h4 class="text-xs font-bold text-purple-700 mb-1">٢. التحليل بإخراج القاسم المشترك (٥ن):</h4>
-                        <p class="math-eq text-center w-full text-xl">٥ن (٢ - ن) = ٠</p>
-                    </div>
-                    <div class="step-interactive step-box border-amber-400 bg-amber-50">
-                        <h4 class="text-xs font-bold text-amber-700 mb-2">٣. الضرب الصفري:</h4>
-                        <div class="grid grid-cols-2 gap-4 text-center">
-                            <div class="bg-white p-3 rounded-xl border border-amber-200 shadow-sm"><p class="math-eq">٥ن = ٠</p></div>
-                            <div class="bg-white p-3 rounded-xl border border-amber-200 shadow-sm"><p class="math-eq">٢ - ن = ٠</p></div>
-                        </div>
-                    </div>
-                    <div class="step-interactive step-box border-green-600 bg-green-50 shadow-md">
-                        <h4 class="text-xs font-bold text-green-700 mb-2">٤. زمن الهبوط:</h4>
-                        <div class="grid grid-cols-2 gap-4 text-center">
-                            <div class="p-2"><p class="font-bold text-red-600">ن = ٠</p></div>
-                            <div class="p-2"><p class="font-bold text-emerald-600 text-lg">ن = ٢ ثانية</p></div>
-                        </div>
-                    </div>
-                </div>
-                <div class="flex justify-between items-center px-2">
-                    <button class="prev-btn w-12 h-12 flex items-center justify-center rounded-full bg-gray-100 text-gray-400 shadow-sm"><i class="fas fa-chevron-right"></i></button>
-                    <button class="next-btn btn-theme px-10 py-3 rounded-xl font-bold shadow-lg text-lg flex items-center gap-2"><span>التالي</span> <i class="fas fa-chevron-left"></i></button>
-                    <button class="reset-btn px-6 py-3 bg-purple-100 text-purple-700 rounded-xl font-bold hidden shadow-sm">إعادة</button>
-                </div>
-            </div>
-
-            <button onclick="switchTab('quiz')" class="btn-theme w-full py-4 rounded-xl font-bold shadow-lg flex items-center justify-center gap-2"><span>جاهز للاختبار؟</span><i class="fas fa-award"></i></button>
+            <button onclick="switchTab('quiz')" class="btn-theme w-full py-4 rounded-full font-bold shadow-lg flex items-center justify-center gap-2 animate-bounce mt-4"><span>جاهز للاختبار؟</span><i data-lucide="arrow-left"></i></button>
         </div>
 
-        <!-- Quiz Tab -->
-        <div id="tab-quiz" class="tab-content hidden text-right">
-            <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
-                <div class="flex justify-between items-center mb-8 pb-4 border-b border-gray-100">
-                    <div>
-                        <h2 class="font-bold text-2xl text-gray-800">اختبار الفهم</h2>
-                        <p class="text-sm text-gray-500">٥ أسئلة متسلسلة من بنك ١٥ سؤالاً</p>
-                    </div>
+        <!-- [TAB QUIZ] -->
+        <div id="tab-quiz" class="tab-content hidden">
+             <div class="bg-white rounded-xl shadow-sm p-4 md:p-8 border border-gray-200 text-right">
+                <div class="flex justify-between items-center mb-6 border-b border-gray-100 pb-4">
+                    <div><h2 class="font-bold text-lg md:text-2xl text-gray-800">اختبار الفهم</h2><p class="text-xs md:text-sm text-gray-500">5 أسئلة مختارة عشوائياً من بنك الأسئلة (١٥ سؤالاً)</p></div>
                     <div class="text-center">
-                        <div id="loading-attempts" class="hidden"><div class="loader"></div></div>
+                        <div id="loading-attempts" class="hidden"><div class="loader w-4 h-4"></div></div>
                         <div id="attempts-display" class="flex flex-col items-center">
-                            <span class="block text-2xl font-bold text-purple-600" id="attempts-count">-</span>
+                            <span class="block text-xl md:text-2xl font-bold text-purple-600" id="attempts-count">-</span>
                             <span class="text-[10px] text-gray-400 font-bold uppercase">محاولات</span>
                         </div>
-                        <div id="timer-top-container" class="hidden mt-1"><span class="block text-xs font-bold text-red-500 font-mono" id="timer-display-top">٠٠:٠٠:٠٠</span></div>
+                        <!-- Top Timer Container (Rule ⚠️) -->
+                        <div id="timer-top-container" class="hidden mt-1"><span class="block text-xs font-bold text-red-500 font-mono" id="timer-display-top">00:00:00</span></div>
                     </div>
                 </div>
-
-                <form id="quizForm" class="space-y-8"></form>
-
-                <div id="quiz-results" class="hidden mt-8 text-center bg-gray-50 rounded-2xl p-8 border-2 max-w-sm mx-auto shadow-sm">
-                    <div id="quiz-icon-container" class="flex justify-center mb-4"></div>
-                    <p class="text-gray-500 font-bold mb-1">نتيجتك النهائية</p>
-                    <p id="quiz-score" class="text-5xl font-black my-2 text-indigo-700">-</p>
-                    <div id="save-status" class="mt-4 text-sm font-bold text-purple-600 animate-pulse"></div>
+                <form id="quizForm" class="space-y-6"></form>
+                <div id="quiz-results" class="hidden mt-6 text-center bg-gray-50 rounded-xl border border-gray-200 p-6 max-w-sm mx-auto shadow-inner">
+                    <p class="text-sm text-gray-600 font-bold mb-1">الدرجة النهائية</p>
+                    <p id="quiz-score" class="text-5xl font-black my-2 text-purple-700 tracking-wider">-</p>
+                    <div id="save-status" class="mt-3 text-center text-sm font-bold animate-pulse"></div>
+                    <!-- Bottom Timer Container (Rule ⚠️) -->
+                    <div id="timer-bottom-container" class="hidden mt-2 bg-red-50 border border-red-100 rounded-lg p-2"><span class="block text-lg font-bold text-red-600 font-mono" id="timer-display-bottom">00:00:00</span></div>
                 </div>
-
-                <div id="games-wrapper" class="hidden mt-12 pt-8 border-t border-gray-200">
+                <div id="games-wrapper" class="hidden mt-8 pt-6 border-t border-gray-200">
                     <h2 class="text-center font-black text-gray-700 mb-6 flex justify-center gap-2 items-center w-full"><i class="fas fa-gamepad text-yellow-500"></i> ألعاب تعليمية</h2>
-                    <div id="dynamic-games-container" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
+                    <div id="dynamic-games-container" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
                 </div>
             </div>
         </div>
-
-        <footer class="lesson-footer">
-            <p>تصميم وإعداد: <strong>أ. عبدالعزيز خالد العبلان</strong></p>
-            <p class="mt-1 opacity-70">جميع الحقوق محفوظة © ٢٠٢٥</p>
-        </footer>
+        
+        <footer class="lesson-footer"><p>تصميم وإعداد: <strong>أ. عبدالعزيز خالد العبلان</strong></p><p class="mt-1 opacity-70">جميع الحقوق محفوظة © ٢٠٢٥</p></footer>
     </main>
 
     <nav class="bottom-nav" id="bottom-nav-container"></nav>
 
-    <!-- Modal for Explanations -->
-    <div id="modal" class="fixed inset-0 bg-black/50 z-[10000] hidden flex items-center justify-center backdrop-blur-sm p-4">
-        <div class="bg-white w-full max-w-md rounded-2xl p-6 shadow-2xl overflow-hidden">
+    <div id="modal" class="fixed inset-0 bg-black/50 z-[1000] hidden flex items-center justify-center backdrop-blur-sm p-4 text-right">
+        <div class="bg-white w-full max-w-md rounded-2xl p-6 shadow-2xl overflow-hidden relative">
             <div class="flex justify-between mb-4 border-b pb-2 items-center">
                 <div class="flex items-center gap-2 text-purple-600"><i class="fas fa-info-circle"></i><h3 id="modal-title" class="font-bold text-lg">توضيح</h3></div>
-                <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
+                <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600 transition"><i class="fas fa-times"></i></button>
             </div>
-            <div id="modal-content" class="text-sm text-gray-600 leading-relaxed text-right"></div>
+            <div id="modal-content" class="text-sm text-gray-600 leading-relaxed max-h-[60vh] overflow-y-auto"></div>
+        </div>
+    </div>
+
+    <!-- Game Modal Container -->
+    <div id="game-modal-container">
+        <div id="game-modal-content">
+            <div id="game-modal-header" class="text-white flex justify-between items-center py-2 px-4 shadow-md bg-purple-700">
+                <div class="flex items-center gap-2"><i class="fas fa-gamepad"></i><span id="game-modal-title" class="font-bold text-white">اللعبة التعليمية</span></div>
+                <button onclick="closeGameModal()" class="text-white hover:text-red-200 transition"><i class="fas fa-times"></i></button>
+            </div>
+            <iframe id="game-frame" src="" class="flex-grow w-full h-full border-none"></iframe>
         </div>
     </div>
 
     <script>
-        // --- 1. Sequential Question Bank ---
-        const questionPool = {
-            'learn1': [ 
-                { id: 101, t: 'حلل باستخراج ق.م.أ: <span class="math-eq">٧ س<sup class="tiny-sup">٢</sup> - ٢١ س</span>', o: [{t:'٧س(س-٣)', v:'a'}, {t:'٧(س-٣)', v:'b'}, {t:'س(٧س-٢١)', v:'c'}, {t:'٢١س(س-١)', v:'d'}], c: 'a', e: '<p class="font-bold">خطوات الحل التفصيلية:</p>١. نحلل الـ ٧ والـ ٢١: القاسم المشترك الأكبر هو ٧.<br>٢. نحلل س² والـ س: القاسم المشترك هو س.<br>٣. إذن ق.م.أ هو ٧س.<br>٤. نقسم الطرفين على ٧س لإيجاد ما بداخل القوس.<br>٥. الناتج النهائي: ٧س (س - ٣).', smart: 'دائماً اخرج أصغر أس للمتغير المشترك.' },
-                { id: 102, t: 'ما هو ق.م.أ للحدود <span class="math-eq">١٢ ص<sup class="tiny-sup">٣</sup></span> و <span class="math-eq">١٨ ص<sup class="tiny-sup">٢</sup></span>؟', o: [{t:'٦ ص<sup class="tiny-sup">٢</sup>', v:'a'}, {t:'٦ ص', v:'b'}, {t:'٣ ص', v:'c'}, {t:'١٨ ص', v:'d'}], c: 'a', e: '<p class="font-bold">خطوات الحل التفصيلية:</p>١. قاسم المشترك لـ ١٢ و١٨ هو ٦.<br>٢. قاسم المشترك لـ ص³ وص² هو ص².<br>٣. الناتج هو حاصل ضربهما: ٦ ص².', smart: 'العدد ٦ هو أكبر عدد يقسم ١٢ و١٨ معاً.' }
-            ],
-            'learn2': [
-                { id: 201, t: 'عند تحليل <span class="math-eq">أب + ٢أ + ٣ب + ٦</span> بالتجميع نكتب:', o: [{t:'(ب+٢)(أ+٣)', v:'a'}, {t:'(ب+٣)(أ+٢)', v:'b'}, {t:'أ(ب+٢)+٣', v:'c'}, {t:'(أ+ب)(٢+٣)', v:'d'}], c: 'a', e: '<p class="font-bold">خطوات الحل التفصيلية:</p>١. المجموعة الأولى: أ(ب+٢).<br>٢. المجموعة الثانية: ٣(ب+٢).<br>٣. سحب المشترك: (ب+٢)(أ+٣).', smart: 'القوس (ب+٢) يتكرر، فاسحبه كعامل أخير.' }
-            ],
-            'learn3': [
-                { id: 301, t: 'حل المعادلة <span class="math-eq">س (س - ٩) = ٠</span> هو:', o: [{t:'٠ ، ٩', v:'a'}, {t:'٠ ، -٩', v:'b'}, {t:'٩ فقط', v:'c'}, {t:'٠ فقط', v:'d'}], c: 'a', e: '<p class="font-bold">خطوات الحل التفصيلية:</p>١. الحالة الأولى: القيمة الخارجية س = ٠.<br>٢. الحالة الثانية: ما بداخل القوس س - ٩ = ٠.<br>٣. بحل المعادلة الثانية (س - ٩ = ٠) نجد س = ٩.<br>٤. الحلان النهائيان هما ٠ و ٩.', smart: 'أي متغير منفرد خارج القوس حله دائماً صفر.' }
-            ],
-            'learn4': [
-                { id: 401, t: 'في المقذوفات، إذا كانت كثيرة الحدود <span class="math-eq">١٦ن - ٨ن<sup class="tiny-sup">٢</sup></span> تمثل الارتفاع، متى يهبط؟', o: [{t:'٢ ثانية', v:'a'}, {t:'٨ ثوانٍ', v:'b'}, {t:'١٦ ثانية', v:'c'}, {t:'٠ ثانية', v:'d'}], c: 'a', e: '<p class="font-bold">خطوات الحل التفصيلية:</p>١. نساوي بالصفر: ١٦ن - ٨ن² = ٠.<br>٢. نحلل بإخراج ٨ن: ٨ن(٢ - ن) = ٠.<br>٣. إما ٨ن=٠ (انطلاق) أو ٢-ن=٠ (هبوط).<br>٤. من ٢-ن=٠ نجد ن=٢.<br>٥. زمن الهبوط ٢ ثانية.', smart: 'اقسم ١٦ على ٨ مباشرة لتجد زمن الهبوط.' }
-            ],
-            'mixed': [
-                { id: 501, t: 'سؤال ذكاء: كم حلاً للمعادلة <span class="math-eq">س (س-١) (س+٢) = ٠</span>؟', o: [{t:'٣ حلول', v:'a'}, {t:'حلان', v:'b'}, {t:'حل واحد', v:'c'}, {t:'لا يوجد حل', v:'d'}], c: 'a', e: '<p class="font-bold">لماذا؟</p>لأن لدينا ثلاثة عوامل مستقلة مضروبة ببعضها:<br>١. س<br>٢. (س-١)<br>٣. (س+٢)<br>كل عامل منها عند مساواته بالصفر يعطي حلاً مستقلاً.<br>إذن المجموع ٣ حلول.', smart: 'عدد العوامل المضروبة يحدد عدد الحلول الممكنة.' }
-            ]
-        };
+        // --- GLOBAL CONFIGURATION (Restored urlParams at top to fix ReferenceError) ---
+        const urlParams = new URLSearchParams(window.location.search);
+        const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxqAQlGhNs8k5RwHs6jrWxDiDwaMABSx8a9Fl81O5oVVa5fHRWTwIEvsGy2cSDP4zGLWQ/exec"; 
+        const ATTEMPTS_KEY = 'quiz_attempts_' + LESSON_KEY;
+        const NEXT_ATTEMPT_KEY = 'quiz_next_attempt_' + LESSON_KEY;
+        const COOLDOWN_MS = 24 * 60 * 60 * 1000;
+        let attemptsLeft = 0; 
+        let currentQuestions = [];
+        let timerInterval;
+        let studentData = null;
 
-        // --- 2. Helper Functions ---
+        const tabs = [
+            { id: 'learn1', icon: 'share-2', label: 'التوزيع' },
+            { id: 'learn2', icon: 'layers', label: 'تجميع الحدود' },
+            { id: 'learn3', icon: 'crosshair', label: 'الضرب الصفري' },
+            { id: 'learn4', icon: 'globe', label: 'واقع الحياة' },
+            { id: 'quiz', icon: 'clipboard-check', label: 'الاختبار' }
+        ];
+
+        const typeLabels = { 'learn1': 'خاصية التوزيع', 'learn2': 'تجميع الحدود', 'learn3': 'الضرب الصفري', 'learn4': 'واقع الحياة', 'mixed': 'تحدي ذكاء' };
+
+        // [QUESTION POOL: 15 Questions]
+        const questionPool = [
+             { id: 101, type: 'learn1', tabId: 'learn1', t: 'حلل باستخراج ق.م.أ: <span class="math-eq">٧س<sup class="tiny-sup">٢</sup> - ٢١س</span>', o: [{t:'٧س(س-٣)', v:'a'}, {t:'٧(س-٣)', v:'b'}, {t:'س(٧س-٢١)', v:'c'}, {t:'٢١س(س-١)', v:'d'}], c: 'a', e: 'ق.م.أ للـ ٧ و٢١ هو ٧، ولـ س² وس هو س. فيكون العامل المشترك هو ٧س.', smart: 'دائماً اختر أصغر أس للمتغير المشترك.' },
+             { id: 102, type: 'learn1', tabId: 'learn1', t: 'ما ق.م.أ للحدين <span class="math-eq">١٢ص<sup class="tiny-sup">٣</sup></span> و <span class="math-eq">١٨ص<sup class="tiny-sup">٢</sup></span>؟', o: [{t:'٦ص<sup class="tiny-sup">٢</sup>', v:'a'}, {t:'٦ص', v:'b'}, {t:'٣ص', v:'c'}, {t:'١٨ص', v:'d'}], c: 'a', e: 'العدد ٦ هو أكبر قاسم لـ ١٢ و١٨، و ص² هو القاسم المشترك للأصغر أساً.', smart: 'اقسم الأعداد على أكبر عدد ممكن وشاهد الناتج.' },
+             { id: 103, type: 'learn1', tabId: 'learn1', t: 'تحليل <span class="math-eq">١٥أب + ١٠أ</span> هو:', o: [{t:'٥أ(٣ب+٢)', v:'a'}, {t:'٥(٣أب+٢أ)', v:'b'}, {t:'أ(١٥ب+١٠)', v:'c'}, {t:'١٥أ(ب+١)', v:'d'}], c: 'a', e: 'نخرج ٥أ كعامل مشترك أكبر.', smart: 'تأكد من ضرب العامل في القوس لترى النتيجة الأصلية.' },
+             { id: 201, type: 'learn2', tabId: 'learn2', t: 'عند تحليل <span class="math-eq">أب + ٢أ + ٣ب + ٦</span> نكتب:', o: [{t:'(ب+٢)(أ+٣)', v:'a'}, {t:'(ب+٣)(أ+٢)', v:'b'}, {t:'أ(ب+٢)+٣', v:'c'}, {t:'(أ+ب)(٢+٣)', v:'d'}], c: 'a', e: 'نجمع كل حدين معاً ونخرج القاسم المشترك من كل مجموعة.', smart: 'القوس المتكرر هو العامل المشترك الأخير.' },
+             { id: 202, type: 'learn2', tabId: 'learn2', t: 'ناتج تحليل <span class="math-eq">٤س ص + ١٢س + ٢ص + ٦</span> هو:', o: [{t:'(ص+٣)٢(٢س+١)', v:'a'}, {t:'(٢س+١)(٢ص+٦)', v:'b'}, {t:'(ص+٣)(٤س+٢)', v:'c'}, {t:'س(٤ص+١٢)+٢(ص+٣)', v:'d'}], c: 'a', e: 'بتجميع الحدود وسحب المشترك نحصل على القوس المكرر (ص+٣) وعامل خارجي يمكن تبسيطه لـ ٢(٢س+١).', smart: 'دائماً بسط العوامل المشتركة حتى النهاية.' },
+             { id: 203, type: 'learn2', tabId: 'learn2', t: 'حلل بتجميع الحدود: <span class="math-eq">٣م ن + ٦م + ٢ن + ٤</span>', o: [{t:'(ن+٢)(٣م+٢)', v:'a'}, {t:'(ن+٣)(٣م+٤)', v:'b'}, {t:'(ن+٢)(٣م+٤)', v:'c'}, {t:'(ن+٤)(٣م+٢)', v:'d'}], c: 'a', e: 'بأخذ ٣م مشترك من أول حدين و٢ مشترك من آخر حدين.', smart: 'رتب الحدود إذا لم تجد مشتركاً مباشراً.' },
+             { id: 301, type: 'learn3', tabId: 'learn3', t: 'حل المعادلة <span class="math-eq">س (س - ٩) = ٠</span> هو:', o: [{t:'٠ ، ٩', v:'a'}, {t:'٠ ، -٩', v:'b'}, {t:'٩ فقط', v:'c'}, {t:'٠ فقط', v:'d'}], c: 'a', e: 'إما س=٠ أو س-٩=٠ فيكون س=٩.', smart: 'المتغير المنفرد خارج القوس حله دائماً صفر.' },
+             { id: 302, type: 'learn3', tabId: 'learn3', t: 'حل المعادلة <span class="math-eq">(س - ٢)(س + ٥) = ٠</span> هو:', o: [{t:'٢ ، -٥', v:'a'}, {t:'-٢ ، ٥', v:'b'}, {t:'٢ ، ٥', v:'c'}, {t:'-٢ ، -٥', v:'d'}], c: 'a', e: 'نعكس إشارة العدد الموجود بجوار س في الأقواس.', smart: 'الحل هو القيمة التي تجعل القوس يساوي صفراً.' },
+             { id: 303, type: 'learn3', tabId: 'learn3', t: 'حل المعادلة <span class="math-eq">(٣ص - ٩)(ص + ٢) = ٠</span> هو:', o: [{t:'٣ ، -٢', v:'a'}, {t:'٩ ، -٢', v:'b'}, {t:'٣ ، ٢', v:'c'}, {t:'٠ ، ٣', v:'d'}], c: 'a', e: '٣ص=٩ يعني ص=٣، وص+٢=٠ يعني ص=-٢.', smart: 'اقسم العدد على معامل المتغير في الأقواس المركبة.' },
+             { id: 401, type: 'learn4', tabId: 'learn4', t: 'إذا كان الارتفاع <span class="math-eq">١٦ن - ٨ن<sup class="tiny-sup">٢</sup></span>، متى يهبط المقذوف؟', o: [{t:'٢ ثانية', v:'a'}, {t:'٨ ثوانٍ', v:'b'}, {t:'١٦ ثانية', v:'c'}, {t:'٠ ثانية', v:'d'}], c: 'a', e: 'بمساواة المعادلة بالصفر والتحليل: ٨ن(٢-ن)=٠.', smart: 'اقسم الحد الأول على معامل التربيع مباشرة في هذه الحالة.' },
+             { id: 402, type: 'learn4', tabId: 'learn4', t: 'إذا كان الارتفاع <span class="math-eq">١٢ن - ٤ن<sup class="tiny-sup">٢</sup> = ٠</span>، فإن الجسم يصل للأرض عند ن =', o: [{t:'٣ ثواني', v:'a'}, {t:'٤ ثواني', v:'b'}, {t:'١٢ ثانية', v:'c'}, {t:'٠ ثانية', v:'d'}], c: 'a', e: 'التحليل هو ٤ن(٣-ن)=٠ فيكون ن=٣.', smart: 'زمن الهبوط هو دائماً القيمة الموجبة لـ ن.' },
+             { id: 403, type: 'learn4', tabId: 'learn4', t: 'ارتفاع حجر مقذوف <span class="math-eq">٢٠ن - ٥ن<sup class="tiny-sup">٢</sup> = ٠</span>، متى يعود ليد الرامي؟', o: [{t:'٤ ثواني', v:'a'}, {t:'٥ ثواني', v:'b'}, {t:'٢٠ ثانية', v:'c'}, {t:'٢ ثانية', v:'d'}], c: 'a', e: 'نحلل: ٥ن(٤-ن)=٠ فيكون ن=٤.', smart: 'نسمي ن=٠ لحظة الانطلاق و ن=٤ لحظة العودة.' },
+             { id: 501, type: 'mixed', tabId: 'learn3', t: 'سؤال ذكاء: كم حلاً للمعادلة <span class="math-eq">س (س-١) (س+٢) = ٠</span>؟', o: [{t:'٣ حلول', v:'a'}, {t:'حلان', v:'b'}, {t:'حل واحد', v:'c'}, {t:'لا يوجد حل', v:'d'}], c: 'a', e: 'كل عامل يمثل حلاً مستقلاً عند مساواته بالصفر.', smart: 'عدد الأقواس (العوامل) يحدد عدد الحلول.' },
+             { id: 502, type: 'mixed', tabId: 'learn1', t: 'أي مما يلي لا يعد عاملاً مشتركاً لـ <span class="math-eq">٤س<sup class="tiny-sup">٢</sup> + ٨س</span>؟', o: [{t:'س<sup class="tiny-sup">٢</sup>', v:'a'}, {t:'٤', v:'b'}, {t:'س', v:'c'}, {t:'٤س', v:'d'}], c: 'a', e: 'س² ليس موجوداً في الحد ٨س كعامل.', smart: 'العامل المشترك لا يمكن أن يكون أكبر أساً من أي حد.' },
+             { id: 503, type: 'mixed', tabId: 'learn2', t: 'التحليل الصحيح لـ <span class="math-eq">س ص + ٥س - ٣ص - ١٥</span> هو:', o: [{t:'(ص+٥)(س-٣)', v:'a'}, {t:'(ص-٥)(س+٣)', v:'b'}, {t:'(ص+٥)(س+٣)', v:'c'}, {t:'(ص-٥)(س-٣)', v:'d'}], c: 'a', e: 'نخرج س من أول حدين و -٣ من آخر حدين.', smart: 'انتبه لإشارة السالب عند إخراج العامل المشترك.' }
+        ];
+
+        // Helper: Shuffle Array (Rule ✅)
         function shuffleArray(array) {
             for (let i = array.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
@@ -524,12 +443,7 @@
             return array;
         }
 
-        // --- 3. Master Protocol Logic ---
-        let currentQuestions = [];
-        let timerInterval;
-        let attemptsLeftValue = 0;
-        let studentData = null;
-
+        // --- CORE FUNCTIONS ---
         function switchTab(tabId) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
             document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
@@ -537,65 +451,141 @@
             const navEl = document.getElementById(`nav-${tabId}`);
             if (tabEl) tabEl.classList.remove('hidden');
             if (navEl) navEl.classList.add('active');
-            window.scrollTo(0,0);
+            window.scrollTo({top: 0, behavior: 'smooth'});
             if(tabId === 'quiz') {
                 if(document.getElementById('quizForm').innerHTML === '') generateQuiz();
-                renderDynamicGames();
-                fetchStudentData(); 
+                renderDynamicGames(); 
+                fetchStudentData();
             }
         }
 
+        function openGameModal(url, title) {
+            const modal = document.getElementById('game-modal-container');
+            document.getElementById('game-frame').src = url;
+            document.getElementById('game-modal-title').textContent = title;
+            modal.style.display = 'flex';
+        }
+        function closeGameModal() { 
+            document.getElementById('game-modal-container').style.display = 'none'; 
+            document.getElementById('game-frame').src = ''; 
+        }
+
+        function initInteractive() {
+            document.querySelectorAll('[id^="interactive-container-"]').forEach(container => {
+                const steps = container.querySelectorAll('.step-interactive');
+                const placeholder = container.querySelector('.interactive-placeholder');
+                const nextBtn = container.querySelector('.next-btn');
+                const prevBtn = container.querySelector('.prev-btn');
+                const resetBtn = container.querySelector('.reset-btn');
+                let current = -1;
+                const update = () => {
+                    if (current === -1) placeholder.classList.remove('hidden'); else placeholder.classList.add('hidden');
+                    steps.forEach((s, i) => { if (i <= current) s.classList.add('active'); else s.classList.remove('active'); });
+                    
+                    if(container.id.includes('container-3') || container.id.includes('container-4')) {
+                        const subSteps = container.querySelectorAll('.step-interactive-sub');
+                        subSteps.forEach(sub => current >= 1 ? sub.classList.remove('hidden') : sub.classList.add('hidden'));
+                    }
+
+                    if (current >= steps.length - 1) { 
+                        if(nextBtn) nextBtn.classList.add('hidden'); 
+                        if(resetBtn) resetBtn.classList.remove('hidden'); 
+                    } else { 
+                        if(nextBtn) nextBtn.classList.remove('hidden'); 
+                        if(resetBtn) resetBtn.classList.add('hidden'); 
+                    }
+                    if(prevBtn) prevBtn.disabled = current === -1;
+                };
+                if(nextBtn) nextBtn.onclick = () => { if(current < steps.length - 1) { current++; update(); } };
+                if(prevBtn) prevBtn.onclick = () => { if(current > -1) { current--; update(); } };
+                if(resetBtn) resetBtn.onclick = () => { current = -1; update(); };
+                update();
+            });
+        }
+        
+        async function saveScoreToBackend(lessonId, grade) {
+            const sId = urlParams.get('studentId');
+            const cId = urlParams.get('classId');
+            const saveStatus = document.getElementById('save-status');
+            if (!sId || !cId) return;
+            saveStatus.innerHTML = '⏳ جارٍ حفظ النتيجة...';
+            const requestUrl = `${APPS_SCRIPT_URL}?action=saveScore&studentId=${sId}&classId=${cId}&itemId=${lessonId}&score=${grade}&type=lesson`;
+            try { await fetch(requestUrl); saveStatus.innerHTML = '✔ تم الحفظ بنجاح'; setTimeout(() => fetchStudentData(), 1000); } 
+            catch (e) { saveStatus.innerHTML = '❌ فشل الحفظ'; }
+        }
+        
         async function fetchStudentData() {
             const sId = urlParams.get('studentId') || 'visitor';
-            const cId = urlParams.get('classId') || 'visitor';
-            if (sId === 'visitor') { initVisitorAttempts(); return; }
+            if (sId === 'visitor') return;
             document.getElementById('loading-attempts').classList.remove('hidden');
             document.getElementById('attempts-display').classList.add('hidden');
             try {
+                const cId = urlParams.get('classId') || 'visitor';
                 const url = `${APPS_SCRIPT_URL}?action=getStudentData&studentId=${sId}&classId=${cId}&itemId=${LESSON_KEY}&t=${Date.now()}`;
                 const response = await fetch(url);
                 const json = await response.json();
                 studentData = json;
                 if (json.status === "success" && json.data) {
                     let d = json.data.lessons && json.data.lessons[LESSON_KEY] ? json.data.lessons[LESSON_KEY] : { attempts: 0 };
-                    attemptsLeftValue = Math.max(0, 3 - (d.attempts || 0));
+                    attemptsLeft = Math.max(0, 3 - (d.attempts || 0));
+                    if (attemptsLeft === 0 && d.waitTime > 0) startTimer(Date.now() + d.waitTime);
                     if (json.data.name) document.getElementById('student-name').textContent = json.data.name;
-                    if (attemptsLeftValue === 0 && d.waitTime > 0) startTimer(Date.now() + d.waitTime);
                     syncGamesWithData();
                 }
-            } catch (e) { console.error(e); } finally { 
+            } catch (e) { console.error(e); } finally { updateAttemptsUI(); document.getElementById('loading-attempts').classList.add('hidden'); document.getElementById('attempts-display').classList.remove('hidden'); }
+        }
+
+        function initAttempts() {
+            const sId = urlParams.get('studentId') || 'visitor';
+            if (sId === 'visitor') { 
+                const vA = localStorage.getItem(ATTEMPTS_KEY + '_visitor');
+                attemptsLeft = (vA !== null) ? parseInt(vA) : 1;
+                const nextT = localStorage.getItem(NEXT_ATTEMPT_KEY + '_visitor');
+                if (nextT && parseInt(nextT) > Date.now()) { startTimer(parseInt(nextT)); attemptsLeft = 0; }
                 updateAttemptsUI(); 
-                document.getElementById('loading-attempts').classList.add('hidden'); 
-                document.getElementById('attempts-display').classList.remove('hidden'); 
+            } 
+            else fetchStudentData();
+        }
+        
+        function updateAttemptsUI() {
+            const countEl = document.getElementById('attempts-count');
+            if(countEl) countEl.textContent = convertToArabic(attemptsLeft);
+            const btn = document.getElementById('quiz-action-btn');
+            if (!btn) return;
+            const resultsVisible = !document.getElementById('quiz-results').classList.contains('hidden');
+            if (resultsVisible) {
+                if (attemptsLeft > 0) { btn.textContent = "إعادة الاختبار"; btn.disabled = false; btn.onclick = resetQuizView; btn.type = "button"; } 
+                else { btn.textContent = "انتهت المحاولات (انتظر المؤقت)"; btn.disabled = true; }
+            } else {
+                if (attemptsLeft > 0) { btn.textContent = "تحقق من الإجابات"; btn.disabled = false; btn.type = "submit"; } 
+                else { btn.textContent = "المحاولات مستنفذة"; btn.disabled = true; }
             }
         }
 
-        function initVisitorAttempts() {
-            const vAttempts = localStorage.getItem(ATTEMPTS_KEY + '_visitor');
-            const nextT = localStorage.getItem(NEXT_ATTEMPT_KEY + '_visitor');
-            if (nextT && parseInt(nextT) > Date.now()) { attemptsLeftValue = 0; startTimer(parseInt(nextT)); } 
-            else { attemptsLeftValue = (vAttempts !== null) ? parseInt(vAttempts) : 1; } 
-            updateAttemptsUI();
+        function startTimer(target) {
+             clearInterval(timerInterval);
+             document.getElementById('timer-top-container').classList.remove('hidden'); 
+             document.getElementById('timer-bottom-container').classList.remove('hidden');
+             timerInterval = setInterval(() => {
+                const diff = target - Date.now();
+                if (diff <= 0) { clearInterval(timerInterval); location.reload(); return; } 
+                const t = new Date(diff).toISOString().substr(11, 8).replace(/\d/g, d=>"٠١٢٣٤٥٦٧٨٩"[d]);
+                document.getElementById('timer-display-top').textContent = t; 
+                document.getElementById('timer-display-bottom').textContent = t;
+             }, 1000);
         }
 
-        async function saveScoreToBackend(lessonId, grade) {
-            const sId = urlParams.get('studentId') || 'visitor';
-            const cId = urlParams.get('classId') || 'visitor';
-            if (sId === 'visitor') return;
-            const status = document.getElementById('save-status');
-            status.innerHTML = '⏳ جاري الحفظ...';
-            const url = `${APPS_SCRIPT_URL}?action=saveScore&studentId=${sId}&classId=${cId}&itemId=${lessonId}&score=${grade}&type=lesson`;
-            try { await fetch(url); status.innerHTML = '✔ تم الحفظ بنجاح'; setTimeout(() => fetchStudentData(), 1500); } 
-            catch (e) { status.innerHTML = '❌ فشل الاتصال'; }
-        }
-
+        // [RANDOMIZED OPTIONS LOGIC ✅]
         function generateQuiz() { 
-            const cats = ['learn1', 'learn2', 'learn3', 'learn4', 'mixed'];
-            currentQuestions = cats.map(cat => {
-                const list = questionPool[cat] || questionPool['learn1'];
-                const q = JSON.parse(JSON.stringify(list[Math.floor(Math.random() * list.length)]));
-                q.o = shuffleArray(q.o); 
-                return q;
+            currentQuestions = [];
+            const types = ['learn1', 'learn2', 'learn3', 'learn4', 'mixed'];
+            types.forEach(type => {
+                const pool = questionPool.filter(q => q.type === type);
+                if (pool.length > 0) {
+                    const q = JSON.parse(JSON.stringify(pool[Math.floor(Math.random() * pool.length)]));
+                    q.o = shuffleArray(q.o); // Randomize options
+                    currentQuestions.push(q);
+                }
             });
             renderQuiz(); 
         }
@@ -604,18 +594,19 @@
             const f = document.getElementById('quizForm');
             let h = '';
             currentQuestions.forEach((q, i) => {
-                h += `<div class="p-6 bg-gray-50 rounded-xl border border-gray-100 shadow-sm transition-all duration-300">
-                        <div class="mb-4 flex justify-between items-center border-b pb-2">
-                            <span class="text-xs font-bold text-purple-600">سؤال ${convertToArabic(i+1)}</span>
-                            <span class="text-[10px] text-gray-400 font-bold bg-white px-2 py-1 rounded shadow-sm">${typeLabels[tabs[i].id]}</span>
+                h += `<div class="border border-gray-200 rounded-xl p-4 bg-white mb-6 text-right">
+                        <div class="flex justify-between items-center mb-4">
+                            <span class="bg-purple-100 text-purple-600 px-2 py-0.5 rounded text-xs font-bold">سؤال ${convertToArabic(i+1)}</span>
+                            <span class="text-[10px] text-gray-400 font-bold uppercase tracking-widest">${typeLabels[q.type]}</span>
                         </div>
                         <p class="font-bold text-gray-800 text-lg mb-6 leading-relaxed text-right">${q.t}</p>
-                        <div class="options-grid">${q.o.map((o, oi) => `<div><input type="radio" name="q${i}" id="q${i}o${oi}" value="${o.v}" class="hidden"><label for="q${i}o${oi}" class="option-label text-sm">${o.t}</label></div>`).join('')}</div>
-                        <div id="feedback-${i}" class="hidden p-3 rounded-lg mt-4 font-bold text-sm border text-right"></div>
-                        <div id="actions-${i}" class="hidden mt-4 flex gap-2">
-                            <button type="button" onclick="showExplain(${i})" class="text-xs bg-purple-50 text-purple-600 px-3 py-2 rounded-lg font-bold border border-purple-100 transition hover:bg-purple-100 flex items-center gap-1"><i class="fas fa-question-circle"></i> لماذا؟</button>
-                            <button type="button" onclick="showSmart(${i})" class="text-xs bg-amber-50 text-amber-600 px-3 py-2 rounded-lg font-bold border border-amber-100 transition hover:bg-amber-100 flex items-center gap-1"><i class="fas fa-lightbulb"></i> الحل الذكي</button>
-                            <button type="button" onclick="switchTab('${tabs[i].id}')" class="text-xs bg-white text-gray-500 px-3 py-2 rounded-lg font-bold border border-gray-100 mr-auto transition hover:bg-gray-50 flex items-center gap-1"><i class="fas fa-book-open"></i> مراجعة</button>
+                        <div class="options-grid">${q.o.map((o, oi) => `<div><input type="radio" name="q${i}" id="q${i}o${oi}" value="${o.v}" class="hidden"><label for="q${i}o${oi}" class="option-label shadow-sm text-sm">${o.t}</label></div>`).join('')}</div>
+                        <div id="feedback-${i}" class="hidden p-3 rounded-lg mt-4 font-bold border"></div>
+                        <!-- Restored 3 Interactive Buttons (Rule ⚠️) -->
+                        <div id="actions-${i}" class="hidden mt-4 flex flex-wrap gap-2">
+                             <button type="button" onclick="showExplain(${i})" class="text-xs bg-blue-50 text-blue-600 px-3 py-2 rounded-lg font-bold border border-blue-100 transition hover:bg-blue-100 flex items-center gap-1"><i class="fas fa-question-circle"></i> لماذا؟</button>
+                             <button type="button" onclick="showSmart(${i})" class="text-xs bg-amber-50 text-amber-600 px-3 py-2 rounded-lg font-bold border border-amber-100 transition hover:bg-amber-100 flex items-center gap-1"><i class="fas fa-lightbulb"></i> الحل الذكي</button>
+                             <button type="button" onclick="switchTab('${q.tabId}')" class="text-xs bg-gray-50 text-gray-600 px-3 py-2 rounded-lg font-bold border border-gray-100 mr-auto transition hover:bg-gray-100 flex items-center gap-1"><i class="fas fa-book-open"></i> مراجعة الدرس</button>
                         </div>
                       </div>`;
             });
@@ -626,13 +617,11 @@
 
         function handleQuizSubmit(e) {
             e.preventDefault();
-            if (attemptsLeftValue <= 0) return;
-            attemptsLeftValue--;
+            if (attemptsLeft <= 0) return;
+            attemptsLeft--;
             const sId = urlParams.get('studentId') || 'visitor';
-            if (sId === 'visitor') {
-                localStorage.setItem(ATTEMPTS_KEY + '_visitor', attemptsLeftValue);
-                if (attemptsLeftValue === 0) { localStorage.setItem(NEXT_ATTEMPT_KEY + '_visitor', Date.now() + COOLDOWN_MS); startTimer(Date.now() + COOLDOWN_MS); }
-            }
+            if (sId === 'visitor') localStorage.setItem(ATTEMPTS_KEY + '_visitor', attemptsLeft);
+
             let score = 0;
             currentQuestions.forEach((q, i) => {
                 const sel = document.querySelector(`input[name="q${i}"]:checked`);
@@ -644,132 +633,68 @@
                 document.querySelectorAll(`input[name="q${i}"]`).forEach(inp => inp.disabled = true);
             });
             
-            const iconContainer = document.getElementById('quiz-icon-container');
-            const totalScore = score * 2;
-            if (totalScore === 10) iconContainer.innerHTML = '<i class="fas fa-trophy text-yellow-400 text-6xl drop-shadow-lg animate-bounce"></i>';
-            else if (totalScore >= 6) iconContainer.innerHTML = '<i class="fas fa-star text-yellow-300 text-6xl drop-shadow-md"></i>';
-            else iconContainer.innerHTML = '<i class="fas fa-redo text-red-400 text-5xl opacity-50"></i>';
-            
+            saveScoreToBackend(LESSON_KEY, score * 2);
             document.getElementById('quiz-results').classList.remove('hidden');
-            document.getElementById('quiz-score').textContent = `${convertToArabic(totalScore)} / ١٠`;
-            saveScoreToBackend(LESSON_KEY, totalScore);
+            document.getElementById('quiz-score').textContent = `${convertToArabic(score * 2)} / ١٠`;
             updateAttemptsUI();
+            if (attemptsLeft === 0 && sId === 'visitor') {
+                const target = Date.now() + COOLDOWN_MS;
+                localStorage.setItem(NEXT_ATTEMPT_KEY + '_visitor', target);
+                startTimer(target);
+            }
         }
 
-        function resetQuizView() { document.getElementById('quiz-results').classList.add('hidden'); document.getElementById('quizForm').innerHTML = ''; generateQuiz(); }
+        function resetQuizView() {
+            document.getElementById('quiz-results').classList.add('hidden');
+            generateQuiz(); 
+            document.getElementById('tab-quiz').scrollIntoView({behavior: 'smooth'});
+        }
 
         function renderDynamicGames() {
             const container = document.getElementById('dynamic-games-container');
             const sId = urlParams.get('studentId') || '';
             const cId = urlParams.get('classId') || '';
-            
             container.innerHTML = `
-                <div id="game-card-1" class="p-4 border rounded-xl flex items-center gap-3 bg-white hover:shadow-md cursor-pointer transition shadow-sm" onclick="window.open('https://ablan-math.github.io/games/g7_2_1.html?studentId=${sId}&classId=${cId}', '_blank')">
+                <div id="game-card-1" class="p-4 border rounded-xl flex items-center gap-3 bg-white hover:shadow-md cursor-pointer transition shadow-sm" onclick="openGameModal('https://ablan-math.github.io/games/g7_2_1.html?studentId=${sId}&classId=${cId}', 'لعبة صائد القواسم')">
                     <div id="game-icon-1" class="w-12 h-12 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center shadow-inner"><i class="fas fa-gamepad"></i></div>
-                    <div class="flex flex-col"><p class="font-bold text-sm text-gray-800">لعبة صائد القواسم</p><p id="g-status-1" class="text-[10px] text-gray-400 font-bold italic">جاري المزامنة...</p></div>
+                    <div class="flex flex-col text-right"><p class="font-bold text-sm text-gray-800">صائد القواسم</p><p id="game-status-1" class="text-[10px] text-gray-400 font-bold italic">اضغط للبدء</p></div>
                 </div>
-                <div id="game-card-2" class="p-4 border rounded-xl flex items-center gap-3 bg-white hover:shadow-md cursor-pointer transition shadow-sm" onclick="window.open('https://ablan-math.github.io/games/g7_2_2.html?studentId=${sId}&classId=${cId}', '_blank')">
+                <div id="game-card-2" class="p-4 border rounded-xl flex items-center gap-3 bg-white hover:shadow-md cursor-pointer transition shadow-sm" onclick="openGameModal('https://ablan-math.github.io/games/g7_2_2.html?studentId=${sId}&classId=${cId}', 'تحدي الضرب الصفري')">
                     <div id="game-icon-2" class="w-12 h-12 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center shadow-inner"><i class="fas fa-puzzle-piece"></i></div>
-                    <div class="flex flex-col"><p class="font-bold text-sm text-gray-800">تحدي الضرب الصفري</p><p id="g-status-2" class="text-[10px] text-gray-400 font-bold italic">جاري المزامنة...</p></div>
+                    <div class="flex flex-col text-right"><p class="font-bold text-sm text-gray-800">تحدي الضرب الصفري</p><p id="game-status-2" class="text-[10px] text-gray-400 font-bold italic">اضغط للبدء</p></div>
                 </div>`;
             document.getElementById('games-wrapper').classList.remove('hidden');
+            syncGamesWithData();
         }
 
         function syncGamesWithData() {
             if (!studentData || !studentData.data) return;
-            const gameIds = ['g7_2_1', 'g7_2_2'];
-            gameIds.forEach((id, idx) => {
+            const ids = ['g7_2_1', 'g7_2_2'];
+            ids.forEach((id, idx) => {
                 const i = idx + 1;
-                const status = document.getElementById(`g-status-${i}`);
-                const card = document.getElementById(`game-card-${i}`);
-                const icon = document.getElementById(`game-icon-${i}`);
-                
-                let data = (studentData.data.games && studentData.data.games[id]) ? studentData.data.games[id] : null;
-                if(!data && studentData.data.lessons) data = studentData.data.lessons[id];
-
-                if(data && data.grade > 0) {
-                    status.textContent = `مكتمل ✔ (${data.grade}/٥)`;
+                const status = document.getElementById(`game-status-${i}`);
+                let grade = (studentData.data.games && studentData.data.games[id]) ? studentData.data.games[id].grade : 0;
+                if(grade > 0) {
+                    status.textContent = `مكتمل ✔ (${convertToArabic(grade)}/٥)`;
                     status.className = "text-[10px] text-green-600 font-black";
-                    if(data.grade >= 5) {
-                        card.className += " border-yellow-300 bg-yellow-50";
-                        icon.innerHTML = '<i class="fas fa-trophy"></i>';
-                        icon.className = "w-12 h-12 rounded-full bg-yellow-200 text-yellow-700 flex items-center justify-center";
-                    }
-                } else {
-                    status.textContent = "اضغط للبدء";
-                    status.className = "text-[10px] text-gray-400 font-bold";
                 }
             });
         }
 
-        function startTimer(target) {
-            clearInterval(timerInterval);
-            const topT = document.getElementById('timer-top-container');
-            if(topT) topT.classList.remove('hidden');
-            timerInterval = setInterval(() => {
-                const diff = target - Date.now();
-                if (diff <= 0) { clearInterval(timerInterval); location.reload(); return; }
-                const t = new Date(diff).toISOString().substr(11, 8).replace(/\d/g, d=>"٠١٢٣٤٥٦٧٨٩"[d]);
-                if(document.getElementById('timer-display-top')) document.getElementById('timer-display-top').textContent = t;
-            }, 1000);
-        }
-
-        function updateAttemptsUI() {
-            const countEl = document.getElementById('attempts-count');
-            if(countEl) countEl.textContent = convertToArabic(attemptsLeftValue);
-            const btn = document.getElementById('quiz-action-btn');
-            if (!btn) return;
-            const resultsVisible = !document.getElementById('quiz-results').classList.contains('hidden');
-            if (resultsVisible) {
-                if (attemptsLeftValue > 0) { btn.textContent = "إعادة الاختبار"; btn.onclick = resetQuizView; btn.type = "button"; btn.className = "btn-theme w-full font-bold py-4 rounded-xl shadow-lg"; } 
-                else { btn.textContent = "انتهت المحاولات (انتظر المؤقت)"; btn.disabled = true; btn.className = "bg-gray-300 w-full font-bold py-4 rounded-xl cursor-not-allowed text-gray-500 shadow-none"; }
-            }
-        }
-
         function showExplain(i) { document.getElementById('modal-content').innerHTML = currentQuestions[i].e; document.getElementById('modal').classList.remove('hidden'); }
-        function showSmart(i) { document.getElementById('modal-content').innerHTML = `<p class="font-bold text-purple-700 mb-2">الحل الذكي:</p>${currentQuestions[i].smart}`; document.getElementById('modal').classList.remove('hidden'); }
+        function showSmart(i) { document.getElementById('modal-content').innerHTML = `<p class="font-bold text-purple-700 mb-2">💡 الحل الذكي:</p>${currentQuestions[i].smart}`; document.getElementById('modal').classList.remove('hidden'); }
         function closeModal() { document.getElementById('modal').classList.add('hidden'); }
-
-        function initInteractive() {
-            document.querySelectorAll('[id^="interactive-container-"]').forEach(container => {
-                const steps = container.querySelectorAll('.step-interactive');
-                const placeholder = container.querySelector('.interactive-placeholder');
-                const nextBtn = container.querySelector('.next-btn');
-                const prevBtn = container.querySelector('.prev-btn');
-                const resetBtn = container.querySelector('.reset-btn');
-                let current = -1; 
-                const update = () => {
-                    if (placeholder) { current === -1 ? placeholder.classList.remove('hidden') : placeholder.classList.add('hidden'); }
-                    steps.forEach((s, i) => i <= current ? s.classList.add('active') : s.classList.remove('active'));
-                    
-                    if(container.id.includes('container-3')) {
-                        const subSteps = container.querySelectorAll('.step-interactive-sub');
-                        subSteps.forEach(sub => current >= 1 ? sub.classList.remove('hidden') : sub.classList.add('hidden'));
-                        if (current >= 1) { if(nextBtn) nextBtn.classList.add('hidden'); if(resetBtn) resetBtn.classList.remove('hidden'); }
-                        else { if(nextBtn) nextBtn.classList.remove('hidden'); if(resetBtn) resetBtn.classList.add('hidden'); }
-                    } else {
-                        if (current >= steps.length - 1) { if(nextBtn) nextBtn.classList.add('hidden'); if(resetBtn) resetBtn.classList.remove('hidden'); } 
-                        else { if(nextBtn) nextBtn.classList.remove('hidden'); if(resetBtn) resetBtn.classList.add('hidden'); }
-                    }
-                    if(prevBtn) prevBtn.disabled = current <= -1;
-                };
-                if (nextBtn) nextBtn.onclick = () => { current++; update(); };
-                if (prevBtn) prevBtn.onclick = () => { if(current > -1) { current--; update(); } };
-                if (resetBtn) resetBtn.onclick = () => { current = -1; update(); };
-                update();
-            });
-        }
 
         window.onload = function() {
             const nav = document.getElementById('bottom-nav-container');
             if(nav) {
-                nav.innerHTML = ""; 
                 tabs.forEach((t, i) => {
                     nav.innerHTML += `<div class="nav-item ${i===0?'active':''}" id="nav-${t.id}" onclick="switchTab('${t.id}')"><i data-lucide="${t.icon}"></i><span class="mt-1">${t.label}</span></div>`;
                 });
                 lucide.createIcons();
             }
             initInteractive();
+            initAttempts();
         };
     </script>
 </body>

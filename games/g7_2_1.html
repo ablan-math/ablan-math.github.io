@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>بطل التجميع V19.27 - تحدي تحليل كثيرات الحدود</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body { font-family: 'Cairo', sans-serif; overflow: hidden; touch-action: manipulation; direction: rtl; }
+        .compact-card {
+            width: 100%; max-width: 420px; background: white; border-radius: 2rem;
+            box-shadow: 0 15px 35px -5px rgba(0,0,0,0.1); border: 1px solid #f1f5f9;
+            display: flex; flex-direction: column; max-height: 96vh; overflow: hidden; position: relative;
+        }
+        .top-info-bar {
+            background: #f8fafc; border-bottom: 1px solid #e2e8f0; padding: 8px 16px;
+            display: flex; justify-content: space-between; align-items: center;
+            font-size: 11px; font-weight: 800; color: #64748b;
+        }
+        .btn-touch { min-height: 50px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; border-radius: 1rem; font-weight: 800; cursor: pointer; }
+        .btn-touch:active { transform: scale(0.97); }
+        
+        .city-block { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); border: 2px dashed #e2e8f0; position: relative; }
+        .city-block.active { border-color: #3b82f6; background-color: #eff6ff; transform: translateY(-3px); box-shadow: 0 5px 15px -3px rgba(59, 130, 246, 0.1); }
+        .city-block.merged { border-style: solid; border-color: #10b981; background-color: #f0fdf4; opacity: 0.8; }
+
+        .factor-badge {
+            position: absolute; background: #2563eb; color: white;
+            padding: 4px 12px; border-radius: 20px; font-weight: 900;
+            font-size: 14px; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+            z-index: 20; animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .summary-step { animation: slideDown 0.5s ease-out; border: 1px solid #e2e8f0; background: #f8fafc; }
+
+        .overlay {
+            position: absolute; inset: 0; background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(6px); z-index: 200; display: flex; align-items: center; justify-content: center;
+            padding: 20px; transition: 0.3s;
+        }
+        .pop-content {
+            background: white; width: 100%; border-radius: 1.5rem; padding: 24px;
+            text-align: center; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.2);
+            animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            max-height: 90%; overflow-y: auto;
+        }
+
+        .input-correct { border-color: #10b981 !important; background-color: #f0fdf4 !important; color: #059669 !important; font-weight: 900; }
+        .input-error { border-color: #ef4444 !important; background-color: #fef2f2 !important; }
+
+        .tab-btn { flex: 1; padding: 10px; font-size: 10px; font-weight: 900; border-radius: 12px; transition: 0.3s; border: 2px solid transparent; }
+        
+        /* ألوان مخصصة للأبطال */
+        .tab-class-active { background-color: #3b82f6; color: white; border-color: #2563eb; }
+        .tab-global-active { background-color: #6366f1; color: white; border-color: #4f46e5; }
+        .tab-inactive { background-color: #f1f5f9; color: #94a3b8; border-color: #e2e8f0; }
+
+        @keyframes slideDown { 0% { opacity: 0; transform: translateY(-10px); } 100% { opacity: 1; transform: translateY(0); } }
+        @keyframes popIn { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+        .animate-shake { animation: shake 0.4s ease-in-out; }
+        
+        .step-label { font-size: 10px; font-weight: 900; color: #94a3b8; margin-bottom: 2px; text-align: right; }
+        .step-box { background: #f8fafc; border-radius: 12px; padding: 10px; border: 1px solid #e2e8f0; margin-bottom: 8px; text-align: center; }
+        .spin { animation: spin 1s linear infinite; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 h-screen w-screen flex items-center justify-center p-3 text-right">
+
+    <div class="compact-card">
+        <!-- الشريط العلوي -->
+        <div class="top-info-bar">
+            <div class="flex items-center gap-2 overflow-hidden text-[10px]">
+                <i class="fas fa-medal text-blue-500"></i>
+                <span id="top-student-name" class="truncate font-black">بطل التجميع</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <div class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-[9px] font-black" id="progress-indicator">المثال ١ / ٣</div>
+                <div class="flex items-center gap-1 bg-white px-2 py-0.5 rounded-full border shadow-sm font-bold text-[10px]">
+                    <i class="fas fa-star text-yellow-500"></i>
+                    <span id="top-prev-score">٠ / ٥</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- إطار المرشد التعليمي -->
+        <div id="tutorial-overlay" class="overlay hidden">
+            <div class="pop-content">
+                <div class="w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i id="tut-icon" class="fas fa-brain text-xl"></i>
+                </div>
+                <h3 id="tut-title" class="font-black text-slate-800 text-lg mb-2">مرشد التحليل</h3>
+                <p id="tut-text" class="text-slate-500 text-[11px] font-bold leading-relaxed mb-6"></p>
+                <button onclick="closeTutorial()" class="btn-touch w-full bg-blue-600 text-white text-sm shadow-lg">فهمت، لننطلق!</button>
+            </div>
+        </div>
+
+        <!-- إطار تقرير النجاح المرحلي -->
+        <div id="success-overlay" class="overlay hidden">
+            <div class="pop-content border-t-4 border-emerald-500">
+                <div class="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-check-circle text-xl"></i>
+                </div>
+                <h3 class="font-black text-slate-800 text-lg mb-1">تقرير نجاح التحليل</h3>
+                <p id="current-example-grade" class="text-[10px] text-emerald-600 font-black mb-4">تم تفكيك المقدار بنجاح!</p>
+                
+                <div class="text-right space-y-3 mb-6">
+                    <div>
+                        <p class="step-label">المقدار الجبري:</p>
+                        <div id="report-step-1" class="step-box font-black text-slate-700 dir-ltr text-sm italic"></div>
+                    </div>
+                    <div>
+                        <p class="step-label text-blue-500">خطوة استخراج العوامل المشتركة:</p>
+                        <div id="report-step-2" class="step-box font-black text-blue-600 dir-ltr text-sm"></div>
+                    </div>
+                    <div>
+                        <p class="step-label text-emerald-500">التحليل النهائي (الأقواس):</p>
+                        <div id="report-step-3" class="step-box font-black text-emerald-600 dir-ltr text-base"></div>
+                    </div>
+                </div>
+                <button onclick="nextExample()" class="btn-touch w-full bg-emerald-600 text-white text-sm shadow-md">السؤال التالي <i class="fas fa-arrow-left mr-2"></i></button>
+            </div>
+        </div>
+
+        <!-- الشاشة 1: البداية -->
+        <div id="start-screen" class="p-6 text-center flex flex-col gap-4 h-full justify-center">
+            <div class="w-16 h-16 bg-blue-600 rounded-2xl mx-auto flex items-center justify-center shadow-lg mb-2">
+                <i class="fas fa-puzzle-piece text-white text-3xl"></i>
+            </div>
+            <h1 class="text-xl font-black text-slate-800">تحدي بطل التجميع</h1>
+            <div class="bg-blue-50 p-4 rounded-2xl border border-blue-100 text-[11px] font-bold text-blue-700 leading-relaxed text-center">
+                يا بطل! مهمتك هي تحليل ٣ مقادير جبرية باستخدام "خاصية التجميع". استخرج العوامل المشتركة بذكاء لتحقق أعلى الدرجات.
+            </div>
+            
+            <div class="flex flex-row gap-2 items-stretch mt-2">
+                <button onclick="startGame()" class="btn-touch flex-[3] bg-blue-600 text-white shadow-lg text-lg">بدء التحدي <i class="fas fa-bolt ml-2 text-yellow-300"></i></button>
+                <button onclick="fetchAndShowLeaderboard(true)" class="btn-touch flex-1 bg-white text-slate-600 border border-slate-200 text-[10px] flex-col leading-tight py-2">
+                    <i class="fas fa-trophy text-yellow-500 text-xl mb-1"></i>
+                    <span>الأبطال</span>
+                </button>
+            </div>
+            
+            <p class="text-[10px] text-slate-400 font-bold mt-2 uppercase text-center italic">أ. عبد العزيز خالد العبلان</p>
+        </div>
+
+        <!-- الشاشة 2: اللعبة -->
+        <div id="game-screen" class="hidden p-4 flex flex-col gap-3 overflow-y-auto">
+            <div class="text-center">
+                <h2 id="header-label" class="text-[10px] font-black text-slate-400 uppercase tracking-widest">المقدار الحالي للتحليل</h2>
+                <div id="expression-display" class="text-lg font-black text-blue-600 dir-ltr my-1 transition-all"></div>
+            </div>
+
+            <div id="step-summary-container" class="hidden summary-step p-3 rounded-2xl text-center mb-1">
+                <p class="text-[8px] font-bold text-slate-400 mb-1">الخطوة الوسيطة الصحيحة:</p>
+                <div id="summary-text" class="text-blue-600 font-black text-sm dir-ltr"></div>
+            </div>
+
+            <div id="city-grid" class="grid grid-cols-2 gap-2 relative">
+                <div id="factors-container" class="absolute inset-0 pointer-events-none"></div>
+            </div>
+
+            <div id="interaction-panel" class="bg-slate-50 p-4 rounded-2xl border border-slate-200 min-h-[160px] flex flex-col justify-center">
+                <p id="instruction-text" class="text-[11px] font-black text-slate-500 text-center mb-3"></p>
+                
+                <div id="factor-step" class="hidden"><div class="grid grid-cols-3 gap-2" id="factor-options"></div></div>
+
+                <div id="intermediate-step" class="hidden space-y-3">
+                    <div class="p-3 bg-white rounded-xl border border-blue-100 text-center">
+                        <p class="text-[10px] font-bold text-blue-500 mb-2 text-center">أكمل تحليل المجموعات (ماذا يتبقى؟):</p>
+                        <div class="flex items-center justify-center gap-1 font-black text-sm dir-ltr flex-wrap">
+                            <span id="f1-label" class="text-blue-600"></span>
+                            (<input type="text" id="rem1" placeholder="..." class="w-14 bg-slate-50 border-b-2 border-blue-200 text-center outline-none">)
+                            <span id="plus-minus-label" class="mx-1 text-slate-400 font-bold">+</span>
+                            <span id="f2-label" class="text-blue-600"></span>
+                            (<input type="text" id="rem2" placeholder="..." class="w-14 bg-slate-50 border-b-2 border-blue-200 text-center outline-none">)
+                        </div>
+                    </div>
+                    <button id="check-inter-btn" onclick="checkIntermediateStep()" class="btn-touch w-full bg-blue-500 text-white shadow-md text-sm">تحقق من صحة القوس</button>
+                </div>
+
+                <div id="final-step" class="hidden space-y-3">
+                    <div class="p-3 bg-green-50 rounded-xl border border-green-100 text-center">
+                        <p class="text-[10px] font-bold text-green-600 mb-2 text-center">اكتب الأقواس النهائية للتحليل:</p>
+                        <div class="flex items-center justify-center gap-2 font-black text-lg dir-ltr">
+                            (<input type="text" id="final-p1" placeholder="..." class="w-20 bg-white border-b-2 border-green-300 text-center outline-none">)
+                            (<input type="text" id="final-p2" placeholder="..." class="w-20 bg-white border-b-2 border-green-300 text-center outline-none">)
+                        </div>
+                    </div>
+                    <button id="next-btn" onclick="checkFinalStep()" class="btn-touch w-full bg-green-600 text-white shadow-md">اعتماد النتيجة</button>
+                </div>
+            </div>
+
+            <div class="flex justify-between items-center px-1 text-[10px] font-bold text-slate-400">
+                <span><i class="fas fa-clock ml-1"></i> <span id="game-timer">٠٠:٠٠</span></span>
+                <span><i class="fas fa-times-circle ml-1"></i> أخطاء: <span id="error-count">٠</span></span>
+            </div>
+        </div>
+
+        <!-- شاشة النتائج النهائية -->
+        <div id="result-screen" class="hidden p-6 flex flex-col h-full text-center justify-center">
+            <div id="final-stats" class="grid grid-cols-3 gap-2 mb-6"></div>
+            <div id="final-feedback-box" class="p-4 rounded-2xl border mb-6">
+                <i id="final-icon" class="fas text-3xl mb-2"></i>
+                <p id="final-msg" class="font-black text-sm"></p>
+            </div>
+            <button onclick="fetchAndShowLeaderboard(true)" class="btn-touch w-full bg-blue-600 text-white mb-2 shadow-md">لوحة الشرف</button>
+            <div class="flex gap-2">
+                <button onclick="location.reload()" class="btn-touch flex-1 bg-slate-100 text-slate-600 text-sm">إعادة</button>
+                <button id="finish-btn" class="btn-touch flex-[2] bg-slate-900 text-white text-sm">إنهاء</button>
+            </div>
+        </div>
+
+        <!-- لوحة المتصدرين المحدثة -->
+        <div id="leaderboard-modal" class="overlay hidden">
+            <div class="pop-content h-[80%] flex flex-col p-4">
+                <div class="flex justify-between items-center mb-4 border-b pb-2">
+                    <h3 class="font-black text-slate-800"><i class="fas fa-trophy text-yellow-500 ml-2"></i>سجل الأبطال</h3>
+                    <button onclick="closeLeaderboard()" class="w-8 h-8 rounded-full bg-slate-100 text-slate-500"><i class="fas fa-times"></i></button>
+                </div>
+                
+                <!-- تبويبات المتصدرين -->
+                <div id="tab-container" class="flex gap-2 mb-4">
+                    <button onclick="switchTab('class')" id="tab-class" class="tab-btn tab-inactive">أبطال فصلي</button>
+                    <button onclick="switchTab('global')" id="tab-global" class="tab-btn tab-inactive">أبطال اللعبة (الكل)</button>
+                </div>
+
+                <div id="modal-body" class="flex-1 overflow-y-auto bg-slate-50 rounded-xl relative p-1">
+                    <div id="modal-loader" class="absolute inset-0 flex items-center justify-center hidden bg-white/80"><i class="fas fa-sync spin text-blue-500 text-2xl"></i></div>
+                    <div id="leaderboard-content" class="space-y-1"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    (function() {
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxqAQlGhNs8k5RwHs6jrWxDiDwaMABSx8a9Fl81O5oVVa5fHRWTwIEvsGy2cSDP4zGLWQ/exec";
+        const GAME_ID = "g3_2_1"; 
+        const urlParams = new URLSearchParams(window.location.search);
+        const studentId = urlParams.get('studentId') || urlParams.get('userId');
+        const classId = urlParams.get('classId');
+        let studentName = decodeURIComponent(urlParams.get('name') || "بطل التجميع");
+
+        const toAr = (n) => String(n).replace(/[0-9]/g, d => "٠١٢٣٤٥٦٧٨٩"[d]);
+        
+        const norm = (s) => {
+            if (!s) return "";
+            let res = s.toString().toLowerCase().trim();
+            const map = {'x':'س', 'y':'ص', 'a':'أ', 'b':'ب', 'c':'ج', 'j':'ج', 's':'س'};
+            for (let key in map) res = res.split(key).join(map[key]);
+            res = res.replace(/[0-9]/g, d => "٠١٢٣٤٥٦٧٨٩"[d]).replace(/\s/g, '').replace(/−|–|—/g, '-');
+            return res;
+        };
+
+        const questions = [
+            {
+                expr: "٤ س ص + ١٢ س + ٣ ص + ٩",
+                blocks: ["٤ س ص", "١٢ س", "٣ ص", "٩"],
+                paths: {
+                    "0,1": { f: ['٤ س', '٢ س', '٤'], c: '٤ س' },
+                    "2,3": { f: ['٣', '٩', '١'], c: '٣' },
+                    "0,2": { f: ['ص', '٢ ص', '٤ ص'], c: 'ص' },
+                    "1,3": { f: ['٣', '٦', '١٢'], c: '٣' }
+                },
+                intermediate: (f1) => (norm(f1) === norm("٤س") || norm(f1) === norm("٣")) ? norm("ص+٣") : norm("٤س+٣"),
+                final: [norm("٤س+٣"), norm("ص+٣")]
+            },
+            {
+                expr: "٦ س ص - ٩ ص + ٤ س - ٦",
+                blocks: ["٦ س ص", "- ٩ ص", "٤ س", "- ٦"],
+                paths: {
+                    "0,1": { f: ['٣ ص', 'ص', '٣'], c: '٣ ص' },
+                    "2,3": { f: ['٢', '٤', '١'], c: '٢' },
+                    "0,2": { f: ['٢ س', '٣ س', '٢'], c: '٢ س' },
+                    "1,3": { f: ['- ٣', '٣', '- ٩'], c: '- ٣' }
+                },
+                intermediate: (f1) => (norm(f1) === norm("٣ص") || norm(f1) === norm("٢")) ? norm("٢س-٣") : norm("٣ص+٢"),
+                final: [norm("٣ص+٢"), norm("٢س-٣")]
+            },
+            {
+                expr: "١٢ أ جـ - ١٨ جـ + ٤ أ - ٦",
+                blocks: ["١٢ أ جـ", "- ١٨ جـ", "٤ أ", "- ٦"],
+                paths: {
+                    "0,1": { f: ['٦ جـ', '٣ جـ', '٢'], c: '٦ جـ' },
+                    "2,3": { f: ['٢', '٤', '١'], c: '٢' },
+                    "0,2": { f: ['٤ أ', '٢ أ', '٤'], c: '٤ أ' },
+                    "1,3": { f: ['- ٦', '٦', '- ٣'], c: '- ٦' }
+                },
+                intermediate: (f1) => (norm(f1) === norm("٦ج") || norm(f1) === norm("٢")) ? norm("٢أ-٣") : norm("٦ج+٢"),
+                final: [norm("٦ج+٢"), norm("٢أ-٣")]
+            }
+        ];
+
+        let currentIdx = 0, timer = 0, timerInterval, errors = 0, stage = 1;
+        let selectedBlocks = [], mergedCount = 0, extractedFactors = [], stepErrors = 0;
+        let currentLeaderboardMode = classId ? 'class' : 'global';
+
+        window.startGame = () => {
+            document.getElementById('start-screen').classList.add('hidden');
+            document.getElementById('game-screen').classList.remove('hidden');
+            document.getElementById('top-student-name').textContent = studentName;
+            initQuestion();
+            timerInterval = setInterval(() => {
+                timer++;
+                const m = Math.floor(timer/60), s = timer%60;
+                document.getElementById('game-timer').textContent = `${toAr(m.toString().padStart(2,'0'))}:${toAr(s.toString().padStart(2,'0'))}`;
+            }, 1000);
+            showTutorial("خطوة التجميع", "يا بطل، ابدأ باختيار حدين يجمعهما قاسم مشترك أكبر لدمجهما معاً. ركز على العوامل المشتركة.");
+        };
+
+        window.showTutorial = (title, text) => {
+            document.getElementById('tut-title').textContent = title;
+            document.getElementById('tut-text').textContent = text;
+            document.getElementById('tutorial-overlay').classList.remove('hidden');
+        };
+
+        window.closeTutorial = () => document.getElementById('tutorial-overlay').classList.add('hidden');
+
+        function initQuestion() {
+            const q = questions[currentIdx];
+            stage = 1; mergedCount = 0; selectedBlocks = []; extractedFactors = []; stepErrors = 0;
+            document.getElementById('progress-indicator').textContent = `المثال ${toAr(currentIdx+1)} / ٣`;
+            document.getElementById('expression-display').textContent = q.expr;
+            document.getElementById('city-grid').innerHTML = '<div id="factors-container" class="absolute inset-0 pointer-events-none"></div>';
+            q.blocks.forEach((txt, i) => {
+                const b = document.createElement('div');
+                b.id = `block-${i}`;
+                b.className = "city-block p-4 rounded-xl flex items-center justify-center font-black text-sm cursor-pointer";
+                b.textContent = txt;
+                b.onclick = () => toggleBlock(i);
+                document.getElementById('city-grid').appendChild(b);
+            });
+            document.getElementById('step-summary-container').classList.add('hidden');
+            document.getElementById('instruction-text').textContent = "اختر حدين يجمعهما عامل مشترك..";
+            document.getElementById('factor-step').classList.add('hidden');
+            document.getElementById('intermediate-step').classList.add('hidden');
+            document.getElementById('final-step').classList.add('hidden');
+            document.getElementById('city-grid').classList.remove('hidden');
+            document.getElementById('expression-display').classList.remove('hidden');
+            document.getElementById('header-label').textContent = "المقدار الحالي للتحليل";
+            document.getElementById('rem1').value = ''; document.getElementById('rem2').value = '';
+            document.getElementById('final-p1').value = ''; document.getElementById('final-p2').value = '';
+        }
+
+        window.toggleBlock = (id) => {
+            if (stage !== 1) return;
+            const block = document.getElementById(`block-${id}`);
+            if (block.classList.contains('merged')) return;
+            if (selectedBlocks.includes(id)) {
+                selectedBlocks = selectedBlocks.filter(i => i !== id);
+                block.classList.remove('active');
+                document.getElementById('factor-step').classList.add('hidden');
+            } else if (selectedBlocks.length < 2) {
+                selectedBlocks.push(id);
+                block.classList.add('active');
+            }
+            if (selectedBlocks.length === 2) validateGrouping();
+        };
+
+        function validateGrouping() {
+            const sorted = [...selectedBlocks].sort().join(',');
+            const pathData = questions[currentIdx].paths[sorted];
+            if (!pathData) {
+                triggerError("هذا التجميع غير مفيد حالياً، جرب تجميع حدود أخرى!");
+                selectedBlocks.forEach(id => document.getElementById(`block-${id}`).classList.remove('active'));
+                selectedBlocks = [];
+                return;
+            }
+            showFactorOptions(pathData);
+        }
+
+        function triggerError(msg) {
+            errors++; stepErrors++;
+            document.getElementById('error-count').textContent = toAr(errors);
+            document.getElementById('interaction-panel').classList.add('animate-shake');
+            if (msg) document.getElementById('instruction-text').textContent = msg;
+            setTimeout(() => document.getElementById('interaction-panel').classList.remove('animate-shake'), 800);
+        }
+
+        function showFactorOptions(pathData) {
+            const factorGrid = document.getElementById('factor-options');
+            document.getElementById('instruction-text').textContent = "ما القاسم المشترك الأكبر لهذا التجمع؟";
+            factorGrid.innerHTML = '';
+            pathData.f.forEach(f => {
+                const b = document.createElement('button');
+                b.className = "bg-white border-2 border-slate-200 p-2 rounded-xl text-xs font-black hover:border-blue-500 hover:text-blue-600 transition-all";
+                b.textContent = f;
+                b.onclick = () => checkFactor(f, pathData.c);
+                factorGrid.appendChild(b);
+            });
+            document.getElementById('factor-step').classList.remove('hidden');
+        }
+
+        function checkFactor(chosen, correct) {
+            if (norm(chosen) === norm(correct)) {
+                createFloatingBadge(chosen, selectedBlocks);
+                extractedFactors.push(chosen);
+                selectedBlocks.forEach(id => document.getElementById(`block-${id}`).classList.add('merged'));
+                mergedCount += 2; selectedBlocks = []; stepErrors = 0;
+                document.getElementById('factor-step').classList.add('hidden');
+                if (mergedCount === 4) {
+                    stage = 2;
+                    document.getElementById('f1-label').textContent = extractedFactors[0];
+                    document.getElementById('f2-label').textContent = extractedFactors[1];
+                    document.getElementById('plus-minus-label').textContent = (extractedFactors[1].includes('-')) ? '' : '+';
+                    document.getElementById('intermediate-step').classList.remove('hidden');
+                    showTutorial("خطوة التوزيع", "رائع! الآن بعد سحب العوامل، ما هو المتبقي داخل الأقواس؟ ستلاحظ أن القوس يتكرر في الطرفين!");
+                } else document.getElementById('instruction-text').textContent = "أحسنت! حلل المجموعة المتبقية..";
+            } else triggerError();
+        }
+
+        function createFloatingBadge(text, blocks) {
+            const b1 = document.getElementById(`block-${blocks[0]}`).getBoundingClientRect();
+            const b2 = document.getElementById(`block-${blocks[1]}`).getBoundingClientRect();
+            const gridRect = document.getElementById('city-grid').getBoundingClientRect();
+            const badge = document.createElement('div');
+            badge.className = 'factor-badge';
+            badge.textContent = text;
+            badge.style.left = `${((b1.left + b2.left)/2 + (b1.right + b2.right)/2)/2 - gridRect.left - 20}px`;
+            badge.style.top = `${((b1.top + b2.top)/2 + (b1.bottom + b2.bottom)/2)/2 - gridRect.top - 15}px`;
+            document.getElementById('factors-container').appendChild(badge);
+        }
+
+        window.checkIntermediateStep = () => {
+            const r1Val = document.getElementById('rem1').value, r2Val = document.getElementById('rem2').value;
+            const expected = questions[currentIdx].intermediate(extractedFactors[0]);
+            if (norm(r1Val) === expected && norm(r2Val) === expected) {
+                proceedToStage3(r1Val || "...");
+            } else {
+                triggerError();
+                if (stepErrors >= 2) {
+                    const ans = toAr(expected.replace(/[أبصسج]/g, m => ({'أ':'أ','ب':'ب','س':'س','ص':'ص','ج':'جـ'})[m] || m));
+                    document.getElementById('rem1').value = ans; document.getElementById('rem2').value = ans;
+                    setTimeout(() => proceedToStage3(ans), 1500);
+                }
+            }
+        };
+
+        function proceedToStage3(pVal) {
+            stage = 3; stepErrors = 0;
+            showStage3Summary(extractedFactors[0], extractedFactors[1], pVal);
+            showTutorial("التحليل النهائي", "الآن اسحب القوس المتكرر كعامل مشترك أخير لتصل للتحليل النهائي (الأبعاد).");
+        }
+
+        function showStage3Summary(f1, f2, p) {
+            document.getElementById('city-grid').classList.add('hidden');
+            document.getElementById('expression-display').classList.add('hidden');
+            document.getElementById('header-label').textContent = "الخطوة السابقة الصحيحة";
+            const sign = (f2.includes('-')) ? '' : '+';
+            document.getElementById('summary-text').textContent = `${f1}(${p}) ${sign} ${f2}(${p})`;
+            document.getElementById('step-summary-container').classList.remove('hidden');
+            document.getElementById('intermediate-step').classList.add('hidden');
+            document.getElementById('final-step').classList.remove('hidden');
+        }
+
+        window.checkFinalStep = () => {
+            const p1 = norm(document.getElementById('final-p1').value), p2 = norm(document.getElementById('final-p2').value);
+            const sol = questions[currentIdx].final;
+            if ((p1 === sol[0] && p2 === sol[1]) || (p1 === sol[1] && p2 === sol[0])) {
+                showSuccessReport();
+            } else {
+                triggerError();
+                if (stepErrors >= 2) showSuccessReport();
+            }
+        };
+
+        function showSuccessReport() {
+            const q = questions[currentIdx];
+            document.getElementById('report-step-1').textContent = q.expr;
+            const sign = (extractedFactors[1].includes('-')) ? '' : '+';
+            const inner = toAr(q.intermediate(extractedFactors[0]).replace(/[أبصسج]/g, m => ({'أ':'أ','ب':'ب','س':'س','ص':'ص','ج':'جـ'})[m] || m));
+            document.getElementById('report-step-2').textContent = `${extractedFactors[0]}(${inner}) ${sign} ${extractedFactors[1]}(${inner})`;
+            document.getElementById('report-step-3').textContent = `(${toAr(q.final[0])})(${toAr(q.final[1])})`;
+            document.getElementById('success-overlay').classList.remove('hidden');
+        }
+
+        window.nextExample = () => {
+            document.getElementById('success-overlay').classList.add('hidden');
+            if (currentIdx < 2) { currentIdx++; initQuestion(); }
+            else { clearInterval(timerInterval); showFinalResults(); }
+        };
+
+        function showFinalResults() {
+            const grade = Math.max(0.5, 5 - (errors * 0.5)).toFixed(1);
+            const feedbackBox = document.getElementById('final-feedback-box');
+            const feedbackMsg = document.getElementById('final-msg');
+            const feedbackIcon = document.getElementById('final-icon');
+            
+            if (grade >= 4.5) {
+                feedbackMsg.textContent = "أداء استثنائي ومبهر! أنت بطل حقيقي في التحليل.";
+                feedbackBox.className = "p-4 rounded-2xl border-emerald-100 bg-emerald-50 text-emerald-800 mb-6";
+                feedbackIcon.className = "fas fa-crown text-yellow-500 text-3xl mb-2";
+            } else if (grade >= 3) {
+                feedbackMsg.textContent = "عمل رائع! لقد أتقنت مهارة التحليل بالتجميع.";
+                feedbackBox.className = "p-4 rounded-2xl border-blue-100 bg-blue-50 text-blue-800 mb-6";
+                feedbackIcon.className = "fas fa-thumbs-up text-blue-500 text-3xl mb-2";
+            } else {
+                feedbackMsg.textContent = "محاولة جيدة، ننصحك بمزيد من التدرب على القواسم والإشارات.";
+                feedbackBox.className = "p-4 rounded-2xl border-orange-100 bg-orange-50 text-orange-800 mb-6";
+                feedbackIcon.className = "fas fa-star-half-alt text-orange-400 text-3xl mb-2";
+            }
+
+            document.getElementById('game-screen').classList.add('hidden');
+            document.getElementById('result-screen').classList.remove('hidden');
+            document.getElementById('final-stats').innerHTML = `
+                <div class="bg-blue-50 p-2 rounded-xl text-center flex flex-col justify-center"><p class="text-[8px] text-blue-400 uppercase">الوقت</p><p class="font-black text-[11px]">${toAr(Math.floor(timer/60))}:${toAr(timer%60)}</p></div>
+                <div class="bg-emerald-50 p-2 rounded-xl border-2 border-emerald-100 text-center shadow-sm flex flex-col justify-center"><p class="text-[8px] text-emerald-600 uppercase">الدرجة</p><p class="text-xl font-black text-emerald-900">${toAr(grade)}</p></div>
+                <div class="bg-red-50 p-2 rounded-xl text-center flex flex-col justify-center"><p class="text-[8px] text-red-400 uppercase">الأخطاء</p><p class="font-black text-[11px]">${toAr(errors)}</p></div>
+            `;
+            if (studentId && classId) fetch(`${SCRIPT_URL}?action=saveScore&studentId=${studentId}&classId=${classId}&itemId=${GAME_ID}&score=${grade}&metricValue=${timer}`).catch(()=>{});
+            document.getElementById('finish-btn').onclick = () => window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*');
+        }
+
+        // سجل الأبطال المطور
+        window.fetchAndShowLeaderboard = (isManual) => {
+            const modal = document.getElementById('leaderboard-modal');
+            if (isManual) modal.classList.remove('hidden');
+            document.getElementById('modal-loader').classList.remove('hidden');
+            
+            // فلترة التبويبات بناءً على حالة التسجيل
+            const tabClass = document.getElementById('tab-class');
+            const tabGlobal = document.getElementById('tab-global');
+            
+            if (!classId) {
+                tabClass.classList.add('hidden'); // إخفاء زر فصلي للطالب غير المسجل
+                currentLeaderboardMode = 'global';
+                tabGlobal.className = "tab-btn tab-global-active"; // جعل زر الكل عريضاً
+            } else {
+                tabClass.classList.remove('hidden');
+                // تحديث الألوان بناءً على الاختيار
+                tabClass.className = currentLeaderboardMode === 'class' ? "tab-btn tab-class-active" : "tab-btn tab-inactive";
+                tabGlobal.className = currentLeaderboardMode === 'global' ? "tab-btn tab-global-active" : "tab-btn tab-inactive";
+            }
+
+            const mode = (currentLeaderboardMode === 'class') ? classId : 'all';
+            fetch(`${SCRIPT_URL}?action=getLeaderboard&gameId=${GAME_ID}&classId=${encodeURIComponent(mode)}&t=${Date.now()}`)
+                .then(r => r.json()).then(res => {
+                    const container = document.getElementById('leaderboard-content');
+                    if (res.status === 'success' && res.data) {
+                        let h = `<table class="w-full text-[10px] border-collapse"><thead class="bg-slate-50 text-slate-400 border-b"><tr><th class="p-2 text-center">#</th><th class="p-2 text-right">البطل</th><th class="p-2 text-center">الدرجة</th></tr></thead><tbody class="divide-y divide-slate-100">`;
+                        res.data.forEach((p, i) => {
+                            const isMe = studentId && String(p.name).trim() === String(studentName).trim();
+                            h += `<tr class="${isMe ? 'bg-blue-50 border-r-4 border-blue-500' : ''} transition-all">
+                                <td class="p-2 text-center font-black">${i < 3 ? ['🥇','🥈','🥉'][i] : toAr(i+1)}</td>
+                                <td class="p-2 font-bold">${p.name} ${isMe ? '<span class="bg-blue-600 text-white text-[7px] px-1 rounded mx-1">أنت</span>' : ''}</td>
+                                <td class="p-2 text-center font-black text-emerald-600">${toAr(parseFloat(p.grade).toFixed(1))}</td>
+                            </tr>`;
+                        });
+                        container.innerHTML = h + `</tbody></table>`;
+                    } else container.innerHTML = `<p class="text-center p-8 text-slate-400 italic">بانتظار تسجيل الأبطال..</p>`;
+                }).finally(() => document.getElementById('modal-loader').classList.add('hidden'));
+        };
+
+        window.switchTab = (mode) => {
+            currentLeaderboardMode = mode;
+            fetchAndShowLeaderboard(false);
+        };
+        window.closeLeaderboard = () => document.getElementById('leaderboard-modal').classList.add('hidden');
+    })();
+    </script>
+</body>
+</html>

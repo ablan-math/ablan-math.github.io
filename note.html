@@ -623,6 +623,16 @@
       • راجع المعلومات وعدّلها إن أردت<br>
       • اضغط "إضافة الآية للدفتر" ✅
     </div>
+
+    <!-- تنبيه البيئة -->
+    <div id="envWarning" style="display:none;margin-top:12px;background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.35);border-radius:12px;padding:14px 16px;font-size:12px;color:#fca5a5;line-height:1.9">
+      <strong style="color:#f87171;font-size:13px">⚠️ يجب حفظ الملف على جهازك أولاً</strong><br>
+      التعرف التلقائي لا يعمل من رابط الإنترنت — اتبع الخطوات:<br>
+      <strong>١.</strong> اضغط على النقاط الثلاث ⋮ في المتصفح<br>
+      <strong>٢.</strong> اختر "تنزيل الصفحة" أو "حفظ باسم"<br>
+      <strong>٣.</strong> افتح الملف المحفوظ من مدير الملفات<br>
+      <strong>٤.</strong> ستعمل جميع الميزات بشكل كامل ✅
+    </div>
   </div>
 
   <!-- ===== REVIEW ===== -->
@@ -768,7 +778,13 @@ async function detectVerse() {
     showToast('✅ تم التعرف: سورة ' + parsed.surah);
 
   } catch(err) {
-    showToast('⚠️ ' + (err.message === 'parse_error' ? 'تعذّر التعرف، حاول مجدداً' : err.message));
+    const isNetworkErr = err.message === 'Failed to fetch' || err.name === 'TypeError';
+    if (isNetworkErr) {
+      showToast('⚠️ يجب فتح الملف محلياً من جهازك');
+      document.getElementById('envWarning').style.display = 'block';
+    } else {
+      showToast('⚠️ ' + (err.message === 'parse_error' ? 'تعذّر التعرف، حاول مجدداً' : err.message));
+    }
   } finally {
     btn.disabled = false;
     icon.textContent = '🔍';
@@ -1028,6 +1044,21 @@ function showToast(msg) {
 // ======= INIT =======
 updateHeader();
 render();
+
+// كشف البيئة — هل الملف محفوظ محلياً؟
+(function checkEnv() {
+  const host = window.location.hostname;
+  const isLocal = host === '' || host === 'localhost' || host === '127.0.0.1';
+  if (!isLocal) {
+    // نظهر التنبيه في تبويب الإضافة
+    document.getElementById('envWarning').style.display = 'block';
+    // ونعطّل زر التعرف مع رسالة واضحة
+    const btn = document.getElementById('detectBtn');
+    if (btn) {
+      btn.title = 'يجب فتح الملف محلياً من جهازك';
+    }
+  }
+})();
 </script>
 </body>
 </html>

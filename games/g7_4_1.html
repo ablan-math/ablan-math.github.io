@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>تحدي الأبطال - ثلاثيات الحد</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body { font-family: 'Cairo', sans-serif; overflow: hidden; touch-action: manipulation; direction: rtl; }
+        .compact-card {
+            width: 100%; max-width: 420px; background: white; border-radius: 2rem;
+            box-shadow: 0 15px 35px -5px rgba(0,0,0,0.1); border: 1px solid #f1f5f9;
+            display: flex; flex-direction: column; max-height: 96vh; overflow: hidden; position: relative;
+        }
+        .top-info-bar {
+            background: #f8fafc; border-bottom: 1px solid #e2e8f0; padding: 8px 16px;
+            display: flex; justify-content: space-between; align-items: center;
+            font-size: 11px; font-weight: 800; color: #64748b;
+        }
+        .btn-touch { min-height: 50px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; border-radius: 1rem; font-weight: 800; cursor: pointer; }
+        .btn-touch:active { transform: scale(0.97); }
+        
+        .leaderboard-modal { 
+            position: absolute; inset: 0; background: #ffffff; z-index: 100; 
+            display: flex; flex-direction: column; padding: 1.25rem; transition: all 0.3s; 
+        }
+        .hidden-modal { opacity: 0; pointer-events: none; transform: scale(0.95); display: none; }
+        .visible-modal { opacity: 1; pointer-events: auto; transform: scale(1); display: flex; }
+        
+        .tab-btn { flex: 1; padding: 8px; font-size: 11px; font-weight: bold; border-radius: 8px; transition: 0.3s; border: 1px solid transparent; cursor: pointer; }
+        .tab-active { background-color: #3b82f6; color: white; box-shadow: 0 2px 10px rgba(59, 130, 246, 0.4); }
+        .tab-inactive { background-color: #f1f5f9; color: #64748b; border-color: #e2e8f0; }
+        
+        .rank-row-me { background-color: #eff6ff !important; border-right: 4px solid #2563eb !important; }
+        .sync-loader { font-size: 10px; animation: spin 1s linear infinite; display: inline-block; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        .leaderboard-name { color: #1e293b; font-weight: 800; font-size: 11px; }
+        .leaderboard-rank { font-weight: 900; }
+
+        input:not(.spin-input)::-webkit-outer-spin-button, 
+        input:not(.spin-input)::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number]:not(.spin-input), input[type=text] { -moz-appearance: textfield; }
+        
+        .spin-input::-webkit-outer-spin-button, 
+        .spin-input::-webkit-inner-spin-button { 
+            -webkit-appearance: inner-spin-button !important; 
+            appearance: inner-spin-button !important; 
+            opacity: 1; 
+        }
+
+        .flash-red { animation: flashbg 0.5s ease-out; }
+        @keyframes flashbg { 0% { background-color: #fee2e2; } 100% { background-color: white; } }
+        .dir-ltr { direction: ltr; }
+
+        .btn-correct { background-color: #dcfce7 !important; border-color: #22c55e !important; color: #166534 !important; pointer-events: none; }
+        .btn-wrong { background-color: #fee2e2 !important; border-color: #ef4444 !important; color: #991b1b !important; opacity: 0.5; pointer-events: none; transform: scale(0.98); }
+        .fade-in { animation: fadeIn 0.4s ease-in-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* حركات وخلفيات المربعات الجبرية (بطاقات التحليل) */
+        .math-tile {
+            position: absolute;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            border-radius: 4px;
+            box-shadow: inset 0 0 0 1px rgba(255,255,255,0.3), 0 2px 5px rgba(0,0,0,0.1);
+            animation: assemble 3.5s infinite alternate ease-in-out;
+        }
+        @keyframes assemble {
+            0%, 20% { 
+                transform: translate(var(--tx), var(--ty)) rotate(var(--tr)); 
+                box-shadow: inset 0 0 0 1px rgba(255,255,255,0.4), 0 8px 15px rgba(0,0,0,0.15); 
+            }
+            80%, 100% { 
+                transform: translate(0, 0) rotate(0deg); 
+                box-shadow: inset 0 0 0 1px rgba(255,255,255,0.2), 0 1px 3px rgba(0,0,0,0.1); 
+            }
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 h-screen w-screen flex items-center justify-center p-3 text-right">
+
+    <div class="compact-card" id="main-card">
+        <!-- الشريط العلوي -->
+        <div class="top-info-bar">
+            <div class="flex items-center gap-2 overflow-hidden">
+                <i class="fas fa-user-graduate text-blue-500"></i>
+                <span id="top-student-name" class="truncate font-black"></span>
+            </div>
+            <div class="flex items-center gap-2 bg-white px-2 py-0.5 rounded-full border shadow-sm font-bold">
+                <span id="sync-icon" class="hidden"><i class="fas fa-sync sync-loader text-blue-400"></i></span>
+                <i class="fas fa-star text-yellow-500 text-[10px]"></i>
+                <span id="top-prev-score">٠ / ٥</span>
+            </div>
+        </div>
+
+        <!-- الشاشة 1: البداية -->
+        <div id="start-screen" class="p-6 text-center flex flex-col gap-4 h-full justify-center">
+            
+            <!-- الرسوم المتحركة لخلفية المربعات الجبرية -->
+            <div class="relative mx-auto mb-2 mt-4" style="width: 154px; height: 122px; direction: rtl;">
+                <!-- س² (مربع أزرق) -->
+                <div class="math-tile bg-blue-500 text-white text-2xl z-10" style="top:0; right:0; width:90px; height:90px; --tx: 12px; --ty: -18px; --tr: 6deg;">س²</div>
+                <!-- س (مستطيل أخضر عمودي 1) -->
+                <div class="math-tile bg-emerald-500 text-white text-sm z-10" style="top:0; right:92px; width:30px; height:90px; --tx: -8px; --ty: -22px; --tr: -5deg;">س</div>
+                <!-- س (مستطيل أخضر عمودي 2) -->
+                <div class="math-tile bg-emerald-500 text-white text-sm z-10" style="top:0; right:124px; width:30px; height:90px; --tx: -20px; --ty: -10px; --tr: -9deg;">س</div>
+                <!-- س (مستطيل أخضر أفقي 1) -->
+                <div class="math-tile bg-emerald-500 text-white text-sm z-10" style="top:92px; right:0; width:90px; height:30px; --tx: 10px; --ty: 18px; --tr: -4deg;">س</div>
+                <!-- 1 (مربع أصفر صغير 1) -->
+                <div class="math-tile bg-yellow-400 text-yellow-900 text-xs z-10" style="top:92px; right:92px; width:30px; height:30px; --tx: -6px; --ty: 14px; --tr: 8deg;">١</div>
+                <!-- 1 (مربع أصفر صغير 2) -->
+                <div class="math-tile bg-yellow-400 text-yellow-900 text-xs z-10" style="top:92px; right:124px; width:30px; height:30px; --tx: -22px; --ty: 18px; --tr: 14deg;">١</div>
+            </div>
+
+            <h1 class="text-xl font-black text-slate-800"><i class="fas fa-shapes text-blue-500 ml-1"></i> ثلاثيات الحد</h1>
+            <div class="bg-blue-50 p-4 rounded-2xl border border-blue-100 text-[11px] font-bold text-blue-700 leading-relaxed text-center shadow-sm">
+                أمامك ٣ معادلات عشوائية. مهمتك إيجاد الحل خطوة بخطوة. <br>احذر: كل خطأ يضيف ١٠ ثوانٍ لعقوبة الوقت!<br>وانتبه.. قد تكون بعض المعادلات أولية!
+            </div>
+            
+            <div class="flex flex-row gap-2 items-stretch mt-2">
+                <button onclick="startMathGame()" class="btn-touch flex-[2.5] bg-blue-600 text-white shadow-lg text-lg">
+                    بدء التحدي <i class="fas fa-play-circle mr-2"></i>
+                </button>
+                <button onclick="fetchAndShowLeaderboard(true)" class="btn-touch flex-1 bg-white text-slate-600 border border-slate-200 text-[10px] flex-col leading-tight py-2">
+                    <i class="fas fa-trophy text-yellow-500 text-xl mb-1"></i>
+                    <span>سجل الأبطال</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- الشاشة 2: اللعبة التفاعلية -->
+        <div id="game-screen" class="hidden p-4 flex flex-col gap-4 h-full overflow-y-auto">
+            <div class="flex justify-between items-center bg-white p-3 rounded-xl shadow-sm border border-slate-100">
+                <div class="text-rose-600 font-bold text-sm bg-rose-50 px-3 py-1 rounded-lg border border-rose-100">
+                    <i class="fas fa-clock mr-1"></i> <span id="game-timer">٠٠:٠٠</span>
+                </div>
+                <div class="text-emerald-600 font-bold text-sm bg-emerald-50 px-3 py-1 rounded-lg border border-emerald-100">
+                    النقاط: <span id="game-score">٠</span>
+                </div>
+            </div>
+
+            <div class="w-full bg-slate-200 rounded-full h-2 mb-1 overflow-hidden">
+              <div id="game-progress" class="bg-blue-600 h-2 rounded-full transition-all duration-500" style="width: 0%"></div>
+            </div>
+
+            <div class="bg-slate-800 border-b-4 border-blue-500 rounded-xl p-4 text-center shadow-md">
+                <h2 class="text-slate-400 text-[10px] font-bold mb-1 uppercase tracking-wider">المعادلة المستهدفة (<span id="eq-counter">١</span> من ٣)</h2>
+                <div id="current-equation" class="text-2xl font-black text-white dir-ltr tracking-wide"></div>
+            </div>
+
+            <div id="question-area" class="flex-1 flex flex-col gap-3 pb-4">
+            </div>
+
+            <div class="hidden">
+                <input type="number" id="input-achieved">
+                <input type="number" id="input-max" value="100">
+                <button id="btn-metric-time"></button>
+                <button id="btn-metric-error"></button>
+                <input type="number" id="input-metric-value">
+            </div>
+        </div>
+
+        <!-- الشاشة الانتقالية الصغرى (التأكيد) -->
+        <div id="step-transition-screen" class="hidden p-6 flex flex-col gap-4 h-full justify-center text-center fade-in">
+            <div class="mb-2">
+                <i id="step-trans-icon" class="fas fa-check-circle text-5xl text-green-500 mb-2 drop-shadow-sm"></i>
+                <h2 id="step-trans-title" class="text-xl font-black text-green-600">إجابة صحيحة!</h2>
+            </div>
+            
+            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 text-right shadow-inner mb-2 flex-1 flex flex-col justify-center">
+                <p class="text-[11px] text-slate-400 font-bold mb-1">السؤال:</p>
+                <p id="step-trans-q" class="text-sm sm:text-base font-bold text-slate-800 leading-relaxed mb-4"></p>
+                
+                <div class="pt-4 border-t border-slate-200">
+                    <p class="text-[11px] text-blue-400 font-bold mb-2 text-center">الإجابة الصحيحة:</p>
+                    <div id="step-trans-a" class="text-lg sm:text-xl font-black text-blue-700 dir-ltr text-center bg-blue-100 py-3 px-2 rounded-lg border border-blue-200 shadow-sm overflow-x-auto whitespace-nowrap"></div>
+                </div>
+            </div>
+
+            <button onclick="handleStepContinue()" class="btn-touch w-full bg-slate-800 hover:bg-slate-900 text-white shadow-md text-lg mt-auto">
+                متابعة <i class="fas fa-chevron-left mr-2"></i>
+            </button>
+        </div>
+
+        <!-- الشاشة الانتقالية الكبرى (تجهيز المعادلة التالية) -->
+        <div id="level-summary-screen" class="hidden p-6 flex flex-col gap-4 h-full justify-center text-center fade-in">
+            <div class="mb-2 mt-4">
+                <i class="fas fa-flag-checkered text-6xl text-blue-500 drop-shadow-md mb-2"></i>
+                <h2 class="text-2xl font-black text-slate-800">اكتملت المعادلة!</h2>
+                <p class="text-slate-500 font-bold mt-1 text-sm">عمل رائع، واصل التقدم..</p>
+            </div>
+
+            <!-- مربع عرض نقاط المعادلة الحالية -->
+            <div class="bg-blue-50 p-4 rounded-2xl border border-blue-100 shadow-sm mb-2">
+                <p class="text-[11px] font-bold text-blue-500 uppercase mb-1">نقاطك في هذه المعادلة</p>
+                <div class="flex justify-center items-baseline gap-2 dir-ltr">
+                    <span class="text-2xl font-bold text-slate-400" id="level-score-max">/ ٥٠</span>
+                    <span class="text-5xl font-black text-blue-900" id="level-score-display">٠</span>
+                </div>
+            </div>
+            
+            <div id="next-eq-preview" class="bg-slate-800 rounded-xl p-4 text-center shadow-md border-b-4 border-emerald-500 mb-2">
+                <h2 class="text-emerald-400 text-xs font-bold mb-2 uppercase tracking-wider">استعد للمعادلة التالية:</h2>
+                <div id="next-eq-math" class="text-2xl font-black text-white dir-ltr tracking-wide"></div>
+            </div>
+
+            <button id="btn-next-eq" onclick="startNextEquation()" class="btn-touch w-full bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg text-lg mt-auto">
+                المعادلة التالية <i class="fas fa-arrow-left mr-2"></i>
+            </button>
+        </div>
+
+        <!-- الشاشة 3: النتائج -->
+        <div id="result-screen" class="hidden p-5 flex flex-col h-full overflow-hidden text-center justify-center">
+            <div class="mb-4">
+                <i class="fas fa-medal text-5xl text-yellow-400 drop-shadow-md mb-2"></i>
+                <h2 class="text-xl font-black text-slate-800">انتهى التحدي!</h2>
+            </div>
+
+            <div id="final-stats" class="grid grid-cols-3 gap-1 mb-4"></div>
+            
+            <div class="bg-green-50 p-4 rounded-2xl border border-green-100 mb-4 shadow-sm">
+                <i class="fas fa-check-double text-green-500 text-2xl mb-1"></i>
+                <p id="save-msg" class="font-black text-green-800 text-sm">تم اعتماد نتيجتك بنجاح!</p>
+            </div>
+            <button onclick="fetchAndShowLeaderboard(true)" class="btn-touch w-full bg-blue-600 text-white mb-4 shadow-md">
+                <i class="fas fa-crown ml-2"></i> سجل الأبطال
+            </button>
+            <div class="mt-auto flex gap-2">
+                <button onclick="location.reload()" class="btn-touch flex-1 bg-slate-100 text-slate-600 text-sm font-bold hover:bg-slate-200">إعادة</button>
+                <button id="finish-btn" class="btn-touch flex-[2] bg-slate-900 text-white text-sm font-bold shadow-lg">إنهاء</button>
+            </div>
+        </div>
+
+        <!-- سجل الأبطال -->
+        <div id="leaderboard-modal" class="leaderboard-modal hidden-modal" dir="rtl">
+            <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-3">
+                <h3 class="font-black text-slate-800 text-lg"><i class="fas fa-trophy text-yellow-500 ml-2"></i>سجل المتصدرين</h3>
+                <button onclick="closeLeaderboardModal()" class="w-9 h-9 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center transition-all hover:bg-red-50 hover:text-red-500"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="flex gap-2 mb-4">
+                <button onclick="switchTab('class')" id="tab-class" class="tab-btn tab-inactive">أبطال فصلي</button>
+                <button onclick="switchTab('global')" id="tab-global" class="tab-btn tab-active">أبطال اللعبة (الكل)</button>
+            </div>
+            <div id="modal-body" class="flex-1 overflow-y-auto bg-slate-50 rounded-2xl border border-slate-100 p-1 relative">
+                <div id="modal-loader" class="absolute inset-0 flex items-center justify-center hidden bg-white/80 z-10"><div class="sync-loader text-blue-500 text-3xl"><i class="fas fa-sync"></i></div></div>
+                <div id="leaderboard-content" class="space-y-1"></div>
+            </div>
+            <p class="text-center text-[9px] text-slate-400 mt-2 font-mono italic">الترتيب حسب الدرجة ثم وقت الأداء (الأقل أفضل)</p>
+        </div>
+    </div>
+
+    <script>
+    // ==========================================
+    // بنك الأسئلة الشامل (3 فئات × 3 مسائل = 9 مسائل)
+    // ==========================================
+    const primeDistractor = { text: "كثيرة حدود أولية", correct: false };
+    const primeCorrect = { text: "كثيرة حدود أولية (لا يوجد)", correct: true };
+
+    const questionBank = {
+        positive: [
+            {
+                original: "٧س² + ٢٩س + ٤",
+                steps: [
+                    {
+                        type: "mcq", question: "١. ما هو حاصل الضرب (أ × جـ) وحاصل الجمع (ب) المطلوبين؟",
+                        options: [
+                            { text: "الضرب ٤ ، الجمع ٢٩", correct: false }, { text: "الضرب ٢٨ ، الجمع ٢٩", correct: true },
+                            { text: "الضرب ١١ ، الجمع ٢٩", correct: false }, { text: "الضرب ٢٩ ، الجمع ٢٨", correct: false }
+                        ], correctDisplay: "الضرب ٢٨ ، الجمع ٢٩"
+                    },
+                    {
+                        type: "mcq", question: "٢. ما هما العددان اللذان حاصل ضربهما ٢٨ ومجموعهما ٢٩؟",
+                        options: [
+                            { text: "٢٨ و ١", correct: true }, { text: "١٤ و ٢", correct: false },
+                            { text: "٧ و ٤", correct: false }, primeDistractor
+                        ], correctDisplay: "٢٨ و ١"
+                    },
+                    { type: "inputs", question: "٣. أعد كتابة المعادلة بتعويض الحد الأوسط (اكتب الأرقام):", template: `<div class="flex items-center gap-1 text-sm sm:text-base" dir="rtl"><span class="font-black">٧س&sup2;</span> <span class="text-blue-500 font-bold px-0.5">+</span> <div class="flex items-center">[input1]<span class="mr-0.5 font-black">س</span></div> <span class="text-blue-500 font-bold px-0.5">+</span> <div class="flex items-center">[input2]<span class="mr-0.5 font-black">س</span></div> <span class="text-blue-500 font-bold px-0.5">+</span> <span class="font-black">٤</span></div>`, answers: ["28", "1"], correctDisplay: "٢٨ و ١" },
+                    {
+                        type: "mcq", layout: "vertical", question: "٤. التجميع: (٧س² + ٢٨س) + (١س + ٤). استخرج القاسم المشترك لكل قوس:",
+                        options: [
+                            { text: "٧س(س + ٤) + ١(س + ٤)", correct: true }, { text: "٧(س² + ٤س) + ١(س + ٤)", correct: false }, { text: "س(٧س + ٢٨) + ٤(س + ١)", correct: false }
+                        ], correctDisplay: "٧س(س + ٤) + ١(س + ٤)"
+                    },
+                    {
+                        type: "mcq", layout: "vertical", question: "٥. ما هو شكل التحليل النهائي؟",
+                        options: [
+                            { text: "(س + ٤)(س + ١)", correct: false }, { text: "(س + ٤)(٧س + ١)", correct: true }, { text: "(س + ١)(٧س + ٤)", correct: false }
+                        ], correctDisplay: "(س + ٤)(٧س + ١)"
+                    }
+                ]
+            },
+            {
+                original: "٢س² + ١١س + ١٥",
+                steps: [
+                    {
+                        type: "mcq", question: "١. ما هو حاصل الضرب (أ × جـ) وحاصل الجمع (ب) المطلوبين؟",
+                        options: [
+                            { text: "الضرب ٣٠ ، الجمع ١١", correct: true }, { text: "الضرب ١٥ ، الجمع ١١", correct: false },
+                            { text: "الضرب ١١ ، الجمع ٣٠", correct: false }, { text: "الضرب ١٧ ، الجمع ١١", correct: false }
+                        ], correctDisplay: "الضرب ٣٠ ، الجمع ١١"
+                    },
+                    {
+                        type: "mcq", question: "٢. ما هما العددان اللذان حاصل ضربهما ٣٠ ومجموعهما ١١؟",
+                        options: [
+                            { text: "١٥ و ٢", correct: false }, { text: "٥ و ٦", correct: true },
+                            { text: "١٠ و ٣", correct: false }, primeDistractor
+                        ], correctDisplay: "٥ و ٦"
+                    },
+                    { type: "inputs", question: "٣. أعد كتابة المعادلة بتعويض الحد الأوسط:", template: `<div class="flex items-center gap-1 text-sm sm:text-base" dir="rtl"><span class="font-black">٢س&sup2;</span> <span class="text-blue-500 font-bold px-0.5">+</span> <div class="flex items-center">[input1]<span class="mr-0.5 font-black">س</span></div> <span class="text-blue-500 font-bold px-0.5">+</span> <div class="flex items-center">[input2]<span class="mr-0.5 font-black">س</span></div> <span class="text-blue-500 font-bold px-0.5">+</span> <span class="font-black">١٥</span></div>`, answers: ["5", "6"], correctDisplay: "٥ و ٦" },
+                    {
+                        type: "mcq", layout: "vertical", question: "٤. التجميع: (٢س² + ٦س) + (٥س + ١٥). استخرج القاسم المشترك:",
+                        options: [
+                            { text: "٢س(س + ٣) + ٥(س + ٣)", correct: true }, { text: "س(٢س + ٦) + ٥(س + ٣)", correct: false }, { text: "٢س(س + ٣) + ١٥(س + ١)", correct: false }
+                        ], correctDisplay: "٢س(س + ٣) + ٥(س + ٣)"
+                    },
+                    {
+                        type: "mcq", layout: "vertical", question: "٥. ما هو شكل التحليل النهائي؟",
+                        options: [
+                            { text: "(س + ٣)(٢س + ٥)", correct: true }, { text: "(س + ٥)(٢س + ٣)", correct: false }, { text: "(س + ٣)(س + ٥)", correct: false }
+                        ], correctDisplay: "(س + ٣)(٢س + ٥)"
+                    }
+                ]
+            },
+            {
+                original: "٣س² + ١٤س + ٨",
+                steps: [
+                    {
+                        type: "mcq", question: "١. ما هو حاصل الضرب (أ × جـ) وحاصل الجمع (ب) المطلوبين؟",
+                        options: [
+                            { text: "الضرب ٢٤ ، الجمع ١٤", correct: true }, { text: "الضرب ٨ ، الجمع ١٤", correct: false },
+                            { text: "الضرب ١١ ، الجمع ١٤", correct: false }, { text: "الضرب ١٤ ، الجمع ٢٤", correct: false }
+                        ], correctDisplay: "الضرب ٢٤ ، الجمع ١٤"
+                    },
+                    {
+                        type: "mcq", question: "٢. ما هما العددان اللذان حاصل ضربهما ٢٤ ومجموعهما ١٤؟",
+                        options: [
+                            { text: "١٢ و ٢", correct: true }, { text: "٨ و ٣", correct: false },
+                            { text: "٦ و ٤", correct: false }, primeDistractor
+                        ], correctDisplay: "١٢ و ٢"
+                    },
+                    { type: "inputs", question: "٣. أعد كتابة المعادلة بتعويض الحد الأوسط:", template: `<div class="flex items-center gap-1 text-sm sm:text-base" dir="rtl"><span class="font-black">٣س&sup2;</span> <span class="text-blue-500 font-bold px-0.5">+</span> <div class="flex items-center">[input1]<span class="mr-0.5 font-black">س</span></div> <span class="text-blue-500 font-bold px-0.5">+</span> <div class="flex items-center">[input2]<span class="mr-0.5 font-black">س</span></div> <span class="text-blue-500 font-bold px-0.5">+</span> <span class="font-black">٨</span></div>`, answers: ["12", "2"], correctDisplay: "١٢ و ٢" },
+                    {
+                        type: "mcq", layout: "vertical", question: "٤. التجميع: (٣س² + ١٢س) + (٢س + ٨). استخرج القاسم المشترك:",
+                        options: [
+                            { text: "٣س(س + ٤) + ٢(س + ٤)", correct: true }, { text: "٣(س² + ٤س) + ٢(س + ٤)", correct: false }, { text: "س(٣س + ١٢) + ٢(س + ٤)", correct: false }
+                        ], correctDisplay: "٣س(س + ٤) + ٢(س + ٤)"
+                    },
+                    {
+                        type: "mcq", layout: "vertical", question: "٥. ما هو شكل التحليل النهائي؟",
+                        options: [
+                            { text: "(س + ٤)(٣س + ٢)", correct: true }, { text: "(س + ٢)(٣س + ٤)", correct: false }, { text: "(س + ٤)(س + ٢)", correct: false }
+                        ], correctDisplay: "(س + ٤)(٣س + ٢)"
+                    }
+                ]
+            }
+        ],
+        negative: [
+            {
+                original: "٣س² - ١٧س + ٢٠",
+                steps: [
+                    {
+                        type: "mcq", question: "١. ما هو حاصل الضرب (أ × جـ) وحاصل الجمع (ب)؟",
+                        options: [
+                            { text: "الضرب ٦٠ ، الجمع -١٧", correct: true }, { text: "الضرب ٢٠ ، الجمع -١٧", correct: false },
+                            { text: "الضرب -١٧ ، الجمع ٢٠", correct: false }, { text: "الضرب ٢٣ ، الجمع -١٧", correct: false }
+                        ], correctDisplay: "الضرب ٦٠ ، الجمع -١٧"
+                    },
+                    {
+                        type: "mcq", question: "٢. ما هما العددان اللذان حاصل ضربهما ٦٠ ومجموعهما -١٧؟",
+                        options: [
+                            { text: "-١٢ و -٥", correct: true }, { text: "١٢ و ٥", correct: false },
+                            { text: "-١٠ و -٦", correct: false }, primeDistractor
+                        ], correctDisplay: "-١٢ و -٥"
+                    },
+                    { type: "inputs", question: "٣. أعد كتابة المعادلة بتعويض الحد الأوسط (أدخل الإشارة السالبة):", template: `<div class="flex items-center gap-1 text-sm sm:text-base" dir="rtl"><span class="font-black">٣س&sup2;</span> <span class="text-blue-500 font-bold px-0.5">+</span> <div class="flex items-center">[input1]<span class="mr-0.5 font-black">س</span></div> <span class="text-blue-500 font-bold px-0.5">+</span> <div class="flex items-center">[input2]<span class="mr-0.5 font-black">س</span></div> <span class="text-blue-500 font-bold px-0.5">+</span> <span class="font-black">٢٠</span></div>`, answers: ["-12", "-5"], correctDisplay: "-١٢ و -٥" },
+                    {
+                        type: "mcq", layout: "vertical", question: "٤. التجميع: (٣س² - ١٢س) - (٥س - ٢٠). استخرج القاسم المشترك:",
+                        options: [
+                            { text: "٣س(س - ٤) - ٥(س - ٤)", correct: true }, { text: "٣س(س - ٤) + ٥(س - ٤)", correct: false }, { text: "س(٣س - ١٢) - ٥(س - ٤)", correct: false }
+                        ], correctDisplay: "٣س(س - ٤) - ٥(س - ٤)"
+                    },
+                    {
+                        type: "mcq", layout: "vertical", question: "٥. ما هو القوسان النهائيان؟",
+                        options: [
+                            { text: "(س - ٤)(٣س - ٥)", correct: true }, { text: "(س - ٤)(٣س + ٥)", correct: false }, { text: "(س - ٥)(٣س - ٤)", correct: false }
+                        ], correctDisplay: "(س - ٤)(٣س - ٥)"
+                    }
+                ]
+            },
+            {
+                original: "٥س² - ١٤س + ٨",
+                steps: [
+                    {
+                        type: "mcq", question: "١. ما هو حاصل الضرب (أ × جـ) وحاصل الجمع (ب)؟",
+                        options: [
+                            { text: "الضرب ٤٠ ، الجمع -١٤", correct: true }, { text: "الضرب ٨ ، الجمع -١٤", correct: false },
+                            { text: "الضرب -١٤ ، الجمع ٤٠", correct: false }, { text: "الضرب ١٣ ، الجمع -١٤", correct: false }
+                        ], correctDisplay: "الضرب ٤٠ ، الجمع -١٤"
+                    },
+                    {
+                        type: "mcq", question: "٢. ما هما العددان اللذان حاصل ضربهما ٤٠ ومجموعهما -١٤؟",
+                        options: [
+                            { text: "-١٠ و -٤", correct: true }, { text: "-٨ و -٥", correct: false },
+                            { text: "-٢٠ و ٢", correct: false }, primeDistractor
+                        ], correctDisplay: "-١٠ و -٤"
+                    },
+                    { type: "inputs", question: "٣. أعد كتابة المعادلة بتعويض الحد الأوسط (أدخل الإشارة السالبة):", template: `<div class="flex items-center gap-1 text-sm sm:text-base" dir="rtl"><span class="font-black">٥س&sup2;</span> <span class="text-blue-500 font-bold px-0.5">+</span> <div class="flex items-center">[input1]<span class="mr-0.5 font-black">س</span></div> <span class="text-blue-500 font-bold px-0.5">+</span> <div class="flex items-center">[input2]<span class="mr-0.5 font-black">س</span></div> <span class="text-blue-500 font-bold px-0.5">+</span> <span class="font-black">٨</span></div>`, answers: ["-10", "-4"], correctDisplay: "-١٠ و -٤" },
+                    {
+                        type: "mcq", layout: "vertical", question: "٤. التجميع: (٥س² - ١٠س) - (٤س - ٨). استخرج القاسم المشترك:",
+                        options: [
+                            { text: "٥س(س - ٢) - ٤(س - ٢)", correct: true }, { text: "٥س(س - ٢) + ٤(س - ٢)", correct: false }, { text: "٥(س² - ٢س) - ٤(س - ٢)", correct: false }
+                        ], correctDisplay: "٥س(س - ٢) - ٤(س - ٢)"
+                    },
+                    {
+                        type: "mcq", layout: "vertical", question: "٥. ما هو القوسان النهائيان؟",
+                        options: [
+                            { text: "(س - ٢)(٥س - ٤)", correct: true }, { text: "(س - ٤)(٥س - ٢)", correct: false }, { text: "(س + ٢)(٥س - ٤)", correct: false }
+                        ], correctDisplay: "(س - ٢)(٥س - ٤)"
+                    }
+                ]
+            },
+            {
+                original: "٤س² - ١٥س - ٤",
+                steps: [
+                    {
+                        type: "mcq", question: "١. ما هو حاصل الضرب (أ × جـ) وحاصل الجمع (ب)؟",
+                        options: [
+                            { text: "الضرب -١٦ ، الجمع -١٥", correct: true }, { text: "الضرب -٤ ، الجمع -١٥", correct: false },
+                            { text: "الضرب ١٦ ، الجمع -١٥", correct: false }, { text: "الضرب -١٥ ، الجمع -١٦", correct: false }
+                        ], correctDisplay: "الضرب -١٦ ، الجمع -١٥"
+                    },
+                    {
+                        type: "mcq", question: "٢. ما هما العددان اللذان حاصل ضربهما -١٦ ومجموعهما -١٥؟",
+                        options: [
+                            { text: "-١٦ و ١", correct: true }, { text: "-٨ و ٢", correct: false },
+                            { text: "-٤ و ٤", correct: false }, primeDistractor
+                        ], correctDisplay: "-١٦ و ١"
+                    },
+                    { type: "inputs", question: "٣. أعد كتابة المعادلة بتعويض الحد الأوسط:", template: `<div class="flex items-center gap-1 text-sm sm:text-base" dir="rtl"><span class="font-black">٤س&sup2;</span> <span class="text-blue-500 font-bold px-0.5">+</span> <div class="flex items-center">[input1]<span class="mr-0.5 font-black">س</span></div> <span class="text-blue-500 font-bold px-0.5">+</span> <div class="flex items-center">[input2]<span class="mr-0.5 font-black">س</span></div> <span class="text-blue-500 font-bold px-0.5">-</span> <span class="font-black">٤</span></div>`, answers: ["-16", "1"], correctDisplay: "-١٦ و ١" },
+                    {
+                        type: "mcq", layout: "vertical", question: "٤. التجميع: (٤س² - ١٦س) + (١س - ٤). استخرج القاسم المشترك:",
+                        options: [
+                            { text: "٤س(س - ٤) + ١(س - ٤)", correct: true }, { text: "٤(س² - ٤س) + ١(س - ٤)", correct: false }, { text: "س(٤س - ١٦) + ١(س - ٤)", correct: false }
+                        ], correctDisplay: "٤س(س - ٤) + ١(س - ٤)"
+                    },
+                    {
+                        type: "mcq", layout: "vertical", question: "٥. ما هو القوسان النهائيان؟",
+                        options: [
+                            { text: "(س - ٤)(٤س + ١)", correct: true }, { text: "(س - ٤)(٤س - ١)", correct: false }, { text: "(س + ٤)(٤س + ١)", correct: false }
+                        ], correctDisplay: "(س - ٤)(٤س + ١)"
+                    }
+                ]
+            }
+        ],
+        prime: [
+            {
+                original: "٢س² + ٥س + ٦",
+                steps: [
+                    {
+                        type: "mcq", question: "١. ما هو حاصل الضرب (أ × جـ) وحاصل الجمع (ب) المطلوبين؟",
+                        options: [
+                            { text: "الضرب ١٢ ، الجمع ٥", correct: true }, { text: "الضرب ٦ ، الجمع ٥", correct: false },
+                            { text: "الضرب ٥ ، الجمع ١٢", correct: false }, { text: "الضرب ٨ ، الجمع ٥", correct: false }
+                        ], correctDisplay: "الضرب ١٢ ، الجمع ٥"
+                    },
+                    {
+                        type: "mcq", question: "٢. ابحث عن عددين حاصل ضربهما ١٢ ومجموعهما ٥:",
+                        options: [
+                            primeCorrect, { text: "٤ و ٣", correct: false },
+                            { text: "٦ و ٢", correct: false }, { text: "١٢ و ١", correct: false }
+                        ], correctDisplay: "لا يوجد (كثيرة حدود أولية)"
+                    }
+                ]
+            },
+            {
+                original: "٣س² - ٧س + ٥",
+                steps: [
+                    {
+                        type: "mcq", question: "١. ما هو حاصل الضرب (أ × جـ) وحاصل الجمع (ب) المطلوبين؟",
+                        options: [
+                            { text: "الضرب ١٥ ، الجمع -٧", correct: true }, { text: "الضرب ٥ ، الجمع -٧", correct: false },
+                            { text: "الضرب -١٥ ، الجمع -٧", correct: false }, { text: "الضرب ٨ ، الجمع -٧", correct: false }
+                        ], correctDisplay: "الضرب ١٥ ، الجمع -٧"
+                    },
+                    {
+                        type: "mcq", question: "٢. ابحث عن عددين حاصل ضربهما ١٥ ومجموعهما -٧:",
+                        options: [
+                            primeCorrect, { text: "-٥ و -٣", correct: false },
+                            { text: "-١٥ و -١", correct: false }, { text: "٥ و ٣", correct: false }
+                        ], correctDisplay: "لا يوجد (كثيرة حدود أولية)"
+                    }
+                ]
+            },
+            {
+                original: "٥س² + ٤س + ٣",
+                steps: [
+                    {
+                        type: "mcq", question: "١. ما هو حاصل الضرب (أ × جـ) وحاصل الجمع (ب) المطلوبين؟",
+                        options: [
+                            { text: "الضرب ١٥ ، الجمع ٤", correct: true }, { text: "الضرب ٣ ، الجمع ٤", correct: false },
+                            { text: "الضرب ٨ ، الجمع ٤", correct: false }, { text: "الضرب ٤ ، الجمع ١٥", correct: false }
+                        ], correctDisplay: "الضرب ١٥ ، الجمع ٤"
+                    },
+                    {
+                        type: "mcq", question: "٢. ابحث عن عددين حاصل ضربهما ١٥ ومجموعهما ٤:",
+                        options: [
+                            primeCorrect, { text: "٥ و ٣", correct: false },
+                            { text: "١٥ و ١", correct: false }, { text: "١٠ و ٥", correct: false }
+                        ], correctDisplay: "لا يوجد (كثيرة حدود أولية)"
+                    }
+                ]
+            }
+        ]
+    };
+
+    let activeEquations = [];
+    let gameState = {
+        eqIndex: 0,
+        stepIndex: 0,
+        attempts: 0,
+        score: 0,
+        currentLevelScore: 0,
+        maxScore: 0, 
+        timerInterval: null,
+        elapsedSeconds: 0,
+        isLocked: false 
+    };
+
+    function shuffleArray(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [array[i], array[j]] = [array[j], array[i]];
+        }
+        return array;
+    }
+
+    function startMathGame() {
+        // تجهيز اللعبة بـ 3 أسئلة عشوائية من كل فئة
+        const pEq = questionBank.positive[Math.floor(Math.random() * questionBank.positive.length)];
+        const nEq = questionBank.negative[Math.floor(Math.random() * questionBank.negative.length)];
+        const prEq = questionBank.prime[Math.floor(Math.random() * questionBank.prime.length)];
+        
+        activeEquations = shuffleArray([pEq, nEq, prEq]);
+        
+        // حساب الدرجة النهائية بناء على عدد الخطوات الفعلية في الأسئلة المختارة
+        gameState.maxScore = activeEquations.reduce((sum, eq) => sum + (eq.steps.length * 10), 0);
+
+        document.getElementById('start-screen').classList.add('hidden');
+        document.getElementById('game-screen').classList.remove('hidden');
+        
+        gameState.timerInterval = setInterval(() => {
+            gameState.elapsedSeconds++;
+            updateTimerDisplay();
+        }, 1000);
+
+        renderStep();
+    }
+
+    function formatTime(totalSeconds) {
+        const m = Math.floor(totalSeconds / 60);
+        const s = totalSeconds % 60;
+        return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    }
+
+    function updateTimerDisplay() {
+        document.getElementById('game-timer').textContent = toAr(formatTime(gameState.elapsedSeconds));
+    }
+
+    function updateScoreDisplay() {
+        document.getElementById('game-score').textContent = toAr(gameState.score);
+    }
+
+    function toEng(str) {
+        return String(str).replace(/[٠-٩]/g, d => "٠١٢٣٤٥٦٧٨٩".indexOf(d));
+    }
+
+    function renderStep() {
+        if(gameState.eqIndex >= activeEquations.length) {
+            finishMathGame();
+            return;
+        }
+
+        gameState.isLocked = false;
+        const eq = activeEquations[gameState.eqIndex];
+        const step = eq.steps[gameState.stepIndex];
+
+        const qArea = document.getElementById('question-area');
+        qArea.classList.remove('fade-in');
+        void qArea.offsetWidth; 
+        qArea.classList.add('fade-in');
+
+        document.getElementById('eq-counter').textContent = toAr(gameState.eqIndex + 1);
+        document.getElementById('current-equation').innerText = eq.original;
+        
+        // حساب نسبة التقدم الإجمالية
+        let pastSteps = 0;
+        for(let i=0; i<gameState.eqIndex; i++) pastSteps += activeEquations[i].steps.length;
+        const totalSteps = activeEquations.reduce((sum, e) => sum + e.steps.length, 0);
+        const progressPct = ((pastSteps + gameState.stepIndex) / totalSteps) * 100;
+        document.getElementById('game-progress').style.width = `${progressPct}%`;
+
+        let html = `<p class="font-bold text-slate-700 text-[13px] mb-3 leading-relaxed">${step.question}</p>`;
+
+        if (step.type === "mcq") {
+            let layoutClass = step.layout === "vertical" ? "grid-cols-1" : "grid-cols-2";
+            html += `<div class="grid ${layoutClass} gap-2">`;
+            let options = [...step.options].sort(() => Math.random() - 0.5);
+            options.forEach((opt) => {
+                let correctAttr = opt.correct ? 'data-correct="true"' : '';
+                html += `<button onclick="checkAnswer(this, ${opt.correct})" ${correctAttr} class="btn-touch bg-white border-2 border-slate-200 text-slate-700 hover:border-blue-400 hover:bg-blue-50 hover:text-blue-800 text-[12px] sm:text-[14px] py-4 px-2 font-bold transition-all leading-tight">${opt.text}</button>`;
+            });
+            html += `</div>`;
+        } else if (step.type === "inputs") {
+            let templateHtml = step.template.replace('[input1]', `<input type="number" id="inp1" class="spin-input w-[60px] sm:w-[70px] h-10 mx-0.5 text-center text-lg border-b-2 border-blue-500 outline-none bg-blue-50 text-blue-900 font-black rounded-t-md shadow-sm transition-all px-1" dir="ltr" autocomplete="off">`);
+            templateHtml = templateHtml.replace('[input2]', `<input type="number" id="inp2" class="spin-input w-[60px] sm:w-[70px] h-10 mx-0.5 text-center text-lg border-b-2 border-blue-500 outline-none bg-blue-50 text-blue-900 font-black rounded-t-md shadow-sm transition-all px-1" dir="ltr" autocomplete="off">`);
+
+            html += `<div class="font-bold bg-slate-50 py-4 px-1 sm:px-4 rounded-xl border border-slate-200 flex justify-center items-center overflow-x-auto whitespace-nowrap shadow-inner" dir="rtl">${templateHtml}</div>`;
+            html += `<button onclick="checkInputAnswer(this)" class="btn-touch w-full bg-blue-600 text-white mt-4 shadow-md text-sm py-3 transition-colors"><i class="fas fa-check-circle mr-2"></i> تحقق من الإجابة</button>`;
+        }
+
+        document.getElementById('question-area').innerHTML = html;
+    }
+
+    function showToastPenalty() {
+        const toast = document.createElement('div');
+        toast.className = 'fixed top-[15%] left-1/2 transform -translate-x-1/2 bg-red-600 text-white px-4 py-2 rounded-full font-bold shadow-lg text-sm z-50 fade-in flex items-center gap-2';
+        toast.innerHTML = '<i class="fas fa-stopwatch"></i> ١٠ ثواني عقوبة!';
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 2000);
+        
+        document.getElementById('main-card').classList.add('flash-red');
+        setTimeout(() => document.getElementById('main-card').classList.remove('flash-red'), 500);
+    }
+
+    window.checkAnswer = function(btnElement, isCorrect) {
+        if(gameState.isLocked || btnElement.classList.contains('btn-wrong')) return;
+        gameState.isLocked = true;
+        processAttempt(isCorrect, btnElement, false);
+    };
+
+    window.checkInputAnswer = function(btnElement) {
+        if(gameState.isLocked) return;
+        
+        const step = activeEquations[gameState.eqIndex].steps[gameState.stepIndex];
+        const val1 = toEng(document.getElementById('inp1').value.trim().replace(/\s/g, ''));
+        const val2 = toEng(document.getElementById('inp2').value.trim().replace(/\s/g, ''));
+        
+        const ans1 = step.answers[0];
+        const ans2 = step.answers[1];
+
+        const isCorrect = (val1 === ans1 && val2 === ans2) || (val1 === ans2 && val2 === ans1);
+        
+        gameState.isLocked = true;
+        processAttempt(isCorrect, btnElement, true);
+    };
+
+    function processAttempt(isCorrect, btnElement, isInput = false) {
+        const step = activeEquations[gameState.eqIndex].steps[gameState.stepIndex];
+
+        if (isCorrect) {
+            btnElement.classList.add('btn-correct');
+            if (isInput) {
+                document.getElementById('inp1').classList.add('bg-green-100', 'border-green-500', 'text-green-800');
+                document.getElementById('inp2').classList.add('bg-green-100', 'border-green-500', 'text-green-800');
+            }
+
+            let pts = 0;
+            if (gameState.attempts === 0) pts = 10;
+            else if (gameState.attempts === 1) pts = 5;
+
+            gameState.score += pts;
+            gameState.currentLevelScore += pts;
+            updateScoreDisplay();
+
+            setTimeout(() => {
+                showStepTransition(true);
+            }, 800);
+
+        } else {
+            gameState.attempts++;
+            btnElement.classList.add('btn-wrong');
+            
+            if (isInput) {
+                document.getElementById('inp1').classList.add('bg-red-100', 'border-red-500', 'text-red-800');
+                document.getElementById('inp2').classList.add('bg-red-100', 'border-red-500', 'text-red-800');
+            }
+
+            if (gameState.attempts === 1) {
+                gameState.elapsedSeconds += 10;
+                updateTimerDisplay();
+                showToastPenalty();
+                
+                setTimeout(() => {
+                    gameState.isLocked = false;
+                    if (isInput) {
+                        btnElement.classList.remove('btn-wrong');
+                        document.getElementById('inp1').classList.remove('bg-red-100', 'border-red-500', 'text-red-800');
+                        document.getElementById('inp2').classList.remove('bg-red-100', 'border-red-500', 'text-red-800');
+                    }
+                }, 1000);
+            } else {
+                if (!isInput) {
+                    let correctBtn = document.querySelector('[data-correct="true"]');
+                    if (correctBtn) correctBtn.classList.add('btn-correct');
+                } else {
+                    document.getElementById('inp1').value = step.answers[0];
+                    document.getElementById('inp2').value = step.answers[1];
+                    document.getElementById('inp1').classList.add('bg-green-100', 'border-green-500', 'text-green-800');
+                    document.getElementById('inp2').classList.add('bg-green-100', 'border-green-500', 'text-green-800');
+                }
+
+                setTimeout(() => {
+                    showStepTransition(false);
+                }, 1500); 
+            }
+        }
+    }
+
+    function showStepTransition(wasCorrect) {
+        document.getElementById('game-screen').classList.add('hidden');
+        document.getElementById('step-transition-screen').classList.remove('hidden');
+
+        const step = activeEquations[gameState.eqIndex].steps[gameState.stepIndex];
+        const icon = document.getElementById('step-trans-icon');
+        const title = document.getElementById('step-trans-title');
+        
+        if (wasCorrect) {
+            icon.className = "fas fa-check-circle text-5xl text-green-500 mb-2 drop-shadow-sm";
+            title.textContent = "إجابة صحيحة!";
+            title.className = "text-xl font-black text-green-600";
+        } else {
+            icon.className = "fas fa-info-circle text-5xl text-blue-500 mb-2 drop-shadow-sm";
+            title.textContent = "توضيح الإجابة";
+            title.className = "text-xl font-black text-blue-600";
+        }
+
+        document.getElementById('step-trans-q').innerHTML = step.question;
+        document.getElementById('step-trans-a').innerHTML = step.correctDisplay;
+    }
+
+    window.handleStepContinue = function() {
+        document.getElementById('step-transition-screen').classList.add('hidden');
+        moveToNextStep();
+    };
+
+    function moveToNextStep() {
+        gameState.attempts = 0;
+        gameState.stepIndex++;
+        
+        if (gameState.stepIndex >= activeEquations[gameState.eqIndex].steps.length) {
+            // أتمم المعادلة، عرض شاشة الملخص مع درجتها المستقلة
+            document.getElementById('game-screen').classList.add('hidden');
+            document.getElementById('level-summary-screen').classList.remove('hidden');
+            
+            // تحديث عرض الدرجة الحالية للمعادلة
+            const maxLevelScore = activeEquations[gameState.eqIndex].steps.length * 10;
+            document.getElementById('level-score-display').textContent = toAr(gameState.currentLevelScore);
+            document.getElementById('level-score-max').textContent = "/ " + toAr(maxLevelScore);
+            
+            if (gameState.eqIndex + 1 < activeEquations.length) {
+                document.getElementById('next-eq-preview').classList.remove('hidden');
+                document.getElementById('next-eq-math').textContent = activeEquations[gameState.eqIndex + 1].original;
+                document.querySelector('#level-summary-screen h2').textContent = 'اكتملت المعادلة!';
+                document.querySelector('#level-summary-screen p').textContent = 'عمل رائع، واصل التقدم..';
+                document.getElementById('btn-next-eq').innerHTML = 'المعادلة التالية <i class="fas fa-arrow-left mr-2"></i>';
+                document.getElementById('btn-next-eq').onclick = startNextEquation;
+            } else {
+                // المعادلة الأخيرة: نعرض درجتها ونجهز زر النتيجة النهائية
+                document.getElementById('next-eq-preview').classList.add('hidden');
+                document.querySelector('#level-summary-screen h2').textContent = 'أنهيت جميع المعادلات!';
+                document.querySelector('#level-summary-screen p').textContent = 'اضغط بالأسفل لعرض التقرير الشامل..';
+                document.getElementById('btn-next-eq').innerHTML = 'عرض النتيجة النهائية <i class="fas fa-flag-checkered mr-2"></i>';
+                document.getElementById('btn-next-eq').onclick = finishMathGame;
+            }
+        } else {
+            document.getElementById('game-screen').classList.remove('hidden');
+            renderStep();
+        }
+    }
+
+    function startNextEquation() {
+        gameState.stepIndex = 0;
+        gameState.eqIndex++;
+        gameState.currentLevelScore = 0; // تصفير العداد للمعادلة الجديدة
+        
+        document.getElementById('level-summary-screen').classList.add('hidden');
+        document.getElementById('game-screen').classList.remove('hidden');
+        renderStep();
+    }
+
+    function finishMathGame() {
+        clearInterval(gameState.timerInterval);
+        document.getElementById('game-progress').style.width = `100%`;
+        
+        document.getElementById('input-achieved').value = gameState.score;
+        document.getElementById('input-max').value = gameState.maxScore;
+        
+        setMetricType('time');
+        document.getElementById('input-metric-value').value = gameState.elapsedSeconds;
+        
+        document.getElementById('level-summary-screen').classList.add('hidden');
+        processResults();
+    }
+
+
+    // ==========================================
+    // منطق القالب الأصلي (الحفظ وسجل الأبطال)
+    // ==========================================
+    
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxqAQlGhNs8k5RwHs6jrWxDiDwaMABSx8a9Fl81O5oVVa5fHRWTwIEvsGy2cSDP4zGLWQ/exec";
+    const urlParams = new URLSearchParams(window.location.search);
+    const GAME_ID = urlParams.get('gameId') || 'g7_4_1';
+    const studentId = urlParams.get('studentId') || urlParams.get('userId');
+    const classId = urlParams.get('classId');
+    
+    let studentName = decodeURIComponent(urlParams.get('name') || urlParams.get('studentName') || urlParams.get('username') || "بطل التحدي");
+    let currentMetricType = 'time';
+    let currentLeaderboardMode = classId ? 'class' : 'global';
+    let localVisitorResult = null;
+
+    const toAr = (n) => String(n).replace(/\d/g, d => "٠١٢٣٤٥٦٧٨٩"[d]);
+
+    document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('top-student-name').textContent = studentName;
+        if (!classId) {
+            document.getElementById('tab-class').style.display = 'none';
+            currentLeaderboardMode = 'global';
+        } else {
+            document.getElementById('tab-class').className = 'tab-btn tab-active';
+            document.getElementById('tab-global').className = 'tab-btn tab-inactive';
+        }
+        if (studentId && classId) {
+            document.getElementById('sync-icon').classList.remove('hidden');
+            fetchInitialCloudData();
+        } else if (!urlParams.get('name')) {
+            studentName = "بطل زائر";
+            document.getElementById('top-student-name').textContent = studentName;
+        }
+        document.getElementById('finish-btn').onclick = () => window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*');
+    });
+
+    async function fetchInitialCloudData() {
+        try {
+            const url = `${SCRIPT_URL}?action=getStudentData&studentId=${studentId}&classId=${encodeURIComponent(classId)}&itemId=${GAME_ID}&t=${Date.now()}`;
+            const res = await (await fetch(url)).json();
+            if (res.status === 'success' && res.data) {
+                if (res.data.name) { studentName = res.data.name; document.getElementById('top-student-name').textContent = studentName; }
+                if (res.data.games && res.data.games[GAME_ID]) document.getElementById('top-prev-score').textContent = toAr(parseFloat(res.data.games[GAME_ID].grade).toFixed(1)) + " / ٥";
+            } else if (!urlParams.get('name')) { studentName = "بطل زائر"; document.getElementById('top-student-name').textContent = studentName; }
+        } catch (e) { console.log("Cloud Connect Failed"); }
+        finally { document.getElementById('sync-icon').classList.add('hidden'); }
+    }
+
+    window.setMetricType = (type) => {
+        currentMetricType = type;
+    };
+
+    window.processResults = () => {
+        const ach = parseFloat(document.getElementById('input-achieved').value);
+        const max = parseFloat(document.getElementById('input-max').value);
+        const met = parseFloat(document.getElementById('input-metric-value').value) || 0;
+        if (isNaN(ach) || isNaN(max) || max <= 0) return;
+        const grade = ((ach / max) * 5).toFixed(1);
+        showResult(ach, max, grade, met);
+        if (studentId && classId) saveScore(grade, met);
+        else { localVisitorResult = { name: studentName, grade: grade, metric: met, isLocal: true }; fetchAndShowLeaderboard(false); }
+    };
+
+    function showResult(a, m, g, met) {
+        document.getElementById('game-screen').classList.add('hidden');
+        document.getElementById('result-screen').classList.remove('hidden');
+        document.getElementById('final-stats').innerHTML = `
+            <div class="bg-blue-50 p-2 rounded-xl border border-blue-100 text-center flex flex-col justify-center">
+                <p class="text-[8px] font-bold text-blue-400 uppercase">نقاطك</p>
+                <p class="text-[11px] font-black text-blue-900">${toAr(a)} / ${toAr(m)}</p>
+            </div>
+            <div class="bg-emerald-50 p-2 rounded-xl border border-emerald-100 text-center flex flex-col justify-center shadow-sm">
+                <p class="text-[8px] font-bold text-emerald-600 uppercase">الدرجة المدرسية</p>
+                <p class="text-lg font-black text-emerald-900">${toAr(g)}</p>
+            </div>
+            <div class="bg-rose-50 p-2 rounded-xl border border-rose-100 text-center flex flex-col justify-center">
+                <p class="text-[8px] font-bold text-rose-400 uppercase">الوقت الكلي</p>
+                <p class="text-[11px] font-black text-rose-900" dir="ltr">${toAr(formatTime(met))}</p>
+            </div>
+        `;
+    }
+
+    async function saveScore(g, met) {
+        const p = new URLSearchParams({ action: 'saveScore', studentId, classId, itemId: GAME_ID, score: g, metricValue: met, type: 'game' });
+        try { await fetch(`${SCRIPT_URL}?${p.toString()}`); } finally { fetchAndShowLeaderboard(false); }
+    }
+
+    window.fetchAndShowLeaderboard = function(isManual = false) {
+        const modal = document.getElementById('leaderboard-modal');
+        if (isManual) { modal.classList.remove('hidden-modal'); modal.classList.add('visible-modal'); }
+        const content = document.getElementById('leaderboard-content');
+        document.getElementById('modal-loader').classList.remove('hidden');
+        let reqClassId = (currentLeaderboardMode === 'class') ? classId : 'all';
+        const url = `${SCRIPT_URL}?action=getLeaderboard&gameId=${GAME_ID}&classId=${encodeURIComponent(reqClassId || 'all')}&t=${Date.now()}`;
+        fetch(url).then(r => r.json()).then(res => {
+            let data = (res.status === 'success' && res.data) ? res.data : [];
+            if (localVisitorResult && (currentLeaderboardMode === 'global' || !classId)) {
+                if (!data.find(p => p.name === localVisitorResult.name)) data.push(localVisitorResult);
+                data.sort((a, b) => parseFloat(b.grade) - parseFloat(a.grade) || parseFloat(a.metric) - parseFloat(b.metric));
+            }
+            if (data.length > 0) {
+                let h = `<table class="w-full text-right text-[10px] border-collapse"><thead class="text-slate-400 border-b border-slate-100 bg-slate-50/50"><tr><th class="p-2 text-center">#</th><th class="p-2 text-right">البطل</th><th class="p-2 text-center text-emerald-600">الدرجة</th></tr></thead><tbody class="divide-y divide-slate-50">`;
+                data.forEach((p, i) => {
+                    const isMe = (p.isLocal || (studentId && String(p.name).trim() === String(studentName).trim()));
+                    h += `<tr class="${isMe ? 'rank-row-me' : 'hover:bg-slate-50/50'} transition-colors">
+                        <td class="p-2 leaderboard-rank text-center ${i<3 ? 'text-yellow-500 text-sm' : 'text-slate-400'}">${i < 3 ? ['🥇','🥈','🥉'][i] : toAr(i+1)}</td>
+                        <td class="p-2 leaderboard-name ${isMe ? 'text-blue-700 font-extrabold' : 'text-slate-700'}">${p.name} ${isMe ? '<span class="bg-blue-600 text-white text-[7px] px-1 rounded-full mx-1">أنت</span>' : ''}</td>
+                        <td class="p-2 text-center"><span class="text-emerald-600 font-black">${toAr(parseFloat(p.grade).toFixed(1))}</span> <span class="text-[8px] text-slate-400 block font-bold" dir="ltr">⏳ ${toAr(formatTime(p.metric || p.metricValue || 0))}</span></td>
+                    </tr>`;
+                });
+                content.innerHTML = h + `</tbody></table>`;
+            } else content.innerHTML = `<div class="py-10 text-center text-slate-400 text-xs italic font-bold">بانتظار تسجيل الأبطال..</div>`;
+        }).finally(() => document.getElementById('modal-loader').classList.add('hidden'));
+    };
+
+    window.switchTab = (mode) => { currentLeaderboardMode = mode; document.getElementById('tab-class').className = mode === 'class' ? 'tab-btn tab-active' : 'tab-btn tab-inactive'; document.getElementById('tab-global').className = mode === 'global' ? 'tab-btn tab-active' : 'tab-btn tab-inactive'; fetchAndShowLeaderboard(false); };
+    window.closeLeaderboardModal = () => document.getElementById('leaderboard-modal').classList.replace('visible-modal', 'hidden-modal');
+    </script>
+</body>
+</html>

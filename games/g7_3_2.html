@@ -111,7 +111,7 @@
             <div class="mb-2">
                 <div class="text-6xl text-blue-600 mb-4 font-black">س<span class="sup-text">٢</span></div>
                 <h1 class="text-2xl font-black text-slate-800">تحدي المحلل العبقري</h1>
-                <p class="text-[10px] text-slate-400 font-bold mt-1 tracking-widest uppercase italic">٦ مسائل عشوائية - محاولتان لكل سؤال</p>
+                <p class="text-[10px] text-slate-400 font-bold mt-1 tracking-widest uppercase italic">٦ مسائل عشوائية (١٢ نقطة) - محاولتان للسؤال</p>
             </div>
 
             <div class="flex flex-col gap-3 mt-4">
@@ -135,7 +135,7 @@
                     <span>💡 <strong>تنبيه للمحللين:</strong> العوامل قد تكون سالبة وموجبة. استخدم إشارة الطرح (-) عند الحاجة!</span>
                 </div>
                 <div id="alert-2" class="absolute inset-0 bg-amber-50 px-3 py-2 rounded-xl border border-amber-100 text-[11px] font-bold text-amber-800 transition-opacity duration-500 opacity-0 flex items-center justify-center text-center pointer-events-none">
-                    <span>⚠️ الخطأ يضيف ١٠ ثوانٍ لوقتك.. والفرصة الثانية هي الأخيرة!</span>
+                    <span>⚠️ الخطأ يخصم نقطة ويضيف ١٠ ثوانٍ.. والفرصة الثانية هي الأخيرة!</span>
                 </div>
             </div>
             
@@ -251,7 +251,7 @@
         
         let studentName = decodeURIComponent(urlParams.get('name') || urlParams.get('studentName') || "بطل زائر");
         let currentLevel = 0;
-        let score = 0; 
+        let score = 0; // النقاط من 12
         let startTime, timerInterval;
         let penaltyTime = 0;
         let currentQuestions = [];
@@ -432,11 +432,14 @@
             void inputContainer.offsetWidth; // Trigger reflow لإعادة تشغيل الأنيميشن
 
             if ((pVal === q.p && qVal === q.q) || (pVal === q.q && qVal === q.p)) {
-                score++;
+                // إضافة النقاط حسب المحاولة
+                const earnedPoints = currentAttempt === 1 ? 2 : 1;
+                score += earnedPoints;
+
                 inputContainer.classList.add('pulse-correct');
                 document.getElementById('submit-btn').classList.add('hidden');
                 document.getElementById('next-btn').classList.remove('hidden');
-                feedback.innerHTML = `<span class="text-green-600 font-black text-lg">تحليل عبقري! ✅</span>`;
+                feedback.innerHTML = `<span class="text-green-600 font-black text-lg">تحليل عبقري! ✅ (+${toAr(earnedPoints)})</span>`;
             } else {
                 penaltyTime += 10;
                 document.getElementById('top-timer-display').classList.add('penalty-flash');
@@ -454,17 +457,19 @@
                 }
 
                 if (currentAttempt === 1) {
-                    err += `<p class="text-orange-600 font-bold mt-1">+١٠ ثوانٍ.. لديك فرصة أخيرة لتصحيح الإشارة!</p></div>`;
+                    err += `<p class="text-orange-600 font-bold mt-1">+١٠ ثوانٍ.. تم خصم نقطة! لديك فرصة أخيرة لتصحيح الإشارة.</p></div>`;
                     feedback.innerHTML = err;
                     currentAttempt = 2;
                     document.getElementById('attempt-badge').textContent = "المحاولة الأخيرة";
                     document.getElementById('attempt-badge').className = "bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full";
                 } else {
+                    // فشل في المحاولة الثانية، لا يكتسب أي نقاط (score += 0)
+                    
                     // تنسيق الإشارات بشكل رياضي صحيح للمخرجات
                     let pStr = q.p < 0 ? `- ${toAr(Math.abs(q.p))}` : `+ ${toAr(q.p)}`;
                     let qStr = q.q < 0 ? `- ${toAr(Math.abs(q.q))}` : `+ ${toAr(q.q)}`;
                     
-                    err += `<p class="text-slate-600 font-bold mt-1">فشلت المحاولتان ❌</p>
+                    err += `<p class="text-slate-600 font-bold mt-1">فشلت المحاولتان ❌ (+٠)</p>
                             <p class="text-emerald-600 font-black text-base mt-1" dir="rtl">الإجابة الصحيحة: (س ${pStr}) (س ${qStr})</p></div>`;
                     
                     // تعبئة الحقول بالإجابة الصحيحة لتوضيحها للطالب
@@ -493,7 +498,9 @@
         function finishGame() {
             clearInterval(timerInterval);
             const finalTime = Math.floor((Date.now() - startTime) / 1000) + penaltyTime;
-            const finalGrade = score; 
+            
+            // تحويل النقاط (من 12) إلى درجة نهائية (من 5)
+            const finalGrade = (score / 12) * 5; 
             
             document.getElementById('game-screen').classList.add('hidden');
             document.getElementById('result-screen').classList.remove('hidden');
@@ -501,11 +508,11 @@
             document.getElementById('final-stats').innerHTML = `
                 <div class="bg-blue-50 p-2 rounded-xl border border-blue-100 flex flex-col justify-center">
                     <p class="text-[8px] font-bold text-blue-400 uppercase">النقاط</p>
-                    <p class="text-[11px] font-black text-blue-900">${toAr(score)} / ٦</p>
+                    <p class="text-[11px] font-black text-blue-900">${toAr(score)} / ١٢</p>
                 </div>
                 <div class="bg-emerald-50 p-2 rounded-xl border border-emerald-100 flex flex-col justify-center shadow-sm">
                     <p class="text-[8px] font-bold text-emerald-600 uppercase">الدرجة</p>
-                    <p class="text-lg font-black text-emerald-900">${toAr(finalGrade.toFixed(1))}</p>
+                    <p class="text-lg font-black text-emerald-900">${toAr(finalGrade.toFixed(1))} / ٥</p>
                 </div>
                 <div class="bg-purple-50 p-2 rounded-xl border border-purple-100 flex flex-col justify-center">
                     <p class="text-[8px] font-bold text-purple-400 uppercase">الوقت</p>
@@ -513,6 +520,7 @@
                 </div>
             `;
             
+            // سيتم إرسال الدرجة المحولة finalGrade (بحد أقصى 5) إلى المنصة
             if (studentId && classId) saveScore(finalGrade, finalTime);
         }
 

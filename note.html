@@ -76,6 +76,9 @@
     border-bottom: 1px solid var(--border);
     overflow-x: auto;
     scrollbar-width: none;
+    position: sticky;
+    top: 65px; /* ارتفاع الهيدر تقريباً */
+    z-index: 99;
   }
   .tabs::-webkit-scrollbar { display: none; }
 
@@ -276,6 +279,8 @@
   .chip-dropdown {
     display: none;
     position: fixed;
+    top: -9999px;
+    left: -9999px;
     z-index: 9999;
     background: var(--dark2);
     border: 1px solid var(--border);
@@ -324,6 +329,16 @@
     border-radius: 16px; overflow: hidden;
     transition: transform 0.2s;
     animation: fadeIn 0.3s ease;
+  }
+  @keyframes cardGlow {
+    0%   { border-color: var(--border); box-shadow: none; }
+    25%  { border-color: #f0d060; box-shadow: 0 0 0 2px #c9a84c, 0 0 20px rgba(201,168,76,0.7); }
+    50%  { border-color: #fff8a0; box-shadow: 0 0 0 3px #f0d060, 0 0 35px rgba(240,208,96,0.9); }
+    75%  { border-color: #f0d060; box-shadow: 0 0 0 2px #c9a84c, 0 0 20px rgba(201,168,76,0.7); }
+    100% { border-color: var(--border); box-shadow: none; }
+  }
+  .card.new-glow {
+    animation: fadeIn 0.3s ease, cardGlow 0.8s ease-in-out 3;
   }
 
   /* Swipe */
@@ -416,7 +431,44 @@
     font-family: 'Tajawal', sans-serif;
     font-size: 14px; cursor: pointer;
   }
-  @keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+  /* ===== مجلدات الأجزاء ===== */
+  .juz-group { margin: 10px 12px; border-radius: 14px; overflow: hidden; border: 1px solid rgba(201,168,76,0.2); }
+  .juz-group-header {
+    display: flex; align-items: center; gap: 8px;
+    padding: 12px 16px;
+    background: rgba(201,168,76,0.08);
+    cursor: pointer; user-select: none;
+    font-family: 'Tajawal', sans-serif;
+  }
+  .juz-group-header:active { background: rgba(201,168,76,0.15); }
+  .juz-group-title { font-size: 15px; font-weight: 700; color: var(--gold); flex: 1; }
+  .juz-group-count { font-size: 12px; color: var(--text-dim); background: var(--dark3); padding: 2px 8px; border-radius: 10px; }
+  .juz-group-arrow { font-size: 12px; color: var(--gold-dim); }
+  .juz-group-arrow::before { content: '▼'; }
+  .juz-group-body  { display: none; }
+  .juz-group.open .juz-group-body { display: block; }
+  .juz-group.open .juz-group-arrow::before { content: '▲'; }
+
+  @keyframes newVersePop {
+    0%   { opacity:0; transform: translateY(30px) scale(0.9); }
+    15%  { opacity:1; transform: translateY(0) scale(1); }
+    75%  { opacity:1; transform: translateY(0) scale(1); }
+    100% { opacity:0; transform: translateY(-10px) scale(0.97); }
+  }
+  #addFlash {
+    position: fixed;
+    bottom: 90px; left: 50%; transform: translateX(-50%);
+    background: linear-gradient(135deg, #c9a84c, #f0d060);
+    color: #0d1117;
+    font-family: 'Tajawal', sans-serif;
+    font-size: 15px; font-weight: 700;
+    padding: 12px 28px;
+    border-radius: 50px;
+    box-shadow: 0 4px 24px rgba(201,168,76,0.5);
+    z-index: 9999; pointer-events: none;
+    display: none; white-space: nowrap;
+  }
+  #addFlash.show { display: block; animation: newVersePop 2.2s ease forwards; }
 
   .card-top {
     padding: 10px 12px 8px;
@@ -892,17 +944,12 @@
     <div class="filter-chips">
       <span class="chip on" id="ch-all" onclick="flt('all')">الكل</span>
 
-      <!-- فلتر الحفظ — قائمة منسدلة -->
+      <!-- فلتر الحفظ — خياران فقط -->
       <span class="chip chip-drop" id="ch-memo" onclick="event.stopPropagation();toggleDropdown('dd-memo')">
         ⭐ الحفظ ▾
         <div class="chip-dropdown" id="dd-memo" onclick="event.stopPropagation()">
-          <div data-flt="all-memo" onclick="flt('all-memo');toggleDropdown('dd-memo')">الكل</div>
-          <div data-flt="0"        onclick="flt(0);toggleDropdown('dd-memo')">⬜ لم أبدأ</div>
-          <div data-flt="1"        onclick="flt(1);toggleDropdown('dd-memo')">⭐ نجمة</div>
-          <div data-flt="2"        onclick="flt(2);toggleDropdown('dd-memo')">⭐⭐ نجمتان</div>
-          <div data-flt="3"        onclick="flt(3);toggleDropdown('dd-memo')">⭐⭐⭐ ثلاث</div>
-          <div data-flt="4"        onclick="flt(4);toggleDropdown('dd-memo')">⭐⭐⭐⭐ أربع</div>
-          <div data-flt="5"        onclick="flt(5);toggleDropdown('dd-memo')">⭐⭐⭐⭐⭐ محفوظ</div>
+          <div data-flt="memo:saved"   onclick="flt('memo:saved');toggleDropdown('dd-memo')">✅ محفوظ (4-5 ⭐)</div>
+          <div data-flt="memo:review"  onclick="flt('memo:review');toggleDropdown('dd-memo')">🔁 يحتاج مراجعة (1-3 ⭐)</div>
         </div>
       </span>
 
@@ -918,9 +965,15 @@
         </div>
       </span>
 
-      <span class="chip" id="ch-فجر"  onclick="flt('p:فجر')">🌅 فجر</span>
-      <span class="chip" id="ch-مغرب" onclick="flt('p:مغرب')">🌇 مغرب</span>
-      <span class="chip" id="ch-عشاء" onclick="flt('p:عشاء')">🌙 عشاء</span>
+      <!-- فلتر الصلاة — قائمة منسدلة -->
+      <span class="chip chip-drop" id="ch-prayer" onclick="event.stopPropagation();toggleDropdown('dd-prayer')">
+        🕌 الصلاة ▾
+        <div class="chip-dropdown" id="dd-prayer" onclick="event.stopPropagation()">
+          <div data-flt="p:فجر"  onclick="flt('p:فجر');toggleDropdown('dd-prayer')">🌅 الفجر</div>
+          <div data-flt="p:مغرب" onclick="flt('p:مغرب');toggleDropdown('dd-prayer')">🌇 المغرب</div>
+          <div data-flt="p:عشاء" onclick="flt('p:عشاء');toggleDropdown('dd-prayer')">🌙 العشاء</div>
+        </div>
+      </span>
     </div>
     <div class="cards-grid" id="cardsGrid"></div>
     <div class="empty" id="emptyMsg" style="display:none">
@@ -1161,29 +1214,21 @@
   </div>
 </div>
 
-<!-- شاشة اختيار الكلمات من الآيات -->
-  <div id="pickerVerses" style="flex:1;overflow-y:auto;padding:16px;direction:rtl;text-align:right;-webkit-overflow-scrolling:touch;line-height:2.2"></div>
-
-  <div style="padding:12px 16px;background:var(--dark2);border-top:1px solid var(--border);display:flex;gap:10px;flex-shrink:0">
-    <button onclick="confirmPicker()" style="flex:2;padding:13px;background:linear-gradient(135deg,var(--gold),var(--gold-dim));border:none;border-radius:12px;color:#0d1117;font-family:'Tajawal',sans-serif;font-size:15px;font-weight:700;cursor:pointer">
-      ✅ انهِ الاختيار وارسم
-    </button>
-    <button onclick="cancelPicker()" style="flex:1;padding:13px;background:var(--dark3);border:1px solid var(--border);border-radius:12px;color:var(--text);font-family:'Tajawal',sans-serif;font-size:14px;cursor:pointer">
-      إلغاء
-    </button>
-  </div>
-</div>
-
-<!-- حقل إدخال الكلمة العائم -->
 <!-- نافذة التصدير -->
 <div id="exportPanel" style="display:none;position:fixed;inset:0;z-index:600;background:rgba(0,0,0,0.7);align-items:center;justify-content:center">
   <div style="background:var(--dark2);border:1px solid var(--border);border-radius:18px;padding:20px;width:88%;max-width:360px;direction:rtl">
     <div style="font-size:15px;font-weight:700;color:var(--gold);font-family:'Tajawal',sans-serif;margin-bottom:16px">💾 تصدير / استيراد</div>
 
-    <!-- تصدير كامل -->
+    <!-- تصدير كامل — نسخ -->
     <button onclick="exportFull()" style="width:100%;padding:14px;background:linear-gradient(135deg,var(--gold),var(--gold-dim));border:none;border-radius:12px;color:#0d1117;font-family:'Tajawal',sans-serif;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:10px;text-align:right">
       📦 نسخ البيانات الكاملة (مع الرسمات)
-      <div style="font-size:11px;font-weight:400;margin-top:2px;opacity:0.8">JSON — للاستيراد في نسخة أخرى</div>
+      <div style="font-size:11px;font-weight:400;margin-top:2px;opacity:0.8">JSON — للنسخ إلى الحافظة</div>
+    </button>
+
+    <!-- تصدير كامل — حفظ ملف -->
+    <button onclick="exportToFile()" style="width:100%;padding:14px;background:linear-gradient(135deg,#1a6b3a,#22c55e22);border:1px solid rgba(34,197,94,0.4);border-radius:12px;color:#4ade80;font-family:'Tajawal',sans-serif;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:10px;text-align:right">
+      💾 حفظ ملف JSON على الجهاز
+      <div style="font-size:11px;font-weight:400;margin-top:2px;opacity:0.8">الأضمن — يحفظ الرسمات كاملة</div>
     </button>
 
     <!-- تصدير نص -->
@@ -1207,12 +1252,21 @@
       <div style="font-size:11px;font-weight:400;margin-top:2px;opacity:0.8">الصق بيانات JSON مباشرة</div>
     </button>
 
+    <div style="height:1px;background:var(--border);margin:4px 0 12px"></div>
+
+    <!-- حذف -->
+    <button onclick="openDeletePanel()" style="width:100%;padding:14px;background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.3);border-radius:12px;color:#f87171;font-family:'Tajawal',sans-serif;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:12px;text-align:right">
+      🗑️ حذف الآيات
+      <div style="font-size:11px;font-weight:400;margin-top:2px;opacity:0.8">اختر ما تحذف أو امسح الكل</div>
+    </button>
+
     <button onclick="document.getElementById('exportPanel').style.display='none'" style="width:100%;padding:12px;background:none;border:none;color:var(--text-dim);font-family:'Tajawal',sans-serif;font-size:14px;cursor:pointer">
       إغلاق
     </button>
   </div>
 </div>
 
+<div id="addFlash">✨ تمت إضافة الآية</div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -1220,6 +1274,7 @@
 const SK = 'mushafi_ai_v1';
 let db = JSON.parse(localStorage.getItem(SK) || '[]');
 let activeFilters = new Set(); // اختيارات متعددة
+let defaultView = 'smart'; // 'smart' = 4-5 نجوم (محفوظ) | 'all' = الكل
 let editMode = false;
 let revQ = [], revIdx = 0;
 
@@ -1248,8 +1303,9 @@ function flt(f) {
   // حوّل أرقام الـ memo لـ number وليس string
   if (typeof f === 'string' && /^\d$/.test(f)) f = parseInt(f);
 
-  if (f === 'all' || f === 'all-memo') {
+  if (f === 'all') {
     activeFilters.clear();
+    defaultView = 'all';
   } else {
     if (activeFilters.has(f)) {
       activeFilters.delete(f);
@@ -1263,31 +1319,23 @@ function flt(f) {
 
 function updateFilterChips() {
   // "الكل"
-  document.getElementById('ch-all')?.classList.toggle('on', activeFilters.size === 0);
-
-  // فلاتر الصلوات
-  ['فجر','مغرب','عشاء'].forEach(p => {
-    document.getElementById('ch-' + p)?.classList.toggle('on', activeFilters.has('p:' + p));
-  });
+  document.getElementById('ch-all')?.classList.toggle('on', activeFilters.size === 0 && defaultView === 'all');
 
   // فلتر الحفظ
-  const memoActive = [...activeFilters].some(f => typeof f === 'number');
+  const memoActive = activeFilters.has('memo:saved') || activeFilters.has('memo:review');
   document.getElementById('ch-memo')?.classList.toggle('on', memoActive);
 
   // فلتر القراءة
   const readActive = [...activeFilters].some(f => typeof f === 'string' && f.startsWith('r:'));
   document.getElementById('ch-read')?.classList.toggle('on', readActive);
 
-  // تلوين عناصر القوائم المنسدلة بـ data-flt
+  // فلتر الصلاة
+  const prayerActive = [...activeFilters].some(f => typeof f === 'string' && f.startsWith('p:'));
+  document.getElementById('ch-prayer')?.classList.toggle('on', prayerActive);
+
+  // تلوين عناصر القوائم
   document.querySelectorAll('[data-flt]').forEach(el => {
-    const raw = el.dataset.flt;
-    if (raw === 'all-memo') {
-      el.classList.toggle('selected', activeFilters.size === 0);
-      return;
-    }
-    const num = parseInt(raw);
-    const key = isNaN(num) ? raw : num;
-    el.classList.toggle('selected', activeFilters.has(key));
+    el.classList.toggle('selected', activeFilters.has(el.dataset.flt));
   });
 }
 
@@ -1325,7 +1373,7 @@ const SURAHS = [
 ];
 
 // جدول دقيق: أول آية في كل صفحة [سورة، آية] - مصحف المدينة المنورة طبعة الملك فهد
-const PAGE_MAP=[[1,1],[2,1],[2,6],[2,17],[2,25],[2,30],[2,38],[2,49],[2,57],[2,62],[2,70],[2,77],[2,83],[2,88],[2,93],[2,98],[2,105],[2,110],[2,116],[2,121],[2,128],[2,133],[2,140],[2,146],[2,150],[2,157],[2,164],[2,170],[2,177],[2,182],[2,187],[2,193],[2,197],[2,202],[2,207],[2,213],[2,219],[2,224],[2,228],[2,232],[2,238],[2,243],[2,249],[2,253],[2,258],[2,263],[2,268],[2,273],[2,282],[3,1],[3,10],[3,16],[3,23],[3,30],[3,38],[3,46],[3,53],[3,62],[3,71],[3,78],[3,85],[3,92],[3,101],[3,109],[3,116],[3,122],[3,130],[3,136],[3,144],[3,149],[3,158],[3,166],[3,174],[3,181],[3,187],[3,195],[4,1],[4,7],[4,12],[4,15],[4,20],[4,24],[4,29],[4,35],[4,40],[4,45],[4,51],[4,57],[4,62],[4,66],[4,72],[4,77],[4,82],[4,86],[4,92],[4,95],[4,100],[4,105],[4,110],[4,114],[4,120],[4,125],[4,130],[4,135],[4,141],[4,148],[4,155],[4,163],[4,170],[4,176],[5,1],[5,3],[5,8],[5,12],[5,16],[5,20],[5,26],[5,32],[5,38],[5,42],[5,46],[5,52],[5,58],[5,63],[5,68],[5,74],[5,80],[6,1],[6,6],[6,12],[6,17],[6,24],[6,30],[6,37],[6,44],[6,52],[6,60],[6,67],[6,74],[6,82],[6,90],[6,99],[6,106],[6,111],[6,117],[6,122],[6,128],[6,134],[6,140],[6,147],[7,1],[7,6],[7,13],[7,21],[7,28],[7,35],[7,43],[7,50],[7,58],[7,65],[7,73],[7,80],[7,88],[7,96],[7,104],[7,111],[7,117],[7,123],[7,131],[7,138],[7,145],[7,151],[7,157],[7,163],[7,171],[7,178],[8,1],[8,9],[8,17],[8,24],[8,32],[8,40],[8,47],[8,53],[8,62],[8,70],[9,1],[9,7],[9,13],[9,19],[9,25],[9,32],[9,38],[9,46],[9,53],[9,60],[9,67],[9,73],[9,80],[9,87],[9,93],[9,100],[9,107],[9,114],[9,121],[9,128],[10,1],[10,7],[10,15],[10,23],[10,31],[10,39],[10,48],[10,58],[10,65],[10,73],[10,82],[10,89],[10,97],[10,105],[11,1],[11,7],[11,13],[11,20],[11,28],[11,36],[11,43],[11,50],[11,57],[11,65],[11,72],[11,80],[11,87],[11,97],[12,1],[12,7],[12,15],[12,23],[12,31],[12,39],[12,47],[12,53],[12,61],[12,70],[12,76],[12,82],[12,87],[12,94],[13,1],[13,6],[13,12],[13,18],[13,26],[13,33],[14,1],[14,7],[14,13],[14,19],[14,25],[14,34],[14,43],[15,1],[15,10],[15,22],[15,32],[15,42],[16,1],[16,8],[16,15],[16,23],[16,30],[16,38],[16,46],[16,53],[16,60],[16,67],[16,76],[16,83],[16,90],[16,98],[16,106],[17,1],[17,8],[17,16],[17,23],[17,30],[17,36],[17,44],[17,52],[17,59],[17,67],[17,76],[18,1],[18,8],[18,16],[18,22],[18,28],[18,35],[18,42],[18,50],[18,57],[18,65],[18,75],[18,84],[19,1],[19,12],[19,22],[19,34],[19,43],[19,52],[19,62],[20,1],[20,10],[20,22],[20,36],[20,52],[20,65],[20,78],[20,91],[20,105],[20,116],[21,1],[21,10],[21,20],[21,29],[21,38],[21,46],[21,57],[21,65],[21,73],[21,83],[22,1],[22,6],[22,12],[22,20],[22,28],[22,35],[22,41],[22,48],[22,57],[22,64],[23,1],[23,11],[23,21],[23,33],[23,45],[23,55],[23,66],[23,75],[24,1],[24,6],[24,13],[24,21],[24,28],[24,35],[24,41],[24,46],[24,54],[25,1],[25,7],[25,16],[25,24],[25,33],[25,40],[25,49],[25,58],[26,1],[26,11],[26,21],[26,34],[26,50],[26,61],[26,74],[26,84],[26,95],[26,106],[27,1],[27,8],[27,16],[27,24],[27,33],[27,41],[27,50],[27,60],[28,1],[28,7],[28,15],[28,22],[28,29],[28,36],[28,44],[28,51],[28,58],[28,67],[28,76],[29,1],[29,8],[29,15],[29,23],[29,31],[29,39],[29,46],[29,54],[30,1],[30,8],[30,17],[30,28],[30,37],[30,47],[31,1],[31,8],[31,16],[31,24],[31,32],[32,1],[32,9],[32,18],[33,1],[33,7],[33,16],[33,23],[33,31],[33,39],[33,47],[33,53],[33,59],[33,66],[34,1],[34,8],[34,16],[34,22],[34,29],[34,37],[35,1],[35,6],[35,14],[35,24],[35,34],[35,43],[36,1],[36,10],[36,22],[36,32],[36,42],[36,52],[37,1],[37,12],[37,26],[37,40],[37,54],[37,65],[37,77],[38,1],[38,12],[38,22],[38,34],[38,46],[39,1],[39,8],[39,16],[39,23],[39,32],[39,42],[39,53],[39,64],[39,72],[40,1],[40,9],[40,18],[40,27],[40,36],[40,47],[40,58],[40,68],[40,78],[41,1],[41,8],[41,17],[41,25],[41,34],[41,41],[41,47],[42,1],[42,9],[42,17],[42,25],[42,32],[42,42],[43,1],[43,10],[43,21],[43,31],[43,41],[43,52],[43,63],[44,1],[44,17],[44,30],[45,1],[45,12],[45,22],[46,1],[46,10],[46,20],[46,28],[46,35],[47,1],[47,11],[47,21],[47,31],[48,1],[48,8],[48,17],[48,24],[49,1],[49,10],[50,1],[50,12],[50,24],[51,1],[51,17],[51,31],[52,1],[52,22],[52,37],[53,1],[53,25],[54,1],[54,18],[54,35],[55,1],[55,25],[55,46],[56,1],[56,26],[56,51],[57,1],[57,11],[57,19],[57,26],[58,1],[58,8],[58,14],[59,1],[59,11],[59,18],[60,1],[60,8],[61,1],[61,10],[62,1],[62,9],[63,1],[63,9],[64,1],[64,11],[65,1],[65,7],[66,1],[66,7],[67,1],[67,11],[67,19],[68,1],[68,17],[69,1],[69,18],[70,1],[70,15],[71,1],[71,21],[72,1],[72,15],[73,1],[74,1],[74,26],[75,1],[76,1],[76,21],[77,1],[77,27],[78,1],[79,1],[79,27],[80,1],[81,1],[82,1],[83,18],[84,1],[85,1],[86,1],[88,1],[89,1],[90,1],[91,1],[93,1],[95,1],[97,1],[99,1],[101,1],[103,1],[106,1],[109,1],[112,1]];
+const PAGE_MAP=[[1,1],[2,1],[2,6],[2,17],[2,25],[2,30],[2,38],[2,49],[2,57],[2,62],[2,70],[2,77],[2,83],[2,88],[2,93],[2,98],[2,105],[2,110],[2,116],[2,121],[2,128],[2,133],[2,140],[2,146],[2,150],[2,157],[2,164],[2,170],[2,177],[2,182],[2,187],[2,193],[2,197],[2,202],[2,207],[2,213],[2,219],[2,224],[2,228],[2,232],[2,238],[2,243],[2,249],[2,253],[2,258],[2,261],[2,265],[2,270],[2,275],[2,282],[3,1],[3,10],[3,16],[3,23],[3,30],[3,38],[3,46],[3,53],[3,62],[3,71],[3,78],[3,85],[3,92],[3,101],[3,109],[3,116],[3,122],[3,130],[3,136],[3,144],[3,149],[3,158],[3,166],[3,174],[3,181],[3,187],[3,195],[4,1],[4,7],[4,12],[4,15],[4,20],[4,24],[4,29],[4,35],[4,40],[4,45],[4,51],[4,57],[4,62],[4,66],[4,72],[4,77],[4,82],[4,86],[4,92],[4,95],[4,100],[4,105],[4,110],[4,114],[4,120],[4,125],[4,130],[4,135],[4,141],[4,148],[4,155],[4,163],[4,170],[4,176],[5,1],[5,3],[5,8],[5,12],[5,16],[5,20],[5,26],[5,32],[5,38],[5,42],[5,46],[5,52],[5,58],[5,63],[5,68],[5,74],[5,80],[6,1],[6,6],[6,12],[6,17],[6,24],[6,30],[6,37],[6,44],[6,52],[6,60],[6,67],[6,74],[6,82],[6,90],[6,99],[6,106],[6,111],[6,117],[6,122],[6,128],[6,134],[6,140],[6,147],[7,1],[7,6],[7,13],[7,21],[7,28],[7,35],[7,43],[7,50],[7,58],[7,65],[7,73],[7,80],[7,88],[7,96],[7,104],[7,111],[7,117],[7,123],[7,131],[7,138],[7,145],[7,151],[7,157],[7,163],[7,171],[7,178],[8,1],[8,9],[8,17],[8,24],[8,32],[8,40],[8,47],[8,53],[8,62],[8,70],[9,1],[9,7],[9,13],[9,19],[9,25],[9,32],[9,38],[9,46],[9,53],[9,60],[9,67],[9,73],[9,80],[9,87],[9,93],[9,100],[9,107],[9,114],[9,121],[9,128],[10,1],[10,7],[10,15],[10,23],[10,31],[10,39],[10,48],[10,58],[10,65],[10,73],[10,82],[10,89],[10,97],[10,105],[11,1],[11,7],[11,13],[11,20],[11,28],[11,36],[11,43],[11,50],[11,57],[11,65],[11,72],[11,80],[11,87],[11,97],[12,1],[12,7],[12,15],[12,23],[12,31],[12,39],[12,47],[12,53],[12,61],[12,70],[12,76],[12,82],[12,87],[12,94],[13,1],[13,6],[13,12],[13,18],[13,26],[13,33],[14,1],[14,7],[14,13],[14,19],[14,25],[14,34],[14,43],[15,1],[15,10],[15,22],[15,32],[15,42],[16,1],[16,8],[16,15],[16,23],[16,30],[16,38],[16,46],[16,53],[16,60],[16,67],[16,76],[16,83],[16,90],[16,98],[16,106],[17,1],[17,8],[17,16],[17,23],[17,30],[17,36],[17,44],[17,52],[17,59],[17,67],[17,76],[18,1],[18,8],[18,16],[18,22],[18,28],[18,35],[18,42],[18,50],[18,57],[18,65],[18,75],[18,84],[19,1],[19,12],[19,22],[19,34],[19,43],[19,52],[19,62],[20,1],[20,10],[20,22],[20,36],[20,52],[20,65],[20,78],[20,91],[20,105],[20,116],[21,1],[21,10],[21,20],[21,29],[21,38],[21,46],[21,57],[21,65],[21,73],[21,83],[22,1],[22,6],[22,12],[22,20],[22,28],[22,35],[22,41],[22,48],[22,57],[22,64],[23,1],[23,11],[23,21],[23,33],[23,45],[23,55],[23,66],[23,75],[24,1],[24,6],[24,13],[24,21],[24,28],[24,35],[24,41],[24,46],[24,54],[25,1],[25,7],[25,16],[25,24],[25,33],[25,40],[25,49],[25,58],[26,1],[26,11],[26,21],[26,34],[26,50],[26,61],[26,74],[26,84],[26,95],[26,106],[27,1],[27,8],[27,16],[27,24],[27,33],[27,41],[27,50],[27,60],[28,1],[28,7],[28,15],[28,22],[28,29],[28,36],[28,44],[28,51],[28,58],[28,67],[28,76],[29,1],[29,8],[29,15],[29,23],[29,31],[29,39],[29,46],[29,54],[30,1],[30,8],[30,17],[30,28],[30,37],[30,47],[31,1],[31,8],[31,16],[31,24],[31,32],[32,1],[32,9],[32,18],[33,1],[33,7],[33,16],[33,23],[33,31],[33,39],[33,47],[33,53],[33,59],[33,66],[34,1],[34,8],[34,16],[34,22],[34,29],[34,37],[35,1],[35,6],[35,14],[35,24],[35,34],[35,43],[36,1],[36,10],[36,22],[36,32],[36,42],[36,52],[37,1],[37,12],[37,26],[37,40],[37,54],[37,65],[37,77],[38,1],[38,12],[38,22],[38,34],[38,46],[39,1],[39,8],[39,16],[39,23],[39,32],[39,42],[39,53],[39,64],[39,72],[40,1],[40,9],[40,18],[40,27],[40,36],[40,47],[40,58],[40,68],[40,78],[41,1],[41,8],[41,17],[41,25],[41,34],[41,41],[41,47],[42,1],[42,9],[42,17],[42,25],[42,32],[42,42],[43,1],[43,10],[43,21],[43,31],[43,41],[43,52],[43,63],[44,1],[44,17],[44,30],[45,1],[45,12],[45,22],[46,1],[46,10],[46,20],[46,28],[46,35],[47,1],[47,11],[47,21],[47,31],[48,1],[48,8],[48,17],[48,24],[49,1],[49,10],[50,1],[50,12],[50,24],[51,1],[51,17],[51,31],[52,1],[52,22],[52,37],[53,1],[53,25],[54,1],[54,18],[54,35],[55,1],[55,25],[55,46],[56,1],[56,26],[56,51],[57,1],[57,11],[57,19],[57,26],[58,1],[58,8],[58,14],[59,1],[59,11],[59,18],[60,1],[60,8],[61,1],[61,10],[62,1],[62,9],[63,1],[63,9],[64,1],[64,11],[65,1],[65,7],[66,1],[66,7],[67,1],[67,11],[67,19],[68,1],[68,17],[69,1],[69,18],[70,1],[70,15],[71,1],[71,21],[72,1],[72,15],[73,1],[74,1],[74,26],[75,1],[76,1],[76,21],[77,1],[77,27],[78,1],[79,1],[79,27],[80,1],[81,1],[82,1],[83,18],[84,1],[85,1],[86,1],[88,1],[89,1],[90,1],[91,1],[93,1],[95,1],[97,1],[99,1],[101,1],[103,1],[106,1],[109,1],[112,1]];
 
 // دالة دقيقة لإيجاد صفحة أي آية
 function getPageForAyah(surahNum, ayahNum) {
@@ -1508,14 +1556,30 @@ document.addEventListener('click', e => {
 });
 
 function fillResult(result) {
+  // إذا الآية قصيرة (أقل من 7 كلمات) أضف الآيات التالية تلقائياً
+  const MIN_WORDS = 7;
+  const sIdx = SURAHS.findIndex(s => s[1] === result.surahName);
+  const totalAyahs = sIdx >= 0 ? SURAHS[sIdx][2] : result.ayahNum;
+
+  let ayahTo   = result.ayahNum;
+  let combined = (result.fullVerse || '') + ` ﴿${result.ayahNum}﴾`;
+
+  // أضف آيات تالية فقط إذا كانت البيانات محملة
+  if (QURAN_DATA && QURAN_DATA.length > 0) {
+    let safety = 0;
+    while (safety < 10 && combined.replace(/﴿\d+﴾/g,'').trim().split(/\s+/).length < MIN_WORDS && ayahTo < totalAyahs) {
+      safety++;
+      ayahTo++;
+      const nextV = QURAN_DATA.find(v => v.s === result.surahNum && v.a === ayahTo);
+      if (!nextV) { ayahTo--; break; }
+      combined += ' ' + nextV.t + ` ﴿${ayahTo}﴾`;
+    }
+  }
+
   detected = {
     surah: result.surahName, ayah: result.ayahNum,
-    page: result.page, juz: result.juz, fullVerse: result.fullVerse
+    ayahTo, page: result.page, juz: result.juz, fullVerse: combined
   };
-
-  // ayahTo = نفس الآية افتراضياً — المستخدم يعدل بنفسه
-  const ayahTo = result.ayahNum;
-  detected.ayahTo = ayahTo;
 
   document.getElementById('val-surah').textContent   = result.surahName;
   document.getElementById('val-ayah').textContent    = result.ayahNum;
@@ -1530,15 +1594,13 @@ function fillResult(result) {
   document.getElementById('inp-juz').value      = result.juz;
 
   const preview = document.getElementById('versePreview');
-  preview.textContent = result.fullVerse + ` ﴿${result.ayahNum}﴾`;
+  preview.textContent = combined;
   preview.style.display = 'block';
-
-  // أظهر زر الرسمة الذكية
-  
 
   document.getElementById('aiResult').classList.add('show');
   document.getElementById('addBtn').disabled = false;
-  showToast('✅ سورة ' + result.surahName + ' — آية ' + result.ayahNum);
+  const rangeStr = ayahTo !== result.ayahNum ? ` (${result.ayahNum}–${ayahTo})` : ` — آية ${result.ayahNum}`;
+  showToast('✅ سورة ' + result.surahName + rangeStr);
 }
 
 // ======= PRAYER TOGGLE =======
@@ -2163,8 +2225,22 @@ function addVerse() {
 
   db.push(entry);
   save();
-  showToast('✅ تمت الإضافة بنجاح');
+  resetAddForm();
+  // عند الإضافة: اعرض الكل حتى تظهر الآية الجديدة
+  defaultView = 'all';
+  activeFilters.clear();
+  updateFilterChips();
   go('all');
+  setTimeout(() => {
+    // سكرول للآية وأضئ إطارها
+    const wrap = document.getElementById(`sw-${entry.id}`);
+    const card = document.getElementById(`card-${entry.id}`);
+    if (wrap) wrap.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (card) {
+      card.classList.add('new-glow');
+      setTimeout(() => card.classList.remove('new-glow'), 2600);
+    }
+  }, 400);
 }
 
 function resetAddForm() {
@@ -2190,21 +2266,34 @@ function render() {
   const srch = document.getElementById('srch').value.trim().toLowerCase();
   let rows = [...db];
 
-  if (activeFilters.size > 0) {
+  // الفلتر الافتراضي: محفوظ فقط (4-5 نجوم) ما لم يختر المستخدم غير ذلك
+  if (defaultView === 'smart' && activeFilters.size === 0) {
+    rows = rows.filter(v => (v.memo || 0) >= 4);
+  } else if (activeFilters.size > 0) {
+    // فصل الفلاتر حسب المجموعة
+    const memoFilters   = [...activeFilters].filter(f => typeof f === 'string' && f.startsWith('memo:'));
+    const prayerFilters = [...activeFilters].filter(f => typeof f === 'string' && f.startsWith('p:'));
+    const readFilters   = [...activeFilters].filter(f => typeof f === 'string' && f.startsWith('r:'));
+
     rows = rows.filter(v => {
-      // يجب أن يطابق الكارت **جميع** الفلاتر المحددة (AND)
-      for (const f of activeFilters) {
-        if (typeof f === 'string' && f.startsWith('p:')) {
-          const p = f.slice(2);
-          if (!v.prayers || !v.prayers.includes(p)) return false;
-        } else if (typeof f === 'string' && f.startsWith('r:')) {
-          if (getReadBarClass(v.lastRead) !== f.slice(2)) return false;
-        } else {
-          // memo filter
-          if (f === 0 && v.memo !== 0) return false;
-          if (f === 5 && (v.memo || 0) < 4) return false;
-          if (typeof f === 'number' && f > 0 && f < 5 && v.memo !== f) return false;
-        }
+      // فلتر الحفظ (OR داخل المجموعة)
+      if (memoFilters.length > 0) {
+        const ok = memoFilters.some(f => {
+          if (f === 'memo:saved')  return (v.memo||0) >= 4;
+          if (f === 'memo:review') return (v.memo||0) >= 1 && (v.memo||0) <= 3;
+          return false;
+        });
+        if (!ok) return false;
+      }
+      // فلتر الصلاة (OR داخل المجموعة)
+      if (prayerFilters.length > 0) {
+        const ok = prayerFilters.some(f => v.prayers && v.prayers.includes(f.slice(2)));
+        if (!ok) return false;
+      }
+      // فلتر القراءة (OR داخل المجموعة)
+      if (readFilters.length > 0) {
+        const ok = readFilters.some(f => getReadBarClass(v.lastRead) === f.slice(2));
+        if (!ok) return false;
       }
       return true;
     });
@@ -2236,7 +2325,97 @@ function render() {
   }
 
   empty.style.display = 'none';
-  grid.innerHTML = rows.map(renderCard).join('');
+
+  // دالة: رقم السورة في المصحف
+  function surahOrder(name) {
+    const idx = SURAHS.findIndex(s => s[1] === name);
+    return idx >= 0 ? idx + 1 : 999;
+  }
+
+  // ١. احسب كم آية لكل سورة في النتائج
+  const surahCount = {};
+  rows.forEach(v => { if (v.surah) surahCount[v.surah] = (surahCount[v.surah] || 0) + 1; });
+  const folderSurahs = new Set(Object.keys(surahCount).filter(s => surahCount[s] >= 3));
+
+  // ٢. الأجزاء 28-30 للآيات التي لا تنتمي لفولدر سورة
+  const juzCount = {};
+  rows.forEach(v => {
+    if (v.juz >= 28 && v.surah && !folderSurahs.has(v.surah))
+      juzCount[v.juz] = (juzCount[v.juz] || 0) + 1;
+  });
+  const folderJuz = new Set(Object.keys(juzCount).filter(j => juzCount[j] >= 3).map(Number));
+
+  // ٣. وزّع الصفوف
+  const surahGroups = {}, juzGroups = {}, singles = [];
+  rows.forEach(v => {
+    if (v.surah && folderSurahs.has(v.surah)) {
+      surahGroups[v.surah] = surahGroups[v.surah] || [];
+      surahGroups[v.surah].push(v);
+    } else if (v.juz && folderJuz.has(Number(v.juz))) {
+      juzGroups[v.juz] = juzGroups[v.juz] || [];
+      juzGroups[v.juz].push(v);
+    } else {
+      singles.push(v);
+    }
+  });
+
+  // ٤. بناء قائمة موحدة من عناصر مرتبة بالصفحة ثم الآية
+  // كل عنصر له: type ('folder-surah'|'folder-juz'|'single'), sortPage, sortAyah
+  const items = [];
+
+  Object.keys(surahGroups).forEach(surah => {
+    const group = surahGroups[surah].sort((a,b) => (a.page||999)-(b.page||999)||(a.ayah||999)-(b.ayah||999));
+    items.push({ type:'folder-surah', surah, group, sortPage: group[0]?.page||999, sortAyah: group[0]?.ayah||999 });
+  });
+
+  Object.keys(juzGroups).forEach(j => {
+    const group = juzGroups[j].sort((a,b) => (a.page||999)-(b.page||999));
+    items.push({ type:'folder-juz', juz: Number(j), group, sortPage: group[0]?.page||999, sortAyah: 0 });
+  });
+
+  singles.forEach(v => {
+    items.push({ type:'single', v, sortPage: v.page||999, sortAyah: v.ayah||999 });
+  });
+
+  // رتّب كل العناصر بالصفحة ثم الآية
+  items.sort((a,b) => (a.sortPage - b.sortPage) || (a.sortAyah - b.sortAyah));
+
+  // ٥. ارسم
+  let html = '';
+  items.forEach(item => {
+    if (item.type === 'single') {
+      html += renderCard(item.v);
+    } else if (item.type === 'folder-surah') {
+      const id = `surah-group-${item.surah.replace(/\s/g,'_')}`;
+      const isOpen = document.getElementById(id) ? document.getElementById(id).classList.contains('open') : true;
+      html += `<div class="juz-group${isOpen?' open':''}" id="${id}">
+        <div class="juz-group-header" onclick="toggleJuzGroup('${id}')">
+          <span class="juz-group-title">📖 سورة ${item.surah}</span>
+          <span class="juz-group-count">${item.group.length} آيات</span>
+          <span class="juz-group-arrow"></span>
+        </div>
+        <div class="juz-group-body">${item.group.map(renderCard).join('')}</div>
+      </div>`;
+    } else {
+      const id = `juz-group-${item.juz}`;
+      const isOpen = document.getElementById(id) ? document.getElementById(id).classList.contains('open') : true;
+      html += `<div class="juz-group${isOpen?' open':''}" id="${id}">
+        <div class="juz-group-header" onclick="toggleJuzGroup('${id}')">
+          <span class="juz-group-title">📂 الجزء ${item.juz}</span>
+          <span class="juz-group-count">${item.group.length} آيات</span>
+          <span class="juz-group-arrow"></span>
+        </div>
+        <div class="juz-group-body">${item.group.map(renderCard).join('')}</div>
+      </div>`;
+    }
+  });
+
+  grid.innerHTML = html;
+}
+
+function toggleJuzGroup(id) {
+  const el = document.getElementById(id);
+  if (el) el.classList.toggle('open');
 }
 
 function getReadBarClass(lastRead) {
@@ -3106,7 +3285,6 @@ function exportFull() {
   if (!db.length) { showToast('⚠️ لا توجد بيانات للتصدير'); return; }
   const json = JSON.stringify({ version: 2, exported: new Date().toISOString(), data: db }, null, 2);
 
-  // نفس طريقة النسخ الموثوقة
   const ta = document.createElement('textarea');
   ta.value = json;
   ta.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0';
@@ -3121,10 +3299,29 @@ function exportFull() {
     showToast('✅ تم نسخ البيانات الكاملة (' + db.length + ' آية)');
     document.getElementById('exportPanel').style.display = 'none';
   } else {
-    // اعرض في نافذة للنسخ اليدوي
     showExportTextWindow(json);
     document.getElementById('exportPanel').style.display = 'none';
   }
+}
+
+function exportToFile() {
+  if (!db.length) { showToast('⚠️ لا توجد بيانات للتصدير'); return; }
+  const json = JSON.stringify({ version: 2, exported: new Date().toISOString(), data: db }, null, 2);
+  const date = new Date().toISOString().slice(0,10);
+  const filename = `مصحفي_${date}.json`;
+
+  const blob = new Blob([json], { type: 'application/json;charset=utf-8' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+
+  showToast('✅ تم حفظ الملف: ' + filename);
+  document.getElementById('exportPanel').style.display = 'none';
 }
 
 function exportText() {
@@ -3161,6 +3358,7 @@ function exportText() {
 
 function showExportTextWindow(text) {
   const win = document.createElement('div');
+  win.id = 'exportTextWin';
   win.style.cssText = 'position:fixed;inset:0;z-index:700;background:rgba(0,0,0,0.92);display:flex;flex-direction:column;padding:16px;gap:10px;direction:rtl';
   win.innerHTML = `
     <div style="color:var(--gold);font-family:'Tajawal',sans-serif;font-size:14px;font-weight:700">
@@ -3169,7 +3367,7 @@ function showExportTextWindow(text) {
     <textarea id="exportTA" style="flex:1;background:#1a1f2e;color:#e2d9c5;border:1px solid rgba(201,168,76,0.3);border-radius:10px;padding:12px;font-family:'Tajawal',sans-serif;font-size:13px;direction:rtl;resize:none" readonly></textarea>
     <div style="display:flex;gap:8px">
       <button onclick="document.getElementById('exportTA').select();document.execCommand('copy');this.textContent='✅ تم النسخ'" style="flex:1;padding:12px;background:linear-gradient(135deg,var(--gold),var(--gold-dim));border:none;border-radius:10px;font-family:'Tajawal',sans-serif;font-size:14px;font-weight:700;cursor:pointer;color:#0d1117">📋 تحديد الكل ونسخ</button>
-      <button onclick="this.closest('div[style]').remove()" style="flex:1;padding:12px;background:var(--dark3);border:1px solid var(--border);border-radius:10px;font-family:'Tajawal',sans-serif;font-size:14px;cursor:pointer;color:var(--text)">إغلاق</button>
+      <button onclick="document.getElementById('exportTextWin')?.remove()" style="flex:1;padding:12px;background:var(--dark3);border:1px solid var(--border);border-radius:10px;font-family:'Tajawal',sans-serif;font-size:14px;cursor:pointer;color:var(--text)">إغلاق</button>
     </div>
   `;
   document.body.appendChild(win);
@@ -3185,36 +3383,28 @@ function importData(input) {
   const reader = new FileReader();
   reader.onload = e => {
     try {
-      const parsed     = JSON.parse(e.target.result);
-      const arr        = Array.isArray(parsed) ? parsed : (parsed.data || []);
+      const parsed = JSON.parse(e.target.result);
+      const arr    = Array.isArray(parsed) ? parsed : (parsed.data || []);
       if (!arr.length) throw new Error('فارغ');
-      const existingIds = new Set(db.map(v => v.id));
-      const newItems    = arr.filter(v => v.id && !existingIds.has(v.id));
-      const updated     = arr.filter(v => v.id &&  existingIds.has(v.id));
-      db = [...db, ...newItems];
-      save(); render();
-      const msg = newItems.length
-        ? `✅ تم استيراد ${newItems.length} آية جديدة${updated.length ? ` (${updated.length} موجودة)` : ''}`
-        : `ℹ️ جميع الآيات موجودة مسبقاً (${updated.length})`;
-      showToast(msg);
-    } catch (err) {
+      document.getElementById('exportPanel').style.display = 'none';
+      showImportChoiceDialog(arr);
+    } catch {
       showToast('❌ الملف غير صالح — تأكد أنه JSON صحيح');
     }
   };
   reader.readAsText(file, 'utf-8');
-  document.getElementById('exportPanel').style.display = 'none';
 }
 
 function importFromText() {
-  // استيراد من نص JSON ملصوق مباشرة
   const win = document.createElement('div');
+  win.id = 'importTextWin';
   win.style.cssText = 'position:fixed;inset:0;z-index:700;background:rgba(0,0,0,0.92);display:flex;flex-direction:column;padding:16px;gap:10px;direction:rtl';
   win.innerHTML = `
     <div style="color:var(--gold);font-family:'Tajawal',sans-serif;font-size:14px;font-weight:700">📥 الصق بيانات JSON هنا:</div>
-    <textarea id="importTA" style="flex:1;background:#1a1f2e;color:#e2d9c5;border:1px solid rgba(201,168,76,0.3);border-radius:10px;padding:12px;font-family:'Tajawal',sans-serif;font-size:13px;direction:ltr;resize:none" placeholder='{"version":2,"data":[...]}'></textarea>
+    <textarea id="importTA" style="flex:1;background:#1a1f2e;color:#e2d9c5;border:1px solid rgba(201,168,76,0.3);border-radius:10px;padding:12px;font-family:'Tajawal',sans-serif;font-size:13px;direction:ltr;resize:none" placeholder='{"version":2,"data":[]}'></textarea>
     <div style="display:flex;gap:8px">
       <button onclick="doImportFromText()" style="flex:1;padding:12px;background:linear-gradient(135deg,var(--gold),var(--gold-dim));border:none;border-radius:10px;font-family:'Tajawal',sans-serif;font-size:14px;font-weight:700;cursor:pointer;color:#0d1117">✅ استيراد</button>
-      <button onclick="this.closest('div[style]').remove()" style="flex:1;padding:12px;background:var(--dark3);border:1px solid var(--border);border-radius:10px;font-family:'Tajawal',sans-serif;font-size:14px;cursor:pointer;color:var(--text)">إلغاء</button>
+      <button onclick="document.getElementById('importTextWin')?.remove()" style="flex:1;padding:12px;background:var(--dark3);border:1px solid var(--border);border-radius:10px;font-family:'Tajawal',sans-serif;font-size:14px;cursor:pointer;color:var(--text)">إلغاء</button>
     </div>
   `;
   document.body.appendChild(win);
@@ -3223,20 +3413,202 @@ function importFromText() {
 
 function doImportFromText() {
   const text = document.getElementById('importTA')?.value?.trim();
-  if (!text) return;
+  if (!text) { showToast('⚠️ الحقل فارغ'); return; }
   try {
-    const parsed     = JSON.parse(text);
-    const arr        = Array.isArray(parsed) ? parsed : (parsed.data || []);
+    const parsed = JSON.parse(text);
+    const arr    = Array.isArray(parsed) ? parsed : (parsed.data || []);
     if (!arr.length) throw new Error('فارغ');
+    document.getElementById('importTextWin')?.remove();
+    showImportChoiceDialog(arr);
+  } catch {
+    showToast('❌ النص غير صالح — تأكد أنه JSON صحيح');
+  }
+}
+
+function showImportChoiceDialog(arr) {
+  const dlg = document.createElement('div');
+  dlg.id = 'importChoiceDlg';
+  dlg.style.cssText = 'position:fixed;inset:0;z-index:800;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;direction:rtl';
+  dlg.innerHTML = `
+    <div style="background:var(--dark2);border:1px solid var(--border);border-radius:18px;padding:24px;width:88%;max-width:340px">
+      <div style="font-family:'Tajawal',sans-serif;font-size:16px;font-weight:700;color:var(--gold);margin-bottom:8px;text-align:center">📥 استيراد البيانات</div>
+      <div style="font-family:'Tajawal',sans-serif;font-size:13px;color:var(--text-dim);text-align:center;margin-bottom:20px">
+        يحتوي الملف على <span style="color:var(--gold);font-weight:700">${arr.length} آية</span><br>كيف تريد الاستيراد؟
+      </div>
+      <button onclick="doImport('merge')" style="width:100%;padding:14px;background:linear-gradient(135deg,var(--gold),var(--gold-dim));border:none;border-radius:12px;color:#0d1117;font-family:'Tajawal',sans-serif;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:10px;text-align:right">
+        🔀 دمج مع البيانات الحالية
+        <div style="font-size:11px;font-weight:400;margin-top:2px;opacity:0.8">تُضاف الجديدة وتبقى القديمة</div>
+      </button>
+      <button onclick="doImport('replace')" style="width:100%;padding:14px;background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.35);border-radius:12px;color:#f87171;font-family:'Tajawal',sans-serif;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:14px;text-align:right">
+        🗑️ مسح القديمة والاستبدال
+        <div style="font-size:11px;font-weight:400;margin-top:2px;opacity:0.8">تُحذف جميع البيانات الحالية</div>
+      </button>
+      <button onclick="document.getElementById('importChoiceDlg')?.remove()" style="width:100%;padding:11px;background:none;border:none;color:var(--text-dim);font-family:'Tajawal',sans-serif;font-size:13px;cursor:pointer">إلغاء</button>
+    </div>
+  `;
+  // حفظ البيانات مؤقتاً على الـ dialog
+  dlg._importArr = arr;
+  document.body.appendChild(dlg);
+}
+
+function doImport(mode) {
+  const dlg = document.getElementById('importChoiceDlg');
+  if (!dlg) return;
+  const arr = dlg._importArr || [];
+  dlg.remove();
+
+  if (mode === 'replace') {
+    db = arr;
+    save(); render();
+    showToast(`✅ تم الاستبدال — ${arr.length} آية`);
+  } else {
     const existingIds = new Set(db.map(v => v.id));
     const newItems    = arr.filter(v => v.id && !existingIds.has(v.id));
+    const skipped     = arr.length - newItems.length;
     db = [...db, ...newItems];
     save(); render();
-    document.querySelector('div[style*="inset:0;z-index:700"]')?.remove();
-    showToast(`✅ تم استيراد ${newItems.length} آية جديدة`);
-  } catch {
-    showToast('❌ النص غير صالح');
+    showToast(`✅ تم الدمج — ${newItems.length} جديدة${skipped ? ` (${skipped} موجودة)` : ''}`);
   }
+}
+
+// ======= حذف الآيات =======
+// متغير عالمي للعناصر المحددة للحذف
+let _delSelectedIds = new Set();
+
+function openDeletePanel() {
+  document.getElementById('exportPanel').style.display = 'none';
+  if (!db.length) { showToast('⚠️ لا توجد آيات'); return; }
+
+  _delSelectedIds = new Set();
+
+  const panel = document.createElement('div');
+  panel.id = 'deletePanelWin';
+  panel.style.cssText = 'position:fixed;inset:0;z-index:800;background:rgba(13,17,23,0.97);display:flex;flex-direction:column;direction:rtl';
+
+  panel.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);flex-shrink:0">
+      <button onclick="document.getElementById('deletePanelWin')?.remove()" style="background:none;border:none;color:var(--text-dim);font-size:22px;cursor:pointer;padding:0">✕</button>
+      <span style="font-family:'Tajawal',sans-serif;font-size:15px;font-weight:700;color:var(--gold)">🗑️ حذف الآيات</span>
+      <button onclick="deleteSelectAll()" style="background:none;border:none;color:var(--gold);font-family:'Tajawal',sans-serif;font-size:13px;cursor:pointer">تحديد الكل</button>
+    </div>
+    <div id="deleteList" style="flex:1;overflow-y:auto;padding:10px 12px"></div>
+    <div style="padding:12px 16px;border-top:1px solid var(--border);display:flex;gap:10px;flex-shrink:0">
+      <button onclick="deleteAllData()" style="flex:1;padding:13px;background:rgba(248,113,113,0.15);border:1px solid rgba(248,113,113,0.4);border-radius:12px;color:#f87171;font-family:'Tajawal',sans-serif;font-size:14px;font-weight:700;cursor:pointer">🗑️ مسح الكل</button>
+      <button onclick="deleteSelectedNow()" id="delSelBtn" style="flex:2;padding:13px;background:rgba(248,113,113,0.9);border:none;border-radius:12px;color:#fff;font-family:'Tajawal',sans-serif;font-size:14px;font-weight:700;cursor:pointer;opacity:0.4" disabled>حذف المحدد (0)</button>
+    </div>
+  `;
+
+  document.body.appendChild(panel);
+
+  const list = panel.querySelector('#deleteList');
+  db.forEach(v => {
+    const row = document.createElement('div');
+    row.dataset.vid = v.id;
+    row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:10px 8px;border-bottom:1px solid rgba(255,255,255,0.05);cursor:pointer';
+    row.innerHTML = `
+      <div class="del-check" style="width:22px;height:22px;border-radius:6px;border:2px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:13px;color:#fff"></div>
+      <div style="flex:1;min-width:0">
+        <div style="font-family:'Tajawal',sans-serif;font-size:12px;color:var(--gold);margin-bottom:2px">${v.surah || '—'}${v.ayah ? ' — آية ' + v.ayah : ''}</div>
+        <div style="font-family:'Amiri Quran',serif;font-size:14px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;direction:rtl">${(v.verse||'').slice(0,60)}${v.verse?.length > 60 ? '...' : ''}</div>
+      </div>
+    `;
+    row.onclick = () => {
+      const chk = row.querySelector('.del-check');
+      if (_delSelectedIds.has(v.id)) {
+        _delSelectedIds.delete(v.id);
+        chk.style.background = '';
+        chk.style.borderColor = 'var(--border)';
+        chk.textContent = '';
+        row.style.background = '';
+      } else {
+        _delSelectedIds.add(v.id);
+        chk.style.background = '#f87171';
+        chk.style.borderColor = '#f87171';
+        chk.textContent = '✓';
+        row.style.background = 'rgba(248,113,113,0.06)';
+      }
+      const btn = document.getElementById('delSelBtn');
+      if (btn) {
+        btn.textContent = `حذف المحدد (${_delSelectedIds.size})`;
+        btn.disabled = _delSelectedIds.size === 0;
+        btn.style.opacity = _delSelectedIds.size > 0 ? '1' : '0.4';
+      }
+    };
+    list.appendChild(row);
+  });
+}
+
+function deleteSelectedNow() {
+  if (!_delSelectedIds.size) return;
+  const count = _delSelectedIds.size;
+  // تأكيد داخلي بدون confirm()
+  const btn = document.getElementById('delSelBtn');
+  if (btn && btn.dataset.confirming !== '1') {
+    btn.dataset.confirming = '1';
+    btn.textContent = `⚠️ اضغط مجدداً للتأكيد (${count})`;
+    btn.style.background = '#dc2626';
+    setTimeout(() => {
+      if (btn) { btn.dataset.confirming = ''; btn.textContent = `حذف المحدد (${count})`; btn.style.background = 'rgba(248,113,113,0.9)'; }
+    }, 3000);
+    return;
+  }
+  db = db.filter(v => !_delSelectedIds.has(v.id));
+  _delSelectedIds.clear();
+  save(); render();
+  document.getElementById('deletePanelWin')?.remove();
+  showToast(`✅ تم حذف ${count} آية`);
+}
+
+function deleteSelectAll() {
+  const panel = document.getElementById('deletePanelWin');
+  if (!panel) return;
+  const rows = panel.querySelectorAll('[data-vid]');
+  const allSelected = _delSelectedIds.size === db.length;
+  rows.forEach(row => {
+    const vid = Number(row.dataset.vid);
+    const chk = row.querySelector('.del-check');
+    if (allSelected) {
+      // إلغاء تحديد الكل
+      _delSelectedIds.delete(vid);
+      chk.style.background = '';
+      chk.style.borderColor = 'var(--border)';
+      chk.textContent = '';
+      row.style.background = '';
+    } else {
+      // تحديد الكل
+      _delSelectedIds.add(vid);
+      chk.style.background = '#f87171';
+      chk.style.borderColor = '#f87171';
+      chk.textContent = '✓';
+      row.style.background = 'rgba(248,113,113,0.06)';
+    }
+  });
+  const btn = document.getElementById('delSelBtn');
+  if (btn) {
+    btn.textContent = `حذف المحدد (${_delSelectedIds.size})`;
+    btn.disabled = _delSelectedIds.size === 0;
+    btn.style.opacity = _delSelectedIds.size > 0 ? '1' : '0.4';
+  }
+}
+
+function deleteAllData() {
+  const count = db.length;
+  const btn = document.querySelector('#deletePanelWin button[onclick="deleteAllData()"]');
+  if (btn && btn.dataset.confirming !== '1') {
+    btn.dataset.confirming = '1';
+    btn.textContent = '⚠️ اضغط مجدداً للتأكيد';
+    btn.style.background = '#dc2626';
+    btn.style.color = '#fff';
+    setTimeout(() => {
+      if (btn) { btn.dataset.confirming = ''; btn.textContent = '🗑️ مسح الكل'; btn.style.background = 'rgba(248,113,113,0.15)'; btn.style.color = '#f87171'; }
+    }, 3000);
+    return;
+  }
+  db = [];
+  _delSelectedIds.clear();
+  save(); render();
+  document.getElementById('deletePanelWin')?.remove();
+  showToast(`✅ تم مسح ${count} آية`);
 }
 
 function downloadFile(name, content, type) {

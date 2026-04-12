@@ -1450,14 +1450,70 @@ function getPageForAyah(surahNum, ayahNum) {
 
 // نص القرآن محمّل في الذاكرة
 let QURAN_DATA = null;
-const QURAN_CACHE_KEY = 'mushafi_quran_v1';
+const QURAN_CACHE_KEY = 'mushafi_quran_v3';
 
 // تنظيف النص العربي للمقارنة
+// ═══════════════════════════════════════════════════
+// خوارزمية التعرف على الآيات v2 — محسّنة
+// التركيز على بداية الآية + تسلسل الكلمات + مرونة الهمزات
+// ═══════════════════════════════════════════════════
+
 function normalizeAr(t) {
+  if (!t) return '';
   return t
-    .replace(/[\u064B-\u065F\u0610-\u061A\u06D6-\u06DC\u06DF-\u06E4\u06E7\u06E8\u06EA-\u06ED]/g,'')
-    .replace(/[أإآٱ]/g,'ا').replace(/[ىئ]/g,'ي').replace(/ة/g,'ه')
-    .replace(/ؤ/g,'و').replace(/\s+/g,' ').trim();
+    // ١. حذف التشكيل الكامل
+    .replace(/[\u0610-\u061A\u064B-\u065F\u0670]/g, '')
+    // ٢. حذف علامات التجويد الخاصة
+    .replace(/[\u06D6-\u06ED]/g, '')
+    // ٣. ألف مقصورة + مد → ي (قبل أي تحويل آخر)
+    .replace(/[ىٰ]/g, 'ي')
+    // ٤. همزات الألف كلها → ا
+    .replace(/[أإآٱ]/g, 'ا')
+    // ٥. همزة الواو → و
+    .replace(/ؤ/g, 'و')
+    // ٦. همزة الياء → ي
+    .replace(/ئ/g, 'ي')
+    // ٧. التاء المربوطة → ه
+    .replace(/ة/g, 'ه')
+    // ٨. حذف الألف التطويل
+    .replace(/ـ/g, '')
+    // ٩. ألف مكررة → ا
+    .replace(/اا/g, 'ا')
+    // ١٠. مسافات
+    .replace(/\s+/g, ' ').trim();
+}
+
+// مسافة ليفنشتاين — لقياس التشابه بين كلمتين
+function levenshtein(a, b) {
+  const m = a.length, n = b.length;
+  if (m === 0) return n;
+  if (n === 0) return m;
+  const dp = Array.from({length: m+1}, (_, i) =>
+    Array.from({length: n+1}, (_, j) => i === 0 ? j : j === 0 ? i : 0)
+  );
+  for (let i = 1; i <= m; i++)
+    for (let j = 1; j <= n; j++)
+      dp[i][j] = a[i-1] === b[j-1]
+        ? dp[i-1][j-1]
+        : 1 + Math.min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1]);
+  return dp[m][n];
+}
+
+// مقارنة مرنة بين كلمتين — تتسامح مع الهمزات + خطأ إملائي
+function wordSimilar(a, b) {
+  // تطبيع + إزالة الهمزة المنفردة
+  a = normalizeAr(a).replace(/ء/g, '');
+  b = normalizeAr(b).replace(/ء/g, '');
+  if (a === b) return 2;                         // تطابق تام
+  if (a.length < 3 || b.length < 3) return 0;   // كلمات قصيرة: مطابقة تامة فقط
+  // خطأ إملائي واحد مسموح للكلمات > 3 حروف
+  if (Math.abs(a.length - b.length) <= 1 && levenshtein(a, b) <= 1) return 1.5;
+  // جذر مشترك (أحدهما يبدأ بالآخر — لصيغ الكلمة المختلفة)
+  if (a.length >= 4 && b.length >= 4) {
+    const minLen = Math.min(a.length, b.length);
+    if (a.slice(0, minLen - 1) === b.slice(0, minLen - 1)) return 1.2;
+  }
+  return 0;
 }
 
 // تحميل القرآن الكريم الكامل (مرة واحدة ثم يُحفظ)
@@ -1526,27 +1582,69 @@ async function detectVerse() {
     lbl.textContent = 'جاري البحث...';
 
     const normInput = normalizeAr(input);
-    const words = normInput.split(' ').filter(w => w.length > 2);
-    if (words.length === 0) { showToast('⚠️ اكتب كلمتين على الأقل'); return; }
+    const inputWords = normInput.split(/\s+/).filter(w => w.length > 1);
+    if (inputWords.length === 0) { showToast('⚠️ اكتب كلمتين على الأقل'); return; }
 
-    let bestMatch = null, bestScore = 0;
+    let bestMatch = null, bestScore = -1;
 
     for (const v of QURAN_DATA) {
       const normVerse = normalizeAr(v.t);
-      let score = 0;
-      for (const w of words) {
-        if (normVerse.includes(w)) score++;
-      }
-      if (normVerse.startsWith(words[0])) score += 2;
-      if (normVerse.includes(normInput)) score += 5;
+      const verseWords = normVerse.split(/\s+/).filter(w => w.length > 0);
 
-      if (score > bestScore) {
+      // ══════════════════════════════════════════════
+      // الخوارزمية v2: التركيز على بداية الآية أولاً
+      // ══════════════════════════════════════════════
+
+      // ١. درجة البداية — هل الكلمات الأولى تطابق بداية الآية؟
+      //    الكلمة الأولى أعلى وزناً، وتنخفض تدريجياً
+      const beginWords = Math.min(5, inputWords.length, verseWords.length);
+      let beginScore = 0;
+      for (let i = 0; i < beginWords; i++) {
+        const sim = wordSimilar(inputWords[i], verseWords[i]);
+        if (sim > 0) {
+          beginScore += sim * (400 * (beginWords - i));
+        } else {
+          break; // أول مخالفة تكسر سلسلة البداية
+        }
+      }
+
+      // ٢. درجة التسلسل — مرنة مع نافذة بحث صغيرة
+      //    نتتبع الكلمات بالترتيب مع سماح بفجوة حتى 3 كلمات
+      let pos = 0, matched = 0, gaps = 0, firstMatchPos = -1;
+      for (let i = 0; i < inputWords.length; i++) {
+        let found = false;
+        for (let delta = 0; delta <= 3 && pos + delta < verseWords.length; delta++) {
+          const sim = wordSimilar(inputWords[i], verseWords[pos + delta]);
+          if (sim > 0) {
+            if (firstMatchPos === -1) firstMatchPos = pos + delta;
+            matched += sim;
+            gaps += delta;
+            pos += delta + 1;
+            found = true;
+            break;
+          }
+        }
+        if (!found) gaps += 2; // عقوبة الكلمة غير الموجودة
+      }
+      const seqScore = Math.round(matched * 60 - gaps * 20);
+
+      // ٣. عقوبة الموضع — كلما تأخرت بداية المطابقة في الآية
+      const positionPenalty = firstMatchPos > 0 ? -(firstMatchPos * 90) : 0;
+
+      // ٤. نسبة التغطية
+      const coverage = inputWords.length > 0
+        ? Math.round((matched / inputWords.length) * 100) : 0;
+
+      // المجموع
+      const score = beginScore + seqScore + positionPenalty + coverage;
+
+      if (score > bestScore && score > 50) {
         bestScore = score;
         bestMatch = v;
       }
     }
 
-    if (!bestMatch || bestScore === 0) {
+    if (!bestMatch || bestScore <= 0) {
       showToast('⚠️ لم يُعثر على الآية — حاول بكلمات أخرى');
       return;
     }

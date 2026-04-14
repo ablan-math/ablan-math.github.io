@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>تحدي الأبطال - محقق الرياضيات</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body { font-family: 'Cairo', sans-serif; overflow: hidden; touch-action: manipulation; direction: rtl; }
+        .compact-card {
+            width: 100%; max-width: 420px; background: white; border-radius: 2rem;
+            box-shadow: 0 15px 35px -5px rgba(0,0,0,0.1); border: 1px solid #f1f5f9;
+            display: flex; flex-direction: column; max-height: 96vh; overflow: hidden; position: relative;
+        }
+        .top-info-bar {
+            background: #f8fafc; border-bottom: 1px solid #e2e8f0; padding: 8px 16px;
+            display: flex; justify-content: space-between; align-items: center;
+            font-size: 11px; font-weight: 800; color: #64748b;
+        }
+        .btn-touch { min-height: 50px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; border-radius: 1rem; font-weight: 800; cursor: pointer; }
+        .btn-touch:active:not(:disabled) { transform: scale(0.97); }
+        
+        .leaderboard-modal { 
+            position: absolute; inset: 0; background: #ffffff; z-index: 100; 
+            display: flex; flex-direction: column; padding: 1.25rem; transition: all 0.3s; 
+        }
+        .hidden-modal { opacity: 0; pointer-events: none; transform: scale(0.95); display: none; }
+        .visible-modal { opacity: 1; pointer-events: auto; transform: scale(1); display: flex; }
+        
+        .tab-btn { flex: 1; padding: 8px; font-size: 11px; font-weight: bold; border-radius: 8px; transition: 0.3s; border: 1px solid transparent; cursor: pointer; }
+        .tab-active { background-color: #3b82f6; color: white; box-shadow: 0 2px 10px rgba(59, 130, 246, 0.4); }
+        .tab-inactive { background-color: #f1f5f9; color: #64748b; border-color: #e2e8f0; }
+        
+        .rank-row-me { background-color: #eff6ff !important; border-right: 4px solid #2563eb !important; }
+        .sync-loader { font-size: 10px; animation: spin 1s linear infinite; display: inline-block; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        .leaderboard-name { color: #1e293b; font-weight: 800; font-size: 11px; }
+        .leaderboard-rank { font-weight: 900; }
+
+        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance: textfield; text-align: center;}
+
+        /* تنسيقات اللعبة الخاصة */
+        .game-header { background: #1e293b; color: white; border-radius: 1rem; padding: 10px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;}
+        .math-box { font-size: 1.5rem; font-weight: 900; padding: 15px; background: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 1rem; margin-bottom: 15px; text-align: center; direction: rtl;}
+        
+        .detective-btn { background: #334155; color: white; border: 2px solid #475569; }
+        .detective-btn:hover:not(:disabled), .detective-btn:active:not(:disabled) { background: #1e293b; border-color: #3b82f6; }
+        .detective-btn:disabled { opacity: 0.5; background: #fee2e2 !important; color: #ef4444 !important; border-color: #fca5a5 !important; cursor: not-allowed; }
+        
+        .yes-btn { background: #22c55e; color: white; border-color: #16a34a; }
+        .yes-btn:hover:not(:disabled), .yes-btn:active:not(:disabled) { background: #16a34a; }
+        .no-btn { background: #ef4444; color: white; border-color: #dc2626; }
+        .no-btn:hover:not(:disabled), .no-btn:active:not(:disabled) { background: #dc2626; }
+
+        .shake { animation: shake 0.4s; }
+        @keyframes shake { 0% { transform: translateX(0); } 25% { transform: translateX(-5px); } 50% { transform: translateX(5px); } 75% { transform: translateX(-5px); } 100% { transform: translateX(0); } }
+        .pulse-green { animation: pulseGreen 0.5s; background-color: #22c55e !important; color: white !important; border-color: #16a34a !important; }
+        @keyframes pulseGreen { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+        
+        /* تأثير الإجابة الصحيحة في حقول الإدخال */
+        .correct-input { background-color: #dcfce7 !important; border-color: #22c55e !important; color: #166534 !important; }
+        .correct-input input { color: #166534 !important; font-weight: 900 !important; }
+
+        /* تأثيرات الإجابة الصحيحة والخاطئة (Pop-ups) */
+        .feedback-overlay { position: absolute; inset: 0; z-index: 50; display: flex; justify-content: center; align-items: center; background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(3px); opacity: 0; pointer-events: none; transition: opacity 0.2s ease-in-out; }
+        .feedback-overlay.active { opacity: 1; pointer-events: auto; }
+        .feedback-icon { font-size: 7rem; transform: scale(0); transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .feedback-overlay.active .feedback-icon { transform: scale(1); }
+        
+        /* شاشة ملخص المهمة */
+        .summary-card { background: white; border: 2px solid #e2e8f0; border-radius: 1.5rem; padding: 1.5rem; text-align: center; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1); width: 100%; margin-top: 1rem;}
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 h-screen w-screen flex items-center justify-center p-3 text-right">
+
+    <div class="compact-card">
+        <!-- الشريط العلوي -->
+        <div class="top-info-bar">
+            <div class="flex items-center gap-2 overflow-hidden">
+                <i class="fas fa-user-secret text-slate-700 text-lg"></i>
+                <span id="top-student-name" class="truncate font-black"></span>
+                <script>
+                    (function() {
+                        const p = new URLSearchParams(window.location.search);
+                        const raw = p.get('name') || p.get('studentName') || p.get('username') || p.get('user');
+                        const display = document.getElementById('top-student-name');
+                        display.textContent = raw ? decodeURIComponent(raw) : "المحقق السري";
+                    })();
+                </script>
+            </div>
+            <div class="flex items-center gap-2 bg-white px-2 py-0.5 rounded-full border shadow-sm font-bold">
+                <span id="sync-icon" class="hidden"><i class="fas fa-sync sync-loader text-blue-400"></i></span>
+                <i class="fas fa-star text-yellow-500 text-[10px]"></i>
+                <span id="top-prev-score">٠ / ٥</span>
+            </div>
+        </div>
+
+        <!-- الشاشة 1: البداية -->
+        <div id="start-screen" class="p-6 text-center flex flex-col gap-4 h-full justify-center">
+            <div class="text-5xl mb-2">🕵️‍♂️</div>
+            <h1 class="text-2xl font-black text-slate-800">محقق الرياضيات</h1>
+            <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 text-[11px] font-bold text-slate-700 leading-relaxed text-center shadow-inner">
+                <p class="mb-2 text-red-500"><i class="fas fa-exclamation-triangle"></i> احذر الفخاخ الجبرية!</p>
+                استجوب العبارة الجبرية خطوة بخطوة (نعم/لا).<br>
+                هل هي مربع كامل؟ هل يمكن تحليلها؟ أم أنها أولية؟<br>
+                <span class="text-blue-600 block mt-2">أسئلة (نعم/لا) لها محاولة واحدة (نقطة). والأدلة بمحاولتين (نقطتين).</span>
+            </div>
+            
+            <div class="flex flex-row gap-2 items-stretch mt-4">
+                <button onclick="startDetectiveGame()" class="btn-touch flex-[2.5] bg-slate-800 text-white shadow-lg text-lg border-b-4 border-slate-900">
+                    ابدأ التحقيق <i class="fas fa-search ml-2"></i>
+                </button>
+                <button onclick="fetchAndShowLeaderboard(true)" class="btn-touch flex-1 bg-white text-slate-600 border border-slate-200 text-[10px] flex-col leading-tight py-2">
+                    <i class="fas fa-trophy text-yellow-500 text-xl mb-1"></i>
+                    <span>سجل المحققين</span>
+                </button>
+            </div>
+            
+            <p class="text-[10px] text-slate-400 font-bold mt-2 tracking-widest uppercase text-center">أ. عبد العزيز خالد العبلان</p>
+        </div>
+
+        <!-- الشاشة 2: اللعبة -->
+        <div id="game-screen" class="hidden p-5 flex flex-col h-full overflow-y-auto relative">
+            
+            <div class="game-header shadow-md">
+                <div class="text-sm font-bold"><i class="fas fa-layer-group text-blue-400"></i> مهمة <span id="ui-question-num">1</span>/8</div>
+                <div class="text-sm font-black text-yellow-400"><i class="fas fa-star"></i> <span id="ui-score">0</span></div>
+                <div class="text-sm font-bold text-red-400"><i class="fas fa-stopwatch"></i> <span id="ui-time">00:00</span></div>
+            </div>
+
+            <!-- منطقة التغذية الراجعة البصرية الكبيرة -->
+            <div id="big-feedback-overlay" class="feedback-overlay hidden">
+                <i id="big-feedback-icon" class="fas fa-check-circle text-green-500 feedback-icon drop-shadow-lg"></i>
+            </div>
+
+            <!-- منطقة عرض السؤال -->
+            <div id="question-area" class="flex-1 flex flex-col text-center">
+                <div id="ui-equation" class="math-box text-slate-800 shadow-inner mt-2">
+                    <!-- سيتم حقن المعادلة هنا -->
+                </div>
+
+                <p id="ui-instruction" class="text-sm font-black text-blue-800 mb-4 bg-blue-50 py-2 px-4 rounded-xl border-2 border-blue-200 mx-auto w-fit shadow-sm">
+                    <!-- سيتم حقن نص السؤال هنا -->
+                </p>
+
+                <div id="ui-feedback" class="h-6 text-[11px] font-bold text-red-500 mb-2 opacity-0 transition-opacity">إجابة خاطئة!</div>
+
+                <!-- حاوية أدوات اللعب الديناميكية -->
+                <div id="interaction-area" class="w-full flex-1 flex flex-col justify-end pb-4 gap-2">
+                    <!-- سيتم حقن الأزرار والحقول هنا -->
+                </div>
+            </div>
+
+            <!-- منطقة ملخص المهمة -->
+            <div id="mission-summary-screen" class="hidden flex-1 flex flex-col justify-center items-center pb-8">
+                <h3 class="text-lg font-black text-slate-700 mb-2">ملخص المهمة <span id="summary-num"></span></h3>
+                <div class="summary-card">
+                    <div id="summary-equation" class="text-xl font-black text-slate-800 mb-3" dir="rtl"></div>
+                    <div class="bg-blue-50 text-blue-800 text-sm font-bold p-3 rounded-xl border border-blue-100 mb-4">
+                        <span id="summary-answer"></span>
+                    </div>
+                    <div class="text-sm font-bold text-slate-500">
+                        النقاط المكتسبة: <span id="summary-score" class="text-green-600 font-black text-lg"></span>
+                    </div>
+                </div>
+                <button onclick="nextMission()" class="btn-touch bg-slate-800 text-white w-full shadow-lg mt-6">
+                    المهمة التالية <i class="fas fa-arrow-left ml-2"></i>
+                </button>
+            </div>
+
+            <div class="hidden">
+                <input type="number" id="input-achieved">
+                <input type="number" id="input-max">
+                <input type="number" id="input-metric-value">
+                <button id="hidden-process-btn" onclick="processResults()"></button>
+            </div>
+        </div>
+
+        <!-- الشاشة 3: النتائج -->
+        <div id="result-screen" class="hidden p-5 flex flex-col h-full overflow-hidden text-center justify-center">
+            <div class="text-4xl mb-2">🎖️</div>
+            <h2 class="text-xl font-black text-slate-800 mb-4">انتهى التحقيق!</h2>
+            <div id="final-stats" class="grid grid-cols-3 gap-1 mb-4"></div>
+            
+            <div class="bg-green-50 p-4 rounded-2xl border border-green-100 mb-4">
+                <i class="fas fa-check-double text-green-500 text-2xl mb-1"></i>
+                <p id="save-msg" class="font-black text-green-800 text-sm">تم اعتماد نتيجتك بنجاح!</p>
+            </div>
+            <button onclick="fetchAndShowLeaderboard(true)" class="btn-touch w-full bg-blue-600 text-white mb-4 shadow-md">
+                <i class="fas fa-crown ml-2"></i> سجل الأبطال
+            </button>
+            <div class="mt-auto flex gap-2">
+                <button onclick="location.reload()" class="btn-touch flex-1 bg-slate-100 text-slate-600 text-sm font-bold">تحقيق جديد</button>
+                <button id="finish-btn" class="btn-touch flex-[2] bg-slate-900 text-white text-sm font-bold">إنهاء</button>
+            </div>
+        </div>
+
+        <!-- سجل الأبطال -->
+        <div id="leaderboard-modal" class="leaderboard-modal hidden-modal" dir="rtl">
+            <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-3">
+                <h3 class="font-black text-slate-800 text-lg"><i class="fas fa-trophy text-yellow-500 ml-2"></i>سجل المتصدرين</h3>
+                <button onclick="closeLeaderboardModal()" class="w-9 h-9 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center transition-all hover:bg-red-50 hover:text-red-500"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="flex gap-2 mb-4">
+                <button onclick="switchTab('class')" id="tab-class" class="tab-btn tab-inactive">أبطال فصلي</button>
+                <button onclick="switchTab('global')" id="tab-global" class="tab-btn tab-active">أبطال اللعبة (الكل)</button>
+            </div>
+            <div id="modal-body" class="flex-1 overflow-y-auto bg-slate-50 rounded-2xl border border-slate-100 p-1 relative">
+                <div id="modal-loader" class="absolute inset-0 flex items-center justify-center hidden bg-white/80 z-10"><div class="sync-loader text-blue-500 text-3xl"><i class="fas fa-sync"></i></div></div>
+                <div id="leaderboard-content" class="space-y-1"></div>
+            </div>
+            <p class="text-center text-[9px] text-slate-400 mt-2 font-mono italic">الترتيب حسب الدرجة ثم الأفضلية</p>
+        </div>
+    </div>
+
+    <script>
+    // --- متغيرات القالب الأساسية ---
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxqAQlGhNs8k5RwHs6jrWxDiDwaMABSx8a9Fl81O5oVVa5fHRWTwIEvsGy2cSDP4zGLWQ/exec";
+    const urlParams = new URLSearchParams(window.location.search);
+    const GAME_ID = urlParams.get('gameId') || 'g7_6_2';
+    const studentId = urlParams.get('studentId') || urlParams.get('userId');
+    const classId = urlParams.get('classId');
+    let studentName = decodeURIComponent(urlParams.get('name') || urlParams.get('studentName') || urlParams.get('username') || "المحقق السري");
+    
+    let currentMetricType = 'time'; 
+    let currentLeaderboardMode = classId ? 'class' : 'global';
+    let localVisitorResult = null;
+    const toAr = (n) => String(n).replace(/\d/g, d => "٠١٢٣٤٥٦٧٨٩"[d]);
+
+    // --- متغيرات اللعبة وبنك الأسئلة (24 مسألة) ---
+    const TOTAL_QUESTIONS = 8;
+    let questionsList = [];
+    let totalMaxScore = 0; 
+    let currentQuestionIndex = 0;
+    let currentSubStep = ''; 
+    let score = 0;
+    let currentMissionScore = 0; 
+    let startTime;
+    let timerInterval;
+    let currentQuestionData = {};
+    let stepAttempts = 0;
+
+    // البنك مقسم إلى 8 مهام، كل مهمة تحتوي على 3 نماذج
+    const QUESTION_BANK = [
+        // المهمة 1: فخ (يحلل ولكن ليس مربعاً)
+        [
+            { phase: 1, type: 'factor', b: 10, c: 16, ans1: 2, ans2: 8, maxScore: 6 },
+            { phase: 1, type: 'factor', b: 13, c: 36, ans1: 4, ans2: 9, maxScore: 6 },
+            { phase: 1, type: 'factor', b: 20, c: 64, ans1: 4, ans2: 16, maxScore: 6 }
+        ],
+        // المهمة 2: مربع كامل
+        [
+            { phase: 1, type: 'perfect', b: 10, c: 25, ans1: 5, maxScore: 3 },
+            { phase: 1, type: 'perfect', b: 14, c: 49, ans1: 7, maxScore: 3 },
+            { phase: 1, type: 'perfect', b: 18, c: 81, ans1: 9, maxScore: 3 }
+        ],
+        // المهمة 3: أولية
+        [
+            { phase: 1, type: 'prime', b: 4, c: 21, maxScore: 3 },
+            { phase: 1, type: 'prime', b: 6, c: 15, maxScore: 3 },
+            { phase: 1, type: 'prime', b: 5, c: 12, maxScore: 3 }
+        ],
+        // المهمة 4: تحليل ضرب وجمع اعتيادي
+        [
+            { phase: 1, type: 'factor', b: 7, c: 12, ans1: 3, ans2: 4, maxScore: 6 },
+            { phase: 1, type: 'factor', b: 11, c: 30, ans1: 5, ans2: 6, maxScore: 6 },
+            { phase: 1, type: 'factor', b: 9, c: 20, ans1: 4, ans2: 5, maxScore: 6 }
+        ],
+        // المهمة 5: الجذور (إشارة طرح)
+        [
+            { phase: 2, eqTemplate: '(س - {a})&rlm;<sup>2</sup> = {c}', a: 4, c: 25, ans1: 9, ans2: -1, maxScore: 2 },
+            { phase: 2, eqTemplate: '(س - {a})&rlm;<sup>2</sup> = {c}', a: 6, c: 16, ans1: 10, ans2: 2, maxScore: 2 },
+            { phase: 2, eqTemplate: '(س - {a})&rlm;<sup>2</sup> = {c}', a: 8, c: 49, ans1: 15, ans2: 1, maxScore: 2 }
+        ],
+        // المهمة 6: الجذور (إشارة جمع)
+        [
+            { phase: 2, eqTemplate: '(س + {a})&rlm;<sup>2</sup> = {c}', a: 7, c: 36, ans1: -1, ans2: -13, maxScore: 2 },
+            { phase: 2, eqTemplate: '(س + {a})&rlm;<sup>2</sup> = {c}', a: 5, c: 81, ans1: 4, ans2: -14, maxScore: 2 },
+            { phase: 2, eqTemplate: '(س + {a})&rlm;<sup>2</sup> = {c}', a: 3, c: 64, ans1: 5, ans2: -11, maxScore: 2 }
+        ],
+        // المهمة 7: الجذور (معامل للـ س وإشارة طرح)
+        [
+            { phase: 2, eqTemplate: '({b}س - {a})&rlm;<sup>2</sup> = {c}', b: 2, a: 3, c: 25, ans1: 4, ans2: -1, maxScore: 2 },
+            { phase: 2, eqTemplate: '({b}س - {a})&rlm;<sup>2</sup> = {c}', b: 2, a: 4, c: 36, ans1: 5, ans2: -1, maxScore: 2 },
+            { phase: 2, eqTemplate: '({b}س - {a})&rlm;<sup>2</sup> = {c}', b: 3, a: 6, c: 81, ans1: 5, ans2: -1, maxScore: 2 }
+        ],
+        // المهمة 8: الجذور (معامل للـ س وإشارة جمع)
+        [
+            { phase: 2, eqTemplate: '({b}س + {a})&rlm;<sup>2</sup> = {c}', b: 3, a: 6, c: 144, ans1: 2, ans2: -6, maxScore: 2 },
+            { phase: 2, eqTemplate: '({b}س + {a})&rlm;<sup>2</sup> = {c}', b: 2, a: 8, c: 100, ans1: 1, ans2: -9, maxScore: 2 },
+            { phase: 2, eqTemplate: '({b}س + {a})&rlm;<sup>2</sup> = {c}', b: 4, a: 12, c: 144, ans1: 0, ans2: -6, maxScore: 2 }
+        ]
+    ];
+
+    // --- دالة إنشاء حقل الإدخال الذكي مع أزرار الزيادة/النقصان ---
+    function createSmartInput(id, placeholder, extraClasses = "w-full") {
+        return `
+            <div id="${id}-wrapper" class="flex items-center bg-slate-50 rounded-xl border-2 border-slate-200 overflow-hidden focus-within:border-blue-500 transition-colors ${extraClasses}">
+                <button type="button" onclick="document.getElementById('${id}').stepUp()" class="w-8 md:w-10 flex-shrink-0 bg-slate-200 hover:bg-slate-300 text-slate-700 font-black text-sm flex items-center justify-center border-l border-slate-300 h-full py-2 active:bg-slate-400">
+                    <i class="fas fa-plus"></i>
+                </button>
+                <input type="number" id="${id}" placeholder="${placeholder}" class="w-full text-center text-sm font-bold outline-none border-none p-1 bg-transparent min-w-[2rem]" inputmode="numeric">
+                <button type="button" onclick="document.getElementById('${id}').stepDown()" class="w-8 md:w-10 flex-shrink-0 bg-slate-200 hover:bg-slate-300 text-slate-700 font-black text-sm flex items-center justify-center border-r border-slate-300 h-full py-2 active:bg-slate-400">
+                    <i class="fas fa-minus"></i>
+                </button>
+            </div>
+        `;
+    }
+
+    // --- اختيار سؤال عشوائي من كل مهمة في البنك ---
+    function selectQuestions() {
+        questionsList = [];
+        totalMaxScore = 0;
+
+        // خلط مهام المرحلة الأولى فقط (من المهمة 0 إلى 3)
+        let phase1Order = [0, 1, 2, 3];
+        for (let i = phase1Order.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [phase1Order[i], phase1Order[j]] = [phase1Order[j], phase1Order[i]];
+        }
+        
+        // المرحلة الثانية تبقى بترتيبها التصاعدي المنطقي (من المهمة 4 إلى 7)
+        let phase2Order = [4, 5, 6, 7];
+        
+        // الترتيب النهائي لجولة اللعب
+        let finalTaskOrder = [...phase1Order, ...phase2Order];
+
+        for(let i=0; i<TOTAL_QUESTIONS; i++) {
+            let taskIndex = finalTaskOrder[i];
+            let taskVariations = QUESTION_BANK[taskIndex];
+            let randomIndex = Math.floor(Math.random() * taskVariations.length);
+            let q = Object.assign({}, taskVariations[randomIndex]); // نسخ الخصائص
+            
+            // تجهيز نص المعادلة بناءً على المرحلة
+            if (q.phase === 1) {
+                q.equation = `س<sup>${toAr(2)}</sup> + ${toAr(q.b)}س + ${toAr(q.c)}`;
+            } else {
+                let eq = q.eqTemplate;
+                if(q.a) eq = eq.replace('{a}', toAr(q.a));
+                if(q.b) eq = eq.replace('{b}', toAr(q.b));
+                if(q.c) eq = eq.replace('{c}', toAr(q.c));
+                q.equation = eq;
+            }
+
+            questionsList.push(q);
+            totalMaxScore += q.maxScore;
+        }
+    }
+
+    function showBigFeedback(isCorrect, callback) {
+        const overlay = document.getElementById('big-feedback-overlay');
+        const icon = document.getElementById('big-feedback-icon');
+        overlay.classList.remove('hidden');
+        setTimeout(() => {
+            overlay.classList.add('active');
+            icon.className = isCorrect ? 'fas fa-check-circle text-green-500 feedback-icon drop-shadow-lg' : 'fas fa-times-circle text-red-500 feedback-icon drop-shadow-lg';
+            setTimeout(() => {
+                overlay.classList.remove('active');
+                setTimeout(() => {
+                    overlay.classList.add('hidden');
+                    if (callback) callback();
+                }, 200); 
+            }, 800); 
+        }, 10);
+    }
+
+    window.startDetectiveGame = () => {
+        selectQuestions();
+        
+        document.getElementById('start-screen').classList.add('hidden');
+        document.getElementById('game-screen').classList.remove('hidden');
+        
+        score = 0; currentQuestionIndex = 0; startTime = Date.now();
+        
+        timerInterval = setInterval(() => {
+            let diff = Math.floor((Date.now() - startTime) / 1000);
+            let m = Math.floor(diff / 60).toString().padStart(2, '0');
+            let s = (diff % 60).toString().padStart(2, '0');
+            document.getElementById('ui-time').textContent = `${m}:${s}`;
+        }, 1000);
+
+        loadNextQuestion();
+    };
+
+    function loadNextQuestion() {
+        if (currentQuestionIndex >= TOTAL_QUESTIONS) {
+            endDetectiveGame(); return;
+        }
+
+        currentMissionScore = 0;
+        currentQuestionData = questionsList[currentQuestionIndex];
+        document.getElementById('ui-question-num').textContent = currentQuestionIndex + 1;
+        document.getElementById('ui-equation').innerHTML = currentQuestionData.equation;
+        hideFeedback();
+
+        if (currentQuestionData.phase === 1) {
+            currentSubStep = 'ask_perfect';
+        } else {
+            currentSubStep = 'vault';
+        }
+        renderStepUI();
+    }
+
+    // --- الشجرة المنطقية (رسم واجهة كل خطوة) ---
+    function renderStepUI() {
+        stepAttempts = 0;
+        hideFeedback();
+        const interactionArea = document.getElementById('interaction-area');
+        const instructionUI = document.getElementById('ui-instruction');
+        interactionArea.innerHTML = '';
+
+        if (currentSubStep === 'ask_perfect') {
+            instructionUI.innerHTML = '<i class="fas fa-question-circle mr-1"></i> هل تمثل العبارة مربعاً كاملاً؟';
+            interactionArea.innerHTML = `
+                <div class="flex gap-2">
+                    <button onclick="handleYesNoAnswer(true, this)" class="btn-touch flex-1 yes-btn shadow-md text-xl"><i class="fas fa-check mr-2"></i> نعم</button>
+                    <button onclick="handleYesNoAnswer(false, this)" class="btn-touch flex-1 no-btn shadow-md text-xl"><i class="fas fa-times mr-2"></i> لا</button>
+                </div>
+            `;
+        } 
+        else if (currentSubStep === 'ask_factor') {
+            instructionUI.innerHTML = '<i class="fas fa-search mr-1"></i> هل يمكن إيجاد عددين حاصل ضربهما الحد الأخير وجمعهما الأوسط؟';
+            interactionArea.innerHTML = `
+                <div class="flex gap-2">
+                    <button onclick="handleYesNoAnswer(true, this)" class="btn-touch flex-1 yes-btn shadow-md text-xl"><i class="fas fa-check mr-2"></i> نعم</button>
+                    <button onclick="handleYesNoAnswer(false, this)" class="btn-touch flex-1 no-btn shadow-md text-xl"><i class="fas fa-times mr-2"></i> لا</button>
+                </div>
+            `;
+        }
+        else if (currentSubStep === 'ask_prime') {
+            instructionUI.innerHTML = '<i class="fas fa-exclamation-circle mr-1"></i> إذن، هل هي كثيرة حدود أولية (لا تحلل)؟';
+            interactionArea.innerHTML = `
+                <div class="flex gap-2">
+                    <button onclick="handleYesNoAnswer(true, this)" class="btn-touch flex-1 yes-btn shadow-md text-xl"><i class="fas fa-check mr-2"></i> نعم</button>
+                    <button onclick="handleYesNoAnswer(false, this)" class="btn-touch flex-1 no-btn shadow-md text-xl"><i class="fas fa-times mr-2"></i> لا</button>
+                </div>
+            `;
+        }
+        else if (currentSubStep === 'prove_perfect') {
+            instructionUI.innerHTML = '<i class="fas fa-pen mr-1"></i> قدم دليلك! ما هو أصل المربع الكامل؟';
+            interactionArea.innerHTML = `
+                <div class="flex items-center justify-center gap-1 mb-2 bg-white p-3 rounded-xl border-2" dir="rtl">
+                    <span class="text-xl font-black">(س +</span>
+                    <div id="perfectVal-wrapper" class="bg-slate-50 rounded-xl border-2 border-slate-200 focus-within:border-blue-500 transition-colors w-16">
+                        <input type="number" id="perfectVal" class="w-full text-center text-xl font-bold outline-none border-none p-1 bg-transparent" inputmode="numeric">
+                    </div>
+                    <span class="text-xl font-black">)<sup>${toAr(2)}</sup></span>
+                </div>
+                <button onclick="checkPerfectProof()" class="btn-touch bg-blue-600 text-white w-full shadow-md"><i class="fas fa-check-circle mr-2"></i> تأكيد الدليل</button>
+            `;
+        }
+        else if (currentSubStep === 'prove_factor') {
+            instructionUI.innerHTML = '<i class="fas fa-pen mr-1"></i> قدم دليلك! أدخل العددين:';
+            interactionArea.innerHTML = `
+                <div class="flex gap-2 mb-2 w-full">
+                    ${createSmartInput('factor1', 'الرقم 1', 'flex-1')}
+                    ${createSmartInput('factor2', 'الرقم 2', 'flex-1')}
+                </div>
+                <button onclick="checkFactorProof()" class="btn-touch bg-blue-600 text-white w-full shadow-md"><i class="fas fa-check-circle mr-2"></i> تأكيد الدليل</button>
+            `;
+        }
+        else if (currentSubStep === 'prove_factor_brackets') {
+            instructionUI.innerHTML = '<i class="fas fa-pen-nib mr-1"></i> أكمل المهمة بوضع العددين في الأقواس:';
+            interactionArea.innerHTML = `
+                <div class="flex flex-wrap items-center justify-center gap-1 mb-2 bg-white p-3 rounded-xl border-2" dir="rtl">
+                    <span class="text-xl font-black">(س +</span>
+                    <div id="bracket1-wrapper" class="bg-slate-50 rounded-xl border-2 border-slate-200 focus-within:border-blue-500 transition-colors w-14 flex-shrink-0">
+                        <input type="number" id="bracket1" class="w-full text-center text-xl font-bold outline-none border-none p-1 bg-transparent" inputmode="numeric">
+                    </div>
+                    <span class="text-xl font-black">)(س +</span>
+                    <div id="bracket2-wrapper" class="bg-slate-50 rounded-xl border-2 border-slate-200 focus-within:border-blue-500 transition-colors w-14 flex-shrink-0">
+                        <input type="number" id="bracket2" class="w-full text-center text-xl font-bold outline-none border-none p-1 bg-transparent" inputmode="numeric">
+                    </div>
+                    <span class="text-xl font-black">)</span>
+                </div>
+                <button onclick="checkFactorBrackets()" class="btn-touch bg-blue-600 text-white w-full shadow-md"><i class="fas fa-check-circle mr-2"></i> تأكيد التحليل</button>
+            `;
+        }
+        else if (currentSubStep === 'vault') {
+            instructionUI.innerHTML = '<i class="fas fa-unlock mr-1"></i> افتح الخزنة! أدخل قيمتي (س):';
+            interactionArea.innerHTML = `
+                <div class="flex gap-2 mb-2 w-full">
+                    ${createSmartInput('val1', 'القيمة 1', 'flex-1')}
+                    ${createSmartInput('val2', 'القيمة 2', 'flex-1')}
+                </div>
+                <button onclick="checkVault()" class="btn-touch bg-blue-600 text-white w-full shadow-md"><i class="fas fa-unlock mr-2"></i> جرب المفاتيح</button>
+            `;
+        }
+    }
+
+    // --- معالجة أسئلة نعم/لا ---
+    window.handleYesNoAnswer = (userAnswerYes, btnElement) => {
+        let isCorrect = false;
+        let nextStep = '';
+
+        if (currentSubStep === 'ask_perfect') {
+            let actuallyPerfect = (currentQuestionData.type === 'perfect');
+            isCorrect = (userAnswerYes === actuallyPerfect);
+            nextStep = actuallyPerfect ? 'prove_perfect' : 'ask_factor';
+        } 
+        else if (currentSubStep === 'ask_factor') {
+            let actuallyFactor = (currentQuestionData.type === 'factor');
+            isCorrect = (userAnswerYes === actuallyFactor);
+            nextStep = actuallyFactor ? 'prove_factor' : 'ask_prime';
+        }
+        else if (currentSubStep === 'ask_prime') {
+            let actuallyPrime = (currentQuestionData.type === 'prime');
+            isCorrect = (userAnswerYes === actuallyPrime);
+            nextStep = 'done';
+        }
+
+        const allBtns = document.querySelectorAll('#interaction-area button');
+        allBtns.forEach(b => b.disabled = true);
+
+        if (isCorrect) {
+            awardPoints(true); 
+            btnElement.classList.add('pulse-green');
+            showBigFeedback(true, () => {
+                if (nextStep === 'done') showMissionSummary();
+                else { currentSubStep = nextStep; renderStepUI(); }
+            });
+        } else {
+            stepAttempts++; 
+            btnElement.classList.add('shake');
+            btnElement.style.opacity = '0.5';
+            
+            const correctBtn = Array.from(allBtns).find(b => b !== btnElement);
+            if (correctBtn) correctBtn.classList.add('pulse-green');
+
+            showBigFeedback(false, () => {
+                showFeedback("إجابة خاطئة! سيتم الانتقال للخطوة الصحيحة...", true);
+                setTimeout(() => {
+                    if (nextStep === 'done') showMissionSummary();
+                    else { currentSubStep = nextStep; renderStepUI(); }
+                }, 1200); 
+            });
+        }
+    };
+
+    // --- إظهار الألوان للإجابة الصحيحة ---
+    function markInputCorrect(id) {
+        document.getElementById(id + '-wrapper').classList.add('correct-input');
+    }
+
+    // --- معالجة الأدلة (المدخلات الرقمية) ---
+    function handleProofAttempt(isCorrect, elementToShake, revealCallback, successCallback) {
+        if (isCorrect) {
+            awardPoints(false); 
+            hideFeedback();
+            showBigFeedback(true, () => {
+                if(successCallback) successCallback();
+            });
+        } else {
+            stepAttempts++;
+            if (stepAttempts >= 2) {
+                showBigFeedback(false, () => {
+                    showFeedback("استنفدت المحاولات! الإجابة الصحيحة باللون الأخضر.", true);
+                    revealCallback(); 
+                    document.querySelectorAll('#interaction-area button').forEach(b => b.disabled = true);
+                    setTimeout(() => {
+                        if(successCallback) successCallback();
+                    }, 2500);
+                });
+            } else {
+                showBigFeedback(false, () => {
+                    elementToShake.classList.add('shake');
+                    showFeedback("إجابة خاطئة! متبقي لك محاولة واحدة.");
+                    setTimeout(() => elementToShake.classList.remove('shake'), 400);
+                });
+            }
+        }
+    }
+
+    window.checkFactorProof = () => {
+        let v1 = parseInt(document.getElementById('factor1').value);
+        let v2 = parseInt(document.getElementById('factor2').value);
+        let a1 = currentQuestionData.ans1; let a2 = currentQuestionData.ans2;
+        let isCorrect = (v1 === a1 && v2 === a2) || (v1 === a2 && v2 === a1);
+
+        handleProofAttempt(isCorrect, document.getElementById('interaction-area'), () => {
+            document.getElementById('factor1').value = a1; document.getElementById('factor2').value = a2;
+            markInputCorrect('factor1'); markInputCorrect('factor2');
+        }, () => {
+            currentSubStep = 'prove_factor_brackets';
+            renderStepUI();
+        });
+    };
+
+    window.checkFactorBrackets = () => {
+        let v1 = parseInt(document.getElementById('bracket1').value);
+        let v2 = parseInt(document.getElementById('bracket2').value);
+        let a1 = currentQuestionData.ans1; let a2 = currentQuestionData.ans2;
+        let isCorrect = (v1 === a1 && v2 === a2) || (v1 === a2 && v2 === a1);
+
+        handleProofAttempt(isCorrect, document.getElementById('interaction-area'), () => {
+            document.getElementById('bracket1').value = a1; document.getElementById('bracket2').value = a2;
+            markInputCorrect('bracket1'); markInputCorrect('bracket2');
+        }, () => {
+            showMissionSummary();
+        });
+    };
+
+    window.checkPerfectProof = () => {
+        let v = parseInt(document.getElementById('perfectVal').value);
+        let isCorrect = (v === currentQuestionData.ans1);
+
+        handleProofAttempt(isCorrect, document.getElementById('interaction-area'), () => {
+            document.getElementById('perfectVal').value = currentQuestionData.ans1;
+            markInputCorrect('perfectVal');
+        }, () => {
+            showMissionSummary();
+        });
+    };
+
+    window.checkVault = () => {
+        let v1 = parseInt(document.getElementById('val1').value);
+        let v2 = parseInt(document.getElementById('val2').value);
+        let a1 = currentQuestionData.ans1; let a2 = currentQuestionData.ans2;
+        let isCorrect = (v1 === a1 && v2 === a2) || (v1 === a2 && v2 === a1);
+
+        handleProofAttempt(isCorrect, document.getElementById('interaction-area'), () => {
+            document.getElementById('val1').value = a1; document.getElementById('val2').value = a2;
+            markInputCorrect('val1'); markInputCorrect('val2');
+        }, () => {
+            showMissionSummary();
+        });
+    };
+
+    // --- الشاشة الانتقالية ---
+    function showMissionSummary() {
+        document.getElementById('question-area').classList.add('hidden');
+        const summaryScreen = document.getElementById('mission-summary-screen');
+        summaryScreen.classList.remove('hidden');
+
+        document.getElementById('summary-num').textContent = toAr(currentQuestionIndex + 1);
+        document.getElementById('summary-equation').innerHTML = currentQuestionData.equation;
+        
+        let answerText = "";
+        if(currentQuestionData.type === 'prime') {
+            answerText = "العبارة أولية (لا يمكن تحليلها)";
+        } else if(currentQuestionData.phase === 1 && currentQuestionData.type === 'factor') {
+            answerText = `التحليل النهائي: (س + ${toAr(currentQuestionData.ans1)})(س + ${toAr(currentQuestionData.ans2)})`;
+        } else if(currentQuestionData.phase === 1 && currentQuestionData.type === 'perfect') {
+            answerText = `أصل المربع: (س + ${toAr(currentQuestionData.ans1)})²`;
+        } else if(currentQuestionData.phase === 2) {
+            answerText = `قيمتي س: ${toAr(currentQuestionData.ans1)} و ${toAr(currentQuestionData.ans2)}`;
+        }
+
+        document.getElementById('summary-answer').textContent = answerText;
+        document.getElementById('summary-score').textContent = `+${toAr(currentMissionScore)}`;
+    }
+
+    window.nextMission = () => {
+        document.getElementById('mission-summary-screen').classList.add('hidden');
+        document.getElementById('question-area').classList.remove('hidden');
+        currentQuestionIndex++;
+        loadNextQuestion();
+    };
+
+    // --- نظام توزيع النقاط ---
+    function awardPoints(isBinaryQuestion) {
+        let pts = 0;
+        if (isBinaryQuestion) {
+            if (stepAttempts === 0) pts = 1; 
+        } else {
+            if (stepAttempts === 0) pts = 2;      
+            else if (stepAttempts === 1) pts = 1; 
+        }
+        
+        score += pts;
+        currentMissionScore += pts; 
+        document.getElementById('ui-score').textContent = toAr(score);
+    }
+
+    function showFeedback(msg, isWarning = false) {
+        const fb = document.getElementById('ui-feedback');
+        fb.textContent = msg; fb.style.opacity = '1';
+        fb.className = `h-6 text-[11px] font-bold mb-2 transition-opacity ${isWarning ? 'text-orange-500' : 'text-red-500'}`;
+    }
+    function hideFeedback() { document.getElementById('ui-feedback').style.opacity = '0'; }
+
+    // --- إنهاء اللعبة والربط ---
+    function endDetectiveGame() {
+        clearInterval(timerInterval);
+        let timeInSeconds = Math.floor((Date.now() - startTime) / 1000);
+        document.getElementById('input-achieved').value = score;
+        document.getElementById('input-max').value = totalMaxScore; 
+        document.getElementById('input-metric-value').value = timeInSeconds;
+        document.getElementById('hidden-process-btn').click();
+    }
+
+    // =====================================================================
+    // أكواد القالب الأصلية (لم يتم المساس بها)
+    // =====================================================================
+    document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('top-student-name').textContent = studentName;
+        if (!classId) {
+            document.getElementById('tab-class').style.display = 'none';
+            currentLeaderboardMode = 'global';
+        } else {
+            document.getElementById('tab-class').className = 'tab-btn tab-active';
+            document.getElementById('tab-global').className = 'tab-btn tab-inactive';
+        }
+        if (studentId && classId) {
+            document.getElementById('sync-icon').classList.remove('hidden');
+            fetchInitialCloudData();
+        } else if (!urlParams.get('name')) {
+            studentName = "بطل زائر";
+            document.getElementById('top-student-name').textContent = studentName;
+        }
+        document.getElementById('finish-btn').onclick = () => window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*');
+    });
+
+    async function fetchInitialCloudData() {
+        try {
+            const url = `${SCRIPT_URL}?action=getStudentData&studentId=${studentId}&classId=${encodeURIComponent(classId)}&itemId=${GAME_ID}&t=${Date.now()}`;
+            const res = await (await fetch(url)).json();
+            if (res.status === 'success' && res.data) {
+                if (res.data.name) { studentName = res.data.name; document.getElementById('top-student-name').textContent = studentName; }
+                if (res.data.games && res.data.games[GAME_ID]) document.getElementById('top-prev-score').textContent = toAr(parseFloat(res.data.games[GAME_ID].grade).toFixed(1)) + " / ٥";
+            } else if (!urlParams.get('name')) { studentName = "بطل زائر"; document.getElementById('top-student-name').textContent = studentName; }
+        } catch (e) { console.log("Cloud Connect Failed"); }
+        finally { document.getElementById('sync-icon').classList.add('hidden'); }
+    }
+
+    window.processResults = () => {
+        const ach = parseFloat(document.getElementById('input-achieved').value);
+        const max = parseFloat(document.getElementById('input-max').value);
+        const met = parseFloat(document.getElementById('input-metric-value').value) || 0;
+        if (isNaN(ach) || isNaN(max) || max <= 0) return;
+        const grade = ((ach / max) * 5).toFixed(1);
+        showResult(ach, max, grade, met);
+        if (studentId && classId) saveScore(grade, met);
+        else { localVisitorResult = { name: studentName, grade: grade, metric: met, isLocal: true }; fetchAndShowLeaderboard(false); }
+    };
+
+    function showResult(a, m, g, met) {
+        document.getElementById('game-screen').classList.add('hidden');
+        document.getElementById('result-screen').classList.remove('hidden');
+        document.getElementById('final-stats').innerHTML = `
+            <div class="bg-blue-50 p-2 rounded-xl border border-blue-100 text-center flex flex-col justify-center">
+                <p class="text-[8px] font-bold text-blue-400 uppercase">النقاط السرية</p>
+                <p class="text-[11px] font-black text-blue-900">${toAr(a)} / ${toAr(m)}</p>
+            </div>
+            <div class="bg-emerald-50 p-2 rounded-xl border border-emerald-100 text-center flex flex-col justify-center shadow-sm">
+                <p class="text-[8px] font-bold text-emerald-600 uppercase">الدرجة النهائية</p>
+                <p class="text-lg font-black text-emerald-900">${toAr(g)}</p>
+            </div>
+            <div class="bg-slate-50 p-2 rounded-xl border border-slate-200 text-center flex flex-col justify-center">
+                <p class="text-[8px] font-bold text-slate-500 uppercase">زمن التحقيق</p>
+                <p class="text-lg font-black text-slate-800">${toAr(met)}<span class="text-[8px]">ث</span></p>
+            </div>
+        `;
+    }
+
+    async function saveScore(g, met) {
+        const p = new URLSearchParams({ action: 'saveScore', studentId, classId, itemId: GAME_ID, score: g, metricValue: met, type: 'game' });
+        try { await fetch(`${SCRIPT_URL}?${p.toString()}`); } finally { fetchAndShowLeaderboard(false); }
+    }
+
+    window.fetchAndShowLeaderboard = function(isManual = false) {
+        const modal = document.getElementById('leaderboard-modal');
+        if (isManual) { modal.classList.remove('hidden-modal'); modal.classList.add('visible-modal'); }
+        const content = document.getElementById('leaderboard-content');
+        document.getElementById('modal-loader').classList.remove('hidden');
+        let reqClassId = (currentLeaderboardMode === 'class') ? classId : 'all';
+        const url = `${SCRIPT_URL}?action=getLeaderboard&gameId=${GAME_ID}&classId=${encodeURIComponent(reqClassId || 'all')}&t=${Date.now()}`;
+        fetch(url).then(r => r.json()).then(res => {
+            let data = (res.status === 'success' && res.data) ? res.data : [];
+            if (localVisitorResult && (currentLeaderboardMode === 'global' || !classId)) {
+                if (!data.find(p => p.name === localVisitorResult.name)) data.push(localVisitorResult);
+                data.sort((a, b) => parseFloat(b.grade) - parseFloat(a.grade) || parseFloat(a.metric) - parseFloat(b.metric));
+            }
+            if (data.length > 0) {
+                let h = `<table class="w-full text-right text-[10px] border-collapse"><thead class="text-slate-400 border-b border-slate-100 bg-slate-50/50"><tr><th class="p-2 text-center">#</th><th class="p-2 text-right">المحقق</th><th class="p-2 text-center text-emerald-600">الدرجة (الزمن)</th></tr></thead><tbody class="divide-y divide-slate-50">`;
+                data.forEach((p, i) => {
+                    const isMe = (p.isLocal || (studentId && String(p.name).trim() === String(studentName).trim()));
+                    h += `<tr class="${isMe ? 'rank-row-me' : 'hover:bg-slate-50/50'} transition-colors">
+                        <td class="p-2 leaderboard-rank text-center ${i<3 ? 'text-yellow-500 text-sm' : 'text-slate-400'}">${i < 3 ? ['🥇','🥈','🥉'][i] : toAr(i+1)}</td>
+                        <td class="p-2 leaderboard-name ${isMe ? 'text-blue-700 font-extrabold' : 'text-slate-700'}">${p.name} ${isMe ? '<span class="bg-blue-600 text-white text-[7px] px-1 rounded-full mx-1">أنت</span>' : ''}</td>
+                        <td class="p-2 text-center"><span class="text-emerald-600 font-black">${toAr(parseFloat(p.grade).toFixed(1))}</span> <span class="text-[8px] text-slate-400 block font-bold">(${toAr(p.metric || p.metricValue || 0)}ث)</span></td>
+                    </tr>`;
+                });
+                content.innerHTML = h + `</tbody></table>`;
+            } else content.innerHTML = `<div class="py-10 text-center text-slate-400 text-xs italic font-bold">بانتظار تسجيل المحققين..</div>`;
+        }).finally(() => document.getElementById('modal-loader').classList.add('hidden'));
+    };
+
+    window.switchTab = (mode) => { currentLeaderboardMode = mode; document.getElementById('tab-class').className = mode === 'class' ? 'tab-btn tab-active' : 'tab-btn tab-inactive'; document.getElementById('tab-global').className = mode === 'global' ? 'tab-btn tab-active' : 'tab-btn tab-inactive'; fetchAndShowLeaderboard(false); };
+    window.closeLeaderboardModal = () => document.getElementById('leaderboard-modal').classList.replace('visible-modal', 'hidden-modal');
+    </script>
+</body>
+</html>

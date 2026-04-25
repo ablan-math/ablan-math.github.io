@@ -1,0 +1,1454 @@
+<!-- 
+    🛑🛑 منطقة محظورة للمطورين والذكاء الاصطناعي (STRICT PROTOCOL) 🛑🛑
+    =========================================================================
+    بروتوكول التعامل مع هذا القالب (Master Template V2):
+
+    1. الثوابت المقدسة (Do Not Touch):
+       - ممنوع منعاً باتاً تعديل أو حذف دوال الاتصال (fetchStudentData, saveScoreToBackend).
+       - ممنوع تعديل "محرك الهوية" (Theme Engine) أو قاموس الألوان (CHAPTER_THEMES).
+       - ممنوع تغيير منطق "جلب الألعاب" (renderDynamicGames).
+       - ⚠️ ممنوع المساس بمنطق "زر التحقق" (Quiz Button Logic).
+       - ⚠️ ممنوع حذف أو إخفاء "المؤقت العلوي و السفلي".
+       - ⚠️ ممنوع تغيير هيكلية "أزرار التوجيه الثلاثة".
+
+    2. مرونة المفاهيم (Concept Flexibility):
+       - تم تقليص المفاهيم إلى 3 مفاهيم بناءً على خطة الدرس.
+    =========================================================================
+-->
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>حل المعادلات التربيعية بيانياً</title>
+    
+    <!-- LIBRARIES -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- [THEME DICTIONARY] -->
+    <script>
+        // 1. مفتاح الدرس (الفصل الثامن - الدرس الثاني)
+        const LESSON_KEY = 'c8_l2'; 
+
+        // [Global Helper]
+        function convertToArabic(n) { return n.toString().replace(/\d/g, d => "٠١٢٣٤٥٦٧٨٩"[d]); }
+
+        // 2. قاموس الهوية (لا تقم بتغييره)
+        const CHAPTER_THEMES = {
+            '6': { name: 'كثيرات الحدود', gradient: 'from-blue-600 to-blue-800', baseColor: 'blue', hex: '#2563eb', icon: 'fa-graduation-cap' },
+            '7': { name: 'التحليل والمعادلات التربيعية', gradient: 'from-purple-600 to-purple-800', baseColor: 'purple', hex: '#9333ea', icon: 'fa-puzzle-piece' },
+            '8': { name: 'الدوال التربيعية', gradient: 'from-emerald-600 to-emerald-800', baseColor: 'emerald', hex: '#059669', icon: 'fa-bezier-curve' },
+            '9': { name: 'المعادلات الجذرية و المثلثات', gradient: 'from-amber-600 to-amber-800', baseColor: 'amber', hex: '#d97706', icon: 'fa-bolt' },
+            '10': { name: 'الإحصاء والاحتمال', gradient: 'from-rose-600 to-rose-800', baseColor: 'rose', hex: '#e11d48', icon: 'fa-chart-pie' },
+            'default': { gradient: 'from-gray-700 to-gray-900', baseColor: 'gray', hex: '#374151', icon: 'fa-book' }
+        };
+
+        function getTheme() {
+            const match = LESSON_KEY.match(/c(\d+)/);
+            const chNum = match ? match[1] : 'default';
+            const theme = CHAPTER_THEMES[chNum] || CHAPTER_THEMES['default'];
+            theme.chNum = chNum === 'default' ? '#' : chNum;
+            return theme;
+        }
+        const currentTheme = getTheme();
+    </script>
+
+    <style>
+        /* CORE STYLES */
+        body { font-family: 'Cairo', sans-serif; -webkit-tap-highlight-color: transparent; background-color: #f9fafb; }
+        .hidden { display: none !important; }
+        .tab-content { padding-bottom: 20px; animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        
+        :root { --theme-hex: #374151; }
+
+        .math-eq { font-family: 'Cairo', sans-serif; font-weight: 700; color: #059669; background-color: #f0fdf4; border: 1px solid #bbf7d0; padding: 2px 8px; border-radius: 4px; display: inline-block; direction: rtl; unicode-bidi: embed; vertical-align: middle; line-height: 1.8; }
+        @media (min-width: 768px) { .math-eq { font-size: 1.1em; padding: 4px 12px; } }
+        .num-red { color: #dc2626; } .var-green { color: #16a34a; } .var-blue { color: #2563eb; } .op-purple { color: #9333ea; font-weight: 800; } 
+        .tiny-sup { font-size: 0.7em; vertical-align: baseline; position: relative; top: -0.6em; margin-right: 1px; line-height: 0; font-family: 'Cairo', sans-serif; }
+        .fix-pos { display: inline-flex; flex-direction: row; align-items: baseline; gap: 1px; direction: rtl; } 
+        .fraction { display: inline-flex; flex-direction: column; vertical-align: middle; text-align: center; margin: 0 4px; font-size: 0.85em; vertical-align: middle; }
+        .fraction > span { padding: 0 2px; display: block; line-height: 1; }
+        .fraction > .bar { border-top: 2px solid currentColor; height: 0; width: 100%; margin: 2px 0; }
+        .fraction > span:last-child .tiny-sup { top: -0.2em !important; }
+        
+        /* THEME BUTTON CLASS */
+        .btn-theme { background-color: var(--theme-hex); color: white; transition: all 0.3s ease; }
+        .btn-theme:hover { filter: brightness(0.85); transform: translateY(-1px); }
+        .btn-theme:active { transform: scale(0.98); }
+        .btn-theme:disabled { background-color: #9ca3af; cursor: not-allowed; transform: none; filter: none; }
+
+        .step-box { border-right: 3px solid var(--theme-hex); background: #f9fafb; padding: 10px; margin-bottom: 8px; border-radius: 6px; }
+        .v-step { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
+        .v-arrow { color: #9ca3af; margin: 4px 0; font-size: 1.2rem; }
+        
+        .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: white; border-top: 1px solid #e5e7eb; padding: 8px 0; display: flex; justify-content: space-around; z-index: 50; box-shadow: 0 -4px 20px rgba(0,0,0,0.05); }
+        .nav-item { display: flex; flex-direction: column; align-items: center; color: #9ca3af; font-size: 0.6rem; width: 100%; cursor: pointer; transition: all 0.3s; padding: 4px 2px; position: relative; }
+        .nav-item span { margin-top: 2px; text-align: center; line-height: 1.1; max-width: 60px; }
+        .nav-item.active { color: var(--theme-hex); font-weight: 800; transform: translateY(-2px); }
+        .nav-item.active::after { content: ''; position: absolute; bottom: 0px; width: 20px; height: 3px; background: var(--theme-hex); border-radius: 4px 4px 0 0; }
+        @media (min-width: 768px) { .nav-item { font-size: 0.8rem; } .nav-item svg, .nav-item i { font-size: 1.4rem; margin-bottom: 4px; } .nav-item span { max-width: none; } }
+        
+        .step-interactive { display: none; opacity: 0; transition: opacity 0.3s; } .step-interactive.active { display: block; opacity: 1; }
+        .options-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+        .option-label { display: flex; align-items: center; justify-content: center; padding: 12px 8px; border: 2px solid #e5e7eb; border-radius: 12px; cursor: pointer; transition: all 0.2s; height: 100%; min-height: 50px; background: white; text-align: center; }
+        input[type="radio"]:checked + .option-label { border-color: var(--theme-hex); background-color: #f0fdf4; color: var(--theme-hex); font-weight: bold; box-shadow: 0 0 0 2px rgba(5, 150, 105, 0.2); }
+        
+        .result-card-base { position: relative; overflow: hidden; padding: 1.5rem !important; transition: all 0.3s ease; }
+        .result-card-trophy { background-color: #fffbeb; border-color: #fcd34d !important; border-width: 2px; } 
+        .result-card-star { background-color: #fff7ed; border-color: #fdba74 !important; border-width: 2px; } 
+        .result-card-retry { background-color: #fef2f2; border-color: #fca5a5 !important; border-width: 2px; } 
+        
+        .loader { border: 4px solid #f3f3f3; border-radius: 50%; border-top: 4px solid var(--theme-hex); width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 0 auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        .lesson-footer { text-align: center; margin-top: 40px; margin-bottom: 80px; padding-top: 20px; border-top: 1px dashed #e5e7eb; color: #9ca3af; font-size: 0.75rem; }
+
+        /* COMPACT GAME MODAL CONTROLS */
+        #game-modal-container { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 9999; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
+        #game-modal-content { background: white; width: 90%; height: 85%; max-width: 1200px; border-radius: 16px; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); position: relative; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        #game-modal-content.fullscreen { width: 100%; height: 100%; border-radius: 0; max-width: none; }
+        #game-modal-header { padding: 4px 10px; display: flex; justify-content: space-between; align-items: center; color: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); min-height: 32px; }
+        #game-frame { flex-grow: 1; width: 100%; height: 100%; border: none; background: #f3f4f6; }
+        .win-btn { padding: 2px 8px; border-radius: 4px; transition: background 0.2s; color: rgba(255,255,255,0.9); font-size: 0.85rem; display: flex; align-items: center; justify-content: center; }
+        .win-btn:hover { background-color: rgba(255,255,255,0.2); color: white; }
+        .win-btn-close:hover { background-color: #ef4444; }
+        #minimized-game-bar { display: none; position: fixed; bottom: 80px; left: 20px; background: white; border: 2px solid; border-radius: 50px; padding: 8px 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); z-index: 9998; cursor: pointer; align-items: center; gap: 10px; font-weight: bold; transition: transform 0.2s; animation: slideInUp 0.3s ease-out; }
+        
+        /* GRAPH CSS STYLES */
+        .graph-container { 
+            position: relative; 
+            width: 200px; 
+            height: 200px; 
+            box-sizing: content-box; /* Exact 200x200 inner area */
+            margin: 0 auto; 
+            border: 2px solid #e5e7eb; 
+            background-color: #fff; 
+            background-image: linear-gradient(#e5e7eb 1px, transparent 1px), linear-gradient(90deg, #e5e7eb 1px, transparent 1px); 
+            background-size: 20px 20px; 
+            background-position: 0 0; /* Aligns grid exactly */
+        }
+        /* Exact center alignment over the grid lines */
+        .x-axis { position: absolute; left: 0; right: 0; height: 2px; background: #9ca3af; transform: translateY(-50%); }
+        .y-axis { position: absolute; top: 0; bottom: 0; width: 2px; background: #9ca3af; transform: translateX(-50%); }
+        .parabola { fill: none; stroke: var(--theme-hex); stroke-width: 3; stroke-linecap: round; }
+        .root-point { fill: #dc2626; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+    <script>
+        (function() {
+            const root = document.documentElement;
+            root.style.setProperty('--theme-hex', currentTheme.hex);
+            try {
+                const params = new URLSearchParams(window.location.search);
+                const name = params.get('name');
+                const dynamicTitle = params.get('title') || params.get('lesson_title');
+                if (name) { window.__studentName = name; }
+                if (dynamicTitle) { window.__lessonTitle = dynamicTitle; document.title = dynamicTitle; }
+            } catch(e) { console.error("Init Error", e); }
+        })();
+    </script>
+
+    <header id="main-header" class="w-full text-white shadow-lg px-4 py-3 sticky top-0 z-50 transition-colors overflow-hidden relative">
+        <script>document.getElementById('main-header').className += ` bg-gradient-to-r ${currentTheme.gradient}`;</script>
+        <div class="absolute inset-0 pointer-events-none overflow-hidden">
+            <i id="bg-giant-icon" class="fas absolute -left-6 -bottom-8 text-8xl md:text-9xl text-white opacity-10 transform -rotate-12"></i>
+            <script>document.getElementById('bg-giant-icon').classList.add(currentTheme.icon);</script>
+            <span class="absolute top-[-10px] right-10 text-9xl font-black text-white opacity-5 font-sans leading-none select-none">
+                <script>document.write(currentTheme.chNum)</script>
+            </span>
+            <i class="fas fa-plus absolute top-4 left-[20%] text-xl text-white opacity-10 transform rotate-12"></i>
+            <i class="fas fa-minus absolute bottom-4 right-[30%] text-2xl text-white opacity-10 transform -rotate-6"></i>
+            <i class="fas fa-times absolute top-8 right-12 text-lg text-white opacity-10"></i>
+            <i class="fas fa-divide absolute bottom-6 left-8 text-xl text-white opacity-10 transform rotate-45"></i>
+        </div>
+        <div class="container mx-auto max-w-4xl flex justify-between items-center relative z-10">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 md:w-14 md:h-14 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center border border-white/20 shadow-md">
+                    <i id="header-icon" class="fas text-lg md:text-2xl"></i>
+                    <script>document.getElementById('header-icon').classList.add(currentTheme.icon);</script>
+                </div>
+                <div class="flex flex-col">
+                    <span class="text-[9px] md:text-xs font-bold opacity-80">منصة الرياضيات التفاعلية</span>
+                    <h1 class="text-base md:text-xl font-black flex items-center gap-2">
+                        <span class="bg-white/20 px-2 rounded text-sm md:text-base font-sans pt-1">
+                            <script>
+                                const rawNum = LESSON_KEY.replace('c','').replace('_l','-');
+                                document.write(convertToArabic(rawNum));
+                            </script>
+                        </span>
+                        <span id="lesson-title-text">حل المعادلات التربيعية بيانياً</span>
+                        <span id="header-score-badge" class="hidden flex items-center gap-1 bg-yellow-400/20 text-yellow-100 px-2 py-0.5 rounded-full text-xs border border-yellow-400/30 animate-pulse">
+                            <i class="fas fa-star text-[10px]"></i> <span id="student-score">0</span>
+                        </span>
+                    </h1>
+                </div>
+            </div>
+            <div class="flex flex-col items-end gap-1.5">
+                <div class="bg-black/10 px-3 py-0.5 rounded-lg border border-white/10 flex items-center gap-2 text-[10px] md:text-sm font-bold">
+                    <i class="fas fa-user"></i> 
+                    <span id="student-name">
+                        <script>
+                            (function(){
+                                const p = new URLSearchParams(window.location.search);
+                                const n = p.get('name');
+                                const id = p.get('studentId');
+                                if(n) document.write(n);
+                                else if(id === 'visitor') document.write('زائر');
+                                else document.write('مرحبا بك');
+                            })();
+                        </script>
+                    </span>
+                </div>
+                <a href="https://ablan-math.github.io/term2.html" class="bg-white text-emerald-700 hover:bg-red-50 hover:text-red-600 px-3 py-1 rounded-lg font-bold text-xs md:text-sm shadow-sm transition flex items-center gap-1 cursor-pointer no-underline">
+                    <i class="fas fa-arrow-right"></i> <span>رجوع</span>
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <main id="main-content" class="container mx-auto max-w-4xl p-4 md:p-8 mb-4 transition-all duration-300">
+        
+        <!-- [TAB 1: Concept 1] -->
+        <div id="tab-learn1" class="tab-content">
+            <div class="flex items-center gap-2 mb-4">
+                <span id="tab1-num" class="w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center font-bold text-lg md:text-xl border shadow-sm">١</span>
+                <script>document.getElementById('tab1-num').className += ` bg-${currentTheme.baseColor}-100 text-${currentTheme.baseColor}-700 border-${currentTheme.baseColor}-200`;</script>
+                <h2 class="font-bold text-xl md:text-2xl text-gray-800">الحلول من التمثيل البياني الجاهز</h2>
+            </div>
+            <div class="bg-white rounded-xl p-5 md:p-8 shadow-sm mb-6 border border-gray-100 relative overflow-hidden group hover:shadow-md transition">
+                <div id="card-stripe-1" class="absolute top-0 right-0 w-1 h-full"></div>
+                <script>document.getElementById('card-stripe-1').className += ` bg-${currentTheme.baseColor}-500`;</script>
+                <p class="text-gray-600 text-sm md:text-lg mb-3 leading-relaxed">
+                    لحل المعادلة التربيعية على الصورة <span class="math-eq">أ س² + ب س + جـ = ٠</span>، نرسم الدالة المرتبطة بها ونبحث عن <strong>المقاطع السينية</strong> (النقاط التي يقطع فيها المنحنى محور السينات الأفقي). جذور المعادلة هي الاحداثي السيني لهذه المقاطع.
+                </p>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+                    <div class="border rounded-lg p-3 text-center bg-gray-50">
+                        <h4 class="font-bold text-emerald-700 mb-2">حلان حقيقيان مختلفان</h4>
+                        <div class="graph-container scale-75 origin-top">
+                            <div class="x-axis" style="top: 100px;"></div><div class="y-axis" style="left: 100px;"></div>
+                            <svg viewBox="0 0 200 200" class="absolute inset-0 w-full h-full"><path class="parabola" d="M 40 -220 Q 100 500 160 -220" /><circle cx="80" cy="100" r="5" class="root-point"/><circle cx="120" cy="100" r="5" class="root-point"/></svg>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-[-30px]">المنحنى يقطع المحور في نقطتين.</p>
+                    </div>
+                    <div class="border rounded-lg p-3 text-center bg-gray-50">
+                        <h4 class="font-bold text-emerald-700 mb-2">حل حقيقي وحيد</h4>
+                        <div class="graph-container scale-75 origin-top">
+                            <div class="x-axis" style="top: 100px;"></div><div class="y-axis" style="left: 100px;"></div>
+                            <svg viewBox="0 0 200 200" class="absolute inset-0 w-full h-full"><path class="parabola" d="M 40 -260 Q 100 460 160 -260" /><circle cx="100" cy="100" r="5" class="root-point"/></svg>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-[-30px]">المنحنى يمس المحور في نقطة واحدة.</p>
+                    </div>
+                    <div class="border rounded-lg p-3 text-center bg-gray-50">
+                        <h4 class="font-bold text-emerald-700 mb-2">لا توجد حلول حقيقية (<span class="math-eq">∅</span>)</h4>
+                        <div class="graph-container scale-75 origin-top">
+                            <div class="x-axis" style="top: 100px;"></div><div class="y-axis" style="left: 100px;"></div>
+                            <!-- Fixed to open UPWARDS and be purely above the axis -->
+                            <svg viewBox="0 0 200 200" class="absolute inset-0 w-full h-full"><path class="parabola" d="M 60 -60 Q 100 180 140 -60" /></svg>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-[-30px]">المنحنى لا يقطع محور السينات أبداً.</p>
+                    </div>
+                </div>
+                <div class="mt-4 p-3 bg-yellow-50 border-r-4 border-yellow-400 rounded text-sm text-yellow-800">
+                    <strong>ملاحظة هامة:</strong> إذا كان المنحنى يقطع المحور في نقطة تقع بين عددين صحيحين (مثلاً بين ١ و ٢)، فإننا نُقدر الحل (مثلاً ١٫٥) وللتأكد نقوم بالتعويض في المعادلة.
+                </div>
+            </div>
+            
+            <!-- تطبيق ١.١: استخراج الحلول لأعلى -->
+            <div id="interactive-container-1-1" class="bg-white rounded-xl p-4 md:p-6 shadow-sm border-2 border-emerald-50 mb-4">
+                <div class="flex items-center justify-between mb-2">
+                    <h3 class="font-bold text-emerald-800 text-sm md:text-lg">تطبيق ١.١: استخراج الحلول (مسار لأعلى)</h3><span class="text-[10px] md:text-xs bg-emerald-100 text-emerald-600 px-2 py-1 rounded-full font-bold">تفاعلي</span>
+                </div>
+                <div class="min-h-[110px] mb-4 bg-gray-50 rounded-lg p-2 md:p-4 flex flex-col md:flex-row items-center gap-4">
+                    <div class="graph-container shrink-0">
+                        <div class="x-axis" style="top: 100px;"></div><div class="y-axis" style="left: 100px;"></div>
+                        <svg viewBox="0 0 200 200" class="absolute inset-0 w-full h-full">
+                            <!-- Parabola crossing at x=1 and x=3. Center is 100, scale is 20px per unit -->
+                            <path class="parabola" d="M 60 -200 Q 140 440 220 -200" />
+                            <circle id="t1-dot1" cx="120" cy="100" r="0" class="fill-red-600 transition-all duration-300"/>
+                            <circle id="t1-dot2" cx="160" cy="100" r="0" class="fill-red-600 transition-all duration-300"/>
+                        </svg>
+                    </div>
+                    <div class="flex-grow w-full">
+                        <div class="interactive-placeholder text-center text-gray-400 py-6 text-sm md:text-base">اضغط "التالي" لمشاهدة خطوات استخراج الحل</div>
+                        <div class="step-interactive step-box" id="step-1-1"><h4 class="font-bold text-xs md:text-sm text-emerald-600 mb-1">خطوة ١: تحديد المحور السيني</h4><p class="text-sm">انظر إلى المحور الأفقي (محور السينات).</p></div>
+                        <div class="step-interactive step-box" id="step-1-2"><h4 class="font-bold text-xs md:text-sm text-emerald-600 mb-1">خطوة ٢: إيجاد نقاط التقاطع</h4><p class="text-sm mt-2">نجد أن المنحنى يقطع المحور عند النقطتين <span class="bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-1 rounded mx-1 inline-block font-bold">س = ١</span> و <span class="bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-1 rounded mx-1 inline-block font-bold">س = ٣</span>.</p></div>
+                        <div class="step-interactive step-box border-green-500 bg-green-50" id="step-1-3"><h4 class="font-bold text-xs md:text-sm text-green-600 mb-1">الحل النهائي</h4><p class="text-sm md:text-lg font-bold text-center mt-2">حلول المعادلة هي: <span class="bg-white text-emerald-800 border border-emerald-200 px-2 py-1 rounded mx-1 inline-block">{ ١ ، ٣ }</span></p></div>
+                    </div>
+                </div>
+                <div class="flex justify-between">
+                    <button class="prev-btn w-8 h-8 flex items-center justify-center rounded-full bg-gray-200 text-gray-600"><i data-lucide="chevron-right" class="w-4 h-4"></i></button>
+                    <!-- UPDATED: Use .btn-theme -->
+                    <button class="next-btn btn-theme px-6 py-1.5 rounded-lg font-bold shadow-md">التالي</button>
+                    <button class="reset-btn px-6 py-1.5 bg-purple-100 text-purple-700 rounded-lg font-bold hidden">إعادة</button>
+                </div>
+            </div>
+
+            <!-- تطبيق ١.٢: استخراج الحلول لأسفل -->
+            <div id="interactive-container-1-2" class="bg-white rounded-xl p-4 md:p-6 shadow-sm border-2 border-emerald-50 mb-4">
+                <div class="flex items-center justify-between mb-2">
+                    <h3 class="font-bold text-emerald-800 text-sm md:text-lg">تطبيق ١.٢: استخراج الحلول (مسار لأسفل)</h3><span class="text-[10px] md:text-xs bg-emerald-100 text-emerald-600 px-2 py-1 rounded-full font-bold">تفاعلي</span>
+                </div>
+                <div class="min-h-[110px] mb-4 bg-gray-50 rounded-lg p-2 md:p-4 flex flex-col md:flex-row items-center gap-4">
+                    <div class="graph-container shrink-0">
+                        <div class="x-axis" style="top: 100px;"></div><div class="y-axis" style="left: 100px;"></div>
+                        <svg viewBox="0 0 200 200" class="absolute inset-0 w-full h-full">
+                            <!-- Parabola crossing at x=-3 and x=-1 opening downwards. Vertex at x=-2, y=1 (60, 80). Eq: y=-x^2-4x-3 -->
+                            <path class="parabola" d="M -20 400 Q 60 -240 140 400" />
+                            <circle id="t12-dot1" cx="40" cy="100" r="0" class="fill-red-600 transition-all duration-300"/>
+                            <circle id="t12-dot2" cx="80" cy="100" r="0" class="fill-red-600 transition-all duration-300"/>
+                        </svg>
+                    </div>
+                    <div class="flex-grow w-full">
+                        <div class="interactive-placeholder text-center text-gray-400 py-6 text-sm md:text-base">اضغط "التالي" لمشاهدة خطوات استخراج الحل</div>
+                        <div class="step-interactive step-box" id="step-12-1"><h4 class="font-bold text-xs md:text-sm text-emerald-600 mb-1">خطوة ١: تحديد المحور السيني</h4><p class="text-sm">نبحث عن تقاطع المنحنى (والذي فتحته لأسفل) مع المحور الأفقي.</p></div>
+                        <div class="step-interactive step-box" id="step-12-2"><h4 class="font-bold text-xs md:text-sm text-emerald-600 mb-1">خطوة ٢: إيجاد نقاط التقاطع</h4><p class="text-sm mt-2">نجد أن المنحنى يقطع المحور عند النقطتين <span class="bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-1 rounded mx-1 inline-block font-bold">س = -١</span> و <span class="bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-1 rounded mx-1 inline-block font-bold">س = -٣</span>، ونلاحظ أن المقطع الصادي سالب يقع بالأسفل.</p></div>
+                        <div class="step-interactive step-box border-green-500 bg-green-50" id="step-12-3"><h4 class="font-bold text-xs md:text-sm text-green-600 mb-1">الحل النهائي</h4><p class="text-sm md:text-lg font-bold text-center mt-2">حلول المعادلة هي: <span class="bg-white text-emerald-800 border border-emerald-200 px-2 py-1 rounded mx-1 inline-block">{ -١ ، -٣ }</span></p></div>
+                    </div>
+                </div>
+                <div class="flex justify-between">
+                    <button class="prev-btn w-8 h-8 flex items-center justify-center rounded-full bg-gray-200 text-gray-600"><i data-lucide="chevron-right" class="w-4 h-4"></i></button>
+                    <button class="next-btn btn-theme px-6 py-1.5 rounded-lg font-bold shadow-md">التالي</button>
+                    <button class="reset-btn px-6 py-1.5 bg-purple-100 text-purple-700 rounded-lg font-bold hidden">إعادة</button>
+                </div>
+            </div>
+
+            <!-- UPDATED: Use .btn-theme -->
+            <button onclick="switchTab('learn2')" class="btn-theme w-full py-3 md:py-4 rounded-xl font-bold text-sm md:text-lg shadow-lg flex items-center justify-center gap-2"><span>التالي: التمثيل البياني</span><i data-lucide="arrow-left"></i></button>
+        </div>
+
+        <!-- [TAB 2: Concept 2] -->
+        <div id="tab-learn2" class="tab-content hidden">
+            <div class="flex items-center gap-2 mb-4">
+                <span id="tab2-num" class="w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center font-bold text-lg md:text-xl border shadow-sm">٢</span>
+                <script>document.getElementById('tab2-num').className += ` bg-${currentTheme.baseColor}-100 text-${currentTheme.baseColor}-700 border-${currentTheme.baseColor}-200`;</script>
+                <h2 class="font-bold text-xl md:text-2xl text-gray-800">التمثيل البياني لحل المعادلة</h2>
+            </div>
+            <div class="bg-white rounded-xl p-5 md:p-8 shadow-sm mb-6 border border-gray-100 relative overflow-hidden group hover:shadow-md transition">
+                <div id="card-stripe-2" class="absolute top-0 right-0 w-1 h-full"></div>
+                <script>document.getElementById('card-stripe-2').className += ` bg-${currentTheme.baseColor}-500`;</script>
+                <p class="text-gray-600 text-sm md:text-lg mb-3">لرسم الدالة المرتبطة واستخراج الحلول بيانياً، اتبع الخطوات التالية:</p>
+                <ul class="list-disc list-inside space-y-2 text-gray-700 text-sm md:text-base pr-4 font-semibold">
+                    <li>حدد قيم <span class="math-eq">أ، ب، جـ</span>، ثم أوجد المحور والرأس.</li>
+                    <li>حدد المقطع الصادي <span class="math-eq">(٠ ، جـ)</span> ونقطة تماثله لتسهيل الرسم.</li>
+                    <li>كون جدولاً للتعويض بقيم لـ س حول المحور لتخمين الحلول (التي تجعل ص = ٠).</li>
+                </ul>
+            </div>
+
+            <!-- تطبيق ٢.١: حلان (مفتوح للأسفل) -->
+            <div id="interactive-container-2-1" class="bg-white rounded-xl p-4 md:p-6 shadow-sm border-2 border-emerald-50 mb-6 relative">
+                <div class="flex items-center justify-between mb-4 pb-2 border-b border-gray-100">
+                    <h3 class="font-bold text-emerald-800 text-sm md:text-lg">تطبيق ٢.١: حل المعادلة <span class="math-eq bg-emerald-50 text-emerald-800 border-emerald-200">-س² + ٤س - ٣ = ٠</span></h3><span class="text-[10px] md:text-xs bg-emerald-100 text-emerald-600 px-2 py-1 rounded-full font-bold">معادلة بحلين</span>
+                </div>
+                <div class="min-h-[110px] mb-4 bg-gray-50 rounded-lg p-2 md:p-4 flex flex-col md:flex-row items-start gap-4">
+                    <div class="graph-container shrink-0 sticky top-20 bg-white">
+                        <div class="x-axis" style="top: 100px;"></div><div class="y-axis" style="left: 100px;"></div>
+                        <svg viewBox="0 0 200 200" class="absolute inset-0 w-full h-full">
+                            <path id="curve-21" class="parabola hidden" d="M 60 400 Q 140 -240 220 400" />
+                            <g id="points-21">
+                                <circle cx="140" cy="80" r="4" class="fill-red-600 opacity-0 transition-opacity duration-300" id="pt-21-v" />
+                                <circle cx="100" cy="160" r="4" class="fill-orange-500 opacity-0 transition-opacity duration-300" id="pt-21-y1" />
+                                <circle cx="180" cy="160" r="4" class="fill-orange-500 opacity-0 transition-opacity duration-300" id="pt-21-y2" />
+                                
+                                <circle cx="100" cy="160" r="4" class="fill-blue-600 opacity-0 transition-opacity duration-300" id="pt-21-t1" />
+                                <circle cx="120" cy="100" r="4" class="fill-blue-600 opacity-0 transition-opacity duration-300" id="pt-21-t2" />
+                                <circle cx="160" cy="100" r="4" class="fill-blue-600 opacity-0 transition-opacity duration-300" id="pt-21-t3" />
+                            </g>
+                        </svg>
+                    </div>
+                    <div class="flex-grow w-full overflow-hidden">
+                        <div class="interactive-placeholder text-center text-gray-400 py-6 text-sm md:text-base">اضغط "التالي" لمتابعة الخطوات</div>
+                        
+                        <div class="step-interactive step-box" id="step-21-1">
+                            <h4 class="font-bold text-xs md:text-sm text-emerald-600 mb-2">الخطوة ١: المحور واتجاه القطع</h4>
+                            <div class="bg-white border border-gray-200 p-2 rounded shadow-sm mb-3 flex flex-col gap-2">
+                                <p class="text-sm font-bold text-gray-700 text-center">أ = -١ ، ب = ٤ ، جـ = -٣</p>
+                                <div class="text-center">
+                                    <span class="text-[11px] md:text-xs text-red-700 bg-red-50 px-2 py-1 rounded inline-flex items-center font-bold border border-red-100">
+                                        <i class="fas fa-info-circle ml-1"></i> بما أن (أ) سالبة، فتحة القطع للأسفل 
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="mr-1"><path d="M4 20 Q 12 4 20 20" stroke-linecap="round" /></svg>
+                                    </span>
+                                </div>
+                            </div>
+                            <p class="text-sm mb-2 leading-loose text-gray-600">المحور: <span class="bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-1 rounded mx-1 inline-flex font-bold items-center" dir="rtl">س = <span class="fraction"><span>-ب</span><span class="bar"></span><span>٢أ</span></span></span> = <span class="bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-1 rounded mx-1 inline-flex font-bold items-center" dir="rtl"><span class="fraction"><span>-٤</span><span class="bar"></span><span>٢(-١)</span></span> = ٢</span></p>
+                        </div>
+
+                        <div class="step-interactive step-box" id="step-21-2">
+                            <p class="text-sm leading-loose text-gray-600 mb-2">نعوض بـ <span class="font-bold text-blue-600">٢</span> في الدالة لإيجاد قيمة ص:</p>
+                            <p class="text-sm font-bold text-gray-700 bg-gray-50 border border-gray-200 p-2 rounded inline-block mb-2 shadow-sm" dir="rtl">-(٢)² + ٤(٢) - ٣ = -٤ + ٨ - ٣ = ١</p>
+                            <p class="text-sm leading-loose text-gray-600">إذن نجد الرأس <span class="bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-1 rounded mx-1 inline-block font-bold" dir="ltr">(٢ ، ١)</span>.</p>
+                        </div>
+                        
+                        <div class="step-interactive step-box" id="step-21-3">
+                            <h4 class="font-bold text-xs md:text-sm text-emerald-600 mb-2">الخطوة ٢: المقطع الصادي والرسم</h4>
+                            <p class="text-sm leading-loose text-gray-600">المقطع الصادي جـ = -٣ إذن النقطة <span class="bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-1 rounded mx-1 inline-block font-bold" dir="ltr">(٠ ، -٣)</span> .</p>
+                        </div>
+
+                        <div class="step-interactive step-box" id="step-21-4">
+                            <p class="text-sm leading-loose text-gray-600 mb-2">لإيجاد النقطة المماثلة، نلاحظ أن محور التماثل عند <span class="font-bold">س = ٢</span>.</p>
+                            <p class="text-[11px] md:text-xs leading-loose text-gray-600 bg-orange-50 p-2 rounded border border-orange-100 font-bold mb-2">بما أن المقطع الصادي عند (س=٠)، فالمسافة للمحور هي خطوتين. بالتحرك خطوتين للجهة الأخرى نصل إلى س = ٤.</p>
+                            <p class="text-sm leading-loose text-gray-600">إذن تماثلها النقطة <span class="bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-1 rounded mx-1 inline-block font-bold" dir="ltr">(٤ ، -٣)</span>.</p>
+                        </div>
+
+                        <div class="step-interactive" id="step-21-5">
+                            <h4 class="font-bold text-xs md:text-sm text-emerald-600 mb-2 mt-2">الخطوة ٣: التعويض لإكمال المنحنى</h4>
+                            <div class="flex w-full bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold rounded-t text-xs md:text-sm">
+                                <div class="w-1/4 p-2 border-l border-emerald-200 text-center">س</div>
+                                <div class="w-1/2 p-2 border-l border-emerald-200 text-center">التعويض</div>
+                                <div class="w-1/4 p-2 text-center">ص</div>
+                            </div>
+                        </div>
+
+                        <!-- Table Row 1 -->
+                        <div class="step-interactive" id="step-21-6" data-eval="true" data-input-id="guess-21-1" data-correct-val="-3" data-fb-id="fb-21-1" data-point-id="pt-21-t1">
+                            <div class="flex w-full bg-white border-x border-b border-gray-200 items-center">
+                                <div class="w-1/4 p-2 font-bold text-blue-600 border-l border-gray-200 text-center">٠</div>
+                                <div class="w-1/2 p-2 text-[11px] md:text-xs border-l border-gray-200 text-center" dir="rtl">-(٠)² + ٤(٠) - ٣</div>
+                                <div class="w-1/4 p-2 flex flex-col items-center">
+                                    <input type="number" id="guess-21-1" class="border-2 border-gray-300 rounded w-12 text-center font-bold outline-none h-8 transition-colors" placeholder="؟">
+                                    <div id="fb-21-1" class="text-[10px] mt-1 hidden font-bold"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Table Row 2 -->
+                        <div class="step-interactive" id="step-21-7" data-eval="true" data-input-id="guess-21-2" data-correct-val="0" data-fb-id="fb-21-2" data-point-id="pt-21-t2">
+                            <div class="flex w-full bg-white border-x border-b border-gray-200 items-center">
+                                <div class="w-1/4 p-2 font-bold text-blue-600 border-l border-gray-200 text-center">١</div>
+                                <div class="w-1/2 p-2 text-[11px] md:text-xs border-l border-gray-200 text-center" dir="rtl">-(١)² + ٤(١) - ٣</div>
+                                <div class="w-1/4 p-2 flex flex-col items-center">
+                                    <input type="number" id="guess-21-2" class="border-2 border-gray-300 rounded w-12 text-center font-bold outline-none h-8 transition-colors" placeholder="؟">
+                                    <div id="fb-21-2" class="text-[10px] mt-1 hidden font-bold"></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Table Row 3 -->
+                        <div class="step-interactive" id="step-21-8" data-eval="true" data-input-id="guess-21-3" data-correct-val="0" data-fb-id="fb-21-3" data-point-id="pt-21-t3">
+                            <div class="flex w-full bg-white border-x border-b border-gray-200 items-center rounded-b">
+                                <div class="w-1/4 p-2 font-bold text-blue-600 border-l border-gray-200 text-center">٣</div>
+                                <div class="w-1/2 p-2 text-[11px] md:text-xs border-l border-gray-200 text-center" dir="rtl">-(٣)² + ٤(٣) - ٣</div>
+                                <div class="w-1/4 p-2 flex flex-col items-center">
+                                    <input type="number" id="guess-21-3" class="border-2 border-gray-300 rounded w-12 text-center font-bold outline-none h-8 transition-colors" placeholder="؟">
+                                    <div id="fb-21-3" class="text-[10px] mt-1 hidden font-bold"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="step-interactive step-box border-green-500 bg-green-50 mt-4" id="step-21-9">
+                            <h4 class="font-bold text-xs md:text-sm text-green-600 mb-2">النتيجة النهائية</h4>
+                            <p class="text-sm font-bold text-center">نلاحظ من الجدول أن ص = ٠ نتجت عند التعويض بـ (١ و ٣).</p>
+                            <p class="text-base font-black text-center mt-2 text-emerald-800">إذن الحلول هي: { ١ ، ٣ }</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex justify-between">
+                    <button class="prev-btn w-8 h-8 flex items-center justify-center rounded-full bg-gray-200 text-gray-600"><i data-lucide="chevron-right" class="w-4 h-4"></i></button>
+                    <button class="next-btn btn-theme px-6 py-1.5 rounded-lg font-bold shadow-md">التالي</button>
+                    <button class="reset-btn px-6 py-1.5 bg-purple-100 text-purple-700 rounded-lg font-bold hidden">إعادة</button>
+                </div>
+            </div>
+
+            <!-- تطبيق ٢.٢: حل وحيد -->
+            <div id="interactive-container-2-2" class="bg-white rounded-xl p-4 md:p-6 shadow-sm border-2 border-emerald-50 mb-6 relative">
+                <div class="flex items-center justify-between mb-4 pb-2 border-b border-gray-100">
+                    <h3 class="font-bold text-emerald-800 text-sm md:text-lg">تطبيق ٢.٢: حل المعادلة <span class="math-eq bg-emerald-50 text-emerald-800 border-emerald-200">س² - ٤س + ٤ = ٠</span></h3><span class="text-[10px] md:text-xs bg-emerald-100 text-emerald-600 px-2 py-1 rounded-full font-bold">حل وحيد</span>
+                </div>
+                <div class="min-h-[110px] mb-4 bg-gray-50 rounded-lg p-2 md:p-4 flex flex-col md:flex-row items-start gap-4">
+                    <div class="graph-container shrink-0 sticky top-20 bg-white">
+                        <div class="x-axis" style="top: 100px;"></div><div class="y-axis" style="left: 100px;"></div>
+                        <svg viewBox="0 0 200 200" class="absolute inset-0 w-full h-full">
+                            <path id="curve-22" class="parabola hidden" d="M 60 -220 Q 140 420 220 -220" />
+                            <g id="points-22">
+                                <circle cx="140" cy="100" r="4" class="fill-red-600 opacity-0 transition-opacity duration-300" id="pt-22-v" />
+                                <circle cx="100" cy="20" r="4" class="fill-orange-500 opacity-0 transition-opacity duration-300" id="pt-22-y1" />
+                                <circle cx="180" cy="20" r="4" class="fill-orange-500 opacity-0 transition-opacity duration-300" id="pt-22-y2" />
+                            </g>
+                        </svg>
+                    </div>
+                    <div class="flex-grow w-full overflow-hidden">
+                        <div class="interactive-placeholder text-center text-gray-400 py-6 text-sm md:text-base">اضغط "التالي" لمتابعة الخطوات</div>
+                        
+                        <div class="step-interactive step-box" id="step-22-1">
+                            <h4 class="font-bold text-xs md:text-sm text-emerald-600 mb-2">الخطوة ١: المحور واتجاه القطع</h4>
+                            <div class="bg-white border border-gray-200 p-2 rounded shadow-sm mb-3 flex flex-col gap-2">
+                                <p class="text-sm font-bold text-gray-700 text-center">أ = ١ ، ب = -٤ ، جـ = ٤</p>
+                                <div class="text-center">
+                                    <span class="text-[11px] md:text-xs text-emerald-700 bg-emerald-50 px-2 py-1 rounded inline-flex items-center font-bold border border-emerald-100">
+                                        <i class="fas fa-info-circle ml-1"></i> بما أن (أ) موجبة، فتحة القطع للأعلى 
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="mr-1"><path d="M4 4 Q 12 24 20 4" stroke-linecap="round" /></svg>
+                                    </span>
+                                </div>
+                            </div>
+                            <p class="text-sm mb-2 leading-loose text-gray-600">المحور: <span class="bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-1 rounded mx-1 inline-flex font-bold items-center" dir="rtl">س = <span class="fraction"><span>-(-٤)</span><span class="bar"></span><span>٢(١)</span></span> = ٢</span></p>
+                        </div>
+
+                        <div class="step-interactive step-box" id="step-22-2">
+                            <p class="text-sm leading-loose text-gray-600 mb-2">نعوض بـ <span class="font-bold text-blue-600">٢</span> في الدالة لإيجاد قيمة ص:</p>
+                            <p class="text-sm font-bold text-gray-700 bg-gray-50 border border-gray-200 p-2 rounded inline-block mb-2 shadow-sm" dir="rtl">(٢)² - ٤(٢) + ٤ = ٤ - ٨ + ٤ = ٠</p>
+                            <p class="text-sm leading-loose text-gray-600">إذن فنجد الرأس يقع تماماً على محور السينات <span class="bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-1 rounded mx-1 inline-block font-bold" dir="ltr">(٢ ، ٠)</span>.</p>
+                        </div>
+                        
+                        <div class="step-interactive step-box" id="step-22-3">
+                            <h4 class="font-bold text-xs md:text-sm text-emerald-600 mb-2">الخطوة ٢: المقطع الصادي والرسم</h4>
+                            <p class="text-sm leading-loose text-gray-600 mb-2">المقطع الصادي جـ = ٤ إذن النقطة <span class="bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-1 rounded mx-1 inline-block font-bold" dir="ltr">(٠ ، ٤)</span> .</p>
+                            <p class="text-[11px] md:text-xs leading-loose text-gray-600 bg-orange-50 p-2 rounded border border-orange-100 font-bold mb-2">بما أن المقطع الصادي يبعد خطوتين عن المحور (س=٢)، فإن النقطة المماثلة هي <span class="font-bold" dir="ltr">(٤ ، ٤)</span>.</p>
+                        </div>
+
+                        <div class="step-interactive step-box border-green-500 bg-green-50 mt-4" id="step-22-4">
+                            <h4 class="font-bold text-xs md:text-sm text-green-600 mb-2">النتيجة النهائية (بدون جدول تعويض)</h4>
+                            <p class="text-sm font-bold text-center mb-2">بما أن الإحداثي الصادي للرأس يساوي (٠)، فهذا يعني أن المنحنى يمس محور السينات في نقطة الرأس فقط ولا يقطعه في أي نقطة أخرى.</p>
+                            <p class="text-base font-black text-center mt-2 text-emerald-800">إذن يوجد حل وحيد: س = ٢</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex justify-between">
+                    <button class="prev-btn w-8 h-8 flex items-center justify-center rounded-full bg-gray-200 text-gray-600"><i data-lucide="chevron-right" class="w-4 h-4"></i></button>
+                    <button class="next-btn btn-theme px-6 py-1.5 rounded-lg font-bold shadow-md">التالي</button>
+                    <button class="reset-btn px-6 py-1.5 bg-purple-100 text-purple-700 rounded-lg font-bold hidden">إعادة</button>
+                </div>
+            </div>
+
+            <!-- تطبيق ٢.٣: لا يوجد حل -->
+            <div id="interactive-container-2-3" class="bg-white rounded-xl p-4 md:p-6 shadow-sm border-2 border-emerald-50 mb-4 relative">
+                <div class="flex items-center justify-between mb-4 pb-2 border-b border-gray-100">
+                    <h3 class="font-bold text-emerald-800 text-sm md:text-lg">تطبيق ٢.٣: حل المعادلة <span class="math-eq bg-emerald-50 text-emerald-800 border-emerald-200">س² - ٢س + ٢ = ٠</span></h3><span class="text-[10px] md:text-xs bg-red-100 text-red-600 px-2 py-1 rounded-full font-bold">لا يوجد حلول</span>
+                </div>
+                <div class="min-h-[110px] mb-4 bg-gray-50 rounded-lg p-2 md:p-4 flex flex-col md:flex-row items-start gap-4">
+                    <div class="graph-container shrink-0 sticky top-20 bg-white">
+                        <div class="x-axis" style="top: 100px;"></div><div class="y-axis" style="left: 100px;"></div>
+                        <svg viewBox="0 0 200 200" class="absolute inset-0 w-full h-full">
+                            <path id="curve-23" class="parabola hidden" d="M 60 -240 Q 120 400 200 -240" />
+                            <g id="points-23">
+                                <circle cx="120" cy="80" r="4" class="fill-red-600 opacity-0 transition-opacity duration-300" id="pt-23-v" />
+                                <circle cx="100" cy="60" r="4" class="fill-orange-500 opacity-0 transition-opacity duration-300" id="pt-23-y1" />
+                                <circle cx="140" cy="60" r="4" class="fill-orange-500 opacity-0 transition-opacity duration-300" id="pt-23-y2" />
+                            </g>
+                        </svg>
+                    </div>
+                    <div class="flex-grow w-full overflow-hidden">
+                        <div class="interactive-placeholder text-center text-gray-400 py-6 text-sm md:text-base">اضغط "التالي" لمتابعة الخطوات</div>
+                        
+                        <div class="step-interactive step-box" id="step-23-1">
+                            <h4 class="font-bold text-xs md:text-sm text-emerald-600 mb-2">الخطوة ١: المحور واتجاه القطع</h4>
+                            <div class="bg-white border border-gray-200 p-2 rounded shadow-sm mb-3 flex flex-col gap-2">
+                                <p class="text-sm font-bold text-gray-700 text-center">أ = ١ ، ب = -٢ ، جـ = ٢</p>
+                                <div class="text-center">
+                                    <span class="text-[11px] md:text-xs text-emerald-700 bg-emerald-50 px-2 py-1 rounded inline-flex items-center font-bold border border-emerald-100">
+                                        <i class="fas fa-info-circle ml-1"></i> بما أن (أ) موجبة، فتحة القطع للأعلى 
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="mr-1"><path d="M4 4 Q 12 24 20 4" stroke-linecap="round" /></svg>
+                                    </span>
+                                </div>
+                            </div>
+                            <p class="text-sm mb-2 leading-loose text-gray-600">المحور: <span class="bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-1 rounded mx-1 inline-flex font-bold items-center" dir="rtl">س = <span class="fraction"><span>-(-٢)</span><span class="bar"></span><span>٢(١)</span></span> = ١</span></p>
+                        </div>
+
+                        <div class="step-interactive step-box" id="step-23-2">
+                            <p class="text-sm leading-loose text-gray-600 mb-2">نعوض بـ <span class="font-bold text-blue-600">١</span> في الدالة لإيجاد قيمة ص:</p>
+                            <p class="text-sm font-bold text-gray-700 bg-gray-50 border border-gray-200 p-2 rounded inline-block mb-2 shadow-sm" dir="rtl">(١)² - ٢(١) + ٢ = ١ - ٢ + ٢ = ١</p>
+                            <p class="text-sm leading-loose text-gray-600">إذن فنجد الرأس <span class="bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-1 rounded mx-1 inline-block font-bold" dir="ltr">(١ ، ١)</span>.</p>
+                        </div>
+                        
+                        <div class="step-interactive step-box" id="step-23-3">
+                            <h4 class="font-bold text-xs md:text-sm text-emerald-600 mb-2">الخطوة ٢: المقطع الصادي والرسم</h4>
+                            <p class="text-sm leading-loose text-gray-600 mb-2">المقطع الصادي جـ = ٢ إذن النقطة <span class="bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-1 rounded mx-1 inline-block font-bold" dir="ltr">(٠ ، ٢)</span> . وتماثلها <span class="bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-1 rounded mx-1 inline-block font-bold" dir="ltr">(٢ ، ٢)</span>.</p>
+                        </div>
+
+                        <div class="step-interactive step-box" id="step-23-4">
+                            <h4 class="font-bold text-xs md:text-sm text-emerald-600 mb-2">الخطوة ٣: الاستنتاج من الرأس والاتجاه</h4>
+                            <p class="text-sm leading-loose text-gray-600 mb-2">نلاحظ أن الرأس (١ ، ١) يقع <span class="font-bold text-red-600">فوق</span> محور السينات.</p>
+                            <p class="text-sm leading-loose text-gray-600 mb-2">وبما أن قيمة (أ = ١) موجبة، فإن فتحة القطع تتجه <span class="font-bold text-blue-600">للأعلى</span>.</p>
+                            <div class="bg-blue-50 border border-blue-200 rounded p-2 text-[11px] md:text-xs text-blue-800 font-bold leading-loose">
+                                <i class="fas fa-lightbulb text-yellow-500 mx-1"></i> قاعدة: إذا كان الرأس فوق محور السينات والفتحة للأعلى (أو الرأس أسفل المحور والفتحة للأسفل)، فمن المستحيل أن يتقاطع المنحنى مع محور السينات أبداً.
+                            </div>
+                        </div>
+
+                        <div class="step-interactive step-box border-red-500 bg-red-50 mt-4" id="step-23-5">
+                            <h4 class="font-bold text-xs md:text-sm text-red-600 mb-2">النتيجة النهائية</h4>
+                            <p class="text-sm font-bold text-center text-red-800">بناءً على ما سبق، المنحنى لن يقطع محور السينات.</p>
+                            <p class="text-base font-black text-center mt-2 text-red-700">لا يوجد حلول حقيقية ∅</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex justify-between">
+                    <button class="prev-btn w-8 h-8 flex items-center justify-center rounded-full bg-gray-200 text-gray-600"><i data-lucide="chevron-right" class="w-4 h-4"></i></button>
+                    <button class="next-btn btn-theme px-6 py-1.5 rounded-lg font-bold shadow-md">التالي</button>
+                    <button class="reset-btn px-6 py-1.5 bg-purple-100 text-purple-700 rounded-lg font-bold hidden">إعادة</button>
+                </div>
+            </div>
+
+            <!-- UPDATED: Use .btn-theme -->
+            <button onclick="switchTab('learn3')" class="btn-theme w-full py-3 md:py-4 rounded-xl font-bold text-sm md:text-lg shadow-lg flex items-center justify-center gap-2"><span>التالي: تطبيقات واقعية</span><i data-lucide="arrow-left"></i></button>
+        </div>
+
+        <!-- [TAB 3: Concept 3] -->
+        <div id="tab-learn3" class="tab-content hidden">
+            <div class="flex items-center gap-2 mb-4">
+                <span id="tab3-num" class="w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center font-bold text-lg md:text-xl border shadow-sm">٣</span>
+                <script>document.getElementById('tab3-num').className += ` bg-${currentTheme.baseColor}-100 text-${currentTheme.baseColor}-700 border-${currentTheme.baseColor}-200`;</script>
+                <h2 class="font-bold text-xl md:text-2xl text-gray-800">تطبيقات من واقع الحياة</h2>
+            </div>
+            <div class="bg-white rounded-xl p-5 md:p-8 shadow-sm mb-6 border border-gray-100 relative overflow-hidden group hover:shadow-md transition">
+                <div id="card-stripe-3" class="absolute top-0 right-0 w-1 h-full"></div>
+                <script>document.getElementById('card-stripe-3').className += ` bg-${currentTheme.baseColor}-500`;</script>
+                <p class="text-gray-600 text-sm md:text-lg mb-3">تُستخدم المعادلات التربيعية بشكل كبير لنمذجة الحركة، مثل مسار المقذوفات أو الأجسام الساقطة بحكم الجاذبية.</p>
+                <p class="text-gray-600 text-sm md:text-lg">عندما يُطلب منك إيجاد الزمن الذي يستغرقه الجسم للوصول إلى الأرض، فإن الارتفاع (ع) عند الأرض يساوي صفراً. نضع <span class="math-eq">ع = ٠</span> ونحل المعادلة بيانياً لإيجاد الزمن (ن).</p>
+            </div>
+            <div id="interactive-container-3-1" class="bg-white rounded-xl p-4 md:p-6 shadow-sm border-2 border-emerald-50 mb-4">
+                <div class="flex items-center justify-between mb-2">
+                    <h3 class="font-bold text-emerald-800 text-sm md:text-lg">تطبيق ٣: مسألة قفز</h3><span class="text-[10px] md:text-xs bg-red-100 text-red-600 px-2 py-1 rounded-full font-bold">تحدي</span>
+                </div>
+                <div class="min-h-[110px] mb-4 bg-gray-50 rounded-lg p-2 md:p-4">
+                    <p class="text-sm font-bold mb-4">يقفز سبّاح من منصة غوص تمثل دالتها <span class="math-eq dir-ltr">ع = -٥ن² + ١٠ن + ١٥</span> (حيث ع الارتفاع بالأمتار، ن الزمن بالثواني). متى يصل للماء؟</p>
+                    
+                    <div class="flex flex-col md:flex-row items-start gap-4">
+                        <div class="graph-container shrink-0 sticky top-20 bg-white">
+                            <div class="x-axis" style="top: 160px;"></div><div class="y-axis" style="left: 40px;"></div>
+                            <svg viewBox="0 0 200 200" class="absolute inset-0 w-full h-full">
+                                <!-- أرقام مقياس الرسم لتوضيح قيمة المربعات -->
+                                <text x="60" y="174" font-size="10" fill="#9ca3af" text-anchor="middle" font-weight="bold">١</text>
+                                <text x="80" y="174" font-size="10" fill="#9ca3af" text-anchor="middle" font-weight="bold">٢</text>
+                                <text x="100" y="174" font-size="10" fill="#9ca3af" text-anchor="middle" font-weight="bold">٣</text>
+                                <text x="34" y="144" font-size="10" fill="#9ca3af" text-anchor="end" font-weight="bold">٥</text>
+                                <text x="34" y="124" font-size="10" fill="#9ca3af" text-anchor="end" font-weight="bold">١٠</text>
+                                <text x="34" y="104" font-size="10" fill="#9ca3af" text-anchor="end" font-weight="bold">١٥</text>
+                                <text x="34" y="84" font-size="10" fill="#9ca3af" text-anchor="end" font-weight="bold">٢٠</text>
+                                
+                                <path id="svg3-curve" class="parabola hidden" d="M 20 160 Q 60 0 100 160" />
+                                <g id="svg3-points">
+                                    <circle cx="60" cy="80" r="4" class="fill-red-600 opacity-0 transition-opacity duration-300" id="pt-3-v" />
+                                    
+                                    <circle cx="60" cy="80" r="4" class="fill-blue-600 opacity-0 transition-opacity duration-300" id="pt-3-t1" />
+                                    <circle cx="80" cy="100" r="4" class="fill-blue-600 opacity-0 transition-opacity duration-300" id="pt-3-t2" />
+                                    <circle cx="100" cy="160" r="4" class="fill-blue-600 opacity-0 transition-opacity duration-300" id="pt-3-t3" />
+                                </g>
+                            </svg>
+                        </div>
+                        <div class="flex-grow w-full overflow-hidden">
+                            <div class="interactive-placeholder text-center text-gray-400 py-6 text-sm md:text-base">اضغط "التالي" لمعرفة طريقة الحل</div>
+                            
+                            <div class="step-interactive step-box" id="step-3-1">
+                                <h4 class="font-bold text-xs md:text-sm text-emerald-600 mb-2">الخطوة ١: المعادلة والاتجاه</h4>
+                                <p class="text-sm leading-loose mb-2">الوصول للماء يعني الارتفاع = ٠. <span class="math-eq">-٥ن² + ١٠ن + ١٥ = ٠</span></p>
+                                <div class="bg-white border border-gray-200 p-2 rounded shadow-sm mb-3 flex flex-col gap-2">
+                                    <p class="text-sm font-bold text-gray-700 text-center">أ = -٥ ، ب = ١٠ ، جـ = ١٥</p>
+                                    <div class="text-center">
+                                        <span class="text-[11px] md:text-xs text-red-700 bg-red-50 px-2 py-1 rounded inline-flex items-center font-bold border border-red-100">
+                                            <i class="fas fa-info-circle ml-1"></i> بما أن (أ) سالبة، مسار القفز للأسفل 
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="mr-1"><path d="M4 20 Q 12 0 20 20" stroke-linecap="round" /></svg>
+                                        </span>
+                                    </div>
+                                </div>
+                                <p class="text-sm leading-loose text-gray-600">المحور: <span class="bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-1 rounded mx-1 inline-flex font-bold items-center" dir="rtl">ن = <span class="fraction"><span>-١٠</span><span class="bar"></span><span>٢(-٥)</span></span> = ١</span></p>
+                            </div>
+
+                            <div class="step-interactive step-box" id="step-3-2">
+                                <h4 class="font-bold text-xs md:text-sm text-emerald-600 mb-2">الخطوة ٢: التعويض لإيجاد الرأس</h4>
+                                <p class="text-sm leading-loose text-gray-600 mb-2">نعوض بـ <span class="font-bold text-blue-600">١</span> في الدالة لإيجاد أقصى ارتفاع:</p>
+                                <p class="text-sm font-bold text-gray-700 bg-gray-50 border border-gray-200 p-2 rounded inline-block mb-2 shadow-sm" dir="rtl">-٥(١)² + ١٠(١) + ١٥ = ٢٠</p>
+                                <p class="text-sm leading-loose text-gray-600">إذن نجد أقصى ارتفاع للسباح عند النقطة <span class="bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-1 rounded mx-1 inline-block font-bold">(١ ، ٢٠)</span>.</p>
+                            </div>
+                            
+                            <div class="step-interactive" id="step-3-3">
+                                <h4 class="font-bold text-xs md:text-sm text-emerald-600 mb-2">الخطوة ٣: الجدول وإيجاد الحل</h4>
+                                <div class="flex w-full bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold rounded-t text-xs md:text-sm">
+                                    <div class="w-1/4 p-2 border-l border-emerald-200 text-center">ن</div>
+                                    <div class="w-1/2 p-2 border-l border-emerald-200 text-center">التعويض</div>
+                                    <div class="w-1/4 p-2 text-center">ع</div>
+                                </div>
+                            </div>
+
+                            <!-- Table Row 1 -->
+                            <div class="step-interactive" id="step-3-4" data-eval="true" data-input-id="guess-3-1" data-correct-val="20" data-fb-id="fb-3-1" data-point-id="pt-3-t1">
+                                <div class="flex w-full bg-white border-x border-b border-gray-200 items-center">
+                                    <div class="w-1/4 p-2 font-bold text-blue-600 border-l border-gray-200 text-center">١</div>
+                                    <div class="w-1/2 p-2 text-[11px] md:text-xs border-l border-gray-200 text-center" dir="rtl">-٥(١)² + ١٠(١) + ١٥</div>
+                                    <div class="w-1/4 p-2 flex flex-col items-center">
+                                        <input type="number" id="guess-3-1" class="border-2 border-gray-300 rounded w-12 text-center font-bold outline-none h-8 transition-colors" placeholder="؟">
+                                        <div id="fb-3-1" class="text-[10px] mt-1 hidden font-bold"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Table Row 2 -->
+                            <div class="step-interactive" id="step-3-5" data-eval="true" data-input-id="guess-3-2" data-correct-val="15" data-fb-id="fb-3-2" data-point-id="pt-3-t2">
+                                <div class="flex w-full bg-white border-x border-b border-gray-200 items-center">
+                                    <div class="w-1/4 p-2 font-bold text-blue-600 border-l border-gray-200 text-center">٢</div>
+                                    <div class="w-1/2 p-2 text-[11px] md:text-xs border-l border-gray-200 text-center" dir="rtl">-٥(٢)² + ١٠(٢) + ١٥</div>
+                                    <div class="w-1/4 p-2 flex flex-col items-center">
+                                        <input type="number" id="guess-3-2" class="border-2 border-gray-300 rounded w-12 text-center font-bold outline-none h-8 transition-colors" placeholder="؟">
+                                        <div id="fb-3-2" class="text-[10px] mt-1 hidden font-bold"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Table Row 3 -->
+                            <div class="step-interactive" id="step-3-6" data-eval="true" data-input-id="guess-3-3" data-correct-val="0" data-fb-id="fb-3-3" data-point-id="pt-3-t3">
+                                <div class="flex w-full bg-white border-x border-b border-gray-200 items-center rounded-b">
+                                    <div class="w-1/4 p-2 font-bold text-blue-600 border-l border-gray-200 text-center">٣</div>
+                                    <div class="w-1/2 p-2 text-[11px] md:text-xs border-l border-gray-200 text-center" dir="rtl">-٥(٣)² + ١٠(٣) + ١٥</div>
+                                    <div class="w-1/4 p-2 flex flex-col items-center">
+                                        <input type="number" id="guess-3-3" class="border-2 border-gray-300 rounded w-12 text-center font-bold outline-none h-8 transition-colors" placeholder="؟">
+                                        <div id="fb-3-3" class="text-[10px] mt-1 hidden font-bold"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="step-interactive step-box border-green-500 bg-green-50 mt-4" id="step-3-7">
+                                <h4 class="font-bold text-xs md:text-sm text-green-600 mb-2">النتيجة النهائية</h4>
+                                <p class="text-sm font-bold text-center">نلاحظ أن الارتفاع أصبح (٠) عند الثانية الثالثة.</p>
+                                <div class="bg-white border border-green-200 p-2 rounded text-xs leading-loose mt-3 text-green-800">
+                                    <i class="fas fa-lightbulb text-yellow-500 mx-1"></i> <strong>ملاحظة هامة:</strong> المنحنى يقطع المحور أيضاً عند (ن = -١)، لكننا نرفض هذا الحل لأنه <strong>لا يوجد زمن بالسالب</strong> في الواقع.
+                                </div>
+                                <p class="text-base font-black text-center mt-3 text-emerald-800">إذن يصل للماء بعد ٣ ثوانٍ.</p>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+                <div class="flex justify-between">
+                    <button class="prev-btn w-8 h-8 flex items-center justify-center rounded-full bg-gray-200 text-gray-600"><i data-lucide="chevron-right" class="w-4 h-4"></i></button>
+                    <!-- UPDATED: Use .btn-theme -->
+                    <button class="next-btn btn-theme px-6 py-1.5 rounded-lg font-bold shadow-md">التالي</button>
+                    <button class="reset-btn px-6 py-1.5 bg-purple-100 text-purple-700 rounded-lg font-bold hidden">إعادة</button>
+                </div>
+            </div>
+            
+            <div class="mt-4 text-center">
+                <!-- UPDATED: Use .btn-theme -->
+                <button onclick="switchTab('quiz')" class="btn-theme px-8 py-3 md:py-4 rounded-full text-sm md:text-lg font-bold shadow-lg flex items-center justify-center gap-2 mx-auto w-full max-w-xs animate-bounce"><span>جاهز للاختبار؟</span><i data-lucide="arrow-left"></i></button>
+            </div>
+        </div>
+
+        <!-- [QUIZ TAB] -->
+        <div id="tab-quiz" class="tab-content hidden">
+             <div class="bg-white rounded-xl shadow-sm p-4 md:p-8 border border-gray-200">
+                <div class="flex justify-between items-center mb-6 border-b border-gray-100 pb-4">
+                    <div><h2 class="font-bold text-lg md:text-2xl text-gray-800">اختبار الفهم</h2><p class="text-xs md:text-sm text-gray-500">5 أسئلة مختارة من أصل 15</p></div>
+                    <div class="text-center"><div id="loading-attempts" class="hidden"><div class="loader w-4 h-4"></div></div><div id="attempts-display" class="flex flex-col items-center"><span class="block text-xl md:text-2xl font-bold" style="color: var(--theme-hex)" id="attempts-count">-</span><div class="flex items-center gap-1 text-[10px] md:text-xs text-gray-400"><span>محاولات</span></div></div><div id="timer-top-container" class="hidden mt-1"><span class="block text-xs font-bold text-red-500 font-mono" id="timer-display-top">00:00:00</span></div></div>
+                </div>
+                <form id="quizForm" class="space-y-6"></form>
+                <div id="quiz-results" class="hidden mt-6 text-center bg-gray-50 rounded-xl border border-gray-200 result-card-base max-w-sm mx-auto">
+                    <div class="result-content"><p class="text-sm text-gray-600 font-bold mb-1">الدرجة النهائية</p><p id="quiz-score" class="text-5xl font-black my-2 tracking-widest drop-shadow-sm">-</p><div id="save-status" class="mt-3 text-center text-sm font-bold animate-pulse"></div>
+                    <div class="mt-4"><div id="timer-bottom-container" class="hidden bg-red-50 border border-red-100 rounded-lg p-2 inline-block"><span class="block text-lg font-bold text-red-600 font-mono tracking-wider" id="timer-display-bottom">00:00:00</span></div></div>
+                    </div>
+                </div>
+                <div id="games-wrapper" class="hidden mt-8 pt-6 border-t border-gray-200">
+                    <h2 id="games-title" class="col-span-1 md:col-span-2 text-center font-black text-gray-700 mb-2 flex justify-center gap-2 items-center w-full"><i class="fas fa-gamepad text-yellow-500"></i> استمتع وتعلم</h2>
+                    <div id="dynamic-games-container" class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6"></div>
+                </div>
+            </div>
+        </div>
+        
+        <footer class="lesson-footer"><p>تصميم وإعداد: <strong>أ. عبدالعزيز خالد العبلان</strong></p><p class="mt-1 opacity-70">جميع الحقوق محفوظة © 2025</p></footer>
+        <div class="h-20"></div>
+    </main>
+
+    <nav class="bottom-nav" id="bottom-nav-container"></nav>
+    <div id="modal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-end sm:items-center justify-center backdrop-blur-sm"><div class="bg-white w-full sm:w-96 rounded-t-2xl sm:rounded-xl p-6 transform transition-transform duration-300 shadow-2xl"><div class="flex justify-between mb-4 items-center"><div class="flex items-center gap-2" style="color: var(--theme-hex)"><i id="modal-icon" data-lucide="info" class="w-5 h-5"></i><h3 id="modal-title" class="font-bold text-lg">توضيح</h3></div><button onclick="closeModal()" class="bg-gray-100 p-1 rounded-full text-gray-500 hover:bg-gray-200"><i data-lucide="x" class="w-5 h-5"></i></button></div><div id="modal-content" class="text-sm text-gray-600 leading-relaxed max-h-[60vh] overflow-y-auto pl-1"></div></div></div>
+
+    <!-- Game Modal Structure -->
+    <div id="game-modal-container">
+        <div id="game-modal-content">
+            <div id="game-modal-header" class="text-white flex justify-between items-center py-1 px-3 shadow-md">
+                <script>document.getElementById('game-modal-header').className += ` bg-gradient-to-r ${currentTheme.gradient}`;</script>
+                <div class="flex items-center gap-2"><i class="fas fa-gamepad"></i><span id="game-modal-title" class="font-bold"></span></div>
+                <div class="flex items-center gap-2">
+                    <button onclick="minimizeGameModal()" class="win-btn" title="تصغير للأسفل"><i class="fas fa-window-minimize relative bottom-1"></i></button>
+                    <button onclick="toggleGameFullscreen()" class="win-btn" title="تكبير/استعادة"><i id="game-max-icon" class="fas fa-window-maximize"></i></button>
+                    <button onclick="closeGameModal()" class="win-btn win-btn-close" title="إغلاق"><i class="fas fa-times"></i></button>
+                </div>
+            </div>
+            <iframe id="game-frame" src=""></iframe>
+        </div>
+    </div>
+    <div id="minimized-game-bar" onclick="restoreGameModal()" class="border-emerald-600 text-emerald-600"><i class="fas fa-gamepad"></i><span id="minimized-game-title">اللعبة جارية...</span><i class="fas fa-chevron-up"></i></div>
+
+    <script>
+        // --- CONFIGURATION ---
+        const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxqAQlGhNs8k5RwHs6jrWxDiDwaMABSx8a9Fl81O5oVVa5fHRWTwIEvsGy2cSDP4zGLWQ/exec"; 
+        
+        // Use the LESSON_KEY defined in the Head script
+        const ATTEMPTS_KEY = 'quiz_attempts_' + LESSON_KEY;
+        const NEXT_ATTEMPT_KEY = 'quiz_next_attempt_' + LESSON_KEY;
+        const COOLDOWN_MS = 24 * 60 * 60 * 1000;
+        let attemptsLeft = 0; 
+        let currentQuestions = [];
+        let timerInterval;
+        let studentData = null; // Global store for user data
+
+        const tabs = [
+            { id: 'learn1', icon: 'eye', label: 'الرسم الجاهز' },
+            { id: 'learn2', icon: 'pen-tool', label: 'التمثيل البياني' },
+            { id: 'learn3', icon: 'globe', label: 'تطبيقات' },
+            { id: 'quiz', icon: 'clipboard-check', label: 'الاختبار' }
+        ];
+
+        const typeLabels = { 'learn1': 'الرسم الجاهز', 'learn2': 'التمثيل البياني', 'learn3': 'تطبيقات', 'mixed': 'تحدي' };
+
+        // [QUESTION BANK: 15 Questions for Chapter 8 Lesson 2]
+        const questionBank = [
+             // Concept 1: الرسم الجاهز
+             { id: 101, type: 'learn1', t: 'إذا كان التمثيل البياني للدالة المرتبطة يقطع محور السينات عند العددين ٤ و -٢، فما هي حلول المعادلة التربيعية؟', o: [{t:'{٤ ، ٢}', v:'a'}, {t:'{٤ ، -٢}', v:'b'}, {t:'{-٤ ، -٢}', v:'c'}, {t:'لا يوجد حلول', v:'d'}], c: 'b', e: 'حلول المعادلة هي الإحداثيات السينية لنقاط تقاطع المنحنى مع محور السينات.', smart: 'التقاطع حدث عند ٤ و -٢ إذن هي الجذور.' },
+             { id: 102, type: 'learn1', t: 'تمثيل بياني لمعادلة تربيعية يمس محور السينات في النقطة (٣ ، ٠) فقط، كم عدد الحلول الحقيقية لهذه المعادلة؟', o: [{t:'حلان مختلفان', v:'a'}, {t:'حل حقيقي وحيد', v:'b'}, {t:'لا يوجد حلول حقيقية', v:'c'}, {t:'ثلاثة حلول', v:'d'}], c: 'b', e: 'عندما يمس المنحنى المحور في نقطة واحدة، فهذا يعني وجود جذر مكرر (حل وحيد).', smart: 'نقطة تقاطع واحدة = حل واحد.' },
+             { id: 103, type: 'learn1', t: 'التمثيل البياني لمعادلة تربيعية رأسه النقطة (١ ، ٢) وفتحته إلى الأعلى. ما هي جذور المعادلة؟', o: [{t:'{١ ، ٢}', v:'a'}, {t:'حل وحيد هو ١', v:'b'}, {t:'لا توجد حلول حقيقية ∅', v:'c'}, {t:'{٠}', v:'d'}], c: 'c', e: 'بما أن الرأس فوق محور السينات (عند ص=٢) والفتحة للأعلى، فإن المنحنى لن يقطع محور السينات أبداً.', smart: 'تخيل الرسم: يبدأ من ارتفاع ٢ ويتجه للأعلى.. مستحيل يلمس الأرض (ص=٠).' },
+             { id: 104, type: 'learn1', t: 'إذا قطع المنحنى محور السينات في نقطة تقع بين ١ و ٢، فأي القيم التالية يمثل حلاً تقديرياً مناسباً؟', o: [{t:'٣', v:'a'}, {t:'١٫٥', v:'b'}, {t:'٠٫٥', v:'c'}, {t:'-١٫٥', v:'d'}], c: 'b', e: 'بما أن التقاطع بين ١ و ٢، فالحل يجب أن يكون كسراً يقع بينهما مثل ١٫٥.', smart: '١٫٥ هو العدد الوحيد في الخيارات الذي يقع بين ١ و ٢.' },
+             
+             // Concept 2: التمثيل البياني وخطوات الحل
+             { id: 201, type: 'learn2', t: 'لحل المعادلة <span class="math-eq">س² - ٦س + ٩ = ٠</span>، ما هي معادلة محور التماثل؟', o: [{t:'س = ٣', v:'a'}, {t:'س = -٣', v:'b'}, {t:'س = ٦', v:'c'}, {t:'س = -٦', v:'d'}], c: 'a', e: 'معادلة المحور هي س = -ب / ٢أ. هنا ب=-٦، وأ=١. إذن س = -(-٦) / ٢(١) = ٣.', smart: 'نصف معامل س بعكس الإشارة (لأن أ=١).' },
+             { id: 202, type: 'learn2', t: 'أوجد حل المعادلة <span class="math-eq">س² - ٤ = ٠</span> بيانياً.', o: [{t:'{٤ ، -٤}', v:'a'}, {t:'{٢}', v:'b'}, {t:'{٢ ، -٢}', v:'c'}, {t:'∅', v:'d'}], c: 'c', e: 'بنقل ٤ للطرف الآخر وأخذ الجذر التربيعي: س² = ٤، إذن س = ٢ أو س = -٢.', smart: 'هذا فرق بين مربعين (س-٢)(س+٢)=٠، الجذور هي ٢ و -٢.' },
+             { id: 203, type: 'learn2', t: 'ما هو المقطع الصادي للدالة المرتبطة بالمعادلة <span class="math-eq">٢س² + ٣س - ٥ = ٠</span>؟', o: [{t:'٢', v:'a'}, {t:'٣', v:'b'}, {t:'-٥', v:'c'}, {t:'٥', v:'d'}], c: 'c', e: 'المقطع الصادي هو قيمة الثابت (جـ) عندما تكون المعادلة على الصورة القياسية. هنا جـ = -٥.', smart: 'الثابت الأخير بدون س هو المقطع الصادي.' },
+             { id: 204, type: 'learn2', t: 'إذا كان الرأس (٢ ، -٤) والمقطع الصادي (٠ ، ٠)، فما هو الحل الآخر للمعادلة؟ (باعتبار أن التماثل حول س=٢)', o: [{t:'٤', v:'a'}, {t:'-٤', v:'b'}, {t:'٢', v:'c'}, {t:'٦', v:'d'}], c: 'a', e: 'المقطع الصادي (٠ ، ٠) هو أحد الجذور. المحور عند س=٢، والمسافة من ٠ إلى ٢ هي خطوتين. بإضافة خطوتين يميناً من المحور نصل إلى س=٤.', smart: 'بما أن المحور في المنتصف (٢)، والبداية (٠)، فالنهاية (٤).' },
+
+             // Concept 3: التطبيقات
+             { id: 301, type: 'learn3', t: 'تُمثل الدالة <span class="math-eq">ع = -٥ن² + ٢٠ن</span> ارتفاع صاروخ بعد ن ثانية. متى يعود الصاروخ إلى الأرض؟', o: [{t:'بعد ٥ ثوانٍ', v:'a'}, {t:'بعد ٤ ثوانٍ', v:'b'}, {t:'بعد ثانيتين', v:'c'}, {t:'بعد ٢٠ ثانية', v:'d'}], c: 'b', e: 'نضع ع=٠. -٥ن² + ٢٠ن = ٠. بأخذ -٥ن عامل مشترك: -٥ن(ن - ٤) = ٠. إما ن=٠ (البداية) أو ن=٤ (النهاية).', smart: 'نقسم ٢٠ على ٥ والناتج هو ٤.' },
+             { id: 302, type: 'learn3', t: 'إذا كانت مساحة مستطيل ٤٠ سم²، وطوله يزيد عن عرضه بمقدار ٣ سم. ما هي المعادلة التي تمثل هذه المسألة إذا فرضنا العرض س؟', o: [{t:'س(س + ٣) = ٤٠', v:'a'}, {t:'س + ٣ = ٤٠', v:'b'}, {t:'س² + ٣ = ٤٠', v:'c'}, {t:'٢(س) + ٢(س+٣) = ٤٠', v:'d'}], c: 'a', e: 'المساحة = الطول × العرض. العرض = س، والطول = س + ٣. إذن س(س + ٣) = ٤٠.', smart: 'المساحة ضرب. س مضروبة في س+٣.' },
+             { id: 303, type: 'learn3', t: 'قُذف جسم للأعلى، والزمن الذي يستغرقه للوصول لأقصى ارتفاع هو عند رأس المنحنى. إذا كانت معادلة المحور س=٣، فمتى يصل لأقصى ارتفاع؟', o: [{t:'بعد ٦ ثوانٍ', v:'a'}, {t:'بعد ٣ ثوانٍ', v:'b'}, {t:'بعد ١٫٥ ثانية', v:'c'}, {t:'في البداية', v:'d'}], c: 'b', e: 'محور التماثل (س) يمثل الإحداثي السيني للرأس، وهو يمثل الزمن في مسائل المقذوفات.', smart: 'محور التماثل = الرأس = زمن أقصى ارتفاع.' },
+             { id: 304, type: 'learn3', t: 'إذا رميت كرة للأعلى ومعادلتها <span class="math-eq">ع = -١٦ن² + ٦٤ن</span>، ما الارتفاع عند ن=٠؟', o: [{t:'٦٤', v:'a'}, {t:'-١٦', v:'b'}, {t:'٠', v:'c'}, {t:'١٦', v:'d'}], c: 'c', e: 'بالتعويض عن ن بـ ٠: ع = -١٦(٠) + ٦٤(٠) = ٠. هذا يعني أنها رُميت من سطح الأرض.', smart: 'عوض بالصفر يطير كل شيء.' },
+
+             // Mixed: تحدي
+             { id: 401, type: 'mixed', t: 'ما هي جذور المعادلة الممثلة بيانياً إذا كان المنحنى يقطع محور الصادات عند (٠ ، ٥) ولا يقطع محور السينات؟', o: [{t:'{٠ ، ٥}', v:'a'}, {t:'{٥}', v:'b'}, {t:'لا يوجد حلول حقيقية ∅', v:'c'}, {t:'{-٥}', v:'d'}], c: 'c', e: 'بما أنه لم يقطع محور السينات (الأفقي)، إذن لا توجد جذور (حلول) حقيقية بغض النظر عن قطعه لمحور الصادات.', smart: 'التقاطع مع الصادات لا يعتبر حلاً للمعادلة.' },
+             { id: 402, type: 'mixed', t: 'أي المعادلات التالية لها حل حقيقي وحيد (منحناها يمس محور السينات)؟', o: [{t:'س² + ١ = ٠', v:'a'}, {t:'س² - ٤س + ٤ = ٠', v:'b'}, {t:'س² - ٩ = ٠', v:'c'}, {t:'س² - ٥س + ٦ = ٠', v:'d'}], c: 'b', e: 'س² - ٤س + ٤ هي مربع كامل (س-٢)² = ٠، إذن لها حل وحيد هو س=٢.', smart: 'المربع الكامل دائماً له حل وحيد (يمس المحور).' },
+             { id: 403, type: 'mixed', t: 'إذا كان الرأس أسفل محور السينات، والمنحنى مفتوح للأسفل، كم عدد الحلول؟', o: [{t:'حلان', v:'a'}, {t:'حل وحيد', v:'b'}, {t:'لا يوجد حلول', v:'c'}, {t:'غير محدد', v:'d'}], c: 'c', e: 'يبدأ من الأسفل ويتجه للأسفل.. إذاً لن يقطع محور السينات (الأرض) أبداً.', smart: 'تحت الأرض ويحفر لتحت.. لن يرى النور.' }
+        ];
+
+        // --- CORE FUNCTIONS ---
+        const urlParams = new URLSearchParams(window.location.search);
+        function convertToArabic(n) { return n.toString().replace(/\d/g, d => "٠١٢٣٤٥٦٧٨٩"[d]); }
+        
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            const tabEl = document.getElementById(`tab-${tabId}`);
+            const navEl = document.getElementById(`nav-${tabId}`);
+            if (tabEl) tabEl.classList.remove('hidden');
+            if (navEl) navEl.classList.add('active');
+            window.scrollTo(0,0);
+            if(tabId === 'quiz') {
+                if(document.getElementById('quizForm').innerHTML === '') { generateQuiz(); }
+                renderDynamicGames(); 
+                const sId = urlParams.get('studentId');
+                if(sId && sId !== 'visitor') fetchStudentData();
+            }
+        }
+
+        // --- GAME MODAL LOGIC (FIXED CONTROLS) ---
+        function openGameModal(url, title) {
+            const modal = document.getElementById('game-modal-container');
+            const iframe = document.getElementById('game-frame');
+            iframe.src = url;
+            document.getElementById('game-modal-title').textContent = title || "جاري التحميل...";
+            modal.style.display = 'flex';
+            document.getElementById('minimized-game-bar').style.display = 'none';
+        }
+        function closeGameModal() { 
+            const modal = document.getElementById('game-modal-container');
+            modal.style.display = 'none'; 
+            document.getElementById('game-frame').src = ''; 
+            // Reset state
+            document.getElementById('game-modal-content').classList.remove('fullscreen');
+            document.getElementById('game-max-icon').className = 'fas fa-window-maximize';
+        }
+        function toggleGameFullscreen() { 
+            const content = document.getElementById('game-modal-content');
+            const icon = document.getElementById('game-max-icon');
+            content.classList.toggle('fullscreen');
+            if(content.classList.contains('fullscreen')) {
+                icon.className = 'fas fa-compress';
+            } else {
+                icon.className = 'fas fa-window-maximize';
+            }
+        }
+        function minimizeGameModal() { 
+            document.getElementById('game-modal-container').style.display = 'none'; 
+            document.getElementById('minimized-game-bar').style.display = 'flex'; 
+        }
+        function restoreGameModal() { 
+            document.getElementById('game-modal-container').style.display = 'flex'; 
+            document.getElementById('minimized-game-bar').style.display = 'none'; 
+        }
+
+        // --- CORE INTERACTIVE LOGIC (MODIFIED FOR GUESSING) ---
+        function initInteractive() {
+            document.querySelectorAll('[id^="interactive-container-"]').forEach(container => {
+                const steps = container.querySelectorAll('.step-interactive');
+                const placeholder = container.querySelector('.interactive-placeholder');
+                const nextBtn = container.querySelector('.next-btn');
+                const prevBtn = container.querySelector('.prev-btn');
+                const resetBtn = container.querySelector('.reset-btn');
+                let current = -1;
+                
+                container.updateInteractive = () => {
+                    if(!prevBtn) return;
+                    prevBtn.disabled = current === -1;
+                    if (current === -1) placeholder.classList.remove('hidden'); else placeholder.classList.add('hidden');
+                    steps.forEach((s, i) => { if (i <= current) s.classList.add('active'); else s.classList.remove('active'); });
+                    
+                    let preventNext = false;
+                    if(current > -1 && current < steps.length) {
+                         const activeStep = steps[current];
+                         // If current step requires evaluation AND hasn't been evaluated successfully yet
+                         if(activeStep && activeStep.dataset.eval === 'true' && activeStep.dataset.evaluated !== 'true') {
+                             preventNext = true;
+                         }
+                    }
+
+                    if (current >= steps.length - 1) { 
+                        // It's the last step.
+                        if (preventNext) {
+                            nextBtn.classList.remove('hidden'); // Keep "Next" to trigger evaluation
+                            resetBtn.classList.add('hidden');
+                        } else {
+                            nextBtn.classList.add('hidden'); 
+                            resetBtn.classList.remove('hidden'); 
+                        }
+                    } else { 
+                        // Not the last step. Always show next unless we want to block the user.
+                        // Actually, we DO want to show "Next" so they can click it to evaluate!
+                        nextBtn.classList.remove('hidden');
+                        resetBtn.classList.add('hidden'); 
+                    }
+                };
+                
+                if(nextBtn) nextBtn.onclick = () => { 
+                    // Intercept and evaluate if this is an input step
+                    if(current > -1 && steps[current] && steps[current].dataset.eval === 'true' && steps[current].dataset.evaluated !== 'true') {
+                        const activeStep = steps[current];
+                        const input = document.getElementById(activeStep.dataset.inputId);
+                        
+                        // Force student to enter a value before proceeding
+                        if(!input || input.value.trim() === '') {
+                            if(input) {
+                                input.classList.add('ring-2', 'ring-red-500');
+                                setTimeout(() => input.classList.remove('ring-2', 'ring-red-500'), 500);
+                            }
+                            return; // Stop here, don't increment current step
+                        }
+                        
+                        const expected = parseInt(activeStep.dataset.correctVal);
+                        const fb = document.getElementById(activeStep.dataset.fbId);
+                        const pt = document.getElementById(activeStep.dataset.pointId);
+                        const userVal = parseInt(input.value);
+                        
+                        input.disabled = true; // Lock input after submission
+                        
+                        if (userVal === expected) {
+                            fb.innerHTML = '<span class="text-green-600"><i class="fas fa-check"></i> صح</span>';
+                            input.classList.add('bg-green-50', 'border-green-500', 'text-green-700');
+                        } else {
+                            fb.innerHTML = `<span class="text-red-600"><i class="fas fa-times"></i> خطأ، الصحيح: ${convertToArabic(expected)}</span>`;
+                            input.value = expected; // Automatically correct the value
+                            input.classList.add('bg-red-50', 'border-red-500', 'text-red-700');
+                        }
+                        
+                        fb.classList.remove('hidden');
+                        if (pt) pt.style.opacity = '1';
+                        activeStep.dataset.evaluated = 'true';
+                    }
+
+                    if(current < steps.length - 1) { 
+                        // Only increment if we are not at the very end.
+                        // If it was an eval step, we evaluated it above. Now move to next.
+                        current++; 
+                        container.updateInteractive(); 
+                    } else {
+                        // We are at the end. Update to hide Next and show Reset.
+                        container.updateInteractive();
+                    }
+                };
+                
+                if(prevBtn) prevBtn.onclick = () => { if(current > -1) { current--; container.updateInteractive(); } };
+                
+                if(resetBtn) resetBtn.onclick = () => { 
+                    current = -1; 
+                    // Reset all evaluated inputs
+                    steps.forEach(s => { 
+                        if(s.dataset.eval === 'true') {
+                            s.dataset.evaluated = 'false';
+                            const input = document.getElementById(s.dataset.inputId);
+                            if(input) {
+                                input.value = '';
+                                input.disabled = false;
+                                input.className = 'border-2 border-gray-300 rounded w-12 text-center font-bold outline-none h-8 transition-colors';
+                            }
+                            const fb = document.getElementById(s.dataset.fbId);
+                            if(fb) fb.classList.add('hidden');
+                        }
+                    });
+                    const curves = container.querySelectorAll('.parabola');
+                    // Hide all curves that should be hidden initially
+                    curves.forEach(c => {
+                        // Exclude the static ones in App 1
+                        if (c.closest('#interactive-container-1-1') || c.closest('#interactive-container-1-2')) return;
+                        c.classList.add('hidden');
+                    });
+                    const points = container.querySelectorAll('circle');
+                    points.forEach(p => { if(!p.id.includes('t1-dot') && !p.id.includes('t12-dot') && !p.classList.contains('root-point')) p.style.opacity = '0'; });
+                    
+                    container.updateInteractive(); 
+                };
+                container.updateInteractive();
+            });
+        }
+
+        // --- NEW CUSTOM LOGIC FOR GRAPHS & TABLES ---
+        function setupCustomObservers() {
+            const checkVisible = (stepIds, curveId) => {
+                const curve = document.getElementById(curveId);
+                if (curve) {
+                    const isVisible = stepIds.some(id => document.getElementById(id)?.classList.contains('active'));
+                    if (isVisible) curve.classList.remove('hidden');
+                    else curve.classList.add('hidden');
+                }
+            };
+
+            const observer = new MutationObserver((mutations) => {
+                mutations.forEach((mutation) => {
+                    if (mutation.attributeName === 'class') {
+                        const target = mutation.target;
+                        const isActive = target.classList.contains('active');
+                        
+                        // App 1.1
+                        if (target.id === 'step-1-2') {
+                            const d1 = document.getElementById('t1-dot1');
+                            const d2 = document.getElementById('t1-dot2');
+                            if(d1) d1.setAttribute('r', isActive ? '5' : '0');
+                            if(d2) d2.setAttribute('r', isActive ? '5' : '0');
+                        }
+
+                        // App 1.2
+                        if (target.id === 'step-12-2') {
+                            const d1 = document.getElementById('t12-dot1');
+                            const d2 = document.getElementById('t12-dot2');
+                            if(d1) d1.setAttribute('r', isActive ? '5' : '0');
+                            if(d2) d2.setAttribute('r', isActive ? '5' : '0');
+                        }
+                        
+                        // App 2.1
+                        if (target.id === 'step-21-2') {
+                            const pt = document.getElementById('pt-21-v');
+                            if(pt) pt.style.opacity = isActive ? '1' : '0';
+                        }
+                        if (target.id === 'step-21-3') {
+                            const pt1 = document.getElementById('pt-21-y1');
+                            if(pt1) pt1.style.opacity = isActive ? '1' : '0';
+                        }
+                        if (target.id === 'step-21-4') {
+                            const pt2 = document.getElementById('pt-21-y2');
+                            if(pt2) pt2.style.opacity = isActive ? '1' : '0';
+                        }
+                        checkVisible(['step-21-9'], 'curve-21'); // Curve draws ONLY at final step 9
+
+                        // App 2.2
+                        if (target.id === 'step-22-2') {
+                            const pt = document.getElementById('pt-22-v');
+                            if(pt) pt.style.opacity = isActive ? '1' : '0';
+                        }
+                        if (target.id === 'step-22-3') {
+                            const pt1 = document.getElementById('pt-22-y1');
+                            const pt2 = document.getElementById('pt-22-y2');
+                            if(pt1) pt1.style.opacity = isActive ? '1' : '0';
+                            if(pt2) pt2.style.opacity = isActive ? '1' : '0';
+                        }
+                        checkVisible(['step-22-3', 'step-22-4'], 'curve-22'); // Curve draws EXACTLY at step 3 (المقطع الصادي والرسم)
+
+                        // App 2.3
+                        if (target.id === 'step-23-2') {
+                            const pt = document.getElementById('pt-23-v');
+                            if(pt) pt.style.opacity = isActive ? '1' : '0';
+                        }
+                        if (target.id === 'step-23-3') {
+                            const pt1 = document.getElementById('pt-23-y1');
+                            const pt2 = document.getElementById('pt-23-y2');
+                            if(pt1) pt1.style.opacity = isActive ? '1' : '0';
+                            if(pt2) pt2.style.opacity = isActive ? '1' : '0';
+                        }
+                        checkVisible(['step-23-3', 'step-23-4', 'step-23-5'], 'curve-23'); // Curve draws EXACTLY at step 3 (المقطع الصادي والرسم)
+
+                        // App 3
+                        if (target.id === 'step-3-2') {
+                            const pt = document.getElementById('pt-3-v');
+                            if(pt) pt.style.opacity = isActive ? '1' : '0';
+                        }
+                        checkVisible(['step-3-7'], 'svg3-curve'); // Curve draws ONLY at final step 7
+                    }
+                });
+            });
+
+            document.querySelectorAll('.step-interactive').forEach(el => {
+                if(el.id) observer.observe(el, { attributes: true });
+            });
+        }
+
+        // --- BACKEND & DATA FUNCTIONS (RESTORED) ---
+        async function saveScoreToBackend(lessonId, grade) {
+            const sId = urlParams.get('studentId');
+            const cId = urlParams.get('classId');
+            const saveStatus = document.getElementById('save-status');
+            if (!sId || !cId) { if(saveStatus) saveStatus.innerHTML = '<span class="text-yellow-600">تم تسجيل النتيجة محلياً (زائر)</span>'; return; }
+            if(saveStatus) saveStatus.innerHTML = '<span class="text-blue-600"><i class="fas fa-spinner fa-spin"></i> جارٍ حفظ النتيجة...</span>';
+            const requestUrl = `${APPS_SCRIPT_URL}?action=saveScore&studentId=${sId}&classId=${cId}&itemId=${lessonId}&score=${grade}&type=lesson`;
+            let success = false;
+            for(let i=0; i<3; i++) { try { await fetch(requestUrl); success = true; break; } catch (error) { await new Promise(r => setTimeout(r, 1500)); } }
+            if(success) { if(saveStatus) saveStatus.innerHTML = '<span class="text-green-600 font-bold">✔ تم حفظ النتيجة بنجاح!</span>'; setTimeout(() => fetchStudentData(), 1000); } 
+            else { if(saveStatus) saveStatus.innerHTML = '<span class="text-red-600 font-bold">❌ تعذر الاتصال بالخادم.</span>'; }
+        }
+        
+        async function fetchStudentData() {
+            const sId = urlParams.get('studentId') || 'visitor';
+            if (sId === 'visitor') return;
+            document.getElementById('loading-attempts').classList.remove('hidden');
+            document.getElementById('attempts-display').classList.add('hidden');
+            try {
+                const cId = urlParams.get('classId') || 'visitor';
+                const url = `${APPS_SCRIPT_URL}?action=getStudentData&studentId=${sId}&classId=${cId}&itemId=${LESSON_KEY}&t=${Date.now()}`;
+                const response = await fetch(url);
+                const json = await response.json();
+                
+                // Store global data
+                studentData = json;
+
+                if (json.status === "success" && json.data) {
+                    let d = json.data.lessons && json.data.lessons[LESSON_KEY] ? json.data.lessons[LESSON_KEY] : { attempts: 0, grade: 0 };
+                    attemptsLeft = Math.max(0, 3 - (d.attempts || 0));
+                    if (attemptsLeft === 0 && d.waitTime > 0) { startTimer(Date.now() + d.waitTime); }
+                    if (d.grade > 0) { document.getElementById('student-score').textContent = d.grade; document.getElementById('header-score-badge').classList.remove('hidden'); }
+                    // Update name again just in case server has better data
+                    if (json.data.name) document.getElementById('student-name').textContent = json.data.name;
+                    
+                    // Trigger game updates if they are rendered
+                    syncGamesWithData();
+                }
+            } catch (e) { console.error(e); } finally { updateAttemptsUI(); document.getElementById('loading-attempts').classList.add('hidden'); document.getElementById('attempts-display').classList.remove('hidden'); }
+        }
+
+        function initAttempts() {
+            const sId = urlParams.get('studentId') || 'visitor';
+            if (sId === 'visitor') { 
+                const visitorAttempts = localStorage.getItem(ATTEMPTS_KEY + '_visitor');
+                if (visitorAttempts !== null) { attemptsLeft = parseInt(visitorAttempts); } else { attemptsLeft = 1; }
+                const nextAttempt = localStorage.getItem(NEXT_ATTEMPT_KEY + '_visitor');
+                if (nextAttempt && parseInt(nextAttempt) > Date.now()) { startTimer(parseInt(nextAttempt)); attemptsLeft = 0; }
+                updateAttemptsUI(); 
+            } 
+            else { attemptsLeft = 0; updateAttemptsUI(); fetchStudentData(); }
+        }
+        
+        function updateAttemptsUI() {
+            const countEl = document.getElementById('attempts-count');
+            if(countEl) countEl.textContent = convertToArabic(attemptsLeft);
+            const btn = document.getElementById('quiz-action-btn');
+            if (!btn) return;
+            const resultsVisible = !document.getElementById('quiz-results').classList.contains('hidden');
+            if (resultsVisible) {
+                if (attemptsLeft > 0) {
+                    btn.textContent = "إعادة الاختبار"; btn.disabled = false; btn.type = "button"; btn.onclick = resetQuizView; 
+                    btn.classList.remove('bg-gray-400', 'cursor-not-allowed'); 
+                    btn.classList.add('btn-theme'); // Use theme class
+                } else {
+                    btn.textContent = "انتهت المحاولات"; btn.disabled = true; 
+                    btn.classList.add('bg-gray-400', 'cursor-not-allowed'); 
+                    btn.classList.remove('btn-theme'); // Remove theme color
+                }
+            } else {
+                btn.onclick = null; 
+                if (attemptsLeft > 0) {
+                    btn.textContent = "تحقق من الإجابات"; btn.disabled = false; btn.type = "submit"; 
+                    btn.classList.remove('bg-gray-400', 'cursor-not-allowed'); 
+                    btn.classList.add('btn-theme'); // Use theme class
+                } else {
+                    btn.textContent = "المحاولات مستنفذة"; btn.disabled = true; 
+                    btn.classList.add('bg-gray-400', 'cursor-not-allowed'); 
+                    btn.classList.remove('btn-theme'); // Remove theme color
+                }
+            }
+        }
+
+        function startTimer(target) {
+             clearInterval(timerInterval);
+             document.getElementById('timer-top-container').classList.remove('hidden'); 
+             document.getElementById('timer-bottom-container').classList.remove('hidden'); // Fixed: Show bottom timer too
+             timerInterval = setInterval(() => {
+                const diff = target - Date.now();
+                if (diff <= 0) { clearInterval(timerInterval); location.reload(); return; } 
+                const t = new Date(diff).toISOString().substr(11, 8).replace(/\d/g, d=>"٠١٢٣٤٥٦٧٨٩"[d]);
+                document.getElementById('timer-display-top').textContent = t; 
+                document.getElementById('timer-display-bottom').textContent = t; // Fixed: Update bottom timer
+             }, 1000);
+        }
+
+        function generateQuiz() { 
+            currentQuestions = [];
+            // Reduced pool since we removed learn4
+            const requiredTypes = ['learn1', 'learn2', 'learn3', 'mixed'];
+            
+            // Logic to pick 5 questions (1 from each + 1 random extra)
+            requiredTypes.forEach(type => {
+                const pool = questionBank.filter(q => q.type === type);
+                if(pool.length > 0) {
+                    const randomQ = pool[Math.floor(Math.random() * pool.length)];
+                    currentQuestions.push(randomQ);
+                }
+            });
+            // Add one more random mixed question to make it 5
+            const extraMixed = questionBank.filter(q => q.type === 'mixed' && !currentQuestions.includes(q));
+            if(extraMixed.length > 0) currentQuestions.push(extraMixed[Math.floor(Math.random() * extraMixed.length)]);
+            
+            renderQuiz(); 
+        }
+
+        function renderQuiz() {
+            const f = document.getElementById('quizForm');
+            if(!f) return;
+            let h = '';
+            currentQuestions.forEach((q, i) => {
+                h += `<div class="border border-gray-200 rounded-xl p-4 bg-white mb-6 hover:shadow-sm transition">
+                        <div class="flex flex-col gap-2 mb-4">
+                            <div class="flex justify-between items-center">
+                                <span class="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded text-[10px] md:text-xs font-bold">سؤال ${convertToArabic(i+1)}</span>
+                                <span class="text-[10px] text-gray-400 font-bold flex items-center gap-1"><i class="fas fa-tag text-xs"></i> ${typeLabels[q.type] || 'عام'}</span>
+                            </div>
+                            <p class="font-bold text-gray-800 text-sm md:text-lg leading-6 mt-1">${q.t}</p>
+                        </div>
+                        <div class="options-grid">${q.o.map((o, oi) => `<div><input type="radio" name="q${i}" id="q${i}o${oi}" value="${o.v}" class="hidden"><label for="q${i}o${oi}" class="option-label shadow-sm">${o.t}</label></div>`).join('')}</div>
+                        <div id="feedback-${i}" class="hidden p-3 rounded-lg mt-2 font-bold"></div>
+                        <div id="actions-${i}" class="hidden mt-3 flex flex-wrap gap-2 items-center">
+                             <button type="button" onclick="showExplain(${i})" class="text-xs md:text-sm bg-emerald-50 text-emerald-700 px-3 py-2 rounded-lg hover:bg-emerald-100 flex items-center gap-1 transition"><i data-lucide="help-circle" class="w-3 h-3"></i> لماذا؟</button>
+                             <button type="button" onclick="showSmart(${i})" class="text-xs md:text-sm bg-purple-50 text-purple-600 px-3 py-2 rounded-lg hover:bg-purple-100 flex items-center gap-1 transition"><i data-lucide="lightbulb" class="w-3 h-3"></i> الحل الذكي</button>
+                             <button type="button" onclick="switchTab('${q.type === 'mixed' ? 'learn1' : q.type}')" class="text-xs md:text-sm border border-gray-200 text-gray-500 px-3 py-2 rounded-lg hover:bg-gray-50 flex items-center gap-1 transition mr-auto"><i data-lucide="book-open" class="w-3 h-3"></i> مراجعة الدرس</button>
+                        </div>
+                      </div>`;
+            });
+            h += '<button type="submit" id="quiz-action-btn" class="btn-theme w-full font-bold py-3 rounded-xl shadow-lg transition">تحقق من الإجابات</button>';
+            f.innerHTML = h;
+            f.onsubmit = handleQuizSubmit;
+            lucide.createIcons(); 
+        }
+
+        function handleQuizSubmit(e) {
+            e.preventDefault();
+            if (attemptsLeft <= 0) return;
+            attemptsLeft--;
+            const sId = urlParams.get('studentId') || 'visitor';
+            if (sId === 'visitor') {
+                localStorage.setItem(ATTEMPTS_KEY + '_visitor', attemptsLeft);
+                if (attemptsLeft === 0) { 
+                    const nextTime = Date.now() + COOLDOWN_MS;
+                    localStorage.setItem(NEXT_ATTEMPT_KEY + '_visitor', nextTime);
+                    startTimer(nextTime); 
+                }
+            } else { if (attemptsLeft === 0) startTimer(Date.now() + COOLDOWN_MS); }
+
+            let score = 0;
+            currentQuestions.forEach((q, i) => {
+                const sel = document.querySelector(`input[name="q${i}"]:checked`);
+                const fb = document.getElementById(`feedback-${i}`);
+                const acts = document.getElementById(`actions-${i}`);
+                if(sel && sel.value === q.c) { score++; fb.innerHTML = '✔ إجابة صحيحة'; fb.className = 'block bg-green-50 text-green-700 p-3 rounded-lg mt-2 font-bold border border-green-100'; } 
+                else { fb.innerHTML = '❌ إجابة خاطئة'; fb.className = 'block bg-red-50 text-red-700 p-3 rounded-lg mt-2 font-bold border border-red-100'; }
+                acts.classList.remove('hidden');
+                document.querySelectorAll(`input[name="q${i}"]`).forEach(inp => inp.disabled = true);
+            });
+            
+            saveScoreToBackend(LESSON_KEY, score * 2);
+            document.getElementById('quiz-results').classList.remove('hidden');
+            document.getElementById('quiz-score').textContent = `${convertToArabic(score * 2)} / ١٠`;
+            updateAttemptsUI();
+        }
+
+        function resetQuizView() {
+            document.getElementById('quiz-results').classList.add('hidden');
+            generateQuiz(); 
+            document.getElementById('tab-quiz').scrollIntoView({behavior: 'smooth'});
+            const sId = urlParams.get('studentId');
+            if(sId && sId !== 'visitor') fetchStudentData();
+            else updateAttemptsUI();
+        }
+
+        // --- PLATINUM LOGIC REVISED (Not Played Handling) ---
+        function getParam(key) {
+            const val = urlParams.get(key);
+            return (val !== null && val.trim() !== '') ? val : null;
+        }
+
+        function renderDynamicGames() {
+            const container = document.getElementById('dynamic-games-container');
+            if (!container) return;
+            container.innerHTML = '';
+            
+            const match = LESSON_KEY.match(/c(\d+)_l(\d+)/);
+            if (!match) return; 
+            const ch = match[1]; 
+            const ls = match[2]; 
+            
+            const gamesDefaults = [
+                { suffix: '1', defaultTitle: '{اسم اللعبة 1}', icon: 'fa-gamepad', defaultMax: 5 },
+                { suffix: '2', defaultTitle: '{اسم اللعبة 2}', icon: 'fa-trophy', defaultMax: 5 }
+            ];
+
+            const sId = urlParams.get('studentId') || '';
+            const cId = urlParams.get('classId') || '';
+            
+            gamesDefaults.forEach((gDef, idx) => {
+                const i = idx + 1; 
+                const gameId = `g${ch}_${ls}_${gDef.suffix}`; 
+                
+                // Get Title ONLY from URL (Ignore Score from URL as per user request)
+                const title = getParam(`g${i}_title`) || getParam(`${gameId}_title`) || gDef.defaultTitle;
+                const max = parseInt(getParam(`g${i}_max`)) || gDef.defaultMax;
+                
+                // IDs for async update
+                const cardId = `game-card-${i}`;
+                const statusId = `game-status-${i}`;
+                const iconId = `game-icon-${i}`;
+                
+                const gameUrl = `https://ablan-math.github.io/games/${gameId}.html?studentId=${sId}&classId=${cId}`;
+                
+                // Default: Unplayed state (Theme Color)
+                let iconHtml = `<div id="${iconId}" class="w-10 h-10 rounded-full flex items-center justify-center transition-colors" style="background-color: ${currentTheme.hex}15; color: ${currentTheme.hex}"><i class="fas ${gDef.icon}"></i></div>`;
+                let statusText = "اضغط للبدء";
+
+                container.innerHTML += `
+                <div id="${cardId}" class="p-4 border rounded-xl flex items-center gap-3 cursor-pointer hover:shadow-md transition bg-white border-gray-200" 
+                     onclick="openGameModal('${gameUrl}', '${title}')">
+                    ${iconHtml}
+                    <div class="flex flex-col">
+                        <span class="font-bold text-gray-800 text-sm">${title}</span>
+                        <span id="${statusId}" class="text-[10px] font-bold opacity-70">${statusText}</span>
+                    </div>
+                </div>`;
+            });
+            document.getElementById('games-wrapper').classList.remove('hidden');
+            
+            // Trigger Sync
+            if(sId && sId !== 'visitor') {
+                syncGamesWithData();
+            }
+        }
+
+        function syncGamesWithData() {
+            if (!studentData || !studentData.data) return;
+
+            // Extract relevant game IDs based on Lesson Key
+            const match = LESSON_KEY.match(/c(\d+)_l(\d+)/);
+            if (!match) return;
+            const ch = match[1];
+            const ls = match[2];
+            const gameIds = [`g${ch}_${ls}_1`, `g${ch}_${ls}_2`];
+            const maxScores = [5, 5]; // Default max
+
+            gameIds.forEach((gameId, idx) => {
+                const i = idx + 1;
+                const cardId = `game-card-${i}`;
+                const statusId = `game-status-${i}`;
+                const iconId = `game-icon-${i}`;
+
+                // Search priority: games -> lessons -> root
+                let data = null;
+                if (studentData.data.games && studentData.data.games[gameId]) {
+                    data = studentData.data.games[gameId];
+                } else if (studentData.data.lessons && studentData.data.lessons[gameId]) {
+                    data = studentData.data.lessons[gameId];
+                } else if (studentData.data[gameId]) {
+                    data = studentData.data[gameId];
+                }
+
+                // If data exists, update. If not, it stays default (Unplayed).
+                if (data && data.grade !== undefined && data.grade !== null) {
+                    const score = parseFloat(data.grade);
+                    updateGameCard(score, maxScores[idx], cardId, statusId, iconId);
+                } else {
+                    // Explicitly reset to default if data is missing or null
+                    updateGameCard(null, maxScores[idx], cardId, statusId, iconId);
+                }
+            });
+        }
+
+        function updateGameCard(score, max, cardId, statusId, iconId) {
+            const card = document.getElementById(cardId);
+            const status = document.getElementById(statusId);
+            const iconContainer = document.getElementById(iconId);
+            
+            if(!card || !status) return;
+
+            // Reset base classes first
+            card.className = "p-4 border rounded-xl flex items-center gap-3 cursor-pointer hover:shadow-md transition bg-white border-gray-200";
+            
+            let iconHtml = '';
+            let statusText = '';
+            let iconClass = '';
+
+            // [LOGIC UPDATE V16.3] Handle "Not Played" (null) vs "Played but 0"
+            if (score === null) {
+                // Case: Not Played Yet -> Reset to Default
+                // [VISUAL FIX] Force unified icon 'fa-gamepad' for unplayed state
+                const defIcon = 'fa-gamepad';
+                
+                iconHtml = `<i class="fas ${defIcon}"></i>`;
+                statusText = "اضغط للبدء";
+                // Theme color styling
+                iconContainer.style.backgroundColor = `${currentTheme.hex}15`;
+                iconContainer.style.color = currentTheme.hex;
+                iconClass = "w-10 h-10 rounded-full flex items-center justify-center transition-colors";
+                
+                // Ensure container styles are applied
+                iconContainer.innerHTML = iconHtml;
+                iconContainer.className = iconClass;
+                return; // Exit early for unplayed state
+                
+            } else if (score >= max) {
+                // Full Mark -> Gold
+                card.className = "p-4 border rounded-xl flex items-center gap-3 cursor-pointer hover:shadow-md transition result-card-trophy";
+                iconHtml = `<i class="fas fa-trophy"></i>`;
+                statusText = `أحسنت! (${score}/${max})`;
+                iconClass = "w-10 h-10 rounded-full bg-yellow-100 text-yellow-600 flex items-center justify-center";
+                iconContainer.style = "";
+            } else if (score >= max / 2) {
+                // Half or more -> Yellow
+                card.className = "p-4 border rounded-xl flex items-center gap-3 cursor-pointer hover:shadow-md transition result-card-star";
+                iconHtml = `<i class="fas fa-star"></i>`;
+                statusText = `جيد جداً (${score}/${max})`;
+                iconClass = "w-10 h-10 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center";
+                iconContainer.style = "";
+            } else {
+                // Less than half (Played) -> Red
+                card.className = "p-4 border rounded-xl flex items-center gap-3 cursor-pointer hover:shadow-md transition result-card-retry";
+                iconHtml = `<i class="fas fa-redo"></i>`;
+                statusText = `حاول مرة أخرى (${score}/${max})`;
+                iconClass = "w-10 h-10 rounded-full bg-red-100 text-red-600 flex items-center justify-center";
+                iconContainer.style = "";
+            }
+            
+            status.textContent = statusText;
+            iconContainer.innerHTML = iconHtml;
+            iconContainer.className = iconClass;
+        }
+
+        function showExplain(i) { document.getElementById('modal-content').innerHTML = currentQuestions[i].e; document.getElementById('modal').classList.remove('hidden'); }
+        function showSmart(i) { document.getElementById('modal-content').innerHTML = `<p class="font-bold text-purple-700 mb-2">💡 الحل الذكي:</p>${currentQuestions[i].smart}`; document.getElementById('modal').classList.remove('hidden'); }
+        function closeModal() { document.getElementById('modal').classList.add('hidden'); }
+
+        window.onload = function() {
+            if(window.__lessonTitle) {
+               const titleEl = document.getElementById('lesson-title-text');
+               if(titleEl) titleEl.textContent = window.__lessonTitle;
+            }
+            const nav = document.getElementById('bottom-nav-container');
+            if(nav) {
+                tabs.forEach((t, i) => {
+                    nav.innerHTML += `<div class="nav-item ${i===0?'active':''}" id="nav-${t.id}" onclick="switchTab('${t.id}')"><i data-lucide="${t.icon}"></i><span>${t.label}</span></div>`;
+                });
+                lucide.createIcons();
+            }
+            initInteractive();
+            setupCustomObservers();
+            initAttempts();
+        };
+    </script>
+</body>
+</html>

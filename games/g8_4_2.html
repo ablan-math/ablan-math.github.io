@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>صائد الكنوز: خريطة المميز</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body { font-family: 'Cairo', sans-serif; overflow: hidden; touch-action: manipulation; direction: rtl; }
+        .compact-card {
+            width: 100%; max-width: 420px; background: white; border-radius: 2rem;
+            box-shadow: 0 15px 35px -5px rgba(0,0,0,0.1); border: 1px solid #f1f5f9;
+            display: flex; flex-direction: column; max-height: 85vh; overflow: hidden; position: relative;
+        }
+        .top-info-bar {
+            background: #fdf8f6; border-bottom: 1px solid #fed7aa; padding: 6px 16px;
+            display: flex; justify-content: space-between; align-items: center;
+            font-size: 11px; font-weight: 800; color: #9a3412;
+        }
+        .btn-touch { min-height: 45px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; border-radius: 1rem; font-weight: 800; cursor: pointer; }
+        .btn-touch:active { transform: scale(0.97); }
+        .btn-touch:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
+        
+        .leaderboard-modal { 
+            position: absolute; inset: 0; background: #ffffff; z-index: 100; 
+            display: flex; flex-direction: column; padding: 1.25rem; transition: all 0.3s; 
+        }
+        .hidden-modal { opacity: 0; pointer-events: none; transform: scale(0.95); display: none; }
+        .visible-modal { opacity: 1; pointer-events: auto; transform: scale(1); display: flex; }
+        
+        .tab-btn { flex: 1; padding: 8px; font-size: 11px; font-weight: bold; border-radius: 8px; transition: 0.3s; border: 1px solid transparent; cursor: pointer; }
+        .tab-active { background-color: #d97706; color: white; box-shadow: 0 2px 10px rgba(217, 119, 6, 0.4); }
+        .tab-inactive { background-color: #fffbeb; color: #b45309; border-color: #fde68a; }
+        
+        .rank-row-me { background-color: #fff7ed !important; border-right: 4px solid #ea580c !important; }
+        .sync-loader { font-size: 10px; animation: spin 1s linear infinite; display: inline-block; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        .leaderboard-name { color: #431407; font-weight: 800; font-size: 11px; }
+        .leaderboard-rank { font-weight: 900; }
+
+        /* حركات اللعبة */
+        .pop { animation: pop 0.3s ease-out forwards; }
+        @keyframes pop { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+        .shake { animation: shake 0.4s ease-in-out; }
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+
+        /* نمط المعادلة */
+        .eq-display { font-family: Arial, sans-serif; display: inline-block; }
+
+        /* تصميم الخريطة الاحترافي */
+        .treasure-map {
+            position: relative; width: 100%; height: 320px;
+            background: #fef3c7; background-image: radial-gradient(#fde68a 1px, transparent 1px); background-size: 20px 20px;
+            border-radius: 1.5rem; border: 3px dashed #d97706; overflow: hidden;
+            box-shadow: inset 0 0 40px rgba(180, 83, 9, 0.2);
+        }
+        
+        /* تضاريس الخريطة (الجبال، الأشجار، المياه) */
+        .map-terrain { position: absolute; pointer-events: none; z-index: 1; }
+        
+        .map-node {
+            position: absolute; width: 34px; height: 34px; border-radius: 50%;
+            background: white; border: 4px solid #b45309;
+            transform: translate(50%, -50%); /* لضبط المركز في العربي */
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 900; color: #b45309; font-size: 14px; z-index: 10;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .map-node.active-node { border-color: #f59e0b; background: #fffbeb; box-shadow: 0 0 20px #fbbf24; transform: translate(50%, -50%) scale(1.1); transition: 0.3s; }
+        .map-node.completed-node { background: #b45309; color: white; border-color: #78350f; }
+        .final-node { border-color: #ea580c; border-width: 5px; }
+        
+        .map-path-svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 5; pointer-events: none; }
+        
+        .avatar-marker {
+            position: absolute; font-size: 38px; color: #ea580c;
+            transform: translate(50%, -85%); z-index: 20;
+            transition: all 1.8s cubic-bezier(0.4, 0, 0.2, 1);
+            filter: drop-shadow(0 4px 3px rgba(0,0,0,0.3));
+        }
+    </style>
+</head>
+<body class="bg-stone-100 text-stone-800 h-screen w-screen flex items-center justify-center p-3 text-right">
+
+    <div class="compact-card">
+        <!-- الشريط العلوي -->
+        <div class="top-info-bar">
+            <div class="flex items-center gap-2 overflow-hidden">
+                <i class="fas fa-user-ninja text-orange-500 text-lg"></i>
+                <span id="top-student-name" class="truncate font-black"></span>
+                <script>
+                    (function() {
+                        const p = new URLSearchParams(window.location.search);
+                        const raw = p.get('name') || p.get('studentName') || p.get('username') || p.get('user');
+                        const display = document.getElementById('top-student-name');
+                        display.textContent = raw ? decodeURIComponent(raw) : "المستكشف البطل";
+                    })();
+                </script>
+            </div>
+            <div class="flex items-center gap-2 bg-white px-2 py-0.5 rounded-full border border-orange-200 shadow-sm font-bold">
+                <span id="sync-icon" class="hidden"><i class="fas fa-sync sync-loader text-orange-400"></i></span>
+                <i class="fas fa-gem text-amber-500 text-[10px]"></i>
+                <span id="top-prev-score">٠ / ٥</span>
+            </div>
+        </div>
+
+        <!-- الشاشة 1: البداية -->
+        <div id="start-screen" class="p-4 text-center flex flex-col gap-4 h-full justify-center bg-[#fdfaf6]">
+            <div class="mx-auto w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center border-4 border-amber-200 shadow-inner mb-2">
+                <i class="fas fa-map-marked-alt text-3xl text-amber-600"></i>
+            </div>
+            <h1 class="text-xl font-black text-amber-900 leading-tight">خريطة المميز<br><span class="text-base text-amber-600">البحث عن الكنز المفقود</span></h1>
+            
+            <div class="bg-white p-3 rounded-2xl border border-amber-200 shadow-sm text-[10px] font-bold text-stone-600 leading-relaxed text-center">
+                <p class="mb-2 text-stone-800">أمامك ٤ مواقع أثرية على الخريطة! في كل موقع ٣ مهام:</p>
+                <p class="text-amber-700 bg-amber-50 p-2 rounded-lg border border-amber-100 text-right space-y-1">
+                    <i class="fas fa-search text-amber-500 ml-1"></i> ١. استخراج قيم أ، ب، جـ<br>
+                    <i class="fas fa-pen text-amber-500 ml-1"></i> ٢. التعويض بالمميز<br>
+                    <i class="fas fa-gem text-amber-500 ml-1"></i> ٣. تحديد الناتج لتجمع ثروتك!
+                </p>
+            </div>
+            
+            <div class="flex flex-row gap-2 items-stretch mt-2">
+                <button onclick="startMapJourney()" class="btn-touch flex-[2.5] bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg shadow-orange-200 text-base border-b-4 border-orange-600">
+                    بدء الرحلة <i class="fas fa-compass mr-2"></i>
+                </button>
+                <button onclick="fetchAndShowLeaderboard(true)" class="btn-touch flex-1 bg-white text-amber-800 border border-amber-200 shadow-sm text-[10px] flex-col leading-tight py-1">
+                    <i class="fas fa-trophy text-amber-500 text-lg mb-1"></i>
+                    <span>سجل الخبراء</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- الشاشة 1.5: خريطة الرحلة -->
+        <div id="map-screen" class="hidden p-4 flex flex-col h-full bg-[#fdfaf6] justify-center items-center">
+            <h2 id="map-title" class="text-lg font-black text-amber-900 mb-4 tracking-wide"><i class="fas fa-map-marked-alt ml-2"></i>استعد للموقع...</h2>
+            
+            <div class="treasure-map" id="map-container">
+                <!-- تضاريس الخريطة للتجميل -->
+                <i class="fas fa-mountain map-terrain text-amber-800/10 text-6xl" style="right: 5%; top: 30%;"></i>
+                <i class="fas fa-mountain map-terrain text-amber-800/15 text-4xl" style="right: 15%; top: 40%;"></i>
+                <i class="fas fa-tree map-terrain text-emerald-700/20 text-3xl" style="right: 40%; top: 15%;"></i>
+                <i class="fas fa-tree map-terrain text-emerald-700/15 text-2xl" style="right: 35%; top: 22%;"></i>
+                <i class="fas fa-water map-terrain text-blue-500/20 text-5xl" style="right: 65%; top: 50%;"></i>
+                <i class="fas fa-tree map-terrain text-emerald-700/20 text-4xl" style="right: 80%; top: 10%;"></i>
+                <i class="fas fa-campground map-terrain text-stone-600/20 text-2xl" style="right: 50%; top: 80%;"></i>
+
+                <!-- مسار الخريطة (SVG) - تم ضبط الإحداثيات لتتطابق مع العقد بدقة -->
+                <svg class="map-path-svg" preserveAspectRatio="none" viewBox="0 0 100 100">
+                    <!-- 
+                        M: Start (Node 1) -> 85(X), 15(Y)
+                        C: Curve to Node 2 -> 55(X), 40(Y)
+                        C: Curve to Node 3 -> 25(X), 30(Y)
+                        C: Curve to Node 4 -> 15(X), 75(Y)
+                    -->
+                    <path d="M 85 15 C 75 40, 65 40, 55 40 C 45 40, 35 20, 25 30 C 15 40, 15 60, 15 75" fill="none" stroke="#b45309" stroke-width="2" stroke-dasharray="6 6" stroke-linecap="round"/>
+                </svg>
+                
+                <!-- المواقع (RTL: يتم احتساب اليمين، لذا x في SVG هو 100 - Right) -->
+                <!-- الموقع 1: يمين 15% (svg x: 85%) ، أعلى 15% -->
+                <div class="map-node" id="node-0" style="right: 15%; top: 15%;">١</div>
+                <!-- الموقع 2: يمين 45% (svg x: 55%) ، أعلى 40% -->
+                <div class="map-node" id="node-1" style="right: 45%; top: 40%;">٢</div>
+                <!-- الموقع 3: يمين 75% (svg x: 25%) ، أعلى 30% -->
+                <div class="map-node" id="node-2" style="right: 75%; top: 30%;">٣</div>
+                <!-- الموقع 4: الكنز (يمين 85% ، أعلى 75%) -->
+                <div class="map-node final-node" id="node-3" style="right: 85%; top: 75%;"><i class="fas fa-gem text-amber-500 drop-shadow-md"></i></div>
+                
+                <!-- الشخصية -->
+                <div class="avatar-marker" id="avatar" style="right: -10%; top: 0%; opacity: 0;"><i class="fas fa-user-ninja"></i></div>
+
+                <!-- زر الانطلاق المنبثق -->
+                <div id="map-start-overlay" class="absolute inset-0 bg-stone-900/30 backdrop-blur-[2px] flex items-center justify-center z-[100] transition-opacity duration-300 rounded-[1.5rem] hidden opacity-0">
+                    <button onclick="enterLocation()" class="btn-touch bg-amber-500 text-white px-8 py-3 text-2xl font-black shadow-2xl border-b-[5px] border-amber-600 rounded-full animate-bounce">
+                        انطلق! <i class="fas fa-running mr-2"></i>
+                    </button>
+                </div>
+            </div>
+            <p id="map-footer-text" class="text-[10px] text-stone-400 mt-4 font-bold">جاري التوجه للموقع...</p>
+        </div>
+
+        <!-- الشاشة 2: اللعبة -->
+        <div id="game-screen" class="hidden p-4 flex flex-col h-full bg-[#fdfaf6] relative">
+            <!-- العدادات -->
+            <div class="flex justify-between items-center mb-2 bg-white p-2 rounded-2xl border border-stone-200 shadow-sm">
+                <div class="flex items-center gap-2 font-black text-stone-600 text-[10px]">
+                    <i class="fas fa-map-pin text-red-500"></i>
+                    <span>موقع <span id="q-counter" class="text-stone-900">١ / ٤</span></span>
+                </div>
+                <!-- مؤشر المراحل -->
+                <div class="flex gap-1" id="stage-indicators">
+                    <div class="w-2 h-2 rounded-full bg-amber-500"></div>
+                    <div class="w-2 h-2 rounded-full bg-stone-200"></div>
+                    <div class="w-2 h-2 rounded-full bg-stone-200"></div>
+                </div>
+                <div class="flex items-center gap-1 font-black text-amber-600 text-[10px] bg-amber-50 px-2 py-1 rounded-lg border border-amber-100">
+                    <i class="fas fa-stopwatch"></i>
+                    <span id="timer-display">٠٠:٠٠</span>
+                </div>
+            </div>
+
+            <!-- منطقة المعادلة -->
+            <div class="flex-1 flex flex-col justify-center items-center mb-2">
+                <p id="stage-title" class="text-[9px] font-bold text-stone-500 mb-2 bg-stone-100 px-3 py-1 rounded-full text-center whitespace-nowrap"><i class="fas fa-microscope ml-1"></i> المرحلة ١: استخرج قيم أ، ب، جـ</p>
+                
+                <div id="equation-container" class="w-full bg-white border-2 border-stone-200 shadow-md rounded-2xl p-3 text-center transition-transform pop">
+                    <h2 id="equation-text" class="eq-display text-xl font-black text-stone-800 tracking-wider">
+                        <!-- تظهر المعادلة هنا -->
+                    </h2>
+                </div>
+
+                <!-- مساحة عرض خطوات المراحل السابقة -->
+                <div id="previous-steps-container" class="hidden w-full bg-amber-50/70 border border-amber-200 rounded-xl p-2 mt-2 text-center shadow-sm transition-all pop"></div>
+                
+                <div id="feedback-msg" class="h-6 mt-2 text-[10px] font-black text-center flex items-center justify-center opacity-0 transition-opacity">
+                    <!-- رسالة التغذية الراجعة -->
+                </div>
+            </div>
+
+            <!-- خيارات الإجابة -->
+            <div id="options-grid" class="grid grid-cols-3 gap-2 mt-auto pb-2">
+                <!-- تعبأ ديناميكياً -->
+            </div>
+        </div>
+
+        <!-- إطار الموقع المصغر (بين كل موقع وآخر) -->
+        <div id="location-result-modal" class="fixed inset-0 bg-stone-900/80 z-[150] flex items-center justify-center hidden opacity-0 transition-opacity duration-300" dir="rtl">
+            <div class="bg-white rounded-3xl p-5 m-4 max-w-xs w-full text-center shadow-2xl transform scale-95 transition-transform duration-300" id="loc-modal-content">
+                <div class="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-3 text-3xl border-4 border-amber-200" id="loc-icon">
+                    <i class="fas fa-check"></i>
+                </div>
+                <h3 class="text-xl font-black text-stone-800 mb-1" id="loc-title">تم استكشاف الموقع!</h3>
+                <p class="text-stone-500 text-xs mb-4 font-bold" id="loc-desc">لقد قمت بحل اللغز بنجاح وحصلت على الثروة.</p>
+                
+                <div class="flex justify-center gap-2 mb-5" id="loc-stars">
+                    <!-- النجوم تُضاف هنا -->
+                </div>
+
+                <button onclick="closeLocModalAndProceed()" class="btn-touch w-full bg-stone-800 text-white shadow-md border-b-4 border-stone-900 text-sm">
+                    التقدم للخريطة <i class="fas fa-map-marked-alt mr-2"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- الشاشة 3: النتائج النهائية -->
+        <div id="result-screen" class="hidden p-4 flex flex-col h-full overflow-hidden text-center justify-center bg-[#fdfaf6]">
+            <!-- العنوان مضغوط أفقياً -->
+            <div class="mb-3 flex items-center justify-center gap-2">
+                <div class="inline-flex items-center justify-center w-12 h-12 bg-amber-100 rounded-full border-2 border-amber-200">
+                    <i class="fas fa-gem text-xl text-amber-600"></i>
+                </div>
+                <h2 class="text-xl font-black text-stone-800">الثروة المكتشفة</h2>
+            </div>
+
+            <div id="final-stats" class="grid grid-cols-3 gap-2 mb-3">
+                <!-- تعبأ ديناميكياً -->
+            </div>
+            
+            <!-- رسالة الحفظ مضغوطة أفقياً -->
+            <div class="bg-green-50 px-3 py-2 rounded-xl border border-green-200 mb-4 shadow-sm flex items-center justify-center gap-2">
+                <i class="fas fa-check-double text-green-600 text-xl"></i>
+                <p id="save-msg" class="font-black text-green-800 text-xs">تم حفظ ثروتك في سجل الخبراء!</p>
+            </div>
+
+            <button onclick="fetchAndShowLeaderboard(true)" class="btn-touch w-full bg-amber-500 text-white mb-3 shadow-md border-b-4 border-amber-600 text-sm min-h-[40px]">
+                <i class="fas fa-list-ol ml-2"></i> سجل أبطال الاستكشاف
+            </button>
+            
+            <div class="mt-auto flex gap-2">
+                <button onclick="location.reload()" class="btn-touch flex-1 bg-white text-stone-600 border border-stone-200 text-sm font-bold min-h-[40px]">إعادة التحدي</button>
+                <button id="finish-btn" class="btn-touch flex-[2] bg-stone-800 text-white text-sm font-bold border-b-4 border-stone-900 min-h-[40px]">إنهاء وتسليم</button>
+            </div>
+        </div>
+
+        <!-- إطار منبثق تعليمي (يظهر عند الخطأ في المرحلة الثانية) -->
+        <div id="hint-modal" class="fixed inset-0 bg-stone-900/70 z-[160] flex items-center justify-center hidden opacity-0 transition-opacity duration-300" dir="rtl">
+            <div class="bg-white rounded-2xl p-5 m-4 max-w-xs w-full text-center shadow-2xl transform scale-95 transition-transform duration-300" id="hint-modal-content">
+                <div class="w-16 h-16 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center mx-auto mb-3 text-3xl border-4 border-blue-100">
+                    <i class="fas fa-lightbulb"></i>
+                </div>
+                <h3 class="text-lg font-black text-stone-800 mb-1">تلميح تعليمي</h3>
+                <p class="text-stone-500 text-xs mb-4 font-bold">لتعويض الأرقام بشكل صحيح، تذكر أن قانون المميز هو:</p>
+                <div class="bg-amber-50 border-2 border-amber-200 rounded-xl p-3 mb-5 inline-block w-full shadow-inner">
+                    <span class="text-2xl font-black text-amber-800 font-sans tracking-widest" dir="ltr">ب² - ٤أجـ</span>
+                </div>
+                <button onclick="closeHintModal()" class="btn-touch w-full bg-blue-500 text-white shadow-md border-b-4 border-blue-600 text-sm">
+                    حسناً، تذكرت! <i class="fas fa-check-circle mr-1"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- سجل الأبطال (مودال) -->
+        <div id="leaderboard-modal" class="leaderboard-modal hidden-modal" dir="rtl">
+            <div class="flex justify-between items-center mb-4 border-b border-stone-100 pb-3">
+                <h3 class="font-black text-stone-800 text-lg"><i class="fas fa-trophy text-amber-500 ml-2"></i>سجل الخبراء</h3>
+                <button onclick="closeLeaderboardModal()" class="w-9 h-9 rounded-full bg-stone-100 text-stone-500 flex items-center justify-center transition-all hover:bg-red-50 hover:text-red-500"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="flex gap-2 mb-4">
+                <button onclick="switchTab('class')" id="tab-class" class="tab-btn tab-inactive">خبراء فصلي</button>
+                <button onclick="switchTab('global')" id="tab-global" class="tab-btn tab-active">جميع الخبراء</button>
+            </div>
+            <div id="modal-body" class="flex-1 overflow-y-auto bg-stone-50 rounded-2xl border border-stone-100 p-1 relative">
+                <div id="modal-loader" class="absolute inset-0 flex items-center justify-center hidden bg-white/80 z-10"><div class="sync-loader text-amber-500 text-3xl"><i class="fas fa-sync"></i></div></div>
+                <div id="leaderboard-content" class="space-y-1"></div>
+            </div>
+            <p class="text-center text-[9px] text-stone-400 mt-2 font-mono italic">الترتيب حسب دقة الحساب ثم سرعة الاستكشاف</p>
+        </div>
+    </div>
+
+    <script>
+    (function() {
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxqAQlGhNs8k5RwHs6jrWxDiDwaMABSx8a9Fl81O5oVVa5fHRWTwIEvsGy2cSDP4zGLWQ/exec";
+        const urlParams = new URLSearchParams(window.location.search);
+        const GAME_ID = urlParams.get('gameId') || 'g8_4_2'; 
+        const studentId = urlParams.get('studentId') || urlParams.get('userId');
+        const classId = urlParams.get('classId');
+        
+        let studentName = decodeURIComponent(urlParams.get('name') || urlParams.get('studentName') || urlParams.get('username') || "المستكشف البطل");
+        let currentLeaderboardMode = classId ? 'class' : 'global';
+        let localVisitorResult = null;
+
+        const toAr = (n) => String(n).replace(/\d/g, d => "٠١٢٣٤٥٦٧٨٩"[d]);
+
+        const formatNum = (num) => num < 0 ? `&rlm;-${toAr(Math.abs(num))}` : toAr(num);
+        const formatB_squared = (num) => num < 0 ? `(&rlm;-${toAr(Math.abs(num))})<sup class="text-stone-500 font-bold">٢</sup>` : `${toAr(num)}<sup class="text-stone-500 font-bold">٢</sup>`;
+        const formatAC = (num) => num < 0 ? `(&rlm;-${toAr(Math.abs(num))})` : toAr(num);
+
+        // بنك الأسئلة الشامل (12 سؤال)
+        const allQuestionsDB = [
+            // 4 أسئلة: لا يوجد حل (سالب) | ans: 0
+            { eq: "س² + ٢س + ٥ = ٠", a: 1, b: 2, c: 5, ans: 0 }, 
+            { eq: "٣س² + س + ٢ = ٠", a: 3, b: 1, c: 2, ans: 0 },
+            { eq: "٢س² + ٣س + ٤ = ٠", a: 2, b: 3, c: 4, ans: 0 },
+            { eq: "س² - ٢س + ٦ = ٠", a: 1, b: -2, c: 6, ans: 0 },
+
+            // 4 أسئلة: حل واحد (صفر) | ans: 1
+            { eq: "س² + ١٠س + ٢٥ = ٠", a: 1, b: 10, c: 25, ans: 1 }, 
+            { eq: "&rlm;-س² + ٦س - ٩ = ٠", a: -1, b: 6, c: -9, ans: 1 },
+            { eq: "س² - ٨س + ١٦ = ٠", a: 1, b: -8, c: 16, ans: 1 },
+            { eq: "٤س² - ١٢س + ٩ = ٠", a: 4, b: -12, c: 9, ans: 1 },
+
+            // 4 أسئلة: حلان (موجب) | ans: 2
+            { eq: "س² + ٥س + ٦ = ٠", a: 1, b: 5, c: 6, ans: 2 },
+            { eq: "٢س² - ٧س + ٢ = ٠", a: 2, b: -7, c: 2, ans: 2 },
+            { eq: "س² - ٤س + ٣ = ٠", a: 1, b: -4, c: 3, ans: 2 },
+            { eq: "٣س² + ٨س + ٤ = ٠", a: 3, b: 8, c: 4, ans: 2 }
+        ];
+
+        // المتغيرات للرحلة
+        const totalQuestions = 4; // 4 مواقع أثرية
+        let gameQuestions = [];
+        let currentQIndex = 0;
+        let currentStage = 1; 
+        let currentStageAttempts = 0; 
+        let totalScore = 0; // النقاط الكلية (12 نقطة)
+        let currentLocationScore = 0; // النقاط للموقع الحالي
+        let timeElapsed = 0;
+        let timerInterval = null;
+        let isProcessing = false;
+
+        // الإحداثيات المحدثة لترتيب منطقي (تبدأ من أعلى اليمين وتنزل لأسفل اليسار)
+        const mapCoords = [
+            { right: '15%', top: '15%' }, // الموقع 1 (أعلى اليمين)
+            { right: '45%', top: '40%' }, // الموقع 2 (الوسط)
+            { right: '75%', top: '30%' }, // الموقع 3 (يسار قليلاً للأعلى)
+            { right: '85%', top: '75%' }  // الموقع 4 الكنز (أسفل اليسار)
+        ];
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('top-student-name').textContent = studentName;
+            if (!classId) {
+                document.getElementById('tab-class').style.display = 'none';
+                currentLeaderboardMode = 'global';
+            } else {
+                document.getElementById('tab-class').className = 'tab-btn tab-active';
+                document.getElementById('tab-global').className = 'tab-btn tab-inactive';
+            }
+            if (studentId && classId) {
+                document.getElementById('sync-icon').classList.remove('hidden');
+                fetchInitialCloudData();
+            } else if (!urlParams.get('name')) {
+                studentName = "زائر مستكشف";
+                document.getElementById('top-student-name').textContent = studentName;
+            }
+            document.getElementById('finish-btn').onclick = () => window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*');
+        });
+
+        function shuffle(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        // توليد سيناريو الأسئلة
+        function generateScenario() {
+            let q0 = shuffle(allQuestionsDB.filter(q => q.ans === 0));
+            let q1 = shuffle(allQuestionsDB.filter(q => q.ans === 1));
+            let q2 = shuffle(allQuestionsDB.filter(q => q.ans === 2));
+            
+            let firstThree = [q0.pop(), q1.pop(), q2.pop()];
+            shuffle(firstThree); // خلط الترتيب للمواقع الثلاثة الأولى
+            
+            let remaining = [...q0, ...q1, ...q2];
+            shuffle(remaining);
+            
+            return [...firstThree, remaining.pop()]; 
+        }
+
+        function formatTime(sec) {
+            let m = Math.floor(sec / 60); let s = sec % 60;
+            return toAr((m < 10 ? "0" + m : m) + ":" + (s < 10 ? "0" + s : s));
+        }
+
+        window.startMapJourney = () => {
+            document.getElementById('start-screen').classList.add('hidden');
+            gameQuestions = generateScenario();
+            currentQIndex = 0; totalScore = 0; timeElapsed = 0;
+            
+            document.getElementById('timer-display').textContent = formatTime(0);
+
+            showMapScreen();
+        };
+
+        function showMapScreen() {
+            document.getElementById('game-screen').classList.add('hidden');
+            document.getElementById('map-screen').classList.remove('hidden');
+            
+            // إخفاء زر الانطلاق في البداية حتى تصل الشخصية
+            document.getElementById('map-start-overlay').classList.add('hidden', 'opacity-0');
+            document.getElementById('map-footer-text').textContent = "جاري التوجه للموقع...";
+            document.getElementById('map-footer-text').classList.add('animate-pulse');
+
+            // تحديث حالة العقد
+            for (let i = 0; i < totalQuestions; i++) {
+                const node = document.getElementById(`node-${i}`);
+                if (i < currentQIndex) { node.classList.add('completed-node'); node.classList.remove('active-node'); }
+                else if (i === currentQIndex) { node.classList.add('active-node'); node.classList.remove('completed-node'); }
+                else { node.classList.remove('active-node', 'completed-node'); }
+            }
+
+            // تجهيز الشخصية ووضعها في مكانها السابق
+            const avatar = document.getElementById('avatar');
+            avatar.style.opacity = '1';
+            
+            if (currentQIndex === 0) {
+                avatar.style.right = '-10%';
+                avatar.style.top = '0%';
+            } else {
+                avatar.style.right = mapCoords[currentQIndex - 1].right;
+                avatar.style.top = mapCoords[currentQIndex - 1].top;
+            }
+
+            let titleTxt = currentQIndex === 3 ? "الاقتراب من الكنز الأكبر..." : `التوجه للموقع ${toAr(currentQIndex + 1)}...`;
+            document.getElementById('map-title').innerHTML = `<i class="fas fa-walking ml-2"></i>${titleTxt}`;
+
+            // تحريك الشخصية آلياً للهدف الجديد
+            setTimeout(() => {
+                avatar.style.right = mapCoords[currentQIndex].right;
+                avatar.style.top = mapCoords[currentQIndex].top;
+            }, 100);
+
+            // إظهار زر الانطلاق فقط بعد وصول الشخصية لموقعها (تأخير 1.9 ثانية)
+            setTimeout(() => {
+                let readyTxt = currentQIndex === 3 ? "الكنز أمامك!" : "أنت في الموقع الآن";
+                document.getElementById('map-title').innerHTML = `<i class="fas fa-map-marked-alt ml-2"></i>${readyTxt}`;
+                document.getElementById('map-footer-text').textContent = "اضغط على انطلق للبدء بحل اللغز";
+                document.getElementById('map-footer-text').classList.remove('animate-pulse');
+                
+                document.getElementById('map-start-overlay').classList.remove('hidden');
+                setTimeout(() => document.getElementById('map-start-overlay').classList.remove('opacity-0'), 50);
+            }, 1900);
+        }
+
+        window.enterLocation = () => {
+            // إخفاء زر الانطلاق بنعومة
+            document.getElementById('map-start-overlay').classList.add('opacity-0');
+            setTimeout(() => {
+                document.getElementById('map-start-overlay').classList.add('hidden');
+                document.getElementById('map-screen').classList.add('hidden');
+                document.getElementById('game-screen').classList.remove('hidden');
+                loadQuestion();
+            }, 300);
+
+            // تشغيل العداد فقط في بداية الرحلة عند ضغط الزر لأول مرة
+            if (currentQIndex === 0 && timeElapsed === 0) {
+                timerInterval = setInterval(() => {
+                    timeElapsed++;
+                    document.getElementById('timer-display').textContent = formatTime(timeElapsed);
+                }, 1000);
+            }
+        };
+
+        function loadQuestion() {
+            isProcessing = false;
+            currentStage = 1; 
+            currentLocationScore = 0; 
+            
+            document.getElementById('q-counter').textContent = toAr(currentQIndex + 1) + " / " + toAr(totalQuestions);
+            document.getElementById('feedback-msg').style.opacity = '0';
+            document.getElementById('previous-steps-container').classList.add('hidden');
+            
+            const eqContainer = document.getElementById('equation-container');
+            eqContainer.classList.remove('pop');
+            void eqContainer.offsetWidth; 
+            eqContainer.classList.add('pop');
+            
+            document.getElementById('equation-text').innerHTML = gameQuestions[currentQIndex].eq;
+            
+            renderStage();
+        }
+
+        function renderStage() {
+            const q = gameQuestions[currentQIndex];
+            const grid = document.getElementById('options-grid');
+            const stageTitle = document.getElementById('stage-title');
+            const prevSteps = document.getElementById('previous-steps-container'); 
+            
+            currentStageAttempts = 0; 
+
+            const indicators = document.getElementById('stage-indicators').children;
+            for(let i=0; i<3; i++) {
+                indicators[i].className = i < currentStage ? "w-2 h-2 rounded-full bg-amber-500" : "w-2 h-2 rounded-full bg-stone-200";
+            }
+
+            let options = [];
+
+            if(currentStage === 1) {
+                stageTitle.innerHTML = '<i class="fas fa-search ml-1"></i> المرحلة ١: استخرج قيم أ، ب، جـ';
+                prevSteps.classList.add('hidden'); 
+                
+                let wrong1_a = q.a, wrong1_b = q.c, wrong1_c = q.b;
+                let wrong2_a = -q.a || 1, wrong2_b = q.b, wrong2_c = -q.c || -1;
+                
+                const createAnsHTML = (a, b, c) => `
+                    <div class="flex justify-center items-center gap-3 w-full font-bold text-[12px]" dir="rtl">
+                        <div class="flex items-center gap-1"><span class="text-amber-600">أ=</span><span>${formatNum(a)}</span></div>
+                        <div class="flex items-center gap-1"><span class="text-amber-600">ب=</span><span>${formatNum(b)}</span></div>
+                        <div class="flex items-center gap-1"><span class="text-amber-600">جـ=</span><span>${formatNum(c)}</span></div>
+                    </div>`;
+
+                options = shuffle([
+                    { text: createAnsHTML(q.a, q.b, q.c), isCorrect: true },
+                    { text: createAnsHTML(wrong1_a, wrong1_b, wrong1_c), isCorrect: false },
+                    { text: createAnsHTML(wrong2_a, wrong2_b, wrong2_c), isCorrect: false }
+                ]);
+            } else if(currentStage === 2) {
+                stageTitle.innerHTML = '<i class="fas fa-pen ml-1"></i> المرحلة ٢: التعويض بالمميز';
+                
+                prevSteps.classList.remove('hidden');
+                prevSteps.innerHTML = `
+                    <div class="flex justify-center items-center gap-4 w-full font-bold text-[11px]" dir="rtl">
+                        <div class="flex items-center gap-1"><span class="text-stone-500">أ=</span><span class="text-amber-800">${formatNum(q.a)}</span></div>
+                        <div class="flex items-center gap-1"><span class="text-stone-500">ب=</span><span class="text-amber-800">${formatNum(q.b)}</span></div>
+                        <div class="flex items-center gap-1"><span class="text-stone-500">جـ=</span><span class="text-amber-800">${formatNum(q.c)}</span></div>
+                    </div>
+                `;
+                
+                const createEqHTML = (vB, vA, vC) => `
+                    <div class="flex flex-wrap items-center justify-center gap-1 font-bold text-[14px] font-sans" dir="rtl">
+                        <span>${formatB_squared(vB)}</span>
+                        <span class="text-stone-500">&rlm;-</span>
+                        <span class="text-stone-500">٤</span>
+                        <span class="text-stone-500">×</span>
+                        <span>${formatAC(vA)}</span>
+                        <span class="text-stone-500">×</span>
+                        <span>${formatAC(vC)}</span>
+                    </div>`;
+
+                options = shuffle([
+                    { text: createEqHTML(q.b, q.a, q.c), isCorrect: true },
+                    { text: createEqHTML(q.a, q.b, q.c), isCorrect: false },
+                    { text: createEqHTML(q.c, q.a, q.b), isCorrect: false }
+                ]);
+            } else if(currentStage === 3) {
+                stageTitle.innerHTML = '<i class="fas fa-check-square ml-1"></i> المرحلة ٣: نتيجة المميز وعدد الحلول';
+                
+                prevSteps.classList.remove('hidden');
+                prevSteps.innerHTML = `
+                    <div class="flex justify-center items-center gap-4 w-full font-bold text-[10px] border-b border-amber-200/60 pb-1 mb-1" dir="rtl">
+                        <div class="flex items-center gap-1"><span class="text-stone-500">أ=</span><span class="text-amber-800">${formatNum(q.a)}</span></div>
+                        <div class="flex items-center gap-1"><span class="text-stone-500">ب=</span><span class="text-amber-800">${formatNum(q.b)}</span></div>
+                        <div class="flex items-center gap-1"><span class="text-stone-500">جـ=</span><span class="text-amber-800">${formatNum(q.c)}</span></div>
+                    </div>
+                    <div class="flex flex-wrap items-center justify-center gap-1 font-bold text-[12px] font-sans" dir="rtl">
+                        <span>${formatB_squared(q.b)}</span>
+                        <span class="text-stone-500">&rlm;-</span>
+                        <span class="text-stone-500">٤</span>
+                        <span class="text-stone-500">×</span>
+                        <span>${formatAC(q.a)}</span>
+                        <span class="text-stone-500">×</span>
+                        <span>${formatAC(q.c)}</span>
+                    </div>
+                `;
+
+                options = [
+                    { text: `<span class="font-black text-[11px]">موجب</span><br><span class="text-[8px] text-stone-500">(حلان)</span>`, isCorrect: q.ans === 2, icon: '<i class="fas fa-gem text-amber-500 mb-1"></i>' },
+                    { text: `<span class="font-black text-[11px]">صفر</span><br><span class="text-[8px] text-stone-500">(حل واحد)</span>`, isCorrect: q.ans === 1, icon: '<i class="fas fa-star text-amber-500 mb-1"></i>' },
+                    { text: `<span class="font-black text-[11px]">سالب</span><br><span class="text-[8px] text-stone-500">(لا يوجد)</span>`, isCorrect: q.ans === 0, icon: '<i class="fas fa-times-circle text-stone-400 mb-1"></i>' }
+                ];
+            }
+
+            grid.innerHTML = options.map((opt) => `
+                <button onclick="checkStageAns(${opt.isCorrect}, this)" class="option-btn btn-touch bg-white text-stone-700 border-2 border-stone-200 hover:border-amber-400 hover:bg-amber-50 flex flex-col justify-center items-center p-1 leading-tight">
+                    ${opt.icon ? opt.icon : ''}
+                    ${opt.text}
+                </button>
+            `).join('');
+        }
+
+        window.checkStageAns = (isCorrect, btnElement) => {
+            if (isProcessing) return;
+            
+            const btns = document.querySelectorAll('.option-btn');
+            const msgBox = document.getElementById('feedback-msg');
+            
+            if (isCorrect) {
+                isProcessing = true;
+                btns.forEach(b => b.disabled = true);
+                
+                let earnedPoints = currentStageAttempts === 0 ? 1 : 0.5;
+                currentLocationScore += earnedPoints; 
+                totalScore += earnedPoints;
+                
+                btnElement.classList.replace('bg-white', 'bg-green-500');
+                btnElement.classList.replace('text-stone-700', 'text-white');
+                btnElement.classList.replace('border-stone-200', 'border-green-600');
+                btnElement.classList.replace('hover:bg-amber-50', 'hover:bg-green-600'); 
+                
+                const innerSpans = btnElement.querySelectorAll('.text-amber-600, .text-stone-500, .text-stone-400');
+                innerSpans.forEach(s => { s.classList.remove('text-amber-600','text-stone-500','text-stone-400'); s.classList.add('text-green-100'); });
+
+                let successMsg = earnedPoints === 1 ? 'خطوة صحيحة! (+١)' : 'أحسنت! (+٠.٥)';
+                msgBox.innerHTML = `<span class="text-green-600"><i class="fas fa-check-circle mr-1"></i> ${successMsg}</span>`;
+                msgBox.style.opacity = '1';
+                
+                setTimeout(() => advanceStage(), 1000);
+            } else {
+                currentStageAttempts++;
+                
+                document.getElementById('equation-container').classList.add('shake');
+                setTimeout(() => document.getElementById('equation-container').classList.remove('shake'), 400);
+                
+                btnElement.classList.replace('bg-white', 'bg-red-500');
+                btnElement.classList.replace('text-stone-700', 'text-white');
+                btnElement.classList.replace('border-stone-200', 'border-red-600');
+                btnElement.classList.replace('hover:bg-amber-50', 'hover:bg-red-600');
+                btnElement.disabled = true;
+                
+                const innerSpans = btnElement.querySelectorAll('.text-amber-600, .text-stone-500, .text-stone-400');
+                innerSpans.forEach(s => { s.classList.remove('text-amber-600','text-stone-500','text-stone-400'); s.classList.add('text-red-100'); });
+
+                if (currentStageAttempts === 1) {
+                    msgBox.innerHTML = '<span class="text-amber-600"><i class="fas fa-exclamation-triangle mr-1"></i> محاولة خاطئة! استخدم فرصتك الأخيرة.</span>';
+                    msgBox.style.opacity = '1';
+                    
+                    if (currentStage === 2) {
+                        setTimeout(() => showHintModal(), 400);
+                    }
+                } else {
+                    isProcessing = true;
+                    btns.forEach(b => b.disabled = true); 
+                    
+                    btns.forEach(b => {
+                        if (b.getAttribute('onclick').includes('true')) {
+                            b.classList.replace('bg-white', 'bg-green-100');
+                            b.classList.replace('border-stone-200', 'border-green-400');
+                        }
+                    });
+
+                    msgBox.innerHTML = '<span class="text-red-500"><i class="fas fa-times-circle mr-1"></i> خطأ! لاحظ الإجابة الصحيحة.</span>';
+                    msgBox.style.opacity = '1';
+                    
+                    setTimeout(() => advanceStage(), 1800); 
+                }
+            }
+        };
+
+        function advanceStage() {
+            if (currentStage < 3) {
+                currentStage++;
+                isProcessing = false;
+                renderStage();
+                document.getElementById('feedback-msg').style.opacity = '0';
+            } else {
+                showLocationResult();
+            }
+        }
+
+        function showLocationResult() {
+            const modal = document.getElementById('location-result-modal');
+            const content = document.getElementById('loc-modal-content');
+            const title = document.getElementById('loc-title');
+            const desc = document.getElementById('loc-desc');
+            const starsContainer = document.getElementById('loc-stars');
+            
+            let fullStars = Math.floor(currentLocationScore);
+            let halfStar = (currentLocationScore % 1) !== 0;
+            let emptyStars = 3 - fullStars - (halfStar ? 1 : 0);
+            
+            let starsHTML = '';
+            for(let i=0; i<fullStars; i++) starsHTML += '<i class="fas fa-star text-amber-500 text-3xl"></i>';
+            if(halfStar) starsHTML += '<i class="fas fa-star-half-alt text-amber-500 text-3xl"></i>';
+            for(let i=0; i<emptyStars; i++) starsHTML += '<i class="far fa-star text-amber-300 text-3xl"></i>';
+            starsContainer.innerHTML = starsHTML;
+
+            if(currentLocationScore >= 2.5) {
+                title.textContent = "أداء استثنائي!";
+                title.className = "text-xl font-black text-green-600 mb-1";
+                desc.textContent = "لقد كشفت كل أسرار هذا الموقع ببراعة.";
+                document.getElementById('loc-icon').className = "w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-3 text-3xl border-4 border-green-200";
+                document.getElementById('loc-icon').innerHTML = '<i class="fas fa-check-double"></i>';
+            } else if(currentLocationScore > 0) {
+                title.textContent = "عمل جيد!";
+                title.className = "text-xl font-black text-amber-600 mb-1";
+                desc.textContent = "حصلت على جزء من الثروة، ركز أكثر في القادم.";
+                document.getElementById('loc-icon').className = "w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-3 text-3xl border-4 border-amber-200";
+                document.getElementById('loc-icon').innerHTML = '<i class="fas fa-thumbs-up"></i>';
+            } else {
+                title.textContent = "موقع فارغ!";
+                title.className = "text-xl font-black text-red-600 mb-1";
+                desc.textContent = "للأسف لم توفق هنا، لا تستسلم، هناك مواقع أخرى.";
+                document.getElementById('loc-icon').className = "w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-3 text-3xl border-4 border-red-200";
+                document.getElementById('loc-icon').innerHTML = '<i class="fas fa-times"></i>';
+            }
+
+            modal.classList.remove('hidden');
+            void modal.offsetWidth; 
+            modal.classList.replace('opacity-0', 'opacity-100');
+            content.classList.replace('scale-95', 'scale-100');
+        }
+
+        window.closeLocModalAndProceed = () => {
+            const modal = document.getElementById('location-result-modal');
+            const content = document.getElementById('loc-modal-content');
+            content.classList.replace('scale-100', 'scale-95');
+            modal.classList.replace('opacity-100', 'opacity-0');
+            
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                currentQIndex++;
+                if (currentQIndex >= totalQuestions) {
+                    endGame();
+                } else {
+                    showMapScreen();
+                }
+            }, 300);
+        };
+
+        function endGame() {
+            clearInterval(timerInterval);
+            
+            const maxPoints = totalQuestions * 3; 
+            const achieved = totalScore;
+            const grade = ((achieved / maxPoints) * 5).toFixed(1);
+            const metric = timeElapsed; 
+            window.currentMetricType = 'time'; 
+
+            showResult(achieved, maxPoints, grade, metric);
+            
+            if (studentId && classId) {
+                saveScore(grade, metric);
+            } else {
+                localVisitorResult = { name: studentName, grade: grade, metric: metric, isLocal: true };
+                fetchAndShowLeaderboard(false);
+            }
+        }
+
+        function showResult(a, m, g, met) {
+            document.getElementById('game-screen').classList.add('hidden');
+            document.getElementById('map-screen').classList.add('hidden');
+            document.getElementById('result-screen').classList.remove('hidden');
+            
+            document.getElementById('final-stats').innerHTML = `
+                <div class="bg-white p-2 rounded-xl border border-stone-200 text-center flex flex-col justify-center shadow-sm">
+                    <p class="text-[9px] font-bold text-stone-400 uppercase">مجموع الجواهر</p>
+                    <p class="text-sm font-black text-stone-700">${toAr(a)} <span class="text-xs text-stone-400 font-normal">من ${toAr(m)}</span></p>
+                </div>
+                <div class="bg-amber-50 p-2 rounded-xl border border-amber-200 text-center flex flex-col justify-center shadow-sm relative overflow-hidden">
+                    <div class="absolute -right-2 -top-2 opacity-20 text-3xl"><i class="fas fa-coins text-amber-500"></i></div>
+                    <p class="text-[9px] font-bold text-amber-600 uppercase z-10">قيمة الثروة (من ٥)</p>
+                    <p class="text-xl font-black text-amber-900 z-10">${toAr(g)}</p>
+                </div>
+                <div class="bg-white p-2 rounded-xl border border-stone-200 text-center flex flex-col justify-center shadow-sm">
+                    <p class="text-[9px] font-bold text-stone-400 uppercase">زمن الاستكشاف</p>
+                    <p class="text-sm font-black text-stone-700 dir-ltr">${formatTime(met)}</p>
+                </div>
+            `;
+        }
+
+        // --- الدوال الخاصة بالتواصل السحابي والتلميحات ---
+        
+        async function fetchInitialCloudData() {
+            try {
+                const url = `${SCRIPT_URL}?action=getStudentData&studentId=${studentId}&classId=${encodeURIComponent(classId)}&itemId=${GAME_ID}&t=${Date.now()}`;
+                const res = await (await fetch(url)).json();
+                if (res.status === 'success' && res.data) {
+                    if (res.data.name) { studentName = res.data.name; document.getElementById('top-student-name').textContent = studentName; }
+                    if (res.data.games && res.data.games[GAME_ID]) document.getElementById('top-prev-score').textContent = toAr(parseFloat(res.data.games[GAME_ID].grade).toFixed(1)) + " / ٥";
+                } else if (!urlParams.get('name')) { studentName = "زائر مستكشف"; document.getElementById('top-student-name').textContent = studentName; }
+            } catch (e) { console.log("Cloud Connect Failed"); }
+            finally { document.getElementById('sync-icon').classList.add('hidden'); }
+        }
+
+        async function saveScore(g, met) {
+            document.getElementById('save-msg').textContent = "جاري الحفظ بالخزنة...";
+            const p = newSearchParams({ action: 'saveScore', studentId, classId, itemId: GAME_ID, score: g, metricValue: met, type: 'game' });
+            try { 
+                await fetch(`${SCRIPT_URL}?${p.toString()}`); 
+                document.getElementById('save-msg').textContent = "تم حفظ ثروتك في سجل الخبراء!";
+            } catch(e) {
+                document.getElementById('save-msg').textContent = "تم الحفظ محلياً مؤقتاً.";
+                document.getElementById('save-msg').parentElement.classList.replace('bg-green-50', 'bg-amber-50');
+                document.getElementById('save-msg').classList.replace('text-green-800', 'text-amber-800');
+            } finally { 
+                fetchAndShowLeaderboard(false); 
+            }
+        }
+
+        window.fetchAndShowLeaderboard = function(isManual = false) {
+            const modal = document.getElementById('leaderboard-modal');
+            if (isManual) { modal.classList.remove('hidden-modal'); modal.classList.add('visible-modal'); }
+            const content = document.getElementById('leaderboard-content');
+            document.getElementById('modal-loader').classList.remove('hidden');
+            
+            let reqClassId = (currentLeaderboardMode === 'class') ? classId : 'all';
+            const url = `${SCRIPT_URL}?action=getLeaderboard&gameId=${GAME_ID}&classId=${encodeURIComponent(reqClassId || 'all')}&t=${Date.now()}`;
+            
+            fetch(url).then(r => r.json()).then(res => {
+                let data = (res.status === 'success' && res.data) ? res.data : [];
+                if (localVisitorResult && (currentLeaderboardMode === 'global' || !classId)) {
+                    if (!data.find(p => p.name === localVisitorResult.name)) data.push(localVisitorResult);
+                    data.sort((a, b) => parseFloat(b.grade) - parseFloat(a.grade) || parseFloat(a.metric) - parseFloat(b.metric));
+                }
+                if (data.length > 0) {
+                    let h = `<table class="w-full text-right text-[10px] border-collapse"><thead class="text-stone-400 border-b border-stone-200 bg-stone-100/50"><tr><th class="p-2 text-center">#</th><th class="p-2 text-right">المستكشف</th><th class="p-2 text-center text-amber-600">الثروة</th></tr></thead><tbody class="divide-y divide-stone-100">`;
+                    data.forEach((p, i) => {
+                        const isMe = (p.isLocal || (studentId && String(p.name).trim() === String(studentName).trim()));
+                        h += `<tr class="${isMe ? 'rank-row-me' : 'hover:bg-stone-50/50'} transition-colors">
+                            <td class="p-2 leaderboard-rank text-center ${i<3 ? 'text-amber-500 text-sm' : 'text-stone-400'}">${i < 3 ? ['🥇','🥈','🥉'][i] : toAr(i+1)}</td>
+                            <td class="p-2 leaderboard-name ${isMe ? 'text-amber-800 font-extrabold' : 'text-stone-700'}">${p.name} ${isMe ? '<span class="bg-amber-500 text-white text-[7px] px-1 rounded-full mx-1">أنت</span>' : ''}</td>
+                            <td class="p-2 text-center"><span class="text-amber-600 font-black">${toAr(parseFloat(p.grade).toFixed(1))}</span> <span class="text-[8px] text-stone-400 block font-bold">(${formatTime(p.metric || p.metricValue || 0)})</span></td>
+                        </tr>`;
+                    });
+                    content.innerHTML = h + `</tbody></table>`;
+                } else content.innerHTML = `<div class="py-10 text-center text-stone-400 text-xs italic font-bold">بانتظار تسجيل الخبراء..</div>`;
+            }).catch(() => {
+                content.innerHTML = `<div class="py-10 text-center text-red-400 text-xs italic font-bold">تعذر جلب السجل الآن.</div>`;
+            }).finally(() => document.getElementById('modal-loader').classList.add('hidden'));
+        };
+
+        window.switchTab = (mode) => { currentLeaderboardMode = mode; document.getElementById('tab-class').className = mode === 'class' ? 'tab-btn tab-active' : 'tab-btn tab-inactive'; document.getElementById('tab-global').className = mode === 'global' ? 'tab-btn tab-active' : 'tab-btn tab-inactive'; fetchAndShowLeaderboard(false); };
+        window.closeLeaderboardModal = () => document.getElementById('leaderboard-modal').classList.replace('visible-modal', 'hidden-modal');
+        
+        window.showHintModal = () => {
+            const modal = document.getElementById('hint-modal');
+            const content = document.getElementById('hint-modal-content');
+            modal.classList.remove('hidden');
+            void modal.offsetWidth; 
+            modal.classList.replace('opacity-0', 'opacity-100');
+            content.classList.replace('scale-95', 'scale-100');
+        };
+        
+        window.closeHintModal = () => {
+            const modal = document.getElementById('hint-modal');
+            const content = document.getElementById('hint-modal-content');
+            content.classList.replace('scale-100', 'scale-95');
+            modal.classList.replace('opacity-100', 'opacity-0');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        };
+    })();
+    </script>
+</body>
+</html>

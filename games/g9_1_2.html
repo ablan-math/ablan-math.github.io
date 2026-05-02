@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>تحدي الأبطال - صائد الأخطاء</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <style>
+        body { font-family: 'Cairo', sans-serif; overflow: hidden; touch-action: manipulation; direction: rtl; }
+        .compact-card {
+            width: 100%; max-width: 420px; background: white; border-radius: 2rem;
+            box-shadow: 0 15px 35px -5px rgba(0,0,0,0.1); border: 1px solid #f1f5f9;
+            display: flex; flex-direction: column; max-height: 86vh; overflow: hidden; position: relative;
+        }
+        .top-info-bar {
+            background: #f8fafc; border-bottom: 1px solid #e2e8f0; padding: 8px 16px;
+            display: flex; justify-content: space-between; align-items: center;
+            font-size: 11px; font-weight: 800; color: #64748b;
+        }
+        .btn-touch { min-height: 50px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; border-radius: 1rem; font-weight: 800; cursor: pointer; }
+        .btn-touch:active { transform: scale(0.97); }
+        
+        .leaderboard-modal { 
+            position: absolute; inset: 0; background: #ffffff; z-index: 100; 
+            display: flex; flex-direction: column; padding: 1.25rem; transition: all 0.3s; 
+        }
+        .hidden-modal { opacity: 0; pointer-events: none; transform: scale(0.95); display: none; }
+        .visible-modal { opacity: 1; pointer-events: auto; transform: scale(1); display: flex; }
+        
+        .tab-btn { flex: 1; padding: 8px; font-size: 11px; font-weight: bold; border-radius: 8px; transition: 0.3s; border: 1px solid transparent; cursor: pointer; }
+        .tab-active { background-color: #3b82f6; color: white; box-shadow: 0 2px 10px rgba(59, 130, 246, 0.4); }
+        .tab-inactive { background-color: #f1f5f9; color: #64748b; border-color: #e2e8f0; }
+        
+        .rank-row-me { background-color: #eff6ff !important; border-right: 4px solid #2563eb !important; }
+        .sync-loader { font-size: 10px; animation: spin 1s linear infinite; display: inline-block; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        .leaderboard-name { color: #1e293b; font-weight: 800; font-size: 11px; }
+        .leaderboard-rank { font-weight: 900; }
+
+        /* تنسيقات خاصة باللعبة */
+        .math-box { font-size: 1.4rem; direction: rtl; padding: 0.25rem; display: flex; justify-content: center; align-items: center; }
+        .option-btn { transition: all 0.2s; border: 2px solid #e2e8f0; border-radius: 1rem; padding: 0.6rem; font-weight: 700; color: #475569; background: white; width: 100%; text-align: right; display: flex; align-items: center; justify-content: space-between; font-size: 0.9rem; margin-bottom: 0.25rem; }
+        .option-btn:active { transform: scale(0.98); }
+        .option-btn.correct { border-color: #22c55e; background-color: #f0fdf4; color: #166534; }
+        .option-btn.wrong { border-color: #ef4444; background-color: #fef2f2; color: #991b1b; }
+        .progress-bar { height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden; margin-top: 5px; }
+        .progress-fill { height: 100%; background: #3b82f6; width: 0%; transition: width 0.3s ease; }
+
+        /* ARABIC ROOT STYLES */
+        .ar-root { display: inline-flex; align-items: center; direction: rtl; vertical-align: middle; margin: 0 2px; }
+        .ar-root-sym { transform: scaleX(-1); font-family: Arial, sans-serif; font-size: 1.2em; line-height: 1; font-weight: normal; margin-left: -1px; margin-top: 2px; }
+        .ar-root-num { border-top: 1.5px solid currentColor; padding-top: 2px; padding-left: 3px; padding-right: 1px; line-height: 1.1; }
+        
+        /* تنسيقات الكسور العربية */
+        .ar-frac { display: inline-flex; flex-direction: column; align-items: center; vertical-align: middle; margin: 0 4px; font-weight: bold; }
+        .ar-frac-num { padding: 0 4px; }
+        .ar-frac-den { border-top: 1.5px solid currentColor; padding: 0 4px; }
+
+        /* شريط التمرير الأنيق والمؤشر */
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        @keyframes bounce-down {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(4px); }
+        }
+        .scroll-indicator { animation: bounce-down 1.5s infinite; }
+
+        /* شاشة التفاصيل (الشرح) */
+        .feedback-modal {
+            transform: translateY(100%);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .feedback-modal.show {
+            transform: translateY(0);
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 h-screen w-screen flex items-center justify-center p-3 text-right">
+
+    <div class="compact-card">
+        <!-- الشريط العلوي -->
+        <div class="top-info-bar">
+            <div class="flex items-center gap-2 overflow-hidden">
+                <i class="fas fa-user-graduate text-blue-500"></i>
+                <span id="top-student-name" class="truncate font-black"></span>
+            </div>
+            <div class="flex items-center gap-2 bg-white px-2 py-0.5 rounded-full border shadow-sm font-bold">
+                <span id="sync-icon" class="hidden"><i class="fas fa-sync sync-loader text-blue-400"></i></span>
+                <i class="fas fa-star text-yellow-500 text-[10px]"></i>
+                <span id="top-prev-score">٠ / ٥</span>
+            </div>
+        </div>
+
+        <!-- الشاشة 1: البداية -->
+        <div id="start-screen" class="p-6 text-center flex flex-col gap-4 h-full justify-center">
+            <div class="mx-auto bg-red-100 text-red-600 w-16 h-16 rounded-full flex items-center justify-center text-3xl mb-2">
+                <i class="fas fa-bug"></i>
+            </div>
+            <h1 class="text-xl font-black text-slate-800">تحدي صائد الأخطاء</h1>
+            <h2 class="text-md font-bold text-slate-500 -mt-3">إنطاق المقام والضرب في المرافق</h2>
+            <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 text-[11px] font-bold text-slate-600 leading-relaxed text-center">
+                هناك حلول مقترحة لإنطاق المقام أمامك.<br>مهمتك هي اكتشاف: هل الحل صحيح؟ أم يوجد خطأ في المرافق؟ أم خطأ في الناتج النهائي؟
+                <br><span class="text-blue-600">كن سريعاً ودقيقاً! ستظهر لك خطوات الحل كاملة بعد كل إجابة لتقييم فهمك.</span>
+            </div>
+            
+            <div class="flex flex-row gap-2 items-stretch mt-2">
+                <button onclick="startGame()" class="btn-touch flex-[2.5] bg-blue-600 text-white shadow-lg text-lg">
+                    ابدأ الصيد <i class="fas fa-play-circle mr-2"></i>
+                </button>
+                <button onclick="fetchAndShowLeaderboard(true)" class="btn-touch flex-1 bg-white text-slate-600 border border-slate-200 text-[10px] flex-col leading-tight py-2">
+                    <i class="fas fa-trophy text-yellow-500 text-xl mb-1"></i>
+                    <span>سجل الأبطال</span>
+                </button>
+            </div>
+            
+            <p class="text-[10px] text-slate-400 font-bold mt-2 tracking-widest text-center">المرجع المطور - الرياضيات</p>
+        </div>
+
+        <!-- الشاشة 2: اللعبة -->
+        <div id="game-screen" class="hidden p-3 flex flex-col h-full overflow-hidden relative">
+            <!-- المؤشرات العلوية -->
+            <div class="flex justify-between items-center mb-1 text-[11px] font-bold text-slate-500 shrink-0">
+                <span>السؤال <span id="q-current">1</span> من <span id="q-total">5</span></span>
+                <span class="text-blue-600"><i class="fas fa-stopwatch"></i> <span id="time-display">0</span> ث</span>
+            </div>
+            <div class="progress-bar mb-2 shrink-0">
+                <div id="progress-fill" class="progress-fill"></div>
+            </div>
+
+            <!-- عرض السؤال الرياضي -->
+            <div class="relative flex-1 overflow-hidden flex flex-col mb-2 bg-slate-50 rounded-2xl border border-slate-200">
+                <div id="math-scroll-container" class="p-3 h-full overflow-y-auto flex flex-col pb-8 scroll-smooth">
+                    <p class="text-center text-xs font-bold text-slate-400 mb-2 shrink-0">تأمل الحل التالي واكتشف الخطأ إن وجد:</p>
+                    
+                    <div class="flex flex-col items-center justify-center space-y-2 my-auto">
+                        <div class="bg-white px-3 py-2 rounded-lg border shadow-sm w-full shrink-0">
+                            <span class="text-[9px] text-slate-400 block text-center mb-1">العبارة الأصلية</span>
+                            <div id="math-original" class="math-box text-blue-900"></div>
+                        </div>
+                        <i class="fas fa-arrow-down text-slate-300 text-xs shrink-0"></i>
+                        <div class="bg-blue-50 px-3 py-2 rounded-lg border border-blue-100 shadow-sm w-full shrink-0">
+                            <span class="text-[9px] text-blue-400 block text-center mb-1">تم الضرب في</span>
+                            <div id="math-conjugate" class="math-box text-blue-800 text-center"></div>
+                        </div>
+                        <i class="fas fa-arrow-down text-slate-300 text-xs shrink-0"></i>
+                        <div class="bg-emerald-50 px-3 py-2 rounded-lg border border-emerald-100 shadow-sm w-full shrink-0">
+                            <span class="text-[9px] text-emerald-500 block text-center mb-1">الناتج النهائي</span>
+                            <div id="math-result" class="math-box text-emerald-800 text-center"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="scroll-hint" class="absolute bottom-2 left-0 w-full flex justify-center pointer-events-none transition-opacity duration-300 opacity-0 z-10">
+                    <div class="bg-blue-600/90 text-white text-[10px] font-bold px-4 py-1.5 rounded-full shadow-md flex items-center gap-1 scroll-indicator backdrop-blur-sm border border-blue-400">
+                        <i class="fas fa-chevron-down text-[9px]"></i>
+                        <span>اسحب للأسفل للمزيد</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- خيارات الإجابة -->
+            <div class="space-y-1 shrink-0" id="options-container">
+                <button onclick="checkAnswer('conjugate')" class="option-btn" id="btn-conjugate">
+                    <span>خطأ في اختيار المرافق</span> <i class="fas fa-times-circle text-red-300"></i>
+                </button>
+                <button onclick="checkAnswer('result')" class="option-btn" id="btn-result">
+                    <span>خطأ في التبسيط / الناتج</span> <i class="fas fa-calculator text-orange-300"></i>
+                </button>
+                <button onclick="checkAnswer('none')" class="option-btn" id="btn-none">
+                    <span>الحل صحيح تماماً ١٠٠٪</span> <i class="fas fa-check-circle text-green-300"></i>
+                </button>
+            </div>
+
+            <!-- شاشة التغذية الراجعة التفصيلية (تصعد من الأسفل) -->
+            <div id="detailed-feedback-modal" class="feedback-modal absolute inset-0 bg-white z-30 flex flex-col">
+                <!-- رأس الشاشة (النتيجة) -->
+                <div id="feedback-header" class="p-4 text-center border-b border-slate-100 shrink-0">
+                    <div id="feedback-icon" class="text-4xl mb-1"></div>
+                    <h3 id="feedback-title" class="font-black text-lg"></h3>
+                </div>
+                
+                <!-- منطقة الشرح التفصيلي القابلة للتمرير -->
+                <div class="flex-1 overflow-y-auto p-4 bg-slate-50">
+                    <p class="text-[10px] font-bold text-slate-400 mb-3 text-center border-b pb-2">الخطوات التفصيلية للحل</p>
+                    <div id="feedback-steps" class="space-y-3 text-[12px] font-bold text-slate-700 leading-relaxed">
+                        <!-- تُحقن الخطوات هنا -->
+                    </div>
+                </div>
+                
+                <!-- زر المتابعة -->
+                <div class="p-4 bg-white border-t border-slate-100 shrink-0 shadow-[0_-10px_15px_-3px_rgba(0,0,0,0.05)]">
+                    <button onclick="advanceQuestion()" class="btn-touch w-full bg-blue-600 text-white shadow-md text-lg">
+                        فهمت، السؤال التالي <i class="fas fa-arrow-left mr-2"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- الشاشة 3: النتائج -->
+        <div id="result-screen" class="hidden p-5 flex flex-col h-full overflow-hidden text-center justify-center">
+            <div id="final-stats" class="grid grid-cols-3 gap-1 mb-4"></div>
+            
+            <div class="bg-green-50 p-4 rounded-2xl border border-green-100 mb-4">
+                <i class="fas fa-check-double text-green-500 text-2xl mb-1"></i>
+                <p id="save-msg" class="font-black text-green-800 text-sm">تم اعتماد نتيجتك بنجاح!</p>
+            </div>
+            <button onclick="fetchAndShowLeaderboard(true)" class="btn-touch w-full bg-blue-600 text-white mb-4 shadow-md">
+                <i class="fas fa-crown ml-2"></i> سجل الأبطال
+            </button>
+            <div class="mt-auto flex gap-2">
+                <button onclick="location.reload()" class="btn-touch flex-1 bg-slate-100 text-slate-600 text-sm font-bold">إعادة</button>
+                <button id="finish-btn" class="btn-touch flex-[2] bg-slate-900 text-white text-sm font-bold">إنهاء</button>
+            </div>
+        </div>
+
+        <!-- سجل الأبطال -->
+        <div id="leaderboard-modal" class="leaderboard-modal hidden-modal" dir="rtl">
+            <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-3">
+                <h3 class="font-black text-slate-800 text-lg"><i class="fas fa-trophy text-yellow-500 ml-2"></i>سجل المتصدرين</h3>
+                <button onclick="closeLeaderboardModal()" class="w-9 h-9 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center transition-all hover:bg-red-50 hover:text-red-500"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="flex gap-2 mb-4">
+                <button onclick="switchTab('class')" id="tab-class" class="tab-btn tab-inactive">أبطال فصلي</button>
+                <button onclick="switchTab('global')" id="tab-global" class="tab-btn tab-active">أبطال اللعبة (الكل)</button>
+            </div>
+            <div id="modal-body" class="flex-1 overflow-y-auto bg-slate-50 rounded-2xl border border-slate-100 p-1 relative">
+                <div id="modal-loader" class="absolute inset-0 flex items-center justify-center hidden bg-white/80 z-10"><div class="sync-loader text-blue-500 text-3xl"><i class="fas fa-sync"></i></div></div>
+                <div id="leaderboard-content" class="space-y-1"></div>
+            </div>
+            <p class="text-center text-[9px] text-slate-400 mt-2 font-mono italic">الترتيب حسب الدرجة ثم الأفضلية (الأسرع)</p>
+        </div>
+    </div>
+
+    <script>
+    (function() {
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxqAQlGhNs8k5RwHs6jrWxDiDwaMABSx8a9Fl81O5oVVa5fHRWTwIEvsGy2cSDP4zGLWQ/exec";
+        const urlParams = new URLSearchParams(window.location.search);
+        const GAME_ID = urlParams.get('gameId') || 'g9_1_2'; 
+        const studentId = urlParams.get('studentId') || urlParams.get('userId');
+        const classId = urlParams.get('classId');
+        
+        let studentName = decodeURIComponent(urlParams.get('name') || urlParams.get('studentName') || urlParams.get('username') || "بطل التحدي");
+        let currentLeaderboardMode = classId ? 'class' : 'global';
+        let localVisitorResult = null;
+
+        const toAr = (n) => String(n).replace(/\d/g, d => "٠١٢٣٤٥٦٧٨٩"[d]);
+
+        const root = (num) => `<span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">${num}</span></span>`;
+        const frac = (top, bot) => `<span class="ar-frac"><span class="ar-frac-num">${top}</span><span class="ar-frac-den">${bot}</span></span>`;
+
+        // بنك الأسئلة (15 سؤالاً)
+        const questionBank = [
+            // 1
+            {
+                original: frac('٣', root('٥')),
+                conjugate: frac(root('٥'), root('٥')),
+                result: frac(`٣${root('٥')}`, '٥'),
+                type: "none", 
+                steps: `
+                    <p><span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-md ml-1">الخطوة ١</span> المقام يحتوي على جذر وحيد هو <strong>${root('٥')}</strong>.</p>
+                    <p><span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-md ml-1">الخطوة ٢</span> لإنطاق المقام، يجب الضرب بسطاً ومقاماً في نفس الجذر، أي نضرب في <strong class="text-blue-600">${frac(root('٥'), root('٥'))}</strong>. <span class="text-green-600"><i class="fas fa-check"></i> المرافق صحيح</span></p>
+                    <p><span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-md ml-1">الخطوة ٣</span> <strong class="text-slate-900">في البسط:</strong> نضرب ٣ &times; ${root('٥')} = <strong class="text-emerald-600">٣${root('٥')}</strong></p>
+                    <p><span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-md ml-1">الخطوة ٤</span> <strong class="text-slate-900">في المقام:</strong> نضرب ${root('٥')} &times; ${root('٥')} = <strong class="text-emerald-600">٥</strong></p>
+                    <div class="bg-green-100 border border-green-200 text-green-900 p-2 rounded-xl text-center mt-2">
+                        الناتج النهائي صحيح تماماً: <span class="font-black text-lg inline-block align-middle">${frac(`٣${root('٥')}`, '٥')}</span>
+                    </div>
+                `
+            },
+            // 2
+            {
+                original: frac('٢', `٣ - ${root('٢')}`),
+                conjugate: frac(`٣ - ${root('٢')}`, `٣ - ${root('٢')}`), 
+                result: frac(`٢(٣ - ${root('٢')})`, '٧'),
+                type: "conjugate",
+                steps: `
+                    <p><span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-md ml-1">الخطوة ١</span> المقام هو عبارة ثنائية: <strong>٣ - ${root('٢')}</strong>.</p>
+                    <p><span class="bg-red-100 text-red-800 px-2 py-0.5 rounded-md ml-1">خطأ فادح</span> <span class="text-red-600 font-bold">تم الضرب في نفس العبارة بدلاً من المرافق!</span></p>
+                    <p><span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-md ml-1">التصحيح</span> مرافق المقام (٣ - ${root('٢')}) يجب أن يكون بعكس الإشارة الوسطى، أي <strong class="text-emerald-600">٣ + ${root('٢')}</strong>.</p>
+                    <p><span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-md ml-1">الخطوة ٢</span> لو ضربنا بالمرافق الصحيح، سيصبح المقام: (٣)&sup2; - (${root('٢')})&sup2; = ٩ - ٢ = ٧</p>
+                    <div class="bg-slate-100 border border-slate-200 text-slate-800 p-2 rounded-xl text-center mt-2">
+                        الناتج الصحيح يجب أن يكون: <span class="font-black text-lg text-emerald-600 inline-block align-middle">${frac(`٢(٣ + ${root('٢')})`, '٧')}</span>
+                    </div>
+                `
+            },
+            // 3
+            {
+                original: frac(root('٢'), root('٣')),
+                conjugate: frac(root('٣'), root('٣')),
+                result: frac(root('٦'), '٩'), 
+                type: "result",
+                steps: `
+                    <p><span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-md ml-1">الخطوة ١</span> المقام هو <strong>${root('٣')}</strong>، والمرافق المضروب هو <strong class="text-blue-600">${frac(root('٣'), root('٣'))}</strong>. <span class="text-green-600"><i class="fas fa-check"></i> المرافق صحيح</span></p>
+                    <p><span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-md ml-1">الخطوة ٢</span> <strong class="text-slate-900">في البسط:</strong> ${root('٢')} &times; ${root('٣')} = <strong>${root('٦')}</strong>. (البسط سليم)</p>
+                    <p><span class="bg-red-100 text-red-800 px-2 py-0.5 rounded-md ml-1">خطأ فادح</span> <strong class="text-red-600 font-bold">في المقام: حاصل ضرب الجذر في نفسه يعطي ما بداخل الجذر فقط!</strong></p>
+                    <p><span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-md ml-1">التصحيح</span> ${root('٣')} &times; ${root('٣')} = <strong class="text-emerald-600">٣</strong> (وليس ٩).</p>
+                    <div class="bg-slate-100 border border-slate-200 text-slate-800 p-2 rounded-xl text-center mt-2">
+                        الناتج الصحيح يجب أن يكون: <span class="font-black text-lg text-emerald-600 inline-block align-middle">${frac(root('٦'), '٣')}</span>
+                    </div>
+                `
+            },
+            // 4
+            {
+                original: frac('٤', `${root('٧')} + ١`),
+                conjugate: frac(`${root('٧')} - ١`, `${root('٧')} - ١`),
+                result: frac(`٢(${root('٧')} - ١)`, '٣'),
+                type: "none",
+                steps: `
+                    <p><span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-md ml-1">الخطوة ١</span> المقام هو <strong>${root('٧')} + ١</strong>. مرافقه هو بعكس الإشارة <strong>${root('٧')} - ١</strong>. <span class="text-green-600"><i class="fas fa-check"></i> المرافق صحيح</span></p>
+                    <p><span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-md ml-1">الخطوة ٢</span> <strong class="text-slate-900">في البسط:</strong> نتركها ٤ مضروبة في القوس: ٤(${root('٧')} - ١)</p>
+                    <p><span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-md ml-1">الخطوة ٣</span> <strong class="text-slate-900">في المقام:</strong> مربع الأول ناقص مربع الثاني: (${root('٧')})&sup2; - (١)&sup2; = ٧ - ١ = <strong class="text-emerald-600">٦</strong></p>
+                    <p><span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-md ml-1">الخطوة ٤</span> <strong class="text-slate-900">التبسيط:</strong> الكسر هو ${frac(`٤(${root('٧')} - ١)`, '٦')}. بقسمة البسط والمقام على ٢ نصل للناتج.</p>
+                    <div class="bg-green-100 border border-green-200 text-green-900 p-2 rounded-xl text-center mt-2">
+                        التبسيط والناتج النهائي صحيح تماماً: <span class="font-black text-lg inline-block align-middle">${frac(`٢(${root('٧')} - ١)`, '٣')}</span>
+                    </div>
+                `
+            },
+            // 5
+            {
+                original: frac('٥', `${root('٦')} - ${root('٢')}`),
+                conjugate: frac(`${root('٦')} + ${root('٢')}`, `${root('٦')} + ${root('٢')}`),
+                result: frac(`٥(${root('٦')} + ${root('٢')})`, '٨'), 
+                type: "result",
+                steps: `
+                    <p><span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-md ml-1">الخطوة ١</span> المقام هو <strong>${root('٦')} - ${root('٢')}</strong>، مرافقه هو <strong>${root('٦')} + ${root('٢')}</strong>. <span class="text-green-600"><i class="fas fa-check"></i> المرافق صحيح</span></p>
+                    <p><span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-md ml-1">الخطوة ٢</span> <strong class="text-slate-900">في البسط:</strong> ٥(${root('٦')} + ${root('٢')}). (البسط سليم)</p>
+                    <p><span class="bg-red-100 text-red-800 px-2 py-0.5 rounded-md ml-1">خطأ فادح</span> <strong class="text-red-600 font-bold">المقام تم جمعه بدلاً من طرحه!</strong></p>
+                    <p><span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-md ml-1">التصحيح</span> الفرق بين مربعين: (${root('٦')})&sup2; - (${root('٢')})&sup2; = ٦ - ٢ = <strong class="text-emerald-600">٤</strong> (وليس ٨).</p>
+                    <div class="bg-slate-100 border border-slate-200 text-slate-800 p-2 rounded-xl text-center mt-2">
+                        الناتج الصحيح يجب أن يكون: <span class="font-black text-lg text-emerald-600 inline-block align-middle">${frac(`٥(${root('٦')} + ${root('٢')})`, '٤')}</span>
+                    </div>
+                `
+            },
+            // 6
+            {
+                original: frac('١', root('٢')),
+                conjugate: frac(root('٢'), root('٢')),
+                result: frac(root('٢'), '٢'),
+                type: "none",
+                steps: `
+                    <p><span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-md ml-1">الخطوة ١</span> المقام يحتوي على <strong>${root('٢')}</strong>.</p>
+                    <p><span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-md ml-1">الخطوة ٢</span> نضرب البسط والمقام في نفس الجذر: <strong class="text-blue-600">${frac(root('٢'), root('٢'))}</strong>. <span class="text-green-600"><i class="fas fa-check"></i> المرافق صحيح</span></p>
+                    <p><span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-md ml-1">الخطوة ٣</span> <strong class="text-slate-900">في البسط:</strong> ١ &times; ${root('٢')} = <strong class="text-emerald-600">${root('٢')}</strong></p>
+                    <p><span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-md ml-1">الخطوة ٤</span> <strong class="text-slate-900">في المقام:</strong> ${root('٢')} &times; ${root('٢')} = <strong class="text-emerald-600">٢</strong></p>
+                    <div class="bg-green-100 border border-green-200 text-green-900 p-2 rounded-xl text-center mt-2">
+                        الناتج النهائي صحيح تماماً: <span class="font-black text-lg inline-block align-middle">${frac(root('٢'), '٢')}</span>
+                    </div>
+                `
+            },
+            // 7
+            {
+                original: frac('٦', root('٣')),
+                conjugate: frac(root('٣'), root('٣')),
+                result: frac(`٦${root('٣')}`, '٩'),
+                type: "result",
+                steps: `
+                    <p><span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-md ml-1">الخطوة ١</span> نضرب في مرافق المقام <strong class="text-blue-600">${frac(root('٣'), root('٣'))}</strong>. <span class="text-green-600"><i class="fas fa-check"></i> المرافق صحيح</span></p>
+                    <p><span class="bg-red-100 text-red-800 px-2 py-0.5 rounded-md ml-1">خطأ فادح</span> <strong class="text-red-600 font-bold">حاصل ضرب جذر ٣ في جذر ٣ يعطي ٣، وليس ٩!</strong></p>
+                    <p><span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-md ml-1">التصحيح</span> الكسر قبل التبسيط هو ${frac(`٦${root('٣')}`, '٣')}.</p>
+                    <p><span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-md ml-1">التبسيط</span> نقسم ٦ على ٣ ليكون الناتج ٢ مضروبة في الجذر.</p>
+                    <div class="bg-slate-100 border border-slate-200 text-slate-800 p-2 rounded-xl text-center mt-2">
+                        الناتج الصحيح يجب أن يكون: <span class="font-black text-lg text-emerald-600 inline-block align-middle">٢${root('٣')}</span>
+                    </div>
+                `
+            },
+            // 8
+            {
+                original: frac('٣', `${root('٥')} + ${root('٢')}`),
+                conjugate: frac(`${root('٥')} + ${root('٢')}`, `${root('٥')} + ${root('٢')}`),
+                result: frac(`٣(${root('٥')} + ${root('٢')})`, '٧'),
+                type: "conjugate",
+                steps: `
+                    <p><span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-md ml-1">الخطوة ١</span> المقام هو: <strong>${root('٥')} + ${root('٢')}</strong>.</p>
+                    <p><span class="bg-red-100 text-red-800 px-2 py-0.5 rounded-md ml-1">خطأ فادح</span> <span class="text-red-600 font-bold">تم الضرب بنفس الإشارة الموجبة! يجب أن نضرب في المرافق.</span></p>
+                    <p><span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-md ml-1">التصحيح</span> المرافق الصحيح هو بعكس الإشارة: <strong class="text-emerald-600">${root('٥')} - ${root('٢')}</strong>.</p>
+                    <p><span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-md ml-1">الخطوة ٢</span> المقام الصحيح سيكون: (${root('٥')})&sup2; - (${root('٢')})&sup2; = ٥ - ٢ = ٣.</p>
+                    <div class="bg-slate-100 border border-slate-200 text-slate-800 p-2 rounded-xl text-center mt-2">
+                        الناتج الصحيح: <span class="font-black text-lg text-emerald-600 inline-block align-middle">${frac(`٣(${root('٥')} - ${root('٢')})`, '٣')} = ${root('٥')} - ${root('٢')}</span>
+                    </div>
+                `
+            },
+            // 9
+            {
+                original: frac('٢', `${root('٧')} - ${root('٥')}`),
+                conjugate: frac(`${root('٧')} + ${root('٥')}`, `${root('٧')} + ${root('٥')}`),
+                result: `${root('٧')} + ${root('٥')}`,
+                type: "none",
+                steps: `
+                    <p><span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-md ml-1">الخطوة ١</span> المرافق المختار صحيح وهو بعكس الإشارة <strong class="text-blue-600">${root('٧')} + ${root('٥')}</strong>.</p>
+                    <p><span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-md ml-1">الخطوة ٢</span> <strong class="text-slate-900">المقام:</strong> (${root('٧')})&sup2; - (${root('٥')})&sup2; = ٧ - ٥ = <strong class="text-emerald-600">٢</strong></p>
+                    <p><span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-md ml-1">الخطوة ٣</span> <strong class="text-slate-900">الكسر الناتج:</strong> ${frac(`٢(${root('٧')} + ${root('٥')})`, '٢')} .</p>
+                    <p><span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-md ml-1">الخطوة ٤</span> نحذف العدد ٢ من البسط والمقام ليبقى القوس فقط.</p>
+                    <div class="bg-green-100 border border-green-200 text-green-900 p-2 rounded-xl text-center mt-2">
+                        الحل صحيح ومبسط لأبسط صورة: <span class="font-black text-lg inline-block align-middle">${root('٧')} + ${root('٥')}</span>
+                    </div>
+                `
+            },
+            // 10
+            {
+                original: frac('٨', `٣ + ${root('٥')}`),
+                conjugate: frac(`٣ - ${root('٥')}`, `٣ - ${root('٥')}`),
+                result: frac(`٨(٣ - ${root('٥')})`, '٨'),
+                type: "result",
+                steps: `
+                    <p><span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-md ml-1">الخطوة ١</span> المرافق المختار صحيح وهو <strong class="text-blue-600">٣ - ${root('٥')}</strong>.</p>
+                    <p><span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-md ml-1">الخطوة ٢</span> <strong class="text-slate-900">المقام:</strong> مربع العدد ٣ هو ٩، ومربع ${root('٥')} هو ٥. إذن المقام ٩ - ٥ = <strong class="text-emerald-600">٤</strong>.</p>
+                    <p><span class="bg-red-100 text-red-800 px-2 py-0.5 rounded-md ml-1">خطأ فادح</span> <strong class="text-red-600 font-bold">تم كتابة المقام كـ ٨ في الناتج بدلاً من ٤!</strong></p>
+                    <p><span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-md ml-1">التصحيح</span> الكسر يجب أن يكون ${frac(`٨(٣ - ${root('٥')})`, '٤')} . وبقسمة ٨ على ٤ يعطي ٢.</p>
+                    <div class="bg-slate-100 border border-slate-200 text-slate-800 p-2 rounded-xl text-center mt-2">
+                        الناتج الصحيح يجب أن يكون: <span class="font-black text-lg text-emerald-600 inline-block align-middle">٢(٣ - ${root('٥')})</span>
+                    </div>
+                `
+            },
+            // 11
+            {
+                original: frac('٥', root('١٠')),
+                conjugate: frac(root('١٠'), root('١٠')),
+                result: frac(root('١٠'), '٢'),
+                type: "none",
+                steps: `
+                    <p><span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-md ml-1">الخطوة ١</span> نضرب بسطاً ومقاماً في الجذر نفسه <strong class="text-blue-600">${frac(root('١٠'), root('١٠'))}</strong>.</p>
+                    <p><span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-md ml-1">الخطوة ٢</span> <strong class="text-slate-900">البسط:</strong> ٥ &times; ${root('١٠')} = <strong class="text-emerald-600">٥${root('١٠')}</strong></p>
+                    <p><span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-md ml-1">الخطوة ٣</span> <strong class="text-slate-900">المقام:</strong> ${root('١٠')} &times; ${root('١٠')} = <strong class="text-emerald-600">١٠</strong></p>
+                    <p><span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-md ml-1">التبسيط</span> الكسر ${frac(`٥${root('١٠')}`, '١٠')} نقسم البسط والمقام على ٥.</p>
+                    <div class="bg-green-100 border border-green-200 text-green-900 p-2 rounded-xl text-center mt-2">
+                        الناتج النهائي مبسط وصحيح: <span class="font-black text-lg inline-block align-middle">${frac(root('١٠'), '٢')}</span>
+                    </div>
+                `
+            },
+            // 12
+            {
+                original: frac('٧', `٢ - ${root('٣')}`),
+                conjugate: frac(`٢ - ${root('٣')}`, `٢ - ${root('٣')}`),
+                result: frac(`٧(٢ - ${root('٣')})`, '١'),
+                type: "conjugate",
+                steps: `
+                    <p><span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-md ml-1">الخطوة ١</span> المقام هو عبارة عن حدين: <strong>٢ - ${root('٣')}</strong>.</p>
+                    <p><span class="bg-red-100 text-red-800 px-2 py-0.5 rounded-md ml-1">خطأ فادح</span> <span class="text-red-600 font-bold">تم استخدام نفس العبارة للضرب، وهذا لن يتخلص من الجذر في المقام!</span></p>
+                    <p><span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-md ml-1">التصحيح</span> يجب تغيير الإشارة للضرب في المرافق: <strong class="text-emerald-600">٢ + ${root('٣')}</strong>.</p>
+                    <p><span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-md ml-1">الخطوة ٢</span> المقام الصحيح سيكون (٢)&sup2; - (${root('٣')})&sup2; = ٤ - ٣ = ١.</p>
+                    <div class="bg-slate-100 border border-slate-200 text-slate-800 p-2 rounded-xl text-center mt-2">
+                        الناتج الصحيح: <span class="font-black text-lg text-emerald-600 inline-block align-middle">٧(٢ + ${root('٣')})</span>
+                    </div>
+                `
+            },
+            // 13
+            {
+                original: frac(root('٥'), root('٢')),
+                conjugate: frac(root('٢'), root('٢')),
+                result: frac(root('١٠'), '٤'),
+                type: "result",
+                steps: `
+                    <p><span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-md ml-1">الخطوة ١</span> المرافق صحيح <strong class="text-blue-600">${frac(root('٢'), root('٢'))}</strong> للتخلص من الجذر في المقام.</p>
+                    <p><span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-md ml-1">الخطوة ٢</span> <strong class="text-slate-900">البسط:</strong> ${root('٥')} &times; ${root('٢')} = <strong class="text-emerald-600">${root('١٠')}</strong>. (صحيح)</p>
+                    <p><span class="bg-red-100 text-red-800 px-2 py-0.5 rounded-md ml-1">خطأ فادح</span> <strong class="text-red-600 font-bold">المقام تم تربيع الناتج! جذر ٢ في جذر ٢ يعطي ٢ فقط.</strong></p>
+                    <div class="bg-slate-100 border border-slate-200 text-slate-800 p-2 rounded-xl text-center mt-2">
+                        الناتج الصحيح يجب أن يكون: <span class="font-black text-lg text-emerald-600 inline-block align-middle">${frac(root('١٠'), '٢')}</span>
+                    </div>
+                `
+            },
+            // 14
+            {
+                original: frac('١٠', `${root('١١')} + ١`),
+                conjugate: frac(`${root('١١')} - ١`, `${root('١١')} - ١`),
+                result: `${root('١١')} - ١`,
+                type: "none",
+                steps: `
+                    <p><span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-md ml-1">الخطوة ١</span> تم استخدام المرافق الصحيح בעكس الإشارة: <strong class="text-blue-600">${root('١١')} - ١</strong>.</p>
+                    <p><span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-md ml-1">الخطوة ٢</span> <strong class="text-slate-900">المقام:</strong> (${root('١١')})&sup2; - (١)&sup2; = ١١ - ١ = <strong class="text-emerald-600">١٠</strong>.</p>
+                    <p><span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-md ml-1">التبسيط</span> الكسر ${frac(`١٠(${root('١١')} - ١)`, '١٠')} نقوم بحذف العدد ١٠ من البسط والمقام.</p>
+                    <div class="bg-green-100 border border-green-200 text-green-900 p-2 rounded-xl text-center mt-2">
+                        الحل صحيح ١٠٠٪ : <span class="font-black text-lg inline-block align-middle">${root('١١')} - ١</span>
+                    </div>
+                `
+            },
+            // 15
+            {
+                original: frac('٤', `${root('٥')} - ١`),
+                conjugate: frac(`${root('٥')} + ١`, `${root('٥')} + ١`),
+                result: frac(`٤(${root('٥')} + ١)`, '٥'),
+                type: "result",
+                steps: `
+                    <p><span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-md ml-1">الخطوة ١</span> المرافق المختار صحيح وهو <strong class="text-blue-600">${root('٥')} + ١</strong>.</p>
+                    <p><span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-md ml-1">الخطوة ٢</span> <strong class="text-slate-900">المقام:</strong> الفرق بين مربعين، مربع جذر ٥ هو ٥ ومربع ١ هو ١.</p>
+                    <p><span class="bg-red-100 text-red-800 px-2 py-0.5 rounded-md ml-1">خطأ فادح</span> <strong class="text-red-600 font-bold">تم كتابة المقام كـ ٥ في الناتج بدلاً من طرح (٥ - ١) = ٤!</strong></p>
+                    <p><span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-md ml-1">التصحيح</span> الكسر يجب أن يكون ${frac(`٤(${root('٥')} + ١)`, '٤')} .</p>
+                    <div class="bg-slate-100 border border-slate-200 text-slate-800 p-2 rounded-xl text-center mt-2">
+                        الناتج الصحيح: نحذف الـ ٤ ويبقى <span class="font-black text-lg text-emerald-600 inline-block align-middle">${root('٥')} + ١</span>
+                    </div>
+                `
+            }
+        ];
+
+        let activeQuestions = [];
+        let currentQuestion = 0;
+        let score = 0;
+        let timer = 0;
+        let timerInterval;
+        let isAnswering = false;
+
+        function checkScroll() {
+            const container = document.getElementById('math-scroll-container');
+            const hint = document.getElementById('scroll-hint');
+            if (!container || !hint) return;
+            if (container.scrollHeight > container.clientHeight + 2) {
+                if (container.scrollTop + container.clientHeight >= container.scrollHeight - 5) {
+                    hint.style.opacity = '0';
+                } else {
+                    hint.style.opacity = '1';
+                }
+            } else {
+                hint.style.opacity = '0';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('top-student-name').textContent = studentName;
+            if (studentName === "بطل التحدي") {
+                document.getElementById('top-student-name').textContent = "بطل زائر";
+            }
+            if (!classId) {
+                document.getElementById('tab-class').style.display = 'none';
+                currentLeaderboardMode = 'global';
+            } else {
+                document.getElementById('tab-class').className = 'tab-btn tab-active';
+                document.getElementById('tab-global').className = 'tab-btn tab-inactive';
+            }
+            if (studentId && classId) {
+                document.getElementById('sync-icon').classList.remove('hidden');
+                fetchInitialCloudData();
+            }
+            document.getElementById('finish-btn').onclick = () => window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*');
+
+            document.getElementById('math-scroll-container').addEventListener('scroll', checkScroll);
+            window.addEventListener('resize', checkScroll);
+            
+            // تهيئة بيانات اسم الطالب من الـ URL أو الديفولت السطر 310
+            (function() {
+                const raw = urlParams.get('name') || urlParams.get('studentName') || urlParams.get('username') || urlParams.get('user');
+                if(raw) studentName = decodeURIComponent(raw);
+                document.getElementById('top-student-name').textContent = studentName;
+            })();
+        });
+
+        async function fetchInitialCloudData() {
+            try {
+                const url = `${SCRIPT_URL}?action=getStudentData&studentId=${studentId}&classId=${encodeURIComponent(classId)}&itemId=${GAME_ID}&t=${Date.now()}`;
+                const res = await (await fetch(url)).json();
+                if (res.status === 'success' && res.data) {
+                    if (res.data.name) { studentName = res.data.name; document.getElementById('top-student-name').textContent = studentName; }
+                    if (res.data.games && res.data.games[GAME_ID]) document.getElementById('top-prev-score').textContent = toAr(parseFloat(res.data.games[GAME_ID].grade).toFixed(1)) + " / ٥";
+                }
+            } catch (e) { console.log("Cloud Connect Failed"); }
+            finally { document.getElementById('sync-icon').classList.add('hidden'); }
+        }
+
+        window.startGame = () => { 
+            document.getElementById('start-screen').classList.add('hidden'); 
+            document.getElementById('game-screen').classList.remove('hidden'); 
+            
+            // خلط بنك الأسئلة بالكامل (دالة لتوزيع عشوائي قوي) واختيار 5 فقط
+            let shuffled = [...questionBank];
+            for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+            }
+            activeQuestions = shuffled.slice(0, 5);
+            
+            document.getElementById('q-total').textContent = toAr(activeQuestions.length);
+            currentQuestion = 0;
+            score = 0;
+            timer = 0;
+            resumeTimer();
+            loadQuestion();
+        };
+
+        function resumeTimer() {
+            clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                timer++;
+                document.getElementById('time-display').textContent = toAr(timer);
+            }, 1000);
+        }
+
+        function stopTimer() {
+            clearInterval(timerInterval);
+        }
+
+        function loadQuestion() {
+            isAnswering = false;
+            const q = activeQuestions[currentQuestion];
+            document.getElementById('q-current').textContent = toAr(currentQuestion + 1);
+            document.getElementById('progress-fill').style.width = `${(currentQuestion / activeQuestions.length) * 100}%`;
+            
+            document.getElementById('math-original').innerHTML = q.original;
+            document.getElementById('math-conjugate').innerHTML = q.conjugate;
+            document.getElementById('math-result').innerHTML = q.result;
+
+            ['conjugate', 'result', 'none'].forEach(id => {
+                document.getElementById(`btn-${id}`).className = "option-btn";
+            });
+            document.getElementById('detailed-feedback-modal').classList.remove('show');
+
+            setTimeout(() => {
+                const scrollCont = document.getElementById('math-scroll-container');
+                if(scrollCont) scrollCont.scrollTop = 0;
+                checkScroll();
+            }, 50);
+        }
+
+        window.checkAnswer = (selectedType) => {
+            if (isAnswering) return;
+            isAnswering = true;
+            stopTimer(); // إيقاف المؤقت ليقرأ الطالب براحته
+            
+            const q = activeQuestions[currentQuestion];
+            const isCorrect = (selectedType === q.type);
+            const btn = document.getElementById(`btn-${selectedType}`);
+            
+            const fHeader = document.getElementById('feedback-header');
+            const fIcon = document.getElementById('feedback-icon');
+            const fTitle = document.getElementById('feedback-title');
+            const fSteps = document.getElementById('feedback-steps');
+
+            if (isCorrect) {
+                score++;
+                btn.classList.add('correct');
+                fHeader.className = "p-4 text-center border-b shrink-0 bg-green-50 border-green-100 text-green-700";
+                fIcon.innerHTML = '<i class="fas fa-check-circle"></i>';
+                fTitle.textContent = "إجابة دقيقة! أحسنت الصيد";
+            } else {
+                btn.classList.add('wrong');
+                document.getElementById(`btn-${q.type}`).classList.add('correct');
+                fHeader.className = "p-4 text-center border-b shrink-0 bg-red-50 border-red-100 text-red-700";
+                fIcon.innerHTML = '<i class="fas fa-times-circle"></i>';
+                fTitle.textContent = "إجابة خاطئة.. دعنا نراجع الخطوات";
+            }
+
+            // حقن الخطوات التفصيلية الملونة
+            fSteps.innerHTML = q.steps;
+            
+            // إظهار الشاشة التفصيلية من الأسفل
+            document.getElementById('detailed-feedback-modal').classList.add('show');
+        };
+
+        window.advanceQuestion = () => {
+            document.getElementById('detailed-feedback-modal').classList.remove('show');
+            
+            setTimeout(() => {
+                currentQuestion++;
+                if (currentQuestion < activeQuestions.length) {
+                    resumeTimer(); // استئناف المؤقت للسؤال الجديد
+                    loadQuestion();
+                } else {
+                    finishGame();
+                }
+            }, 300); // انتظار اختفاء الشاشة بالأنيميشن
+        };
+
+        function finishGame() {
+            stopTimer();
+            const max = activeQuestions.length;
+            const grade = ((score / max) * 5).toFixed(1);
+            showResult(score, max, grade, timer);
+            if (studentId && classId) saveScore(grade, timer);
+            else { localVisitorResult = { name: studentName, grade: grade, metric: timer, isLocal: true }; fetchAndShowLeaderboard(false); }
+        }
+
+        function showResult(a, m, g, met) {
+            document.getElementById('game-screen').classList.add('hidden');
+            document.getElementById('result-screen').classList.remove('hidden');
+            document.getElementById('final-stats').innerHTML = `
+                <div class="bg-blue-50 p-2 rounded-xl border border-blue-100 text-center flex flex-col justify-center">
+                    <p class="text-[8px] font-bold text-blue-400 uppercase">الإجابات الصحيحة</p>
+                    <p class="text-[11px] font-black text-blue-900">${toAr(a)} / ${toAr(m)}</p>
+                </div>
+                <div class="bg-emerald-50 p-2 rounded-xl border border-emerald-100 text-center flex flex-col justify-center shadow-sm">
+                    <p class="text-[8px] font-bold text-emerald-600 uppercase">الدرجة النهائية</p>
+                    <p class="text-lg font-black text-emerald-900">${toAr(g)}</p>
+                </div>
+                <div class="bg-purple-50 p-2 rounded-xl border border-purple-100 text-center flex flex-col justify-center">
+                    <p class="text-[8px] font-bold text-purple-400 uppercase">الوقت المستغرق</p>
+                    <p class="text-lg font-black text-purple-900">${toAr(met)} ث</p>
+                </div>
+            `;
+        }
+
+        async function saveScore(g, met) {
+            const p = new URLSearchParams({ action: 'saveScore', studentId, classId, itemId: GAME_ID, score: g, metricValue: met, type: 'game' });
+            try { await fetch(`${SCRIPT_URL}?${p.toString()}`); } finally { fetchAndShowLeaderboard(false); }
+        }
+
+        window.fetchAndShowLeaderboard = function(isManual = false) {
+            const modal = document.getElementById('leaderboard-modal');
+            if (isManual) { modal.classList.remove('hidden-modal'); modal.classList.add('visible-modal'); }
+            const content = document.getElementById('leaderboard-content');
+            document.getElementById('modal-loader').classList.remove('hidden');
+            let reqClassId = (currentLeaderboardMode === 'class') ? classId : 'all';
+            const url = `${SCRIPT_URL}?action=getLeaderboard&gameId=${GAME_ID}&classId=${encodeURIComponent(reqClassId || 'all')}&t=${Date.now()}`;
+            fetch(url).then(r => r.json()).then(res => {
+                let data = (res.status === 'success' && res.data) ? res.data : [];
+                if (localVisitorResult && (currentLeaderboardMode === 'global' || !classId)) {
+                    if (!data.find(p => p.name === localVisitorResult.name)) data.push(localVisitorResult);
+                    data.sort((a, b) => parseFloat(b.grade) - parseFloat(a.grade) || parseFloat(a.metric) - parseFloat(b.metric));
+                }
+                if (data.length > 0) {
+                    let h = `<table class="w-full text-right text-[10px] border-collapse"><thead class="text-slate-400 border-b border-slate-100 bg-slate-50/50"><tr><th class="p-2 text-center">#</th><th class="p-2 text-right">البطل</th><th class="p-2 text-center text-emerald-600">الدرجة</th></tr></thead><tbody class="divide-y divide-slate-50">`;
+                    data.forEach((p, i) => {
+                        const isMe = (p.isLocal || (studentId && String(p.name).trim() === String(studentName).trim()));
+                        h += `<tr class="${isMe ? 'rank-row-me' : 'hover:bg-slate-50/50'} transition-colors">
+                            <td class="p-2 leaderboard-rank text-center ${i<3 ? 'text-yellow-500 text-sm' : 'text-slate-400'}">${i < 3 ? ['🥇','🥈','🥉'][i] : toAr(i+1)}</td>
+                            <td class="p-2 leaderboard-name ${isMe ? 'text-blue-700 font-extrabold' : 'text-slate-700'}">${p.name} ${isMe ? '<span class="bg-blue-600 text-white text-[7px] px-1 rounded-full mx-1">أنت</span>' : ''}</td>
+                            <td class="p-2 text-center"><span class="text-emerald-600 font-black">${toAr(parseFloat(p.grade).toFixed(1))}</span> <span class="text-[8px] text-slate-400 block font-bold">(${toAr(p.metric || p.metricValue || 0)} ث)</span></td>
+                        </tr>`;
+                    });
+                    content.innerHTML = h + `</tbody></table>`;
+                } else content.innerHTML = `<div class="py-10 text-center text-slate-400 text-xs italic font-bold">بانتظار تسجيل الأبطال..</div>`;
+            }).finally(() => document.getElementById('modal-loader').classList.add('hidden'));
+        };
+
+        window.switchTab = (mode) => { currentLeaderboardMode = mode; document.getElementById('tab-class').className = mode === 'class' ? 'tab-btn tab-active' : 'tab-btn tab-inactive'; document.getElementById('tab-global').className = mode === 'global' ? 'tab-btn tab-active' : 'tab-btn tab-inactive'; fetchAndShowLeaderboard(false); };
+        window.closeLeaderboardModal = () => document.getElementById('leaderboard-modal').classList.replace('visible-modal', 'hidden-modal');
+    })();
+    </script>
+</body>
+</html>

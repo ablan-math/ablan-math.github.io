@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>متاهة الفراعنة - تحدي المعادلات</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body { font-family: 'Cairo', sans-serif; overflow: hidden; touch-action: manipulation; direction: rtl; background-color: #020617; }
+        
+        /* --- تخصيصات القالب الأساسية --- */
+        .compact-card {
+            width: 100%; max-width: 420px; background: #0f172a; border-radius: 1.5rem;
+            box-shadow: 0 20px 50px -5px rgba(0,0,0,0.8), inset 0 0 0 2px #334155;
+            display: flex; flex-direction: column; max-height: 98vh; overflow: hidden; position: relative;
+        }
+        .top-info-bar {
+            background: linear-gradient(to bottom, #1e293b, #0f172a); border-bottom: 2px solid #ca8a04; padding: 6px 16px;
+            display: flex; justify-content: space-between; align-items: center;
+            font-size: 11px; font-weight: 800; color: #f8fafc; z-index: 20;
+        }
+        .btn-touch { min-height: 44px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; border-radius: 0.75rem; font-weight: 800; cursor: pointer; }
+        .btn-touch:active { transform: scale(0.95); }
+        
+        .leaderboard-modal { 
+            position: absolute; inset: 0; background: #0f172a; z-index: 100; 
+            display: flex; flex-direction: column; padding: 1rem; transition: all 0.3s; 
+        }
+        .hidden-modal { opacity: 0; pointer-events: none; transform: scale(0.95); display: none; }
+        .visible-modal { opacity: 1; pointer-events: auto; transform: scale(1); display: flex; }
+        
+        .tab-btn { flex: 1; padding: 6px; font-size: 11px; font-weight: bold; border-radius: 8px; transition: 0.3s; border: 1px solid transparent; cursor: pointer; }
+        .tab-active { background-color: #eab308; color: #1e293b; box-shadow: 0 2px 10px rgba(234, 179, 8, 0.4); }
+        .tab-inactive { background-color: #1e293b; color: #94a3b8; border-color: #334155; }
+        
+        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance: textfield; }
+
+        /* --- تأثيرات ثلاثية الأبعاد 3D Effects --- */
+        .perspective-container { perspective: 1000px; transform-style: preserve-3d; }
+        
+        .temple-bg {
+            background: radial-gradient(circle at center, #1e293b 0%, #020617 100%);
+            position: relative;
+            box-shadow: inset 0 0 50px rgba(0,0,0,0.9);
+        }
+        
+        /* الباب الحجري 3D (تم تقليل السُمك) */
+        .door-container {
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 1.5s cubic-bezier(0.4, 0, 0.2, 1), opacity 1.5s;
+        }
+        .stone-panel {
+            background: linear-gradient(145deg, #475569, #1e293b);
+            border: 3px solid #334155;
+            border-bottom-width: 8px; /* تقليل السُمك من 12 إلى 8 */
+            border-right-width: 6px;
+            box-shadow: inset 0 0 15px rgba(0,0,0,0.8), 5px 5px 20px rgba(0,0,0,0.9);
+            border-radius: 4px;
+            position: relative;
+            overflow: hidden;
+        }
+        .stone-panel::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background-image: url('data:image/svg+xml;utf8,<svg width="20" height="20" xmlns="http://www.w3.org/2000/svg"><path d="M0 0h20v20H0z" fill="none"/><path d="M0 10h20v1H0zM10 0v20h1V0z" fill="rgba(255,255,255,0.03)"/></svg>');
+            pointer-events: none;
+        }
+        
+        .door-open {
+            transform: translateZ(-150px) translateY(-120%);
+            opacity: 0.5;
+            box-shadow: 0 30px 80px rgba(234, 179, 8, 0.5); 
+        }
+        
+        .shake-door { animation: shake3d 0.5s; }
+        @keyframes shake3d {
+            0% { transform: translateX(0) translateZ(0); }
+            20% { transform: translateX(-8px) translateZ(-8px) rotateY(-2deg); }
+            40% { transform: translateX(8px) translateZ(8px) rotateY(2deg); }
+            60% { transform: translateX(-8px) translateZ(-8px) rotateY(-2deg); }
+            80% { transform: translateX(8px) translateZ(8px) rotateY(2deg); }
+            100% { transform: translateX(0) translateZ(0); }
+        }
+
+        .equation-text {
+            font-family: 'Courier New', Courier, monospace;
+            text-shadow: 0 0 12px rgba(234, 179, 8, 0.9), 0 2px 2px #000;
+        }
+        
+        /* أزرار 3D (تم تقليل السُمك والارتفاع) */
+        .stone-btn {
+            background: linear-gradient(to bottom, #64748b, #334155);
+            border: 2px solid #94a3b8;
+            border-bottom: 4px solid #1e293b; /* تقليل السُمك من 6 إلى 4 */
+            color: white;
+            border-radius: 8px;
+            transition: all 0.1s;
+            text-shadow: 0 1px 2px #000;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+        }
+        .stone-btn:active {
+            transform: translateY(3px);
+            border-bottom-width: 2px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.5);
+        }
+        
+        /* صناديق الذهب 3D */
+        .gold-input {
+            background: linear-gradient(145deg, #fef08a, #ca8a04);
+            border: 2px solid #854d0e;
+            border-bottom: 4px solid #713f12;
+            color: #422006;
+            box-shadow: inset 0 2px 5px rgba(255,255,255,0.5), 0 4px 8px rgba(0,0,0,0.4);
+            transition: all 0.2s;
+        }
+        .gold-input:focus { border-color: #fef08a; outline: none; transform: translateY(2px); border-bottom-width: 2px; }
+        .gold-input.correct-answer { background: linear-gradient(145deg, #a7f3d0, #10b981); color: #064e3b; border-color: #047857; }
+        .gold-input.wrong-answer { background: linear-gradient(145deg, #fecaca, #ef4444); color: #7f1d1d; border-color: #b91c1c; }
+
+        /* فئات الأزرار للمرحلة الأولى عند الخطأ والصح */
+        .wrong-btn { border-color: #ef4444 !important; background: linear-gradient(to bottom, #7f1d1d, #450a0a) !important; color: #fecaca !important; }
+        .correct-btn { border-color: #10b981 !important; background: linear-gradient(to bottom, #065f46, #022c22) !important; color: #a7f3d0 !important; }
+        .shake-btn { animation: shakeBtn 0.4s; }
+        @keyframes shakeBtn {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            50% { transform: translateX(5px); }
+            75% { transform: translateX(-5px); }
+        }
+
+        .stage-popup-overlay {
+            position: absolute; inset: 0; background: rgba(2, 6, 23, 0.9); z-index: 50;
+            display: flex; align-items: center; justify-content: center;
+            opacity: 0; pointer-events: none; transition: opacity 0.3s;
+            backdrop-filter: blur(4px);
+        }
+        .stage-popup-overlay.show { opacity: 1; pointer-events: auto; }
+        
+        .stage-popup-content {
+            background: linear-gradient(145deg, #1e293b, #0f172a);
+            border: 2px solid #eab308;
+            box-shadow: 0 0 30px rgba(234, 179, 8, 0.2), inset 0 0 15px rgba(0,0,0,0.8);
+            transform: scale(0.8) translateY(20px); transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .stage-popup-overlay.show .stage-popup-content { transform: scale(1) translateY(0); }
+
+        .pyramid {
+            width: 0; height: 0; border-left: 40px solid transparent; border-right: 40px solid transparent;
+            border-bottom: 60px solid #ca8a04; position: relative;
+            filter: drop-shadow(0 8px 8px rgba(0,0,0,0.5));
+            animation: float 4s ease-in-out infinite;
+        }
+        .pyramid::after {
+            content: ''; position: absolute; top: 0; left: -40px;
+            width: 0; height: 0; border-left: 40px solid transparent; border-right: 0 solid transparent;
+            border-bottom: 60px solid #eab308;
+        }
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+
+    </style>
+</head>
+<body class="h-screen w-screen flex items-center justify-center p-2 text-right">
+
+    <div class="compact-card">
+        <!-- الشريط العلوي -->
+        <div class="top-info-bar">
+            <div class="flex items-center gap-2 overflow-hidden">
+                <i class="fas fa-user-ninja text-yellow-500"></i>
+                <span id="top-student-name" class="truncate font-black text-white"></span>
+                <script>
+                    (function() {
+                        const p = new URLSearchParams(window.location.search);
+                        const raw = p.get('name') || p.get('studentName') || p.get('username') || p.get('user');
+                        const display = document.getElementById('top-student-name');
+                        display.textContent = raw ? decodeURIComponent(raw) : "عالم الآثار";
+                    })();
+                </script>
+            </div>
+            <div class="flex items-center gap-2 bg-slate-900 px-3 py-1 rounded-full shadow-inner shadow-black border border-slate-700 font-bold text-yellow-400">
+                <span id="sync-icon" class="hidden"><i class="fas fa-sync sync-loader"></i></span>
+                <i class="fas fa-gem text-[10px]"></i>
+                <span id="top-prev-score">٠ / ٥</span>
+            </div>
+        </div>
+
+        <!-- الشاشة 1: البداية -->
+        <div id="start-screen" class="p-5 text-center flex flex-col gap-3 h-full justify-center bg-slate-900 text-white relative overflow-hidden">
+            <div class="absolute -right-8 top-8 opacity-20"><div class="pyramid" style="transform: scale(1.3);"></div></div>
+            <div class="absolute -left-4 bottom-24 opacity-30"><div class="pyramid" style="transform: scale(0.7); animation-delay: -2s;"></div></div>
+            
+            <div class="relative z-10 flex flex-col items-center">
+                <div class="text-yellow-500 text-5xl mb-3 drop-shadow-[0_0_15px_rgba(234,179,8,0.5)]">
+                    <i class="fas fa-eye"></i>
+                </div>
+                <h1 class="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 to-yellow-600 drop-shadow-md mb-1">متاهة الفراعنة</h1>
+                <h2 class="text-xs font-bold text-slate-400 tracking-widest uppercase">فخاخ المعادلات التربيعية</h2>
+                
+                <div class="bg-slate-800/80 backdrop-blur p-3 rounded-xl border border-slate-600 text-[11px] font-bold text-slate-300 leading-relaxed text-right mt-4 shadow-xl w-full">
+                    <ul class="space-y-1.5">
+                        <li class="flex items-start gap-2"><i class="fas fa-bolt text-yellow-400 mt-0.5"></i> <span>اختر الأداة (الطريقة) الأنسب لإيقاف الفخ الحجري.</span></li>
+                        <li class="flex items-start gap-2"><i class="fas fa-balance-scale text-emerald-400 mt-0.5"></i> <span>لديك <strong class="text-white bg-slate-700 px-1 rounded">محاولتان</strong> لوضع الأوزان الصحيحة (قيم س).</span></li>
+                        <li class="flex items-start gap-2"><i class="fas fa-star text-orange-400 mt-0.5"></i> <span>كلما حليت من المحاولة الأولى زادت نقاطك!</span></li>
+                    </ul>
+                </div>
+                
+                <div class="flex flex-row gap-2 items-stretch mt-4 w-full perspective-container">
+                    <button onclick="startPharaohGame()" class="btn-touch flex-[2.5] bg-gradient-to-r from-yellow-600 to-yellow-500 text-slate-900 shadow-[0_8px_15px_rgba(202,138,4,0.4)] text-lg border-b-4 border-yellow-800 transform hover:translate-z-10">
+                        دخول المعبد <i class="fas fa-door-closed mr-2"></i>
+                    </button>
+                    <button onclick="fetchAndShowLeaderboard(true)" class="btn-touch flex-1 bg-slate-800 text-yellow-500 border border-slate-600 text-[9px] flex-col leading-tight py-1 shadow-lg">
+                        <i class="fas fa-scroll text-lg mb-1"></i>
+                        <span>سجل النجاة</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- الشاشة 2: بيئة اللعب -->
+        <div id="game-screen" class="hidden h-full flex flex-col temple-bg">
+            <!-- شريط التقدم والوقت -->
+            <div class="flex justify-between items-center p-2 bg-slate-900/80 backdrop-blur border-b border-slate-700 shadow-md z-10">
+                <div class="text-yellow-400 font-bold text-xs bg-slate-800 px-2 py-1 rounded">الباب: <span id="level-display">١ / ٣</span></div>
+                <div class="text-emerald-400 font-black text-sm"><i class="fas fa-clock"></i> <span id="timer-display">٠٠:٠٠</span></div>
+                <div class="text-blue-400 font-bold text-xs bg-slate-800 px-2 py-1 rounded">النقاط: <span id="score-display" class="w-6 inline-block text-center">٠</span></div>
+            </div>
+
+            <!-- مساحة اللعب -->
+            <div class="flex-1 p-2 overflow-hidden flex flex-col justify-start pt-3 relative perspective-container" id="play-area">
+                
+                <div id="feedback-msg" class="absolute top-1 left-0 right-0 mx-auto w-11/12 text-center p-1.5 font-black text-xs opacity-0 transition-opacity z-20 rounded-md shadow-xl pointer-events-none"></div>
+
+                <!-- الجدار -->
+                <div id="equation-wall" class="stone-panel py-3 px-4 text-center door-container w-full max-w-sm mx-auto z-10">
+                    <p class="text-slate-400 text-[9px] font-bold mb-1 uppercase tracking-widest"><i class="fas fa-fire text-orange-500 mx-1"></i> الطلسم الرياضي <i class="fas fa-fire text-orange-500 mx-1"></i></p>
+                    <div id="equation-text" class="equation-text text-2xl font-black text-yellow-400" dir="ltr">x² - 5x + 6 = 0</div>
+                </div>
+
+                <!-- المنطقة السفلية -->
+                <div id="controls-area" class="mt-auto bg-slate-900/95 border-t 2 border-slate-700 rounded-t-xl p-3 shadow-[0_-5px_20px_rgba(0,0,0,0.6)] transform translate-y-0 transition-transform duration-500 z-20">
+                    
+                    <!-- المرحلة 1: اختيار الطريقة -->
+                    <div id="phase1-container" class="space-y-2">
+                        <div class="flex justify-between items-center mb-0.5 px-2">
+                            <p class="text-[10px] font-bold text-slate-300">أوقف الفخ! اختر الأداة الأنسب:</p>
+                            <div id="attempts-badges-method" class="flex gap-1">
+                                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_5px_#10b981]"></span>
+                                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_5px_#10b981]"></span>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 gap-2">
+                            <button id="btn-factor" onclick="checkMethod('factor')" class="stone-btn py-2 font-bold text-[13px] flex items-center justify-center gap-2"><i class="fas fa-cut text-yellow-500"></i> التحليل المباشر</button>
+                            <button id="btn-square" onclick="checkMethod('square')" class="stone-btn py-2 font-bold text-[13px] flex items-center justify-center gap-2"><i class="fas fa-hammer text-yellow-500"></i> إكمال المربع</button>
+                            <button id="btn-formula" onclick="checkMethod('formula')" class="stone-btn py-2 font-bold text-[13px] flex items-center justify-center gap-2"><i class="fas fa-bomb text-yellow-500"></i> القانون العام</button>
+                        </div>
+                    </div>
+
+                    <!-- المرحلة 2: إدخال الجذور -->
+                    <div id="phase2-container" class="hidden space-y-2">
+                        <div class="flex justify-between items-center mb-0.5">
+                            <p class="text-[10px] font-bold text-yellow-400"><i class="fas fa-balance-scale mr-1"></i> ضع أوزان الباب (س)</p>
+                            <div id="attempts-badges-roots" class="flex gap-1">
+                                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_5px_#10b981]"></span>
+                                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_5px_#10b981]"></span>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center justify-center gap-3 p-1 relative">
+                            <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-12 h-1 bg-slate-700 -z-10"></div>
+                            <input type="number" id="root1" class="gold-input w-20 h-12 text-center text-2xl font-black rounded-lg" dir="ltr" oninput="resetInputsColor()">
+                            <span class="text-slate-500 font-black text-xs bg-slate-900 px-1.5 rounded-full border border-slate-700">و</span>
+                            <input type="number" id="root2" class="gold-input w-20 h-12 text-center text-2xl font-black rounded-lg" dir="ltr" oninput="resetInputsColor()">
+                        </div>
+                        <button id="btn-submit-roots" onclick="checkRoots()" class="btn-touch w-full bg-gradient-to-r from-emerald-600 to-emerald-500 text-white border-b-4 border-emerald-800 text-base mt-1 shadow-[0_4px_10px_rgba(16,185,129,0.3)]">
+                            التحقق <i class="fas fa-unlock-alt mr-2"></i>
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+            
+            <!-- نافذة منبثقة بنهاية كل باب -->
+            <div id="stage-popup" class="stage-popup-overlay">
+                <div class="stage-popup-content p-5 rounded-2xl w-10/12 max-w-xs text-center flex flex-col gap-3">
+                    <div id="stage-popup-icon" class="text-4xl mx-auto drop-shadow-md"></div>
+                    <h3 id="stage-popup-title" class="text-lg font-black text-white"></h3>
+                    <p id="stage-popup-desc" class="text-xs font-bold text-slate-300"></p>
+                    
+                    <div class="bg-slate-900/50 p-2 rounded-xl border border-slate-700 flex justify-around mt-1">
+                        <div class="text-center">
+                            <span class="block text-[8px] text-slate-400 uppercase">النقاط المكتسبة</span>
+                            <span id="stage-points-earned" class="text-base font-black text-blue-400"></span>
+                        </div>
+                        <div class="text-center border-r border-slate-700 pr-4">
+                            <span class="block text-[8px] text-slate-400 uppercase">إجمالي النقاط</span>
+                            <span id="stage-total-score" class="text-base font-black text-yellow-400"></span>
+                        </div>
+                    </div>
+                    
+                    <button onclick="nextLevel()" class="btn-touch w-full bg-yellow-500 text-slate-900 mt-1 text-base h-10 min-h-[40px]">
+                        <span id="next-btn-text">الباب التالي</span> <i class="fas fa-arrow-left mr-2"></i>
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- الشاشة 3: النتائج النهائية -->
+        <div id="result-screen" class="hidden p-5 flex flex-col h-full overflow-hidden text-center justify-center bg-slate-900 perspective-container">
+            <div class="text-yellow-500 text-5xl mb-3 drop-shadow-[0_0_20px_rgba(234,179,8,0.6)] animate-bounce"><i class="fas fa-trophy"></i></div>
+            <h2 class="text-xl font-black text-white mb-5">اكتمل الاستكشاف!</h2>
+            
+            <div id="final-stats" class="grid grid-cols-3 gap-2 mb-5"></div>
+            
+            <div class="bg-slate-800 p-3 rounded-xl border border-slate-600 mb-5 relative overflow-hidden">
+                <div class="absolute inset-0 bg-emerald-500/10 animate-pulse"></div>
+                <i class="fas fa-check-circle text-emerald-400 text-2xl mb-1 relative z-10"></i>
+                <p id="save-msg" class="font-black text-slate-200 text-[11px] relative z-10">تم حفظ إنجازك في السجلات!</p>
+            </div>
+            
+            <button onclick="fetchAndShowLeaderboard(true)" class="btn-touch w-full bg-gradient-to-r from-yellow-600 to-yellow-500 text-slate-900 font-black mb-3 shadow-[0_5px_15px_rgba(202,138,4,0.3)]">
+                <i class="fas fa-scroll ml-2"></i> سجل الأبطال
+            </button>
+            <div class="mt-auto flex gap-2">
+                <button onclick="location.reload()" class="btn-touch flex-1 bg-slate-800 text-slate-300 text-xs font-bold border border-slate-700 h-10 min-h-[40px]">إعادة</button>
+                <button id="finish-btn" class="btn-touch flex-[2] bg-slate-200 text-slate-900 text-xs font-black h-10 min-h-[40px]">مغادرة المعبد</button>
+            </div>
+        </div>
+
+        <!-- سجل الأبطال -->
+        <div id="leaderboard-modal" class="leaderboard-modal hidden-modal" dir="rtl">
+            <div class="flex justify-between items-center mb-3 border-b border-slate-700 pb-2">
+                <h3 class="font-black text-yellow-400 text-base"><i class="fas fa-trophy text-yellow-500 ml-2"></i>أسياد المتاهة</h3>
+                <button onclick="closeLeaderboardModal()" class="w-8 h-8 rounded-full bg-slate-800 text-slate-400 flex items-center justify-center transition-all hover:bg-red-900 hover:text-red-400 border border-slate-700"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="flex gap-2 mb-3">
+                <button onclick="switchTab('class')" id="tab-class" class="tab-btn tab-inactive">فصلي</button>
+                <button onclick="switchTab('global')" id="tab-global" class="tab-btn tab-active">جميع المستكشفين</button>
+            </div>
+            <div id="modal-body" class="flex-1 overflow-y-auto bg-slate-800/50 rounded-xl border border-slate-700 p-1 relative">
+                <div id="modal-loader" class="absolute inset-0 flex items-center justify-center hidden bg-slate-900/80 z-10"><div class="sync-loader text-yellow-500 text-3xl"><i class="fas fa-sync"></i></div></div>
+                <div id="leaderboard-content" class="space-y-1"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    (function() {
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxqAQlGhNs8k5RwHs6jrWxDiDwaMABSx8a9Fl81O5oVVa5fHRWTwIEvsGy2cSDP4zGLWQ/exec";
+        const urlParams = new URLSearchParams(window.location.search);
+        const GAME_ID = urlParams.get('gameId') || 'g8_4_1'; 
+        const studentId = urlParams.get('studentId') || urlParams.get('userId');
+        const classId = urlParams.get('classId');
+        
+        let studentName = decodeURIComponent(urlParams.get('name') || urlParams.get('studentName') || urlParams.get('username') || "عالم الآثار");
+        let currentLeaderboardMode = classId ? 'class' : 'global';
+        let localVisitorResult = null;
+
+        const toAr = (n) => String(n).replace(/\d/g, d => "٠١٢٣٤٥٦٧٨٩"[d]);
+
+        // --- بنك الأسئلة ---
+        const bankFactor = [
+            { eqText: "س² - ٨س + ١٥ = ٠", method: "factor", roots: [3, 5], hint: "أسهل طريقة هنا هي التحليل المباشر (عددين ضربهم 15 وجمعهم 8)." },
+            { eqText: "س² + ٥س + ٦ = ٠", method: "factor", roots: [-2, -3], hint: "جميع الإشارات موجبة، التحليل المباشر سريع جداً هنا." },
+            { eqText: "س² - ٢س - ٨ = ٠", method: "factor", roots: [4, -2], hint: "التحليل المباشر هو الحل الأمثل لهذه المسألة البسيطة." }
+        ];
+        
+        const bankSquare = [
+            { eqText: "س² - ٤س - ١٢ = ٠", method: "square", roots: [6, -2], hint: "بما أن معامل (س) زوجي، فإكمال المربع خطوة سريعة وفعالة." },
+            { eqText: "س² + ٦س - ٧ = ٠", method: "square", roots: [1, -7], hint: "معامل (س) زوجي (+6)، إضافة مربع نصفه يجعل إكمال المربع أسهل." },
+            { eqText: "س² - ٢س - ٣ = ٠", method: "square", roots: [3, -1], hint: "الرقم الأوسط زوجي (-2)، إكمال المربع يعتبر طريقاً مختصراً." }
+        ];
+
+        const bankFormula = [
+            { eqText: "٢س² - ٥س - ٣ = ٠", method: "formula", roots: [3, -0.5], hint: "معامل س² ليس 1، القانون العام يحميك من التعقيد." },
+            { eqText: "٢س² + ٣س - ٥ = ٠", method: "formula", roots: [1, -2.5], hint: "الأرقام هنا تتطلب القانون العام للوصول للحل بدقة." },
+            { eqText: "٤س² - ٤س - ٣ = ٠", method: "formula", roots: [1.5, -0.5], hint: "بسبب وجود معاملات كبيرة، القانون العام هو الأداة الأقوى." }
+        ];
+
+        let currentLevels = []; // المستويات الثلاثة التي سيتم اختيارها للعبة الحالية
+        let currentLevelIndex = 0;
+        let gameScore = 0;
+        let currentStageScore = 0; 
+        const MAX_SCORE = 100;
+        const SCORE_PER_LEVEL = MAX_SCORE / 3; 
+        
+        const SCORE_METHOD = SCORE_PER_LEVEL * 0.4; 
+        const SCORE_ROOTS = SCORE_PER_LEVEL * 0.6;  
+        
+        let methodAttemptsLeft = 2;
+        let rootsAttemptsLeft = 2;
+        let startTime;
+        let timerInterval;
+        let elapsedSeconds = 0;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('top-student-name').textContent = studentName;
+            if (!classId) { document.getElementById('tab-class').style.display = 'none'; currentLeaderboardMode = 'global'; } 
+            else { document.getElementById('tab-class').className = 'tab-btn tab-active'; document.getElementById('tab-global').className = 'tab-btn tab-inactive'; }
+            if (studentId && classId) { document.getElementById('sync-icon').classList.remove('hidden'); fetchInitialCloudData(); }
+            document.getElementById('finish-btn').onclick = () => window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*');
+        });
+
+        async function fetchInitialCloudData() {
+            try {
+                const res = await (await fetch(`${SCRIPT_URL}?action=getStudentData&studentId=${studentId}&classId=${encodeURIComponent(classId)}&itemId=${GAME_ID}&t=${Date.now()}`)).json();
+                if (res.status === 'success' && res.data) {
+                    if (res.data.name) { studentName = res.data.name; document.getElementById('top-student-name').textContent = studentName; }
+                    if (res.data.games && res.data.games[GAME_ID]) document.getElementById('top-prev-score').textContent = toAr(parseFloat(res.data.games[GAME_ID].grade).toFixed(1)) + " / ٥";
+                }
+            } catch (e) {} finally { document.getElementById('sync-icon').classList.add('hidden'); }
+        }
+        
+        // دالة لخلط المصفوفة (Random Shuffle)
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        window.startPharaohGame = () => {
+            document.getElementById('start-screen').classList.add('hidden');
+            document.getElementById('game-screen').classList.remove('hidden');
+            
+            // اختيار مسألة عشوائية من كل نوع لضمان التنوع، ثم خلط ترتيبها
+            const q1 = bankFactor[Math.floor(Math.random() * bankFactor.length)];
+            const q2 = bankSquare[Math.floor(Math.random() * bankSquare.length)];
+            const q3 = bankFormula[Math.floor(Math.random() * bankFormula.length)];
+            currentLevels = shuffleArray([q1, q2, q3]);
+
+            currentLevelIndex = 0; gameScore = 0; elapsedSeconds = 0;
+            
+            startTime = Date.now();
+            timerInterval = setInterval(() => {
+                elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
+                const m = String(Math.floor(elapsedSeconds / 60)).padStart(2, '0');
+                const s = String(elapsedSeconds % 60).padStart(2, '0');
+                document.getElementById('timer-display').textContent = toAr(`${m}:${s}`);
+            }, 1000);
+
+            loadLevel();
+        };
+
+        function loadLevel() {
+            const lvl = currentLevels[currentLevelIndex];
+            currentStageScore = 0;
+            methodAttemptsLeft = 2;
+            rootsAttemptsLeft = 2;
+            updateAttemptsUI('method');
+            updateAttemptsUI('roots');
+            
+            document.getElementById('level-display').textContent = toAr(`${currentLevelIndex + 1} / 3`);
+            document.getElementById('equation-text').textContent = lvl.eqText;
+            
+            document.getElementById('phase1-container').classList.remove('hidden');
+            document.getElementById('phase2-container').classList.add('hidden');
+            
+            // إعادة ضبط الأزرار
+            ['factor', 'square', 'formula'].forEach(id => {
+                const btn = document.getElementById(`btn-${id}`);
+                btn.classList.remove('wrong-btn', 'correct-btn', 'shake-btn');
+                btn.disabled = false;
+            });
+
+            const wall = document.getElementById('equation-wall');
+            wall.classList.remove('door-open');
+            wall.style.borderColor = '#334155';
+            
+            resetInputsColor();
+            document.getElementById('root1').value = '';
+            document.getElementById('root2').value = '';
+            document.getElementById('btn-submit-roots').disabled = false;
+        }
+
+        function updateAttemptsUI(phase) {
+            const containerId = phase === 'method' ? 'attempts-badges-method' : 'attempts-badges-roots';
+            const attempts = phase === 'method' ? methodAttemptsLeft : rootsAttemptsLeft;
+            const badges = document.getElementById(containerId).children;
+            badges[0].className = attempts >= 1 ? "w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_5px_#10b981]" : "w-2.5 h-2.5 rounded-full bg-slate-700";
+            badges[1].className = attempts >= 2 ? "w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_5px_#10b981]" : "w-2.5 h-2.5 rounded-full bg-slate-700";
+        }
+
+        window.resetInputsColor = () => {
+            document.getElementById('root1').className = "gold-input w-20 h-12 text-center text-2xl font-black rounded-lg";
+            document.getElementById('root2').className = "gold-input w-20 h-12 text-center text-2xl font-black rounded-lg";
+        }
+
+        function showFeedback(text, type) {
+            const fb = document.getElementById('feedback-msg');
+            fb.textContent = text;
+            fb.className = `absolute top-2 left-0 right-0 mx-auto w-11/12 text-center p-2 font-black text-xs z-30 rounded-lg shadow-xl transition-all duration-300 transform translate-y-0 ${type === 'success' ? 'bg-emerald-500 text-white' : (type === 'error' ? 'bg-red-500 text-white' : 'bg-orange-500 text-white')}`;
+            fb.style.opacity = '1';
+            setTimeout(() => { fb.style.opacity = '0'; fb.style.transform = 'translateY(-10px)'; }, 3000);
+        }
+
+        window.checkMethod = (selectedMethod) => {
+            const lvl = currentLevels[currentLevelIndex];
+            const wall = document.getElementById('equation-wall');
+            const clickedBtn = document.getElementById(`btn-${selectedMethod}`);
+
+            if (selectedMethod === lvl.method) {
+                // إجابة صحيحة
+                clickedBtn.classList.add('correct-btn');
+                let mScore = (methodAttemptsLeft === 2) ? SCORE_METHOD : (SCORE_METHOD / 2);
+                currentStageScore += mScore;
+                
+                showFeedback("أداة مثالية! الفخ استقر.", "success");
+                wall.style.borderColor = "#10b981"; 
+                updateTotalScoreDisplay();
+
+                // تعطيل الأزرار ثم الانتقال
+                ['factor', 'square', 'formula'].forEach(id => document.getElementById(`btn-${id}`).disabled = true);
+                setTimeout(() => {
+                    document.getElementById('phase1-container').classList.add('hidden');
+                    document.getElementById('phase2-container').classList.remove('hidden');
+                }, 1000);
+
+            } else {
+                // إجابة خاطئة
+                methodAttemptsLeft--;
+                updateAttemptsUI('method');
+                
+                clickedBtn.classList.remove('shake-btn');
+                void clickedBtn.offsetWidth; // Trigger reflow
+                clickedBtn.classList.add('shake-btn', 'wrong-btn');
+                clickedBtn.disabled = true;
+
+                if (methodAttemptsLeft > 0) {
+                    showFeedback(`الأداة تكسرت! تبقت محاولة. ${lvl.hint}`, "warning");
+                    wall.style.borderColor = "#f59e0b"; 
+                } else {
+                    showFeedback("نفدت محاولات الأداة! سيتم تفعيل الأداة تلقائياً.", "error");
+                    wall.style.borderColor = "#ef4444"; 
+                    
+                    // إظهار الأداة الصحيحة
+                    const correctBtn = document.getElementById(`btn-${lvl.method}`);
+                    correctBtn.classList.add('correct-btn');
+                    
+                    ['factor', 'square', 'formula'].forEach(id => document.getElementById(`btn-${id}`).disabled = true);
+                    
+                    setTimeout(() => {
+                        document.getElementById('phase1-container').classList.add('hidden');
+                        document.getElementById('phase2-container').classList.remove('hidden');
+                    }, 2000);
+                }
+            }
+        };
+
+        window.checkRoots = () => {
+            const lvl = currentLevels[currentLevelIndex];
+            const i1 = document.getElementById('root1');
+            const i2 = document.getElementById('root2');
+            const r1 = parseFloat(i1.value);
+            const r2 = parseFloat(i2.value);
+
+            if (isNaN(r1) || isNaN(r2)) { showFeedback("أدخل كلا الوزنين (س)!", "warning"); return; }
+
+            const userRoots = [r1, r2].sort((a,b) => a-b);
+            const actualRoots = [...lvl.roots].sort((a,b) => a-b);
+            const isCorrect = (userRoots[0] === actualRoots[0] && userRoots[1] === actualRoots[1]);
+            const wall = document.getElementById('equation-wall');
+
+            if (isCorrect) {
+                // إجابة صحيحة
+                i1.classList.add('correct-answer'); i2.classList.add('correct-answer');
+                let rootsScore = (rootsAttemptsLeft === 2) ? SCORE_ROOTS : (SCORE_ROOTS / 2);
+                currentStageScore += rootsScore;
+                updateTotalScoreDisplay();
+                
+                showFeedback("أوزان مطابقة! الباب يُفتح...", "success");
+                triggerDoorOpenAnimation();
+                
+                setTimeout(() => {
+                    showStagePopup("success", rootsScore > (SCORE_ROOTS/2) ? "عمل ممتاز!" : "تم الفتح بصعوبة!", `لقد فتحت الباب رقم ${toAr(currentLevelIndex+1)}`);
+                }, 1500);
+
+            } else {
+                // إجابة خاطئة
+                rootsAttemptsLeft--;
+                updateAttemptsUI('roots');
+                
+                if (rootsAttemptsLeft > 0) {
+                    showFeedback("أوزان خاطئة! الفخ يهتز. تبقت محاولة واحدة.", "error");
+                    wall.classList.remove('shake-door');
+                    void wall.offsetWidth; 
+                    wall.classList.add('shake-door');
+                    i1.classList.add('wrong-answer'); i2.classList.add('wrong-answer');
+                } else {
+                    document.getElementById('btn-submit-roots').disabled = true;
+                    showFeedback("لقد أخطأت مرتين! سيتم عرض الحل الصحيح.", "error");
+                    wall.classList.add('shake-door');
+                    
+                    // إظهار الإجابة الصحيحة
+                    i1.value = lvl.roots[0]; i2.value = lvl.roots[1];
+                    i1.classList.replace('wrong-answer','correct-answer'); 
+                    i2.classList.replace('wrong-answer','correct-answer');
+                    
+                    setTimeout(() => {
+                        triggerDoorOpenAnimation(); 
+                        setTimeout(() => {
+                            showStagePopup("error", "فشل في فتح الباب!", `الإجابات الصحيحة كانت: ${toAr(lvl.roots[0])} و ${toAr(lvl.roots[1])}`);
+                        }, 1000);
+                    }, 2000);
+                }
+            }
+        };
+
+        function triggerDoorOpenAnimation() {
+            const wall = document.getElementById('equation-wall');
+            wall.classList.add('door-open');
+        }
+
+        function showStagePopup(status, title, desc) {
+            document.getElementById('stage-popup-title').textContent = title;
+            document.getElementById('stage-popup-desc').textContent = desc;
+            
+            const icon = document.getElementById('stage-popup-icon');
+            if(status === 'success') {
+                icon.innerHTML = '<i class="fas fa-door-open text-emerald-400"></i>';
+                document.getElementById('stage-popup-title').className = "text-lg font-black text-emerald-400";
+            } else {
+                icon.innerHTML = '<i class="fas fa-times-circle text-red-500"></i>';
+                document.getElementById('stage-popup-title').className = "text-lg font-black text-red-500";
+            }
+
+            document.getElementById('stage-points-earned').textContent = "+" + toAr(Math.round(currentStageScore));
+            document.getElementById('stage-total-score').textContent = toAr(Math.round(gameScore + currentStageScore));
+            
+            if (currentLevelIndex === currentLevels.length - 1) {
+                document.getElementById('next-btn-text').textContent = "إنهاء التحدي";
+            } else {
+                document.getElementById('next-btn-text').textContent = "الباب التالي";
+            }
+
+            document.getElementById('stage-popup').classList.add('show');
+        }
+
+        window.nextLevel = () => {
+            document.getElementById('stage-popup').classList.remove('show');
+            gameScore += currentStageScore;
+            updateTotalScoreDisplay();
+            
+            currentLevelIndex++;
+            if (currentLevelIndex >= currentLevels.length) {
+                endGame();
+            } else {
+                loadLevel();
+            }
+        }
+
+        function updateTotalScoreDisplay() {
+            document.getElementById('score-display').textContent = toAr(Math.round(gameScore + currentStageScore));
+        }
+
+        function endGame() {
+            clearInterval(timerInterval);
+            const grade5 = ((gameScore / MAX_SCORE) * 5).toFixed(1);
+            
+            document.getElementById('game-screen').classList.add('hidden');
+            document.getElementById('result-screen').classList.remove('hidden');
+            
+            document.getElementById('final-stats').innerHTML = `
+                <div class="bg-slate-800 p-2 rounded-xl border border-blue-500/30 text-center flex flex-col justify-center shadow-lg relative overflow-hidden">
+                    <p class="text-[8px] font-bold text-blue-400 uppercase z-10">النقاط</p>
+                    <p class="text-[12px] font-black text-slate-200 z-10">${toAr(Math.round(gameScore))} / ${toAr(MAX_SCORE)}</p>
+                </div>
+                <div class="bg-gradient-to-b from-emerald-900 to-slate-800 p-2 rounded-xl border border-emerald-500 text-center flex flex-col justify-center shadow-[0_0_20px_rgba(16,185,129,0.3)] transform scale-110 z-20">
+                    <p class="text-[8px] font-bold text-emerald-400 uppercase">التقييم</p>
+                    <p class="text-xl font-black text-emerald-400">${toAr(grade5)}</p>
+                </div>
+                <div class="bg-slate-800 p-2 rounded-xl border border-yellow-500/30 text-center flex flex-col justify-center shadow-lg">
+                    <p class="text-[8px] font-bold text-yellow-400 uppercase">الزمن</p>
+                    <p class="text-[12px] font-black text-slate-200">${toAr(elapsedSeconds)} ث</p>
+                </div>
+            `;
+
+            if (studentId && classId) { saveScore(grade5, elapsedSeconds); } 
+            else { localVisitorResult = { name: studentName, grade: grade5, metric: elapsedSeconds, isLocal: true }; fetchAndShowLeaderboard(false); }
+        }
+
+        async function saveScore(g, met) {
+            document.getElementById('save-msg').textContent = "جاري نقش اسمك...";
+            const p = new URLSearchParams({ action: 'saveScore', studentId, classId, itemId: GAME_ID, score: g, metricValue: met, type: 'game' });
+            try { await fetch(`${SCRIPT_URL}?${p.toString()}`); document.getElementById('save-msg').textContent = "تم الحفظ بنجاح!"; } 
+            catch(e) { document.getElementById('save-msg').textContent = "العب كزائر (خطأ اتصال)."; } 
+            finally { fetchAndShowLeaderboard(false); }
+        }
+
+        window.fetchAndShowLeaderboard = function(isManual = false) {
+            const modal = document.getElementById('leaderboard-modal');
+            if (isManual) { modal.classList.remove('hidden-modal'); modal.classList.add('visible-modal'); }
+            const content = document.getElementById('leaderboard-content');
+            document.getElementById('modal-loader').classList.remove('hidden');
+            const url = `${SCRIPT_URL}?action=getLeaderboard&gameId=${GAME_ID}&classId=${encodeURIComponent((currentLeaderboardMode === 'class') ? classId : 'all')}&t=${Date.now()}`;
+            fetch(url).then(r => r.json()).then(res => {
+                let data = (res.status === 'success' && res.data) ? res.data : [];
+                if (localVisitorResult && (currentLeaderboardMode === 'global' || !classId)) {
+                    if (!data.find(p => p.name === localVisitorResult.name)) data.push(localVisitorResult);
+                    data.sort((a, b) => parseFloat(b.grade) - parseFloat(a.grade) || parseFloat(a.metric) - parseFloat(b.metric));
+                }
+                if (data.length > 0) {
+                    let h = `<table class="w-full text-right text-[10px] border-collapse"><thead class="text-slate-400 border-b border-slate-700 bg-slate-800"><tr><th class="p-2 text-center">#</th><th class="p-2 text-right">المستكشف</th><th class="p-2 text-center text-emerald-400">التقييم</th></tr></thead><tbody class="divide-y divide-slate-700/50">`;
+                    data.forEach((p, i) => {
+                        const isMe = (p.isLocal || (studentId && String(p.name).trim() === String(studentName).trim()));
+                        h += `<tr class="${isMe ? 'bg-yellow-900/40 border-r-4 border-yellow-500' : 'hover:bg-slate-800'} text-slate-200">
+                            <td class="p-1.5 text-center ${i<3 ? 'text-yellow-400 text-sm' : 'text-slate-500'}">${i < 3 ? ['🥇','🥈','🥉'][i] : toAr(i+1)}</td>
+                            <td class="p-1.5 ${isMe ? 'text-yellow-400 font-extrabold' : 'text-slate-300'}">${p.name}</td>
+                            <td class="p-1.5 text-center"><span class="text-emerald-400 font-black">${toAr(parseFloat(p.grade).toFixed(1))}</span> <span class="text-[8px] text-slate-500 block">(${toAr(p.metric || p.metricValue || 0)} ث)</span></td>
+                        </tr>`;
+                    });
+                    content.innerHTML = h + `</tbody></table>`;
+                } else content.innerHTML = `<div class="py-10 text-center text-slate-500 text-xs italic">لا يوجد أبطال بعد..</div>`;
+            }).finally(() => document.getElementById('modal-loader').classList.add('hidden'));
+        };
+
+        window.switchTab = (mode) => { currentLeaderboardMode = mode; document.getElementById('tab-class').className = mode === 'class' ? 'tab-btn tab-active' : 'tab-btn tab-inactive'; document.getElementById('tab-global').className = mode === 'global' ? 'tab-btn tab-active' : 'tab-btn tab-inactive'; fetchAndShowLeaderboard(false); };
+        window.closeLeaderboardModal = () => document.getElementById('leaderboard-modal').classList.replace('visible-modal', 'hidden-modal');
+    })();
+    </script>
+</body>
+</html>

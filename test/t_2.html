@@ -102,12 +102,14 @@
         
         .student-info-bar {
             display: flex; justify-content: space-between; align-items: center;
-            margin-bottom: 20px; font-size: 16px; background-color: #f8fafc;
-            padding: 15px 20px; border-radius: 12px; border: 1px solid #e2e8f0;
+            margin-bottom: 20px; font-size: 14px; background-color: #f8fafc;
+            padding: 12px 20px; border-radius: 12px; border: 1px solid #e2e8f0;
         }
         .attempt-badge {
-            background: #eff6ff; padding: 10px 15px; border-radius: 8px; 
-            border: 1px solid #bfdbfe; text-align: center; line-height: 1.4;
+            background: #eff6ff; padding: 4px 12px; border-radius: 8px; 
+            border: 1px solid #bfdbfe; text-align: center;
+            display: inline-flex; align-items: center; justify-content: center;
+            white-space: nowrap; /* يمنع نزول الدرجة لسطر جديد */
         }
 
         .questions-grid { display: grid; grid-template-columns: 1fr; gap: 15px; }
@@ -320,14 +322,81 @@
             return isNaN(parsed) ? 0 : parsed;
         }
 
+        function initStudentVariablesFallback() {
+            attemptKey = `attempts_${GAME_ID}_${studentId || 'visitor'}`;
+            prevScoreKey = `prevScore_${GAME_ID}_${studentId || 'visitor'}`;
+            attemptCount = parseInt(sessionStorage.getItem(attemptKey)) || 1;
+            previousScore = sessionStorage.getItem(prevScoreKey) !== null ? parseFloat(sessionStorage.getItem(prevScoreKey)) : null;
+            bestScore = parseFloat(localStorage.getItem(`bestScore_${GAME_ID}_${studentId}`)) || 0;
+        }
+
         // ==============================================================
-        // نظام تسجيل الدخول المباشر (الخطوتين والمزامنة مع السيرفر)
+        // نظام الجلب القوي المزدوج (لضمان جلب أفضل نتيجة وأعلى محاولات)
+        // ==============================================================
+        async function fetchStudentScores(id, cls, name) {
+            let sScore = 0;
+            let sAttempts = 0;
+            const ts = Date.now();
+
+            try {
+                // 1. البحث في سجل الأبطال (Leaderboard)
+                const lbUrl = `${SCRIPT_URL}?action=getLeaderboard&gameId=${GAME_ID}&classId=all&t=${ts}`;
+                const lbRes = await fetch(lbUrl).then(r => r.json());
+                if (lbRes.status === 'success' && lbRes.data) {
+                    const myRecord = lbRes.data.find(s => String(s.id) === String(id) || (name && String(s.name).trim() === String(name).trim()));
+                    if (myRecord) {
+                        sScore = Math.max(sScore, safeParseFloat(myRecord.grade || myRecord.score));
+                        // سحب المحاولات بأي صيغة ترسلها جوجل شيت
+                        sAttempts = Math.max(sAttempts, parseInt(myRecord.attempts) || parseInt(myRecord.metric) || parseInt(myRecord.metricValue) || parseInt(myRecord.Attempts) || 0);
+                    }
+                }
+
+                // 2. البحث في بيانات الطالب الفردية كنسخة احتياطية
+                const dataUrl = `${SCRIPT_URL}?action=getStudentData&studentId=${encodeURIComponent(id)}&classId=${encodeURIComponent(cls || 'all')}&t=${ts}`;
+                const dataRes = await fetch(dataUrl).then(r => r.json());
+                if (dataRes.status === 'success' && dataRes.data) {
+                    if (dataRes.data.name && dataRes.data.name !== "0") studentName = dataRes.data.name; 
+                    const targetData = (dataRes.data.quizzes && dataRes.data.quizzes[GAME_ID]) || 
+                                       (dataRes.data.games && dataRes.data.games[GAME_ID]) || 
+                                       (dataRes.data.lessons && dataRes.data.lessons[GAME_ID]);
+                    if (targetData) {
+                        sScore = Math.max(sScore, safeParseFloat(targetData.grade));
+                        sAttempts = Math.max(sAttempts, parseInt(targetData.attempts) || parseInt(targetData.metric) || parseInt(targetData.metricValue) || 0);
+                    }
+                }
+            } catch (e) {
+                console.log("Fetch scores error", e);
+            }
+
+            return { score: sScore, attempts: sAttempts };
+        }
+
+        async function syncDataFromServer(id, cls, name) {
+            initStudentVariablesFallback();
+            const data = await fetchStudentScores(id, cls, name);
+            
+            // تحديث أفضل درجة
+            let localBest = parseFloat(localStorage.getItem(`bestScore_${GAME_ID}_${id}`)) || 0;
+            bestScore = Math.max(data.score, localBest);
+            localStorage.setItem(`bestScore_${GAME_ID}_${id}`, bestScore);
+
+            // تحديث الدرجة السابقة
+            previousScore = data.score;
+            sessionStorage.setItem(`prevScore_${GAME_ID}_${id}`, previousScore);
+
+            // المحاولة القادمة هي دائماً (المحاولات السابقة من السيرفر + 1)
+            let localAttempt = parseInt(sessionStorage.getItem(`attempts_${GAME_ID}_${id}`)) || 1;
+            attemptCount = Math.max(localAttempt, data.attempts + 1);
+            sessionStorage.setItem(`attempts_${GAME_ID}_${id}`, attemptCount);
+        }
+
+        // ==============================================================
+        // نظام تسجيل الدخول
         // ==============================================================
         async function checkLoginStatus() {
-            // إذا كانت البيانات موجودة محلياً أو في الرابط، نتأكد من جلب تحديثاتها من السيرفر بصمت
-            if (studentId && studentId !== 'visitor' && studentName !== 'بطل زائر' && studentName !== "0") {
+            if (studentId && studentId !== 'visitor' && studentName && studentName !== 'بطل زائر' && studentName !== "0") {
                 document.getElementById('login-modal').style.display = 'none';
-                await syncDataFromServer(studentId, classId);
+                await syncDataFromServer(studentId, classId, studentName);
                 startTestSystem();
             } else if (studentId === 'visitor') {
                 continueAsVisitor();
@@ -335,58 +404,6 @@
                 document.getElementById('login-modal').style.display = 'flex';
                 document.getElementById('student-id-input').focus();
             }
-        }
-
-        // دالة المزامنة الصامتة لجلب الدرجة وعدد المحاولات الصحيحة من جوجل شيت
-        async function syncDataFromServer(id, cls) {
-            const timestamp = new Date().getTime();
-            try {
-                const url = `${SCRIPT_URL}?action=getStudentData&studentId=${encodeURIComponent(id)}&classId=${encodeURIComponent(cls || 'all')}&t=${timestamp}`;
-                const res = await fetch(url).then(r => r.json());
-                
-                if (res.status === 'success' && res.data) {
-                    studentName = res.data.name && res.data.name !== "0" ? res.data.name : studentName;
-                    
-                    // استخراج الدرجة والمحاولات من الخادم لهذا الاختبار بالتحديد
-                    let serverScore = 0;
-                    let serverAttempts = 0;
-
-                    const targetData = (res.data.quizzes && res.data.quizzes[GAME_ID]) || 
-                                       (res.data.games && res.data.games[GAME_ID]) || 
-                                       (res.data.lessons && res.data.lessons[GAME_ID]);
-
-                    if (targetData) {
-                        serverScore = safeParseFloat(targetData.grade);
-                        // جوجل شيت يحفظ عدد المحاولات غالبًا في مفتاح metric أو attempts أو metricValue
-                        serverAttempts = parseInt(targetData.attempts) || parseInt(targetData.metric) || parseInt(targetData.metricValue) || 0;
-                    }
-
-                    // تحديث أفضل درجة
-                    let localBest = parseFloat(localStorage.getItem(`bestScore_${GAME_ID}_${id}`)) || 0;
-                    bestScore = Math.max(serverScore, localBest);
-                    localStorage.setItem(`bestScore_${GAME_ID}_${id}`, bestScore);
-
-                    // الدرجة السابقة (المسجلة فعلياً في النظام)
-                    previousScore = serverScore;
-                    sessionStorage.setItem(`prevScore_${GAME_ID}_${id}`, previousScore);
-
-                    // تحديث رقم المحاولة لتكون دائماً أعلى من المسجل في السيرفر بـ 1
-                    let localAttempt = parseInt(sessionStorage.getItem(`attempts_${GAME_ID}_${id}`)) || 1;
-                    attemptCount = Math.max(localAttempt, serverAttempts + 1);
-                    sessionStorage.setItem(`attempts_${GAME_ID}_${id}`, attemptCount);
-                }
-            } catch (e) {
-                console.log("Muted Sync Failed, falling back to local storage.", e);
-                initStudentVariablesFallback();
-            }
-        }
-
-        function initStudentVariablesFallback() {
-            attemptKey = `attempts_${GAME_ID}_${studentId || 'visitor'}`;
-            prevScoreKey = `prevScore_${GAME_ID}_${studentId || 'visitor'}`;
-            attemptCount = parseInt(sessionStorage.getItem(attemptKey)) || 1;
-            previousScore = sessionStorage.getItem(prevScoreKey) !== null ? parseFloat(sessionStorage.getItem(prevScoreKey)) : null;
-            bestScore = parseFloat(localStorage.getItem(`bestScore_${GAME_ID}_${studentId}`)) || 0;
         }
 
         async function handleLogin() {
@@ -403,58 +420,32 @@
             btn.textContent = '⏳ جاري التحقق...';
             btn.disabled = true;
 
-            const timestamp = new Date().getTime();
-
             try {
-                // الخطوة 1: البحث عن المعرف (Id) واسم الصف (Class)
-                const findUrl = `${SCRIPT_URL}?action=findStudentById&studentId=${encodeURIComponent(idInput)}&t=${timestamp}`;
+                // البحث السريع عن الطالب لتحديد صفه
+                const findUrl = `${SCRIPT_URL}?action=findStudentById&studentId=${encodeURIComponent(idInput)}&t=${Date.now()}`;
                 const findRes = await fetch(findUrl).then(r => r.json());
 
                 if (findRes.status === 'success' && findRes.data && findRes.data.found) {
-                    const foundClassId = findRes.data.classIdentifier;
-                    const foundStudentId = findRes.data.id;
-
-                    // الخطوة 2: جلب البيانات كاملة باستخدام الصف الذي وجدناه
-                    const dataUrl = `${SCRIPT_URL}?action=getStudentData&studentId=${encodeURIComponent(foundStudentId)}&classId=${encodeURIComponent(foundClassId)}&t=${timestamp}`;
-                    const dataRes = await fetch(dataUrl).then(r => r.json());
-
-                    if (dataRes.status === 'success' && dataRes.data && dataRes.data.name) {
-                        studentId = foundStudentId;
-                        studentName = dataRes.data.name !== "0" ? dataRes.data.name : "طالب غير معروف";
-                        classId = foundClassId;
-
-                        sessionStorage.setItem('test_studentId', studentId);
-                        sessionStorage.setItem('test_studentName', studentName);
-                        sessionStorage.setItem('test_classId', classId);
-
-                        // استخراج أفضل درجة والمحاولات مباشرة للمرة الأولى
-                        let serverScore = 0;
-                        let serverAttempts = 0;
-
-                        const targetData = (dataRes.data.quizzes && dataRes.data.quizzes[GAME_ID]) || 
-                                           (dataRes.data.games && dataRes.data.games[GAME_ID]) || 
-                                           (dataRes.data.lessons && dataRes.data.lessons[GAME_ID]);
-
-                        if (targetData) {
-                            serverScore = safeParseFloat(targetData.grade);
-                            serverAttempts = parseInt(targetData.attempts) || parseInt(targetData.metric) || parseInt(targetData.metricValue) || 0;
-                        }
-                        
-                        let localBest = parseFloat(localStorage.getItem(`bestScore_${GAME_ID}_${studentId}`)) || 0;
-                        bestScore = Math.max(serverScore, localBest);
-                        localStorage.setItem(`bestScore_${GAME_ID}_${studentId}`, bestScore);
-
-                        previousScore = serverScore;
-                        sessionStorage.setItem(`prevScore_${GAME_ID}_${studentId}`, previousScore);
-
-                        attemptCount = serverAttempts + 1;
-                        sessionStorage.setItem(`attempts_${GAME_ID}_${studentId}`, attemptCount);
-
-                        document.getElementById('login-modal').style.display = 'none';
-                        startTestSystem();
+                    studentId = findRes.data.id;
+                    classId = findRes.data.classIdentifier;
+                    
+                    // استخدام الجلب المزدوج القوي
+                    const data = await fetchStudentScores(studentId, classId, "");
+                    
+                    if (studentName && studentName !== "0" && studentName !== "بطل زائر") {
+                        // الاسم تم جلبه بنجاح
                     } else {
-                        throw new Error('حدث خطأ أثناء جلب بيانات الطالب.');
+                         studentName = "طالب مسجل"; // حالة احتياطية
                     }
+
+                    sessionStorage.setItem('test_studentId', studentId);
+                    sessionStorage.setItem('test_studentName', studentName);
+                    sessionStorage.setItem('test_classId', classId);
+
+                    await syncDataFromServer(studentId, classId, studentName);
+
+                    document.getElementById('login-modal').style.display = 'none';
+                    startTestSystem();
                 } else {
                     throw new Error('رقم الهوية غير صحيح أو الطالب غير مسجل.');
                 }
@@ -471,7 +462,7 @@
             studentName = 'بطل زائر';
             classId = null;
             document.getElementById('login-modal').style.display = 'none';
-            initStudentVariablesFallback(); // الزائر يعتمد على المحلي فقط
+            initStudentVariablesFallback(); 
             startTestSystem();
         }
 
@@ -561,7 +552,7 @@
                     { id: 'q6', type: 'mcq', title: 'قيمة المميز للمعادلة التربيعية <span class="math-exp">س² + ٣س + ٥ = ٠</span> هي:', options: [{text:'<span class="math-exp">٢٩</span>'}, {text:'<span class="math-exp">-١١</span>', correct:true}, {text:'<span class="math-exp">١١</span>'}, {text:'<span class="math-exp">-٢٩</span>'}], 
                       explanation: '<div class="exp-step"><span class="math-exp">ب² - ٤أجـ</span></div><div class="exp-step"><span class="math-exp">(<span class="c-n">٣</span>)<span class="c-x">²</span> <span class="c-n">- ٤</span>(<span class="c-n">١</span>)(<span class="c-n">٥</span>)</span></div><div class="exp-step"><span class="math-exp">= <span class="c-n">٩</span> <span class="c-n">- ٢٠</span> = <span class="c-n">-١١</span></span></div>' },
                     { id: 'q7', type: 'mcq', title: 'يكون منحنى القطع المكافئ للدالة التربيعية مفتوحاً للأسفل إذا كان:', options: [{text:'المقطع الصادي سالباً'}, {text:'معامل س² موجباً'}, {text:'معامل س² سالباً', correct:true}, {text:'المميز سالباً'}], 
-                      explanation: '<div class="exp-step">اتجاه القطع يعتمد على (أ) معامل س²:</div><div class="exp-step">أ سالبة (<span class="math-exp"><span class="c-n">< ٠</span></span>) &larr; مفتوح للأسفل.</div><div class="exp-step" style="color:#d97706;">💡 ملاحظة: عندما يكون القطع مفتوحاً للأسفل، فإن نقطة الرأس تمثل <b>قيمة عظمى</b>.</div>' },
+                      explanation: '<div class="exp-step">اتجاه القطع يعتمد على (أ) معامل س²:</div><div class="exp-step">أ سالبة (<span class="math-exp"><span class="c-n">< ٠</span></span>) &larr; مفتوح للأسفل.</div><div class="exp-step" style="color:#d97706; font-weight:bold;">💡 ملاحظة: بما أن القطع مفتوح للأسفل، فإن نقطة الرأس تمثل <b>قيمة عظمى</b>.</div>' },
                     { id: 'q8', type: 'mcq', title: 'تبسيط العبارة الجذرية <span class="math-exp"><span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٢٠</span></span></span> هو:', options: [{text:'<span class="math-exp">١٠</span>'}, {text:'<span class="math-exp">٢<span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٥</span></span></span>', correct:true}, {text:'<span class="math-exp">٤<span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٥</span></span></span>'}, {text:'<span class="math-exp">٥<span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٢</span></span></span>'}], 
                       explanation: '<div class="exp-step">نكتب العدد كحاصل ضرب عوامله الأولية: <span class="math-exp"><span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٢٠</span></span> = <span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num"><span class="c-n">٢ &times; ٢</span> &times; ٥</span></span></span></div><div class="exp-step">يخرج كل رقمين متشابهين من الجذر برقم واحد: <span class="math-exp"><span class="c-n">٢</span><span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٥</span></span></span></div>' },
                     { id: 'q9', type: 'mcq', title: 'ناتج ضرب <span class="math-exp"><span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٣</span></span> &times; <span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">١٢</span></span></span> في أبسط صورة هو:', options: [{text:'<span class="math-exp">٦</span>', correct:true}, {text:'<span class="math-exp">٣٦</span>'}, {text:'<span class="math-exp">٣<span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٤</span></span></span>'}, {text:'<span class="math-exp">١٥</span>'}], 
@@ -643,10 +634,11 @@
                 const dispName = (studentName && studentName !== "بطل زائر" && studentName !== "0" && studentName !== "") ? studentName : ".................................................";
                 const dispClass = classId ? classId : ".................";
                 
-                const bestScoreHTML = studentId !== 'visitor' ? 
-                    `<div style="font-size: 14px; color: #10b981; font-weight: 900; background: #ecfdf5; padding: 4px 10px; border-radius: 6px; border: 1px solid #a7f3d0; margin-top: 5px;">
-                        🌟 أفضل درجة مسجلة: ${toAr(bestScore)} / ${toAr(20)}
-                    </div>` : '';
+                // تصميم سطر واحد للمحاولات وأفضل درجة
+                let attemptHtml = `<span style="color: #2563eb; font-weight: 900;">المحاولة: ${toAr(attemptCount)}</span>`;
+                if (studentId !== 'visitor' && bestScore > 0) {
+                    attemptHtml += `<span style="color: #cbd5e1; margin: 0 6px;">|</span><span style="color: #10b981; font-weight: 900; direction: ltr; display: inline-block;">${toAr(bestScore)} / ${toAr(20)} ⭐</span>`;
+                }
 
                 headerHTML = `
                     <div class="official-header">
@@ -669,14 +661,17 @@
                             <p>اختبار الفترة الثانية</p>
                         </div>
                     </div>
-                    <div class="student-info-bar">
-                        <div style="flex: 2;">
-                            <strong>اسم الطالب:</strong> <span class="display-student-name" style="color: #0f172a; font-weight: 900; font-size: 18px;">${dispName}</span>
-                            ${bestScoreHTML}
+                    <div class="student-info-bar" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; font-size: 14px; background-color: #f8fafc; padding: 12px 20px; border-radius: 12px; border: 1px solid #e2e8f0;">
+                        <div style="flex: 2; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                            اسم الطالب: <span class="display-student-name" style="color: #0f172a; font-weight: 900; font-size: 16px;">${dispName}</span>
                         </div>
-                        <div style="flex: 1; text-align: center;"><strong>الصف:</strong> <span style="font-weight: 900; font-size: 18px; color: #0f172a;">${dispClass}</span></div>
-                        <div style="flex: 1; text-align: left;" class="attempt-badge">
-                            <div style="color: #2563eb; font-size: 18px; font-weight: 900; margin-bottom: 4px;">المحاولة: ${toAr(attemptCount)}</div>
+                        <div style="flex: 1; text-align: center; font-weight: bold; white-space: nowrap;">
+                            الصف: <span style="font-weight: 900; font-size: 16px; color: #0f172a;">${dispClass}</span>
+                        </div>
+                        <div style="flex: 1; text-align: left; display: flex; justify-content: flex-end;">
+                            <div class="attempt-badge" style="display: inline-flex; align-items: center; background: #eff6ff; padding: 4px 10px; border-radius: 8px; border: 1px solid #bfdbfe; white-space: nowrap; font-size: 13px;">
+                                ${attemptHtml}
+                            </div>
                         </div>
                     </div>`; 
             }
@@ -864,26 +859,18 @@
         function gradeAll() {
             const totalScore = gradeMultipleChoice() + gradeEssays();
             
-            // تحديث أفضل درجة محلياً
             bestScore = Math.max(bestScore, totalScore);
             if (studentId !== 'visitor') {
                 localStorage.setItem(`bestScore_${GAME_ID}_${studentId}`, bestScore);
             }
 
-            const bestScoreDisplay = studentId !== 'visitor' ? `
-                <div style="font-size: 18px; color: #10b981; font-weight: bold; margin-bottom: 20px; background: #ecfdf5; padding: 10px; border-radius: 8px; border: 1px dashed #a7f3d0;">
-                    🌟 أفضل درجة لك حتى الآن: ${toAr(bestScore)} / ${toAr(20)}
-                </div>` : '';
-
-            // استبدال مساحة التسليم بالنتيجة النهائية
             const subArea = document.getElementById('submission-area');
             subArea.innerHTML = `
                 <div style="background: #eff6ff; border: 2px solid #bfdbfe; border-radius: 16px; padding: 30px; animation: popIn 0.5s ease;">
                     <h3 style="color: #1e293b; margin: 0 0 10px 0; font-size: 24px; font-weight: 900;">النتيجة النهائية</h3>
-                    <div style="font-size: 52px; font-weight: 900; color: #059669; margin-bottom: 15px; text-shadow: 0 2px 4px rgba(0,0,0,0.1); direction: ltr;">
+                    <div style="font-size: 52px; font-weight: 900; color: #059669; margin-bottom: 25px; text-shadow: 0 2px 4px rgba(0,0,0,0.1); direction: ltr;">
                         ${toAr(totalScore)} <span style="font-size: 26px; color: #64748b;">/ ${toAr(20)}</span>
                     </div>
-                    ${bestScoreDisplay}
                     <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
                         <button class="btn" style="background-color: #f59e0b; color: white; font-size: 16px; font-weight: bold; padding: 12px 25px; border-radius: 10px; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);" onclick="fetchAndShowLeaderboard(true)">
                             <i class="fas fa-trophy"></i> سجل الأبطال
@@ -898,10 +885,7 @@
                 </div>
             `;
 
-            // إظهار أزرار "أعرف لماذا؟" بعد التصحيح
             document.querySelectorAll('.btn-explain').forEach(btn => btn.style.display = 'inline-block');
-
-            // رفع النتيجة لسجل الأبطال بدون فتح النافذة تلقائياً (بصمت)
             saveScore(totalScore, attemptCount, true);
         }
 
@@ -915,16 +899,10 @@
              
              if (!confirm(msg)) return;
 
-             // معالجة المحاولة قبل الإعادة
-             if (!isGraded) {
-                 saveScore(0, attemptCount, true); // حفظ بصمت
-             }
+             if (!isGraded) saveScore(0, attemptCount, true); 
 
-             // التجهيز للمحاولة الجديدة
              attemptCount++;
              sessionStorage.setItem(attemptKey, attemptCount);
-
-             // إخفاء سجل الأبطال لو كان مفتوحاً
              document.getElementById('leaderboard-modal').classList.replace('visible-modal', 'hidden-modal');
 
              startRandomTest();
@@ -955,7 +933,6 @@
                 let data = (res.status === 'success' && res.data) ? res.data : [];
                 if (localVisitorResult && (currentLeaderboardMode === 'global' || !classId)) {
                     if (!data.find(p => p.name === localVisitorResult.name)) data.push(localVisitorResult);
-                    // الترتيب: الدرجة تنازلياً، ثم المحاولات تصاعدياً (الأقل محاولات هو الأفضل)
                     data.sort((a, b) => parseFloat(b.grade) - parseFloat(a.grade) || parseFloat(a.metric) - parseFloat(b.metric));
                 }
                 if (data.length > 0) {
@@ -968,7 +945,7 @@
                         h += `<tr style="${isMe ? 'background: #eff6ff; border-right: 4px solid #3b82f6;' : 'border-bottom: 1px solid #f1f5f9;'}">
                             <td style="padding: 8px; text-align: center; font-weight: bold; ${i<3 ? 'color: #eab308; font-size: 16px;' : 'color: #94a3b8;'}">${i < 3 ? ['🥇','🥈','🥉'][i] : toAr(i+1)}</td>
                             <td style="padding: 8px; font-weight: 800; ${isMe ? 'color: #1d4ed8;' : 'color: #334155;'}">${p.name} ${isMe ? '<span style="background:#2563eb; color:white; font-size:8px; padding:2px 6px; border-radius:10px; margin-right:4px;">أنت</span>' : ''}</td>
-                            <td style="padding: 8px; text-align: center;"><span style="color: #059669; font-weight: 900; font-size: 14px;">${toAr(parseFloat(p.grade).toFixed(1))}</span> <span style="font-size: 9px; color: #94a3b8; display: block; font-weight: bold;">(المحاولات: ${toAr(p.metric || p.metricValue || 1)})</span></td>
+                            <td style="padding: 8px; text-align: center;"><span style="color: #059669; font-weight: 900; font-size: 14px;">${toAr(parseFloat(p.grade).toFixed(1))}</span> <span style="font-size: 9px; color: #94a3b8; display: block; font-weight: bold;">(المحاولات: ${toAr(p.metric || p.metricValue || p.attempts || 1)})</span></td>
                         </tr>`;
                     });
                     content.innerHTML = h + `</tbody></table>`;
@@ -988,7 +965,6 @@
         window.closeLeaderboardModal = () => { document.getElementById('leaderboard-modal').classList.replace('visible-modal', 'hidden-modal'); };
         window.closeGame = () => { window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*'); };
 
-        // التشغيل المبدئي وبدء التحقق من تسجيل الدخول
         document.addEventListener('DOMContentLoaded', () => {
             checkLoginStatus();
         });

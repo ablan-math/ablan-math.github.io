@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>اختبار رياضيات شامل</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Cairo', sans-serif;
+            background-color: #e0e0e0;
+            margin: 0;
+            padding: 20px 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .page {
+            background: white; width: 210mm; min-height: 297mm; padding: 15mm;
+            margin-bottom: 20px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+            box-sizing: border-box; position: relative; display: flex; flex-direction: column;
+        }
+        .page-content { flex-grow: 1; display: flex; flex-direction: column;}
+        .page-footer { 
+            text-align: center; font-size: 12px; color: #888; padding-top: 10px;
+            display: flex; justify-content: space-between;
+        }
+
+        /* نافذة النتيجة المحلية الخاصة بالاختبار */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.6); display: flex;
+            justify-content: center; align-items: center; z-index: 2000;
+        }
+        .modal-content {
+            background-color: white; padding: 30px 40px; border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3); text-align: center;
+            width: 450px; max-width: 90%;
+        }
+        .modal-content h2 { margin: 0 0 20px 0; font-size: 22px; }
+        
+        #result-modal .result-grid {
+            display: grid; grid-template-columns: auto 1fr; gap: 8px 15px;
+            text-align: right; margin: 20px 0; align-items: center;
+        }
+        #result-modal .result-grid strong { font-weight: bold; }
+        #result-modal .result-score {
+            grid-column: 1 / -1; text-align: center; font-size: 28px; font-weight: bold;
+            color: #28a745; margin-top: 10px; border-top: 1px solid #eee; padding-top: 15px;
+        }
+        .modal-buttons { display: flex; justify-content: center; gap: 15px; margin-top: 25px; }
+
+        /* تنسيقات نافذة المتصدرين (السحابية) المضافة حديثاً */
+        .leaderboard-modal-overlay { 
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(4px);
+            z-index: 9999; display: flex; align-items: center; justify-content: center; 
+            transition: all 0.3s; 
+        }
+        .leaderboard-modal-card {
+            background: #ffffff; width: 90%; max-width: 400px; height: 80vh; max-height: 600px;
+            border-radius: 24px; padding: 20px; display: flex; flex-direction: column;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); direction: rtl; font-family: 'Cairo', sans-serif;
+        }
+        .hidden-modal { opacity: 0; pointer-events: none; visibility: hidden; }
+        .visible-modal { opacity: 1; pointer-events: auto; visibility: visible; }
+        .tab-btn { flex: 1; padding: 10px; font-size: 12px; font-weight: bold; border-radius: 12px; transition: 0.3s; border: none; cursor: pointer; }
+        .tab-active { background-color: #3b82f6; color: white; box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4); }
+        .tab-inactive { background-color: #f1f5f9; color: #64748b; }
+        .sync-loader { font-size: 14px; animation: spin 1s linear infinite; display: inline-block; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .official-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #333;
+            padding-bottom: 10px;
+            margin-bottom: 10px;
+        }
+        .header-col {
+            flex: 1; display: flex; flex-direction: column;
+            font-size: 13px; line-height: 1.6; font-weight: bold;
+        }
+        .header-col p { margin: 0; }
+        .header-right { text-align: right; }
+        .header-center { display: flex; justify-content: center; align-items: center; }
+        .header-left { text-align: left; }
+        .logo { width: 100px; height: auto; }
+        
+        .student-info-bar {
+            display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 1px solid #ccc; padding: 5px 0 10px 0;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+        .attempt-badge {
+            background: #f8f9fa; padding: 6px 12px; border-radius: 6px; 
+            border: 1px solid #cbd5e1; text-align: center; line-height: 1.4;
+        }
+
+        .questions-grid { display: grid; grid-template-columns: 1fr; gap: 15px; }
+        .question-block {
+            border: 1px solid #e0e0e0; padding: 12px 15px; border-radius: 8px;
+            background-color: #fafafa; display: flex; flex-direction: column;
+        }
+        
+        .question-prompt {
+            margin: 0 0 12px 0; font-size: 16px; font-weight: bold; line-height: 1.8;
+        }
+        .question-number {
+            background-color: #e9e9e9; padding: 3px 9px;
+            border-radius: 5px; margin-left: 8px; display: inline-block;
+        }
+        .question-title { font-weight: normal; display: inline;}
+
+        .options-container { display: flex; flex-wrap: nowrap; justify-content: space-between; gap: 6px; }
+        .option {
+            background-color: #ffffff; border: 1px solid #ccc; border-radius: 5px; padding: 4px 6px;
+            font-size: 13px; flex-grow: 1; white-space: nowrap; display: flex;
+            align-items: center; cursor: pointer;
+        }
+        .option input[type="radio"] { display: none; }
+        .option.correct { border-color: #28a745; background-color: #e9f7ec; }
+        .option.incorrect { border-color: #dc3545; background-color: #fdeeee; }
+
+        .option-label {
+            display: inline-flex; align-items: center; justify-content: center; width: 24px;
+            height: 24px; border: 1.5px solid #555; border-radius: 50%;
+            font-weight: bold; color: #333; margin-left: 8px; flex-shrink: 0;
+        }
+        .option input[type="radio"]:checked ~ .option-label {
+             background-color: #007bff; color: white;
+        }
+        .option-text { flex-grow: 1; text-align: center; }
+        
+        .math-exp { display: inline-block; white-space: nowrap; direction: rtl; unicode-bidi: embed; }
+        .fraction { display: inline-flex; flex-direction: column; vertical-align: middle; margin: 0 0.2em; text-align: center; position: relative; top: -0.3em; line-height: 1.2; }
+        .numerator { padding: 0 0.2em; font-size: 0.9em; }
+        .denominator { border-top: 1.5px solid currentColor; padding: 0 0.2em; font-size: 0.9em;}
+        .ar-root { display: inline-flex; align-items: center; direction: rtl; vertical-align: middle; margin: 0 2px; }
+        .ar-root-sym { transform: scaleX(-1); font-family: Arial, sans-serif; font-size: 1.2em; line-height: 1; font-weight: normal; margin-left: -1px; margin-top: 2px; }
+        .ar-root-num { border-top: 1.5px solid currentColor; padding-top: 2px; padding-left: 3px; padding-right: 1px; line-height: 1.1; }
+
+        .controls {
+            position: fixed; top: 20px; left: 20px; display: flex;
+            flex-direction: column; gap: 10px; z-index: 1000;
+        }
+        .btn {
+            background-color: #007bff; color: white; border: none; padding: 10px 18px;
+            border-radius: 5px; cursor: pointer; font-size: 14px; font-family: 'Cairo', sans-serif;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2); text-align: center;
+        }
+        .correct-button { background-color: #28a745; }
+        .retry-button { background-color: #dc3545; }
+        .review-button { background-color: #17a2b8; }
+
+        .btn-explain {
+            background-color: #007bff; color: white; border: none; padding: 4px 10px;
+            border-radius: 4px; cursor: pointer; font-size: 12px; font-family: 'Cairo', sans-serif;
+            margin-right: 10px; vertical-align: middle; display: inline-block; transition: background-color 0.2s;
+        }
+        .btn-explain:hover { background-color: #0056b3; }
+        .explanation-box {
+            background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 5px;
+            padding: 12px; margin-top: 10px; font-size: 15px; color: #333; line-height: 1.8;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,.05);
+        }
+        
+        .exp-step {
+            margin-top: 6px; padding-right: 12px; border-right: 3px solid #007bff;
+            background-color: #ffffff; padding-top: 4px; padding-bottom: 4px;
+            border-radius: 3px; border-left: 1px solid #eee; border-top: 1px solid #eee;
+            border-bottom: 1px solid #eee; display: block; 
+        }
+
+        .c-x { color: #198754; font-weight: bold; } 
+        .c-n { color: #d32f2f; font-weight: bold; } 
+
+        .section-title {
+            font-size: 18px; font-weight: bold; margin-top: 25px; margin-bottom: 10px;
+            border-bottom: 1px solid #eee; padding-bottom: 5px;
+        }
+        
+        .essay-questions-container { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; align-items: stretch; }
+        .essay-question-block {
+            border: 1px solid #e0e0e0; padding: 15px; border-radius: 8px;
+            background-color: #fdfdfd; display: flex; flex-direction: column; height: 100%;
+        }
+        .answer-space {
+            min-height: 200px; border: 1px solid #ccc; border-radius: 5px; margin-top: 10px;
+            padding: 8px; flex-grow: 1; font-size: 16px; font-family: 'Cairo', sans-serif;
+            resize: vertical; width: calc(100% - 16px);
+        }
+        .feedback {
+            margin-top: 8px; padding: 8px; border-radius: 4px; font-weight: bold;
+            display: none; text-align: right; line-height: 1.8;
+        }
+        .feedback.correct { background-color: #e9f7ec; color: #28a745; }
+        .feedback.incorrect { background-color: #fdeeee; color: #dc3545; }
+        
+        .closing-statement { text-align: left; margin-top: auto; padding-top: 30px; font-weight: bold; font-size: 14px; }
+        .closing-statement p { margin: 4px 0; }
+
+        @media print {
+            body { background-color: white; padding: 0; margin: 0; }
+            .page { box-shadow: none; margin: 0; width: 100%; min-height: auto; padding: 15mm; display: block; border-bottom: none; }
+            .page:not(:last-of-type) { page-break-after: always; }
+            .controls, .feedback, .modal-overlay, .leaderboard-modal-overlay, .option input[type="radio"], textarea.answer-space, .btn-explain, .explanation-box { display: none !important; }
+            .official-header { margin-bottom: 5px !important; }
+            .student-info-bar { margin-bottom: 8px !important; } 
+            .questions-grid { gap: 5px !important; } 
+            .question-block { padding: 6px 10px !important; page-break-inside: avoid; margin-bottom: 2px !important; }
+            .essay-question-block { page-break-inside: avoid; }
+            .essay-question-block:not(.full-width-question)::after {
+                content: ''; display: block; min-height: 380px; border: 1px dotted #999;
+                border-radius: 5px; background-color: #f9f9f9 !important; margin-top: 5px;
+            }
+            * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            @page { size: A4; margin: 0; }
+        }
+    </style>
+</head>
+<body>
+    <!-- نافذة النتيجة المحلية -->
+    <div id="result-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <h2>نتيجة الاختبار</h2>
+            <div id="result-grid" class="result-grid">
+                <strong>الدرجة النهائية:</strong> <span id="result-score"></span>
+            </div>
+            <div class="modal-buttons">
+                <button class="btn review-button" onclick="document.getElementById('result-modal').style.display='none'">مراجعة الإجابات والحلول</button>
+                <button class="btn retry-button" onclick="retryTest()">إعادة الاختبار</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="controls">
+        <button class="btn print-button" onclick="window.print()">طباعة</button>
+        <button id="grade-all-btn" class="btn correct-button" onclick="gradeAll()">تصحيح وتسليم</button>
+        <button id="retry-btn-main" class="btn retry-button" onclick="retryTest()">إعادة الاختبار</button>
+    </div>
+
+    <div id="test-container"></div>
+
+    <!-- نافذة سجل الأبطال المنبثقة -->
+    <div id="leaderboard-modal" class="leaderboard-modal-overlay hidden-modal">
+        <div class="leaderboard-modal-card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #f1f5f9; padding-bottom: 10px;">
+                <h3 style="font-weight: 900; color: #1e293b; font-size: 18px; margin: 0;">🏆 سجل المتصدرين</h3>
+                <button onclick="closeLeaderboardModal()" style="width: 35px; height: 35px; border-radius: 50%; border: none; background: #f1f5f9; color: #64748b; font-weight: bold; cursor: pointer; font-size: 16px;">✕</button>
+            </div>
+            <div style="display: flex; gap: 8px; margin-bottom: 15px;">
+                <button onclick="switchTab('class')" id="tab-class" class="tab-btn tab-inactive">أبطال فصلي</button>
+                <button onclick="switchTab('global')" id="tab-global" class="tab-btn tab-active">أبطال المادة (الكل)</button>
+            </div>
+            <div style="flex: 1; overflow-y: auto; background: #f8fafc; border-radius: 16px; position: relative; border: 1px solid #e2e8f0; padding: 5px;">
+                <div id="modal-loader" style="position: absolute; inset: 0; background: rgba(255,255,255,0.8); z-index: 10; display: none; align-items: center; justify-content: center;">
+                    <span class="sync-loader text-blue-500">⏳ جلب البيانات...</span>
+                </div>
+                <div id="leaderboard-content" style="display: flex; flex-direction: column; gap: 4px;"></div>
+            </div>
+            <button onclick="closeGame()" style="margin-top: 15px; width: 100%; padding: 12px; background: #0f172a; color: white; border: none; border-radius: 12px; font-weight: bold; cursor: pointer;">إنهاء وإغلاق</button>
+        </div>
+    </div>
+
+    <script>
+        // ==============================================================
+        // إعدادات المتصدرين وتتبع المحاولات (Engine & Trackers)
+        // ==============================================================
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxqAQlGhNs8k5RwHs6jrWxDiDwaMABSx8a9Fl81O5oVVa5fHRWTwIEvsGy2cSDP4zGLWQ/exec";
+        const urlParams = new URLSearchParams(window.location.search);
+        const GAME_ID = urlParams.get('gameId') || 't_2'; 
+        const studentId = urlParams.get('studentId') || urlParams.get('userId');
+        const classId = urlParams.get('classId');
+        let studentName = decodeURIComponent(urlParams.get('name') || urlParams.get('studentName') || "بطل زائر");
+        let localVisitorResult = null; 
+        const toAr = (n) => String(n).replace(/\d/g, d => "٠١٢٣٤٥٦٧٨٩"[d]);
+
+        // مفاتيح التخزين المحلية للمحاولات
+        const attemptKey = `attempts_${GAME_ID}_${studentId || 'visitor'}`;
+        const prevScoreKey = `prevScore_${GAME_ID}_${studentId || 'visitor'}`;
+        
+        let attemptCount = parseInt(sessionStorage.getItem(attemptKey)) || 1;
+        let previousScore = sessionStorage.getItem(prevScoreKey) !== null ? parseFloat(sessionStorage.getItem(prevScoreKey)) : null;
+
+        // معالجة تحديث الصفحة (F5) أو الإغلاق قبل التسليم
+        window.addEventListener('beforeunload', (e) => {
+            const isGraded = document.getElementById('grade-all-btn').style.display === 'none';
+            if (!isGraded) {
+                // عقوبة: إذا تم تحديث الصفحة قبل التسليم، تسجل المحاولة بصفر
+                sessionStorage.setItem(prevScoreKey, 0);
+                if (studentId && classId) {
+                    const p = new URLSearchParams({ action: 'saveScore', studentId, classId, itemId: GAME_ID, score: 0, metricValue: attemptCount, type: 'quiz' });
+                    navigator.sendBeacon(`${SCRIPT_URL}?${p.toString()}`);
+                }
+            }
+            // زيادة المحاولة استعداداً للتحميل القادم
+            sessionStorage.setItem(attemptKey, attemptCount + 1);
+        });
+
+        // جلب الاسم من القاعدة إن وجد
+        async function fetchInitialCloudData() {
+            if (!studentId || !classId) return;
+            try {
+                const url = `${SCRIPT_URL}?action=getStudentData&studentId=${studentId}&classId=${encodeURIComponent(classId)}&itemId=${GAME_ID}&t=${Date.now()}`;
+                const res = await (await fetch(url)).json();
+                if (res.status === 'success' && res.data && res.data.name) {
+                    studentName = res.data.name;
+                    // تحديث الاسم في واجهة الاختبار إذا كان قد رُسم
+                    document.querySelectorAll('.display-student-name').forEach(el => el.textContent = studentName);
+                }
+            } catch (e) { console.log("Cloud Connect Failed"); }
+        }
+
+        async function saveScore(score, metricValue, silent = false) {
+            if (studentId && classId) {
+                const p = new URLSearchParams({ action: 'saveScore', studentId, classId, itemId: GAME_ID, score: score, metricValue: metricValue || 1, type: 'quiz' });
+                try { await fetch(`${SCRIPT_URL}?${p.toString()}`); } catch(e) { console.log("Save Failed"); }
+            } else {
+                localVisitorResult = { name: studentName, grade: score, metric: metricValue || 1, isLocal: true };
+            }
+            if (!silent) fetchAndShowLeaderboard(true);
+        }
+
+        // ==============================================================
+        // بنك الأسئلة والنماذج
+        // ==============================================================
+        let currentModelIndex = 0;
+        const allModels = [
+            { // Model 0: أ
+                name: "نموذج أ",
+                questions: [
+                    { id: 'q1', type: 'mcq', title: 'ناتج ضرب ثنائيتي الحد <span class="math-exp">(س - ٢)(س + ٥)</span> هو:', options: [{text:'<span class="math-exp">س² - ٣س - ١٠</span>'}, {text:'<span class="math-exp">س² + ٣س - ١٠</span>', correct:true}, {text:'<span class="math-exp">س² - ١٠</span>'}, {text:'<span class="math-exp">س² + ٧س - ١٠</span>'}], 
+                      explanation: '<div class="exp-step"><span class="math-exp">(<span class="c-x">س</span> <span class="c-n">- ٢</span>) (<span class="c-x">س</span> <span class="c-n">+ ٥</span>)</span></div><div class="exp-step"><span class="math-exp">= <span class="c-x">س²</span> <span class="c-n">+ ٥</span><span class="c-x">س</span> <span class="c-n">- ٢</span><span class="c-x">س</span> <span class="c-n">- ١٠</span></span></div><div class="exp-step"><span class="math-exp">= <span class="c-x">س²</span> <span class="c-n">+ ٣</span><span class="c-x">س</span> <span class="c-n">- ١٠</span></span></div>' },
+                    { id: 'q2', type: 'mcq', title: 'تحليل الفرق بين مربعين للعبارة <span class="math-exp">س² - ٩</span> هو:', options: [{text:'<span class="math-exp">(س - ٣)²</span>'}, {text:'<span class="math-exp">(س - ٣)(س + ٣)</span>', correct:true}, {text:'<span class="math-exp">(س - ٩)(س + ١)</span>'}, {text:'<span class="math-exp">(س + ٣)²</span>'}], 
+                      explanation: '<div class="exp-step"><span class="math-exp"><span class="c-x">س²</span> <span class="c-n">- ٩</span> = <span class="c-x">س²</span> <span class="c-n">- ٣²</span></span></div><div class="exp-step"><span class="math-exp">= (<span class="c-x">س</span> <span class="c-n">- ٣</span>)(<span class="c-x">س</span> <span class="c-n">+ ٣</span>)</span></div>' },
+                    { id: 'q3', type: 'mcq', title: 'تحليل ثلاثية الحدود <span class="math-exp">س² - ٧س + ١٢</span> إلى عواملها هو:', options: [{text:'<span class="math-exp">(س + ٣)(س + ٤)</span>'}, {text:'<span class="math-exp">(س - ٢)(س - ٦)</span>'}, {text:'<span class="math-exp">(س - ٣)(س - ٤)</span>', correct:true}, {text:'<span class="math-exp">(س + ٣)(س - ٤)</span>'}], 
+                      explanation: '<div class="exp-step"><span class="math-exp">العددان: <span class="c-n">-٣</span> &times; <span class="c-n">-٤</span> = <span class="c-n">١٢</span> ، <span class="c-n">-٣</span> + <span class="c-n">-٤</span> = <span class="c-n">-٧</span></span></div><div class="exp-step"><span class="math-exp">= (<span class="c-x">س</span> <span class="c-n">- ٣</span>)(<span class="c-x">س</span> <span class="c-n">- ٤</span>)</span></div>' },
+                    { id: 'q4', type: 'mcq', title: 'معادلة محور التماثل للدالة التربيعية <span class="math-exp">ص = س² - ٦س + ٨</span> هي:', options: [{text:'<span class="math-exp">س = -٣</span>'}, {text:'<span class="math-exp">س = ٦</span>'}, {text:'<span class="math-exp">س = -٦</span>'}, {text:'<span class="math-exp">س = ٣</span>', correct:true}], 
+                      explanation: '<div class="exp-step"><span class="math-exp">س = <span class="fraction"><span class="numerator">-ب</span><span class="denominator">٢أ</span></span></span></div><div class="exp-step"><span class="math-exp">س = <span class="fraction"><span class="numerator">-(<span class="c-n">-٦</span>)</span><span class="denominator">٢(<span class="c-n">١</span>)</span></span></span></div><div class="exp-step"><span class="math-exp">س = <span class="fraction"><span class="numerator"><span class="c-n">٦</span></span><span class="denominator"><span class="c-n">٢</span></span></span> = <span class="c-n">٣</span></span></div>' },
+                    { id: 'q5', type: 'mcq', title: 'المقطع الصادي للدالة التربيعية <span class="math-exp">ص = ٢س² + ٤س - ٥</span> هو:', options: [{text:'<span class="math-exp">٤</span>'}, {text:'<span class="math-exp">٢</span>'}, {text:'<span class="math-exp">-٥</span>', correct:true}, {text:'<span class="math-exp">٥</span>'}], 
+                      explanation: '<div class="exp-step">المقطع الصادي هو دائماً الحد الثابت (جـ) في المعادلة.</div><div class="exp-step">إذن المقطع الصادي هو <span class="c-n">-٥</span></div>' },
+                    { id: 'q6', type: 'mcq', title: 'قيمة المميز للمعادلة التربيعية <span class="math-exp">س² - ٤س + ٤ = ٠</span> هي:', options: [{text:'<span class="math-exp">١٦</span>'}, {text:'<span class="math-exp">-١٦</span>'}, {text:'<span class="math-exp">٨</span>'}, {text:'<span class="math-exp">٠</span>', correct:true}], 
+                      explanation: '<div class="exp-step"><span class="math-exp">ب² - ٤أجـ</span></div><div class="exp-step"><span class="math-exp">(<span class="c-n">-٤</span>)<span class="c-x">²</span> <span class="c-n">- ٤</span>(<span class="c-n">١</span>)(<span class="c-n">٤</span>)</span></div><div class="exp-step"><span class="math-exp">= <span class="c-n">١٦</span> <span class="c-n">- ١٦</span> = <span class="c-n">٠</span></span></div>' },
+                    { id: 'q7', type: 'mcq', title: 'إذا كان المميز لمعادلة تربيعية سالباً، فإن عدد الحلول الحقيقية لها هو:', options: [{text:'لا يوجد حلول حقيقية', correct:true}, {text:'حل حقيقي واحد'}, {text:'حلان حقيقيان'}, {text:'عدد غير منتهٍ من الحلول'}], 
+                      explanation: '<div class="exp-step"><span class="math-exp">المميز <span class="c-n">< ٠</span> (سالب)</span></div><div class="exp-step">إذن: لا يوجد جذور حقيقية للمنحنى لأنه لا يوجد جذر تربيعي لعدد سالب في الأعداد الحقيقية.</div>' },
+                    { id: 'q8', type: 'mcq', title: 'تبسيط العبارة الجذرية <span class="math-exp"><span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٢٤</span></span></span> هو:', options: [{text:'<span class="math-exp">١٢</span>'}, {text:'<span class="math-exp">٤<span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٦</span></span></span>'}, {text:'<span class="math-exp">٢<span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٦</span></span></span>', correct:true}, {text:'<span class="math-exp">٦<span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٢</span></span></span>'}], 
+                      explanation: '<div class="exp-step"><span class="math-exp"><span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٢٤</span></span> = <span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num"><span class="c-n">٢ &times; ٢</span> &times; ٢ &times; ٣</span></span></span></div><div class="exp-step"><span class="math-exp">= <span class="c-n">٢</span><span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٢ &times; ٣</span></span> = <span class="c-n">٢</span><span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٦</span></span></span></div>' },
+                    { id: 'q9', type: 'mcq', title: 'ناتج ضرب <span class="math-exp"><span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٢</span></span> &times; <span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٨</span></span></span> في أبسط صورة هو:', options: [{text:'<span class="math-exp">١٦</span>'}, {text:'<span class="math-exp">٤</span>', correct:true}, {text:'<span class="math-exp">٢<span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٤</span></span></span>'}, {text:'<span class="math-exp">٨</span>'}], 
+                      explanation: '<div class="exp-step"><span class="math-exp"><span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٢</span></span> &times; <span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٨</span></span> = <span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">١٦</span></span></span></div><div class="exp-step"><span class="math-exp">= <span class="c-n">٤</span></span></div>' },
+                    { id: 'q10', type: 'mcq', title: 'تبسيط العبارة <span class="math-exp">٣<span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٥</span></span> + ٢<span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٥</span></span></span> هو:', options: [{text:'<span class="math-exp">٥<span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">١٠</span></span></span>'}, {text:'<span class="math-exp">٦<span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٥</span></span></span>'}, {text:'<span class="math-exp">٥<span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٥</span></span></span>', correct:true}, {text:'<span class="math-exp"><span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٢٥</span></span></span>'}], 
+                      explanation: '<div class="exp-step"><span class="math-exp">(<span class="c-n">٣</span> <span class="c-n">+ ٢</span>)<span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٥</span></span></span></div><div class="exp-step"><span class="math-exp">= <span class="c-n">٥</span><span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٥</span></span></span></div>' },
+                    { id: 'q11', type: 'essay', title: 'باستخدام <b>القانون العام</b>، أوجد حل المعادلة التربيعية: <span class="math-exp">س² - ٥س - ١٤ = ٠</span>', 
+                      explanation: '<div class="exp-step">١- القانون: <span class="math-exp"><span class="c-x">س</span> = <span class="fraction"><span class="numerator"><span class="c-n">-ب</span> &plusmn; <span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">ب² - ٤أجـ</span></span></span><span class="denominator">٢أ</span></span></span></div><div class="exp-step">٢- التعويض: <span class="math-exp"><span class="c-x">س</span> = <span class="fraction"><span class="numerator"><span class="c-n">-(-٥)</span> &plusmn; <span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">(<span class="c-n">-٥</span>)² <span class="c-n">- ٤</span>(<span class="c-n">١</span>)(<span class="c-n">-١٤</span>)</span></span></span><span class="denominator">٢(<span class="c-n">١</span>)</span></span></span></div><div class="exp-step">٣- التبسيط: <span class="math-exp"><span class="c-x">س</span> = <span class="fraction"><span class="numerator"><span class="c-n">٥</span> &plusmn; <span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num"><span class="c-n">٢٥</span> <span class="c-n">+ ٥٦</span></span></span></span><span class="denominator"><span class="c-n">٢</span></span></span> = <span class="fraction"><span class="numerator"><span class="c-n">٥</span> &plusmn; <span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num"><span class="c-n">٨١</span></span></span></span><span class="denominator"><span class="c-n">٢</span></span></span></span></div><div class="exp-step">٤- حساب الجذر: <span class="math-exp"><span class="c-x">س</span> = <span class="fraction"><span class="numerator"><span class="c-n">٥</span> &plusmn; <span class="c-n">٩</span></span><span class="denominator"><span class="c-n">٢</span></span></span></span></div><div class="exp-step">٥- الحلان: <span class="math-exp"><span class="c-x">س</span> = <span class="fraction"><span class="numerator"><span class="c-n">٥</span> <span class="c-n">+ ٩</span></span><span class="denominator"><span class="c-n">٢</span></span></span> = <span class="c-n">٧</span></span> ، أو <span class="math-exp"><span class="c-x">س</span> = <span class="fraction"><span class="numerator"><span class="c-n">٥</span> <span class="c-n">- ٩</span></span><span class="denominator"><span class="c-n">٢</span></span></span> = <span class="c-n">-٢</span></span></div>' },
+                    { id: 'q12', type: 'essay', title: 'باستخدام <b>إكمال المربع</b>، أوجد حل المعادلة: <span class="math-exp">س² + ٦س + ٨ = ٠</span>',
+                      explanation: '<div class="exp-step">١- نقل الثابت للطرف الآخر: <span class="math-exp"><span class="c-x">س²</span> <span class="c-n">+ ٦</span><span class="c-x">س</span> = <span class="c-n">-٨</span></span></div><div class="exp-step">٢- إضافة مربع نصف معامل س: <span class="math-exp">(<span class="c-n">٦</span>/٢)² = <span class="c-n">٩</span></span> للطرفين.</div><div class="exp-step">٣- المعادلة: <span class="math-exp"><span class="c-x">س²</span> <span class="c-n">+ ٦</span><span class="c-x">س</span> <span class="c-n">+ ٩</span> = <span class="c-n">-٨</span> <span class="c-n">+ ٩</span></span></div><div class="exp-step">٤- تحليل المربع الكامل: <span class="math-exp">(<span class="c-x">س</span> <span class="c-n">+ ٣</span>)² = <span class="c-n">١</span></span></div><div class="exp-step">٥- أخذ الجذر للطرفين: <span class="math-exp"><span class="c-x">س</span> <span class="c-n">+ ٣</span> = &plusmn;<span class="c-n">١</span></span></div><div class="exp-step">٦- الحلان: <span class="math-exp"><span class="c-x">س</span> = <span class="c-n">-٣</span> <span class="c-n">+ ١</span> = <span class="c-n">-٢</span></span> ، أو <span class="math-exp"><span class="c-x">س</span> = <span class="c-n">-٣</span> <span class="c-n">- ١</span> = <span class="c-n">-٤</span></span></div>' }
+                ]
+            },
+            { // Model 1: ب
+                name: "نموذج ب",
+                questions: [
+                    { id: 'q1', type: 'mcq', title: 'ناتج ضرب ثنائيتي الحد <span class="math-exp">(س + ٣)(س - ٤)</span> هو:', options: [{text:'<span class="math-exp">س² + س - ١٢</span>'}, {text:'<span class="math-exp">س² - ٧س - ١٢</span>'}, {text:'<span class="math-exp">س² - س - ١٢</span>', correct:true}, {text:'<span class="math-exp">س² - ١٢</span>'}], 
+                      explanation: '<div class="exp-step"><span class="math-exp">(<span class="c-x">س</span> <span class="c-n">+ ٣</span>) (<span class="c-x">س</span> <span class="c-n">- ٤</span>)</span></div><div class="exp-step"><span class="math-exp">= <span class="c-x">س²</span> <span class="c-n">- ٤</span><span class="c-x">س</span> <span class="c-n">+ ٣</span><span class="c-x">س</span> <span class="c-n">- ١٢</span></span></div><div class="exp-step"><span class="math-exp">= <span class="c-x">س²</span> <span class="c-n">- ١</span><span class="c-x">س</span> <span class="c-n">- ١٢</span></span></div>' },
+                    { id: 'q2', type: 'mcq', title: 'تحليل الفرق بين مربعين للعبارة <span class="math-exp">س² - ٢٥</span> هو:', options: [{text:'<span class="math-exp">(س - ٥)(س + ٥)</span>', correct:true}, {text:'<span class="math-exp">(س - ٥)²</span>'}, {text:'<span class="math-exp">(س + ٥)²</span>'}, {text:'<span class="math-exp">(س - ٢٥)(س + ١)</span>'}], 
+                      explanation: '<div class="exp-step"><span class="math-exp"><span class="c-x">س²</span> <span class="c-n">- ٢٥</span> = <span class="c-x">س²</span> <span class="c-n">- ٥²</span></span></div><div class="exp-step"><span class="math-exp">= (<span class="c-x">س</span> <span class="c-n">- ٥</span>)(<span class="c-x">س</span> <span class="c-n">+ ٥</span>)</span></div>' },
+                    { id: 'q3', type: 'mcq', title: 'تحليل ثلاثية الحدود <span class="math-exp">س² + ٨س + ١٥</span> إلى عواملها هو:', options: [{text:'<span class="math-exp">(س - ٣)(س - ٥)</span>'}, {text:'<span class="math-exp">(س + ٣)(س + ٥)</span>', correct:true}, {text:'<span class="math-exp">(س + ١)(س + ١٥)</span>'}, {text:'<span class="math-exp">(س - ٢)(س - ٤)</span>'}], 
+                      explanation: '<div class="exp-step"><span class="math-exp">العددان: <span class="c-n">٣</span> &times; <span class="c-n">٥</span> = <span class="c-n">١٥</span> ، <span class="c-n">٣</span> + <span class="c-n">٥</span> = <span class="c-n">٨</span></span></div><div class="exp-step"><span class="math-exp">= (<span class="c-x">س</span> <span class="c-n">+ ٣</span>)(<span class="c-x">س</span> <span class="c-n">+ ٥</span>)</span></div>' },
+                    { id: 'q4', type: 'mcq', title: 'معادلة محور التماثل للدالة التربيعية <span class="math-exp">ص = س² + ٤س - ١</span> هي:', options: [{text:'<span class="math-exp">س = ٢</span>'}, {text:'<span class="math-exp">س = -٤</span>'}, {text:'<span class="math-exp">س = -٢</span>', correct:true}, {text:'<span class="math-exp">س = ٤</span>'}], 
+                      explanation: '<div class="exp-step"><span class="math-exp">س = <span class="fraction"><span class="numerator">-ب</span><span class="denominator">٢أ</span></span></span></div><div class="exp-step"><span class="math-exp">س = <span class="fraction"><span class="numerator">-(<span class="c-n">٤</span>)</span><span class="denominator">٢(<span class="c-n">١</span>)</span></span></span></div><div class="exp-step"><span class="math-exp">س = <span class="fraction"><span class="numerator"><span class="c-n">-٤</span></span><span class="denominator"><span class="c-n">٢</span></span></span> = <span class="c-n">-٢</span></span></div>' },
+                    { id: 'q5', type: 'mcq', title: 'إحداثيات رأس القطع المكافئ للدالة <span class="math-exp">ص = س² - ٢س + ٣</span> هي:', options: [{text:'<span class="math-exp">(١ ، ٢)</span>', correct:true}, {text:'<span class="math-exp">(-١ ، ٢)</span>'}, {text:'<span class="math-exp">(١ ، ٣)</span>'}, {text:'<span class="math-exp">(-١ ، ٣)</span>'}], 
+                      explanation: '<div class="exp-step"><span class="math-exp">س = <span class="fraction"><span class="numerator">-(<span class="c-n">-٢</span>)</span><span class="denominator">٢(<span class="c-n">١</span>)</span></span> = <span class="c-n">١</span></span></div><div class="exp-step"><span class="math-exp">ص = (<span class="c-n">١</span>)<span class="c-x">²</span> <span class="c-n">- ٢</span>(<span class="c-n">١</span>) <span class="c-n">+ ٣</span> = <span class="c-n">٢</span></span></div><div class="exp-step">الرأس: <span class="math-exp">(<span class="c-n">١</span> ، <span class="c-n">٢</span>)</span></div>' },
+                    { id: 'q6', type: 'mcq', title: 'قيمة المميز للمعادلة التربيعية <span class="math-exp">س² + ٣س + ٥ = ٠</span> هي:', options: [{text:'<span class="math-exp">٢٩</span>'}, {text:'<span class="math-exp">-١١</span>', correct:true}, {text:'<span class="math-exp">١١</span>'}, {text:'<span class="math-exp">-٢٩</span>'}], 
+                      explanation: '<div class="exp-step"><span class="math-exp">ب² - ٤أجـ</span></div><div class="exp-step"><span class="math-exp">(<span class="c-n">٣</span>)<span class="c-x">²</span> <span class="c-n">- ٤</span>(<span class="c-n">١</span>)(<span class="c-n">٥</span>)</span></div><div class="exp-step"><span class="math-exp">= <span class="c-n">٩</span> <span class="c-n">- ٢٠</span> = <span class="c-n">-١١</span></span></div>' },
+                    { id: 'q7', type: 'mcq', title: 'يكون منحنى القطع المكافئ للدالة التربيعية مفتوحاً للأسفل إذا كان:', options: [{text:'المقطع الصادي سالباً'}, {text:'معامل س² موجباً'}, {text:'معامل س² سالباً', correct:true}, {text:'المميز سالباً'}], 
+                      explanation: '<div class="exp-step">اتجاه القطع يعتمد على (أ) معامل س²:</div><div class="exp-step">أ سالبة (<span class="math-exp"><span class="c-n">< ٠</span></span>) &larr; مفتوح للأسفل.</div>' },
+                    { id: 'q8', type: 'mcq', title: 'تبسيط العبارة الجذرية <span class="math-exp"><span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٢٠</span></span></span> هو:', options: [{text:'<span class="math-exp">١٠</span>'}, {text:'<span class="math-exp">٢<span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٥</span></span></span>', correct:true}, {text:'<span class="math-exp">٤<span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٥</span></span></span>'}, {text:'<span class="math-exp">٥<span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٢</span></span></span>'}], 
+                      explanation: '<div class="exp-step">نكتب العدد كحاصل ضرب عوامله الأولية: <span class="math-exp"><span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٢٠</span></span> = <span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num"><span class="c-n">٢ &times; ٢</span> &times; ٥</span></span></span></div><div class="exp-step">يخرج كل رقمين متشابهين من الجذر برقم واحد: <span class="math-exp"><span class="c-n">٢</span><span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٥</span></span></span></div>' },
+                    { id: 'q9', type: 'mcq', title: 'ناتج ضرب <span class="math-exp"><span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٣</span></span> &times; <span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">١٢</span></span></span> في أبسط صورة هو:', options: [{text:'<span class="math-exp">٦</span>', correct:true}, {text:'<span class="math-exp">٣٦</span>'}, {text:'<span class="math-exp">٣<span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٤</span></span></span>'}, {text:'<span class="math-exp">١٥</span>'}], 
+                      explanation: '<div class="exp-step"><span class="math-exp"><span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٣</span></span> &times; <span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">١٢</span></span> = <span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٣٦</span></span></span></div><div class="exp-step"><span class="math-exp">= <span class="c-n">٦</span></span></div>' },
+                    { id: 'q10', type: 'mcq', title: 'تبسيط العبارة <span class="math-exp">٤<span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٢</span></span> - <span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٢</span></span></span> هو:', options: [{text:'<span class="math-exp">٤</span>'}, {text:'<span class="math-exp">٥<span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٢</span></span></span>'}, {text:'<span class="math-exp">٣<span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٢</span></span></span>', correct:true}, {text:'<span class="math-exp">٣</span>'}], 
+                      explanation: '<div class="exp-step"><span class="math-exp">(<span class="c-n">٤</span> <span class="c-n">- ١</span>)<span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٢</span></span></span></div><div class="exp-step"><span class="math-exp">= <span class="c-n">٣</span><span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٢</span></span></span></div>' },
+                    { id: 'q11', type: 'essay', title: 'باستخدام <b>القانون العام</b>، أوجد حل المعادلة التربيعية: <span class="math-exp">س² + ٢س - ٨ = ٠</span>', 
+                      explanation: '<div class="exp-step">١- القانون: <span class="math-exp"><span class="c-x">س</span> = <span class="fraction"><span class="numerator"><span class="c-n">-ب</span> &plusmn; <span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">ب² - ٤أجـ</span></span></span><span class="denominator">٢أ</span></span></span></div><div class="exp-step">٢- التعويض: <span class="math-exp"><span class="c-x">س</span> = <span class="fraction"><span class="numerator"><span class="c-n">-(٢)</span> &plusmn; <span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">(<span class="c-n">٢</span>)² <span class="c-n">- ٤</span>(<span class="c-n">١</span>)(<span class="c-n">-٨</span>)</span></span></span><span class="denominator">٢(<span class="c-n">١</span>)</span></span></span></div><div class="exp-step">٣- التبسيط: <span class="math-exp"><span class="c-x">س</span> = <span class="fraction"><span class="numerator"><span class="c-n">-٢</span> &plusmn; <span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num"><span class="c-n">٤</span> <span class="c-n">+ ٣٢</span></span></span></span><span class="denominator"><span class="c-n">٢</span></span></span> = <span class="fraction"><span class="numerator"><span class="c-n">-٢</span> &plusmn; <span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num"><span class="c-n">٣٦</span></span></span></span><span class="denominator"><span class="c-n">٢</span></span></span></span></div><div class="exp-step">٤- حساب الجذر: <span class="math-exp"><span class="c-x">س</span> = <span class="fraction"><span class="numerator"><span class="c-n">-٢</span> &plusmn; <span class="c-n">٦</span></span><span class="denominator"><span class="c-n">٢</span></span></span></span></div><div class="exp-step">٥- الحلان: <span class="math-exp"><span class="c-x">س</span> = <span class="fraction"><span class="numerator"><span class="c-n">-٢</span> <span class="c-n">+ ٦</span></span><span class="denominator"><span class="c-n">٢</span></span></span> = <span class="c-n">٢</span></span> ، أو <span class="math-exp"><span class="c-x">س</span> = <span class="fraction"><span class="numerator"><span class="c-n">-٢</span> <span class="c-n">- ٦</span></span><span class="denominator"><span class="c-n">٢</span></span></span> = <span class="c-n">-٤</span></span></div>' },
+                    { id: 'q12', type: 'essay', title: 'باستخدام <b>إكمال المربع</b>، أوجد حل المعادلة: <span class="math-exp">س² - ٨س + ١٢ = ٠</span>',
+                      explanation: '<div class="exp-step">١- نقل الثابت للطرف الآخر: <span class="math-exp"><span class="c-x">س²</span> <span class="c-n">- ٨</span><span class="c-x">س</span> = <span class="c-n">-١٢</span></span></div><div class="exp-step">٢- إضافة مربع نصف معامل س: <span class="math-exp">(<span class="c-n">-٨</span>/٢)² = <span class="c-n">١٦</span></span> للطرفين.</div><div class="exp-step">٣- المعادلة: <span class="math-exp"><span class="c-x">س²</span> <span class="c-n">- ٨</span><span class="c-x">س</span> <span class="c-n">+ ١٦</span> = <span class="c-n">-١٢</span> <span class="c-n">+ ١٦</span></span></div><div class="exp-step">٤- تحليل المربع الكامل: <span class="math-exp">(<span class="c-x">س</span> <span class="c-n">- ٤</span>)² = <span class="c-n">٤</span></span></div><div class="exp-step">٥- أخذ الجذر للطرفين: <span class="math-exp"><span class="c-x">س</span> <span class="c-n">- ٤</span> = &plusmn;<span class="c-n">٢</span></span></div><div class="exp-step">٦- الحلان: <span class="math-exp"><span class="c-x">س</span> = <span class="c-n">٤</span> <span class="c-n">+ ٢</span> = <span class="c-n">٦</span></span> ، أو <span class="math-exp"><span class="c-x">س</span> = <span class="c-n">٤</span> <span class="c-n">- ٢</span> = <span class="c-n">٢</span></span></div>' }
+                ]
+            },
+             { // Model 2: جـ
+                name: "نموذج جـ",
+                questions: [
+                    { id: 'q1', type: 'mcq', title: 'ناتج ضرب ثنائيتي الحد <span class="math-exp">(س - ٥)(س - ٢)</span> هو:', options: [{text:'<span class="math-exp">س² - ٣س - ١٠</span>'}, {text:'<span class="math-exp">س² + ٧س + ١٠</span>'}, {text:'<span class="math-exp">س² - ٧س + ١٠</span>', correct:true}, {text:'<span class="math-exp">س² + ١٠</span>'}], 
+                      explanation: '<div class="exp-step"><span class="math-exp">(<span class="c-x">س</span> <span class="c-n">- ٥</span>) (<span class="c-x">س</span> <span class="c-n">- ٢</span>)</span></div><div class="exp-step"><span class="math-exp">= <span class="c-x">س²</span> <span class="c-n">- ٢</span><span class="c-x">س</span> <span class="c-n">- ٥</span><span class="c-x">س</span> <span class="c-n">+ ١٠</span></span></div><div class="exp-step"><span class="math-exp">= <span class="c-x">س²</span> <span class="c-n">- ٧</span><span class="c-x">س</span> <span class="c-n">+ ١٠</span></span></div>' },
+                    { id: 'q2', type: 'mcq', title: 'تحليل الفرق بين مربعين للعبارة <span class="math-exp">٤س² - ٩</span> هو:', options: [{text:'<span class="math-exp">(٢س - ٣)(٢س + ٣)</span>', correct:true}, {text:'<span class="math-exp">(٤س - ٣)(س + ٣)</span>'}, {text:'<span class="math-exp">(٢س - ٣)²</span>'}, {text:'<span class="math-exp">(٢س + ٣)²</span>'}], 
+                      explanation: '<div class="exp-step"><span class="math-exp"><span class="c-n">٤</span><span class="c-x">س²</span> <span class="c-n">- ٩</span> = (<span class="c-n">٢</span><span class="c-x">س</span>)<span class="c-x">²</span> <span class="c-n">- ٣²</span></span></div><div class="exp-step"><span class="math-exp">= (<span class="c-n">٢</span><span class="c-x">س</span> <span class="c-n">- ٣</span>)(<span class="c-n">٢</span><span class="c-x">س</span> <span class="c-n">+ ٣</span>)</span></div>' },
+                    { id: 'q3', type: 'mcq', title: 'تحليل ثلاثية الحدود <span class="math-exp">س² - ٢س - ٨</span> إلى عواملها هو:', options: [{text:'<span class="math-exp">(س - ٤)(س + ٢)</span>', correct:true}, {text:'<span class="math-exp">(س + ٤)(س - ٢)</span>'}, {text:'<span class="math-exp">(س - ٢)(س - ٤)</span>'}, {text:'<span class="math-exp">(س - ٨)(س + ١)</span>'}], 
+                      explanation: '<div class="exp-step"><span class="math-exp">العددان: <span class="c-n">-٤</span> &times; <span class="c-n">٢</span> = <span class="c-n">-٨</span> ، <span class="c-n">-٤</span> + <span class="c-n">٢</span> = <span class="c-n">-٢</span></span></div><div class="exp-step"><span class="math-exp">= (<span class="c-x">س</span> <span class="c-n">- ٤</span>)(<span class="c-x">س</span> <span class="c-n">+ ٢</span>)</span></div>' },
+                    { id: 'q4', type: 'mcq', title: 'معادلة محور التماثل للدالة التربيعية <span class="math-exp">ص = -س² + ٢س + ٤</span> هي:', options: [{text:'<span class="math-exp">س = -١</span>'}, {text:'<span class="math-exp">س = ١</span>', correct:true}, {text:'<span class="math-exp">س = ٢</span>'}, {text:'<span class="math-exp">س = -٢</span>'}], 
+                      explanation: '<div class="exp-step"><span class="math-exp">س = <span class="fraction"><span class="numerator">-ب</span><span class="denominator">٢أ</span></span></span></div><div class="exp-step"><span class="math-exp">س = <span class="fraction"><span class="numerator">-(<span class="c-n">٢</span>)</span><span class="denominator">٢(<span class="c-n">-١</span>)</span></span></span></div><div class="exp-step"><span class="math-exp">س = <span class="fraction"><span class="numerator"><span class="c-n">-٢</span></span><span class="denominator"><span class="c-n">-٢</span></span></span> = <span class="c-n">١</span></span></div>' },
+                    { id: 'q5', type: 'mcq', title: 'المقطع الصادي للدالة التربيعية <span class="math-exp">ص = -٣س² + ٦س + ٧</span> هو:', options: [{text:'<span class="math-exp">-٣</span>'}, {text:'<span class="math-exp">٦</span>'}, {text:'<span class="math-exp">١٠</span>'}, {text:'<span class="math-exp">٧</span>', correct:true}], 
+                      explanation: '<div class="exp-step">المقطع الصادي هو دائماً الحد الثابت (جـ) في المعادلة.</div><div class="exp-step">إذن المقطع الصادي هو <span class="c-n">٧</span></div>' },
+                    { id: 'q6', type: 'mcq', title: 'قيمة المميز للمعادلة التربيعية <span class="math-exp">س² - ٨س + ١٦ = ٠</span> هي:', options: [{text:'<span class="math-exp">١٢٨</span>'}, {text:'<span class="math-exp">-٦٤</span>'}, {text:'<span class="math-exp">٠</span>', correct:true}, {text:'<span class="math-exp">٦٤</span>'}], 
+                      explanation: '<div class="exp-step"><span class="math-exp">ب² - ٤أجـ</span></div><div class="exp-step"><span class="math-exp">(<span class="c-n">-٨</span>)<span class="c-x">²</span> <span class="c-n">- ٤</span>(<span class="c-n">١</span>)(<span class="c-n">١٦</span>)</span></div><div class="exp-step"><span class="math-exp">= <span class="c-n">٦٤</span> <span class="c-n">- ٦٤</span> = <span class="c-n">٠</span></span></div>' },
+                    { id: 'q7', type: 'mcq', title: 'إذا كان المميز لمعادلة تربيعية موجباً، فإن عدد الحلول الحقيقية لها هو:', options: [{text:'لا يوجد حلول حقيقية'}, {text:'حل حقيقي واحد'}, {text:'حلان حقيقيان', correct:true}, {text:'عدد غير منتهٍ من الحلول'}], 
+                      explanation: '<div class="exp-step"><span class="math-exp">المميز <span class="c-n">> ٠</span> (موجب)</span></div><div class="exp-step">إذن: يوجد حلان حقيقيان (المنحنى يقطع محور السينات في نقطتين).</div>' },
+                    { id: 'q8', type: 'mcq', title: 'تبسيط العبارة الجذرية <span class="math-exp"><span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٥٠</span></span></span> هو:', options: [{text:'<span class="math-exp">٢٥</span>'}, {text:'<span class="math-exp">٢<span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٥</span></span></span>'}, {text:'<span class="math-exp">٥<span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٢</span></span></span>', correct:true}, {text:'<span class="math-exp">١٠<span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٥</span></span></span>'}], 
+                      explanation: '<div class="exp-step">نكتب العدد كحاصل ضرب عوامله الأولية: <span class="math-exp"><span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٥٠</span></span> = <span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num"><span class="c-n">٥ &times; ٥</span> &times; ٢</span></span></span></div><div class="exp-step">يخرج كل رقمين متشابهين من الجذر برقم واحد: <span class="math-exp"><span class="c-n">٥</span><span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٢</span></span></span></div>' },
+                    { id: 'q9', type: 'mcq', title: 'ناتج ضرب <span class="math-exp"><span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٥</span></span> &times; <span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٢٠</span></span></span> في أبسط صورة هو:', options: [{text:'<span class="math-exp">١٠٠</span>'}, {text:'<span class="math-exp">٥٠</span>'}, {text:'<span class="math-exp">١٠</span>', correct:true}, {text:'<span class="math-exp">٥<span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٤</span></span></span>'}], 
+                      explanation: '<div class="exp-step"><span class="math-exp"><span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٥</span></span> &times; <span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٢٠</span></span> = <span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">١٠٠</span></span></span></div><div class="exp-step"><span class="math-exp">= <span class="c-n">١٠</span></span></div>' },
+                    { id: 'q10', type: 'mcq', title: 'تبسيط العبارة <span class="math-exp">٧<span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٣</span></span> + ٢<span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٣</span></span></span> هو:', options: [{text:'<span class="math-exp">١٤<span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٣</span></span></span>'}, {text:'<span class="math-exp">٩<span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٦</span></span></span>'}, {text:'<span class="math-exp">٩<span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٣</span></span></span>', correct:true}, {text:'<span class="math-exp">٥<span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٣</span></span></span>'}], 
+                      explanation: '<div class="exp-step"><span class="math-exp">(<span class="c-n">٧</span> <span class="c-n">+ ٢</span>)<span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٣</span></span></span></div><div class="exp-step"><span class="math-exp">= <span class="c-n">٩</span><span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٣</span></span></span></div>' },
+                    { id: 'q11', type: 'essay', title: 'باستخدام <b>القانون العام</b>، أوجد حل المعادلة التربيعية: <span class="math-exp">س² - ٤س - ٥ = ٠</span>', 
+                      explanation: '<div class="exp-step">١- القانون: <span class="math-exp"><span class="c-x">س</span> = <span class="fraction"><span class="numerator"><span class="c-n">-ب</span> &plusmn; <span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">ب² - ٤أجـ</span></span></span><span class="denominator">٢أ</span></span></span></div><div class="exp-step">٢- التعويض: <span class="math-exp"><span class="c-x">س</span> = <span class="fraction"><span class="numerator"><span class="c-n">-(-٤)</span> &plusmn; <span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">(<span class="c-n">-٤</span>)² <span class="c-n">- ٤</span>(<span class="c-n">١</span>)(<span class="c-n">-٥</span>)</span></span></span><span class="denominator">٢(<span class="c-n">١</span>)</span></span></span></div><div class="exp-step">٣- التبسيط: <span class="math-exp"><span class="c-x">س</span> = <span class="fraction"><span class="numerator"><span class="c-n">٤</span> &plusmn; <span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num"><span class="c-n">١٦</span> <span class="c-n">+ ٢٠</span></span></span></span><span class="denominator"><span class="c-n">٢</span></span></span> = <span class="fraction"><span class="numerator"><span class="c-n">٤</span> &plusmn; <span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num"><span class="c-n">٣٦</span></span></span></span><span class="denominator"><span class="c-n">٢</span></span></span></span></div><div class="exp-step">٤- حساب الجذر: <span class="math-exp"><span class="c-x">س</span> = <span class="fraction"><span class="numerator"><span class="c-n">٤</span> &plusmn; <span class="c-n">٦</span></span><span class="denominator"><span class="c-n">٢</span></span></span></span></div><div class="exp-step">٥- الحلان: <span class="math-exp"><span class="c-x">س</span> = <span class="fraction"><span class="numerator"><span class="c-n">٤</span> <span class="c-n">+ ٦</span></span><span class="denominator"><span class="c-n">٢</span></span></span> = <span class="c-n">٥</span></span> ، أو <span class="math-exp"><span class="c-x">س</span> = <span class="fraction"><span class="numerator"><span class="c-n">٤</span> <span class="c-n">- ٦</span></span><span class="denominator"><span class="c-n">٢</span></span></span> = <span class="c-n">-١</span></span></div>' },
+                    { id: 'q12', type: 'essay', title: 'باستخدام <b>إكمال المربع</b>، أوجد حل المعادلة: <span class="math-exp">س² + ١٠س + ٢٤ = ٠</span>',
+                      explanation: '<div class="exp-step">١- نقل الثابت للطرف الآخر: <span class="math-exp"><span class="c-x">س²</span> <span class="c-n">+ ١٠</span><span class="c-x">س</span> = <span class="c-n">-٢٤</span></span></div><div class="exp-step">٢- إضافة مربع نصف معامل س: <span class="math-exp">(<span class="c-n">١٠</span>/٢)² = <span class="c-n">٢٥</span></span> للطرفين.</div><div class="exp-step">٣- المعادلة: <span class="math-exp"><span class="c-x">س²</span> <span class="c-n">+ ١٠</span><span class="c-x">س</span> <span class="c-n">+ ٢٥</span> = <span class="c-n">-٢٤</span> <span class="c-n">+ ٢٥</span></span></div><div class="exp-step">٤- تحليل المربع الكامل: <span class="math-exp">(<span class="c-x">س</span> <span class="c-n">+ ٥</span>)² = <span class="c-n">١</span></span></div><div class="exp-step">٥- أخذ الجذر للطرفين: <span class="math-exp"><span class="c-x">س</span> <span class="c-n">+ ٥</span> = &plusmn;<span class="c-n">١</span></span></div><div class="exp-step">٦- الحلان: <span class="math-exp"><span class="c-x">س</span> = <span class="c-n">-٥</span> <span class="c-n">+ ١</span> = <span class="c-n">-٤</span></span> ، أو <span class="math-exp"><span class="c-x">س</span> = <span class="c-n">-٥</span> <span class="c-n">- ١</span> = <span class="c-n">-٦</span></span></div>' }
+                ]
+            },
+            { // Model 3: د
+                name: "نموذج د",
+                questions: [
+                    { id: 'q1', type: 'mcq', title: 'ناتج ضرب ثنائيتي الحد <span class="math-exp">(س - ٤)(س - ٣)</span> هو:', options: [{text:'<span class="math-exp">س² - ٧س - ١٢</span>'}, {text:'<span class="math-exp">س² + ٧س + ١٢</span>'}, {text:'<span class="math-exp">س² - ٧س + ١٢</span>', correct:true}, {text:'<span class="math-exp">س² - ١٢</span>'}], 
+                      explanation: '<div class="exp-step"><span class="math-exp">(<span class="c-x">س</span> <span class="c-n">- ٤</span>) (<span class="c-x">س</span> <span class="c-n">- ٣</span>)</span></div><div class="exp-step"><span class="math-exp">= <span class="c-x">س²</span> <span class="c-n">- ٣</span><span class="c-x">س</span> <span class="c-n">- ٤</span><span class="c-x">س</span> <span class="c-n">+ ١٢</span></span></div><div class="exp-step"><span class="math-exp">= <span class="c-x">س²</span> <span class="c-n">- ٧</span><span class="c-x">س</span> <span class="c-n">+ ١٢</span></span></div>' },
+                    { id: 'q2', type: 'mcq', title: 'تحليل الفرق بين مربعين للعبارة <span class="math-exp">٩س² - ١٦</span> هو:', options: [{text:'<span class="math-exp">(٣س - ٤)(٣س + ٤)</span>', correct:true}, {text:'<span class="math-exp">(٩س - ٤)(س + ٤)</span>'}, {text:'<span class="math-exp">(٣س - ٤)²</span>'}, {text:'<span class="math-exp">(٣س + ٤)²</span>'}], 
+                      explanation: '<div class="exp-step"><span class="math-exp">القاعدة: أ² - ب² = (أ - ب)(أ + ب)</span></div><div class="exp-step"><span class="math-exp"><span class="c-n">٩</span><span class="c-x">س²</span> <span class="c-n">- ١٦</span> = (<span class="c-n">٣</span><span class="c-x">س</span>)<span class="c-x">²</span> <span class="c-n">- ٤²</span></span></div><div class="exp-step"><span class="math-exp">= (<span class="c-n">٣</span><span class="c-x">س</span> <span class="c-n">- ٤</span>)(<span class="c-n">٣</span><span class="c-x">س</span> <span class="c-n">+ ٤</span>)</span></div>' },
+                    { id: 'q3', type: 'mcq', title: 'تحليل ثلاثية الحدود <span class="math-exp">س² + ٢س - ١٥</span> إلى عواملها هو:', options: [{text:'<span class="math-exp">(س - ٥)(س + ٣)</span>'}, {text:'<span class="math-exp">(س + ٥)(س - ٣)</span>', correct:true}, {text:'<span class="math-exp">(س - ٣)(س - ٥)</span>'}, {text:'<span class="math-exp">(س - ١٥)(س + ١)</span>'}], 
+                      explanation: '<div class="exp-step"><span class="math-exp">العددان: <span class="c-n">٥</span> &times; <span class="c-n">-٣</span> = <span class="c-n">-١٥</span> ، <span class="c-n">٥</span> + <span class="c-n">-٣</span> = <span class="c-n">٢</span></span></div><div class="exp-step"><span class="math-exp">= (<span class="c-x">س</span> <span class="c-n">+ ٥</span>)(<span class="c-x">س</span> <span class="c-n">- ٣</span>)</span></div>' },
+                    { id: 'q4', type: 'mcq', title: 'معادلة محور التماثل للدالة التربيعية <span class="math-exp">ص = ٢س² - ٨س + ١</span> هي:', options: [{text:'<span class="math-exp">س = -٢</span>'}, {text:'<span class="math-exp">س = ٤</span>'}, {text:'<span class="math-exp">س = ٢</span>', correct:true}, {text:'<span class="math-exp">س = -٤</span>'}], 
+                      explanation: '<div class="exp-step"><span class="math-exp">س = <span class="fraction"><span class="numerator">-ب</span><span class="denominator">٢أ</span></span></span></div><div class="exp-step"><span class="math-exp">س = <span class="fraction"><span class="numerator">-(<span class="c-n">-٨</span>)</span><span class="denominator">٢(<span class="c-n">٢</span>)</span></span></span></div><div class="exp-step"><span class="math-exp">س = <span class="fraction"><span class="numerator"><span class="c-n">٨</span></span><span class="denominator"><span class="c-n">٤</span></span></span> = <span class="c-n">٢</span></span></div>' },
+                    { id: 'q5', type: 'mcq', title: 'المقطع الصادي للدالة التربيعية <span class="math-exp">ص = -س² - ٣س + ٩</span> هو:', options: [{text:'<span class="math-exp">-٣</span>'}, {text:'<span class="math-exp">٩</span>', correct:true}, {text:'<span class="math-exp">-١</span>'}, {text:'<span class="math-exp">٦</span>'}], 
+                      explanation: '<div class="exp-step">المقطع الصادي هو دائماً الحد الثابت (جـ) في المعادلة.</div><div class="exp-step">إذن المقطع الصادي هو <span class="c-n">٩</span></div>' },
+                    { id: 'q6', type: 'mcq', title: 'قيمة المميز للمعادلة التربيعية <span class="math-exp">س² + ٦س + ٩ = ٠</span> هي:', options: [{text:'<span class="math-exp">٣٦</span>'}, {text:'<span class="math-exp">-٣٦</span>'}, {text:'<span class="math-exp">٠</span>', correct:true}, {text:'<span class="math-exp">١٨</span>'}], 
+                      explanation: '<div class="exp-step"><span class="math-exp">ب² - ٤أجـ</span></div><div class="exp-step"><span class="math-exp">(<span class="c-n">٦</span>)<span class="c-x">²</span> <span class="c-n">- ٤</span>(<span class="c-n">١</span>)(<span class="c-n">٩</span>)</span></div><div class="exp-step"><span class="math-exp">= <span class="c-n">٣٦</span> <span class="c-n">- ٣٦</span> = <span class="c-n">٠</span></span></div>' },
+                    { id: 'q7', type: 'mcq', title: 'إذا كان المميز لمعادلة تربيعية يساوي صفراً، فإن عدد الحلول الحقيقية لها هو:', options: [{text:'لا يوجد حلول حقيقية'}, {text:'حل حقيقي واحد', correct:true}, {text:'حلان حقيقيان'}, {text:'عدد غير منتهٍ من الحلول'}], 
+                      explanation: '<div class="exp-step"><span class="math-exp">المميز <span class="c-n">= ٠</span></span></div><div class="exp-step">إذن: يوجد حل حقيقي واحد فقط (لأن المنحنى يمس محور السينات في نقطة واحدة).</div>' },
+                    { id: 'q8', type: 'mcq', title: 'تبسيط العبارة الجذرية <span class="math-exp"><span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٢٧</span></span></span> هو:', options: [{text:'<span class="math-exp">٩</span>'}, {text:'<span class="math-exp">٣<span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٩</span></span></span>'}, {text:'<span class="math-exp">٣<span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٣</span></span></span>', correct:true}, {text:'<span class="math-exp">٩<span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٣</span></span></span>'}], 
+                      explanation: '<div class="exp-step">نكتب العدد كحاصل ضرب عوامله الأولية: <span class="math-exp"><span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٢٧</span></span> = <span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num"><span class="c-n">٣ &times; ٣</span> &times; ٣</span></span></span></div><div class="exp-step">يخرج كل رقمين متشابهين من الجذر برقم واحد: <span class="math-exp"><span class="c-n">٣</span><span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٣</span></span></span></div>' },
+                    { id: 'q9', type: 'mcq', title: 'ناتج ضرب <span class="math-exp"><span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٢</span></span> &times; <span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٣٢</span></span></span> في أبسط صورة هو:', options: [{text:'<span class="math-exp">٦٤</span>'}, {text:'<span class="math-exp">١٦</span>'}, {text:'<span class="math-exp">٨</span>', correct:true}, {text:'<span class="math-exp">٤<span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٢</span></span></span>'}], 
+                      explanation: '<div class="exp-step"><span class="math-exp"><span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٢</span></span> &times; <span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٣٢</span></span> = <span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٦٤</span></span></span></div><div class="exp-step"><span class="math-exp">= <span class="c-n">٨</span></span></div>' },
+                    { id: 'q10', type: 'mcq', title: 'تبسيط العبارة <span class="math-exp">٥<span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٢</span></span> - ٣<span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٢</span></span></span> هو:', options: [{text:'<span class="math-exp">٨<span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٢</span></span></span>'}, {text:'<span class="math-exp">٢</span>'}, {text:'<span class="math-exp">٢<span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٢</span></span></span>', correct:true}, {text:'<span class="math-exp">١٥<span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٢</span></span></span>'}], 
+                      explanation: '<div class="exp-step"><span class="math-exp">(<span class="c-n">٥</span> <span class="c-n">- ٣</span>)<span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٢</span></span></span></div><div class="exp-step"><span class="math-exp">= <span class="c-n">٢</span><span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">٢</span></span></span></div>' },
+                    { id: 'q11', type: 'essay', title: 'باستخدام <b>القانون العام</b>، أوجد حل المعادلة التربيعية: <span class="math-exp">س² - ٢س - ١٥ = ٠</span>', 
+                      explanation: '<div class="exp-step">١- القانون: <span class="math-exp"><span class="c-x">س</span> = <span class="fraction"><span class="numerator"><span class="c-n">-ب</span> &plusmn; <span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">ب² - ٤أجـ</span></span></span><span class="denominator">٢أ</span></span></span></div><div class="exp-step">٢- التعويض: <span class="math-exp"><span class="c-x">س</span> = <span class="fraction"><span class="numerator"><span class="c-n">-(-٢)</span> &plusmn; <span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">(<span class="c-n">-٢</span>)² <span class="c-n">- ٤</span>(<span class="c-n">١</span>)(<span class="c-n">-١٥</span>)</span></span></span><span class="denominator">٢(<span class="c-n">١</span>)</span></span></span></div><div class="exp-step">٣- التبسيط: <span class="math-exp"><span class="c-x">س</span> = <span class="fraction"><span class="numerator"><span class="c-n">٢</span> &plusmn; <span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num"><span class="c-n">٤</span> <span class="c-n">+ ٦٠</span></span></span></span><span class="denominator"><span class="c-n">٢</span></span></span> = <span class="fraction"><span class="numerator"><span class="c-n">٢</span> &plusmn; <span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num"><span class="c-n">٦٤</span></span></span></span><span class="denominator"><span class="c-n">٢</span></span></span></span></div><div class="exp-step">٤- حساب الجذر: <span class="math-exp"><span class="c-x">س</span> = <span class="fraction"><span class="numerator"><span class="c-n">٢</span> &plusmn; <span class="c-n">٨</span></span><span class="denominator"><span class="c-n">٢</span></span></span></span></div><div class="exp-step">٥- الحلان: <span class="math-exp"><span class="c-x">س</span> = <span class="fraction"><span class="numerator"><span class="c-n">٢</span> <span class="c-n">+ ٨</span></span><span class="denominator"><span class="c-n">٢</span></span></span> = <span class="c-n">٥</span></span> ، أو <span class="math-exp"><span class="c-x">س</span> = <span class="fraction"><span class="numerator"><span class="c-n">٢</span> <span class="c-n">- ٨</span></span><span class="denominator"><span class="c-n">٢</span></span></span> = <span class="c-n">-٣</span></span></div>' },
+                    { id: 'q12', type: 'essay', title: 'باستخدام <b>إكمال المربع</b>، أوجد حل المعادلة: <span class="math-exp">س² - ١٠س + ١٦ = ٠</span>',
+                      explanation: '<div class="exp-step">١- نقل الثابت للطرف الآخر: <span class="math-exp"><span class="c-x">س²</span> <span class="c-n">- ١٠</span><span class="c-x">س</span> = <span class="c-n">-١٦</span></span></div><div class="exp-step">٢- إضافة مربع نصف معامل س: <span class="math-exp">(<span class="c-n">-١٠</span>/٢)² = <span class="c-n">٢٥</span></span> للطرفين.</div><div class="exp-step">٣- المعادلة: <span class="math-exp"><span class="c-x">س²</span> <span class="c-n">- ١٠</span><span class="c-x">س</span> <span class="c-n">+ ٢٥</span> = <span class="c-n">-١٦</span> <span class="c-n">+ ٢٥</span></span></div><div class="exp-step">٤- تحليل المربع الكامل: <span class="math-exp">(<span class="c-x">س</span> <span class="c-n">- ٥</span>)² = <span class="c-n">٩</span></span></div><div class="exp-step">٥- أخذ الجذر للطرفين: <span class="math-exp"><span class="c-x">س</span> <span class="c-n">- ٥</span> = &plusmn;<span class="c-n">٣</span></span></div><div class="exp-step">٦- الحلان: <span class="math-exp"><span class="c-x">س</span> = <span class="c-n">٥</span> <span class="c-n">+ ٣</span> = <span class="c-n">٨</span></span> ، أو <span class="math-exp"><span class="c-x">س</span> = <span class="c-n">٥</span> <span class="c-n">- ٣</span> = <span class="c-n">٢</span></span></div>' }
+                ]
+            }
+        ];
+
+        function createPage(pageNumber, totalPages) {
+            const page = document.createElement('div');
+            page.className = 'page';
+            let headerHTML = '';
+            
+            if (pageNumber === 1) {
+                const dispName = studentName !== "بطل زائر" ? studentName : ".................................................";
+                const dispClass = classId ? classId : ".................";
+                const prevScoreHTML = previousScore !== null ? `<span style="font-size: 11px; color: #666; display: block; margin-top: 4px;">الدرجة السابقة: ${toAr(previousScore)} / ${toAr(20)}</span>` : '';
+
+                headerHTML = `
+                    <div class="official-header">
+                        <div class="header-col header-right">
+                            <p>المملكة العربية السعودية</p>
+                            <p>وزارة التعليم</p>
+                            <p>إدارة التعليم بالمنطقة الشرقية</p>
+                            <p>متوسطة الأمين</p>
+                        </div>
+                        <div class="header-col header-center">
+                            <img src="https://ablan-math.github.io/img/education.png" alt="شعار وزارة التعليم" class="logo">
+                        </div>
+                        <div class="header-col header-left">
+                            <p>المادة: رياضيات</p>
+                            <p>الصف: الثالث المتوسط</p>
+                            <p>الزمن: حصة دراسية</p>
+                            <p>اختبار الفترة الأولى</p>
+                        </div>
+                    </div>
+                    <div class="student-info-bar">
+                        <div style="flex: 2;"><strong>اسم الطالب:</strong> <span class="display-student-name">${dispName}</span></div>
+                        <div style="flex: 1; text-align: center;"><strong>الصف:</strong> ${dispClass}</div>
+                        <div style="flex: 1; text-align: left;" class="attempt-badge">
+                            <strong style="color: #007bff; font-size: 14px;">المحاولة: ${toAr(attemptCount)}</strong>
+                            ${prevScoreHTML}
+                        </div>
+                    </div>`; 
+            }
+
+            page.innerHTML = `
+                <div class="page-content">
+                    ${headerHTML}
+                    <div class="page-questions-container">
+                        <div id="page-mcq-${pageNumber}"></div>
+                        <div id="page-essay-${pageNumber}"></div>
+                    </div>
+                </div>
+                <div class="page-footer">
+                    <span class="model-name"></span>
+                    <span>صفحة ${pageNumber} من ${totalPages}</span>
+                </div>
+            `;
+            return page;
+        }
+
+        function startRandomTest() {
+            const randomIndex = Math.floor(Math.random() * allModels.length);
+            renderModel(randomIndex);
+        }
+
+        function renderModel(modelIndex) {
+            currentModelIndex = modelIndex;
+            const modelData = allModels[modelIndex];
+            const testContainer = document.getElementById('test-container');
+            testContainer.innerHTML = ''; 
+
+            const page1 = createPage(1, 2);
+            const page2 = createPage(2, 2);
+
+            const mcqContainer1 = page1.querySelector('#page-mcq-1');
+            const mcqContainer2 = page2.querySelector('#page-mcq-2');
+            const essayContainer2 = page2.querySelector('#page-essay-2');
+            
+            mcqContainer1.innerHTML = '<div class="questions-grid"></div>';
+            mcqContainer2.innerHTML = '<div class="questions-grid"></div>';
+
+            modelData.questions.forEach((q, index) => {
+                const questionNumber = index + 1;
+                let questionHTML = '';
+
+                if (q.type === 'mcq') {
+                    const optionLabels = ['أ', 'ب', 'ج', 'د'];
+                    const optionsHTML = q.options.map((opt, optIndex) => `
+                        <label class="option" ${opt.correct ? 'data-correct="true"' : ''}>
+                            <input type="radio" name="${q.id}"><span class="option-label">${optionLabels[optIndex]}</span><span class="option-text">${opt.text}</span>
+                        </label>
+                    `).join('');
+                    questionHTML = `
+                        <div class="question-block" data-question-id="${q.id}">
+                            <div class="question-prompt">
+                                <span class="question-number">${questionNumber}.</span>
+                                <span class="question-title">${q.title}</span>
+                                <button class="btn-explain" id="btn-explain-${q.id}" onclick="toggleExplanation('${q.id}')" style="display:none;">أعرف لماذا؟</button>
+                            </div>
+                            <div class="options-container">${optionsHTML}</div>
+                            <div id="explain-${q.id}" class="explanation-box" style="display:none;">${q.explanation}</div>
+                        </div>`;
+                    
+                    if (questionNumber <= 8) {
+                        mcqContainer1.querySelector('.questions-grid').innerHTML += questionHTML;
+                    } else { 
+                        mcqContainer2.querySelector('.questions-grid').innerHTML += questionHTML;
+                    }
+                } else {
+                    let essayGrid = essayContainer2.querySelector('.essay-questions-container');
+                    
+                    if (!essayGrid) {
+                        essayContainer2.innerHTML += `<h2 class="section-title">الأسئلة المقالية</h2><div class="essay-questions-container"></div>`;
+                        essayGrid = essayContainer2.querySelector('.essay-questions-container');
+                    }
+                    
+                    essayGrid.innerHTML += `
+                        <div class="essay-question-block">
+                            <div class="question-prompt">
+                                <span class="question-number">${questionNumber}.</span>
+                                <span class="question-title">${q.title}</span>
+                                <button class="btn-explain" id="btn-explain-${q.id}" onclick="toggleExplanation('${q.id}')" style="display:none;">أعرف لماذا؟</button>
+                            </div>
+                            <textarea class="answer-space" id="${q.id}-answer" placeholder="اكتب خطوات الحل هنا..."></textarea>
+                            <div class="feedback" id="${q.id}-feedback"></div>
+                            <div id="explain-${q.id}" class="explanation-box" style="display:none;">${q.explanation}</div>
+                        </div>`;
+                }
+            });
+
+            page2.querySelector('.page-questions-container').innerHTML += `
+                <div class="closing-statement">
+                    <p>بالتوفيق والسداد لطلابي الأعزاء.</p>
+                    <p>أستاذكم: عبد العزيز خالد العبلان</p>
+                </div>`;
+
+            testContainer.appendChild(page1);
+            testContainer.appendChild(page2);
+
+            document.querySelectorAll('.model-name').forEach(el => el.textContent = modelData.name);
+            shuffleOptions(); 
+        }
+
+        function shuffleOptions() {
+            const questions = document.querySelectorAll('.question-block[data-question-id]');
+            const optionLabels = ['أ', 'ب', 'ج', 'د'];
+            questions.forEach(question => {
+                const container = question.querySelector('.options-container');
+                if (container) {
+                    const options = Array.from(container.children);
+                    for (let i = options.length - 1; i > 0; i--) {
+                        const j = Math.floor(Math.random() * (i + 1));
+                        [options[i], options[j]] = [options[j], options[i]];
+                    }
+                    container.innerHTML = '';
+                    options.forEach((option, index) => {
+                        option.querySelector('.option-label').textContent = optionLabels[index];
+                        container.appendChild(option);
+                    });
+                }
+            });
+        }
+
+        function toggleExplanation(qId) {
+            const explainBox = document.getElementById(`explain-${qId}`);
+            explainBox.style.display = explainBox.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function gradeMultipleChoice() {
+            let correctCount = 0;
+            for(let i=1; i<=10; i++){
+                const qId = 'q' + i;
+                const question = document.querySelector(`.question-block[data-question-id="${qId}"]`);
+                if(question){
+                    const userAnswerNode = document.querySelector(`input[name="${qId}"]:checked`);
+                    question.querySelectorAll('.option').forEach(opt => opt.classList.remove('correct', 'incorrect'));
+                    
+                    const correctAnswerNode = question.querySelector('.option[data-correct="true"]');
+                    if (correctAnswerNode) correctAnswerNode.classList.add('correct');
+
+                    if (userAnswerNode) {
+                        const selectedLabel = userAnswerNode.parentElement;
+                        if (selectedLabel.dataset.correct) correctCount++;
+                        else selectedLabel.classList.add('incorrect');
+                    }
+                }
+            }
+            return correctCount * 1.5;
+        }
+
+        function gradeEssays() {
+            let score = 0;
+            score += gradeSingleEssay(document.getElementById('q11-answer').value, document.getElementById('q11-feedback'), 11, currentModelIndex);
+            score += gradeSingleEssay(document.getElementById('q12-answer').value, document.getElementById('q12-feedback'), 12, currentModelIndex);
+            return score;
+        }
+
+        function gradeSingleEssay(answer, feedbackEl, questionNumber, modelIdx) {
+            let score = 0;
+            const cleanAnswer = answer.replace(/\s/g, '').replace(/،/g, ',');
+            
+            if (questionNumber === 11) {
+                 if (modelIdx === 0) { if (cleanAnswer.includes('7') || cleanAnswer.includes('٧')) score += 1.25; if (cleanAnswer.includes('-2') || cleanAnswer.includes('-٢')) score += 1.25; }
+                 else if (modelIdx === 1) { if (cleanAnswer.includes('2') || cleanAnswer.includes('٢')) score += 1.25; if (cleanAnswer.includes('-4') || cleanAnswer.includes('-٤')) score += 1.25; }
+                 else if (modelIdx === 2) { if (cleanAnswer.includes('5') || cleanAnswer.includes('٥')) score += 1.25; if (cleanAnswer.includes('-1') || cleanAnswer.includes('-١')) score += 1.25; }
+                 else if (modelIdx === 3) { if (cleanAnswer.includes('5') || cleanAnswer.includes('٥')) score += 1.25; if (cleanAnswer.includes('-3') || cleanAnswer.includes('-٣')) score += 1.25; }
+            } else if (questionNumber === 12) {
+                 if (modelIdx === 0) { if (cleanAnswer.includes('-2') || cleanAnswer.includes('-٢')) score += 1.25; if (cleanAnswer.includes('-4') || cleanAnswer.includes('-٤')) score += 1.25; }
+                 else if (modelIdx === 1) { if (cleanAnswer.includes('6') || cleanAnswer.includes('٦')) score += 1.25; if (cleanAnswer.includes('2') || cleanAnswer.includes('٢')) score += 1.25; }
+                 else if (modelIdx === 2) { if (cleanAnswer.includes('-6') || cleanAnswer.includes('-٦')) score += 1.25; if (cleanAnswer.includes('-4') || cleanAnswer.includes('-٤')) score += 1.25; }
+                 else if (modelIdx === 3) { if (cleanAnswer.includes('8') || cleanAnswer.includes('٨')) score += 1.25; if (cleanAnswer.includes('2') || cleanAnswer.includes('٢')) score += 1.25; }
+            }
+
+            const correct = score === 2.5;
+            feedbackEl.innerHTML = `<strong>الدرجة: ${score} / 2.5</strong><br>${correct ? 'إجابة صحيحة!' : 'إجابة غير مكتملة، يرجى مراجعة خطوات الحل.'}`;
+            feedbackEl.className = correct ? 'feedback correct' : 'feedback incorrect';
+            feedbackEl.style.display = 'block';
+            return score;
+        }
+
+        function gradeAll() {
+            document.getElementById('grade-all-btn').style.display = 'none';
+            document.getElementById('retry-btn-main').style.display = 'block';
+            
+            const totalScore = gradeMultipleChoice() + gradeEssays();
+            
+            // تحديث الواجهة المحلية
+            document.getElementById('result-score').textContent = `${totalScore} / 20`;
+            document.getElementById('result-modal').style.display = 'flex';
+            document.querySelectorAll('.btn-explain').forEach(btn => btn.style.display = 'inline-block');
+
+            // حفظ الدرجة محلياً للمحاولة القادمة
+            sessionStorage.setItem(prevScoreKey, totalScore);
+
+            // رفع النتيجة لسجل الأبطال وعرضه (المقياس الثانوي = رقم المحاولة)
+            saveScore(totalScore, attemptCount);
+        }
+
+        function retryTest() {
+             const isGraded = document.getElementById('grade-all-btn').style.display === 'none';
+             let msg = `هل أنت متأكد من إعادة الاختبار؟\nسيتم بدء المحاولة رقم (${toAr(attemptCount + 1)}).`;
+             
+             if (!isGraded) {
+                 msg += "\n\n⚠️ تنبيه: لم تقم بتسليم الاختبار بعد! سيتم تسجيل درجة (صفر) لهذه المحاولة إذا أعدت الآن.";
+             }
+             
+             if (!confirm(msg)) return;
+
+             // معالجة المحاولة قبل الإعادة
+             if (!isGraded) {
+                 saveScore(0, attemptCount, true); // حفظ بصمت
+                 sessionStorage.setItem(prevScoreKey, 0);
+                 previousScore = 0;
+             } else {
+                 // تم حفظها مسبقاً في دالة التصحيح
+                 previousScore = parseFloat(sessionStorage.getItem(prevScoreKey));
+             }
+
+             // التجهيز للمحاولة الجديدة
+             attemptCount++;
+             sessionStorage.setItem(attemptKey, attemptCount);
+
+             // إعادة ضبط الواجهة
+             document.getElementById('grade-all-btn').style.display = 'block';
+             document.getElementById('retry-btn-main').style.display = 'none';
+             document.getElementById('result-modal').style.display = 'none';
+             document.getElementById('leaderboard-modal').classList.replace('visible-modal', 'hidden-modal');
+
+             startRandomTest();
+             window.scrollTo(0, 0);
+        }
+
+        // ==============================================================
+        // دوال لوحة المتصدرين
+        // ==============================================================
+        let currentLeaderboardMode = classId ? 'class' : 'global';
+
+        window.fetchAndShowLeaderboard = function(showModal = false) {
+            const modal = document.getElementById('leaderboard-modal');
+            if (showModal && modal) {
+                modal.classList.remove('hidden-modal');
+                modal.classList.add('visible-modal');
+            }
+            if (!classId) document.getElementById('tab-class').style.display = 'none';
+
+            const content = document.getElementById('leaderboard-content');
+            const loader = document.getElementById('modal-loader');
+            if(loader) loader.style.display = 'flex';
+            
+            let reqClassId = (currentLeaderboardMode === 'class') ? classId : 'all';
+            const url = `${SCRIPT_URL}?action=getLeaderboard&gameId=${GAME_ID}&classId=${encodeURIComponent(reqClassId || 'all')}&t=${Date.now()}`;
+            
+            fetch(url).then(r => r.json()).then(res => {
+                let data = (res.status === 'success' && res.data) ? res.data : [];
+                if (localVisitorResult && (currentLeaderboardMode === 'global' || !classId)) {
+                    if (!data.find(p => p.name === localVisitorResult.name)) data.push(localVisitorResult);
+                    // الترتيب: الدرجة تنازلياً، ثم المحاولات تصاعدياً (الأقل محاولات هو الأفضل)
+                    data.sort((a, b) => parseFloat(b.grade) - parseFloat(a.grade) || parseFloat(a.metric) - parseFloat(b.metric));
+                }
+                if (data.length > 0) {
+                    let h = `<table style="width: 100%; text-align: right; font-size: 12px; border-collapse: collapse;">
+                        <thead style="color: #64748b; border-bottom: 2px solid #e2e8f0;">
+                            <tr><th style="padding: 8px; text-align: center;">#</th><th style="padding: 8px;">البطل</th><th style="padding: 8px; text-align: center; color: #059669;">الدرجة</th></tr>
+                        </thead><tbody>`;
+                    data.forEach((p, i) => {
+                        const isMe = (p.isLocal || (studentId && String(p.name).trim() === String(studentName).trim()));
+                        h += `<tr style="${isMe ? 'background: #eff6ff; border-right: 4px solid #3b82f6;' : 'border-bottom: 1px solid #f1f5f9;'}">
+                            <td style="padding: 8px; text-align: center; font-weight: bold; ${i<3 ? 'color: #eab308; font-size: 16px;' : 'color: #94a3b8;'}">${i < 3 ? ['🥇','🥈','🥉'][i] : toAr(i+1)}</td>
+                            <td style="padding: 8px; font-weight: 800; ${isMe ? 'color: #1d4ed8;' : 'color: #334155;'}">${p.name} ${isMe ? '<span style="background:#2563eb; color:white; font-size:8px; padding:2px 6px; border-radius:10px; margin-right:4px;">أنت</span>' : ''}</td>
+                            <td style="padding: 8px; text-align: center;"><span style="color: #059669; font-weight: 900; font-size: 14px;">${toAr(parseFloat(p.grade).toFixed(1))}</span> <span style="font-size: 9px; color: #94a3b8; display: block; font-weight: bold;">(المحاولات: ${toAr(p.metric || p.metricValue || 1)})</span></td>
+                        </tr>`;
+                    });
+                    content.innerHTML = h + `</tbody></table>`;
+                } else {
+                    content.innerHTML = `<div style="padding: 40px 0; text-align: center; color: #94a3b8; font-size: 12px; font-style: italic; font-weight: bold;">بانتظار تسجيل الأبطال..</div>`;
+                }
+            }).finally(() => { if(loader) loader.style.display = 'none'; });
+        };
+
+        window.switchTab = (mode) => { 
+            currentLeaderboardMode = mode; 
+            document.getElementById('tab-class').className = mode === 'class' ? 'tab-btn tab-active' : 'tab-btn tab-inactive'; 
+            document.getElementById('tab-global').className = mode === 'global' ? 'tab-btn tab-active' : 'tab-btn tab-inactive'; 
+            fetchAndShowLeaderboard(false); 
+        };
+
+        window.closeLeaderboardModal = () => { document.getElementById('leaderboard-modal').classList.replace('visible-modal', 'hidden-modal'); };
+        window.closeGame = () => { window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*'); };
+
+        // التشغيل المبدئي
+        document.addEventListener('DOMContentLoaded', () => {
+            startRandomTest();
+            fetchInitialCloudData();
+        });
+    </script>
+</body>
+</html>

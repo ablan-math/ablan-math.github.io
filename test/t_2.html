@@ -16,6 +16,7 @@
             display: flex;
             flex-direction: column;
             align-items: center;
+            min-height: 100vh;
         }
 
         .page {
@@ -27,6 +28,35 @@
         .page-footer { 
             text-align: center; font-size: 12px; color: #888; padding-top: 10px;
             display: flex; justify-content: space-between;
+        }
+
+        /* نافذة تسجيل الدخول */
+        .login-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: #0f172a; display: flex; justify-content: center; align-items: center; z-index: 3000;
+        }
+        .login-card {
+            background: white; padding: 40px; border-radius: 16px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+            text-align: center; width: 90%; max-width: 400px;
+        }
+        .login-card h2 { margin-top: 0; color: #1e293b; font-size: 24px; }
+        .login-card p { color: #64748b; font-size: 14px; margin-bottom: 20px; }
+        .login-input {
+            width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 8px;
+            font-size: 16px; font-family: 'Cairo', sans-serif; text-align: center; box-sizing: border-box;
+            margin-bottom: 15px; outline: none; transition: border-color 0.3s;
+        }
+        .login-input:focus { border-color: #3b82f6; }
+        .login-btn {
+            width: 100%; background: #3b82f6; color: white; border: none; padding: 12px;
+            border-radius: 8px; font-size: 16px; font-weight: bold; font-family: 'Cairo', sans-serif;
+            cursor: pointer; transition: background 0.3s;
+        }
+        .login-btn:hover { background: #2563eb; }
+        .login-btn:disabled { background: #94a3b8; cursor: not-allowed; }
+        .visitor-btn {
+            background: none; border: none; color: #94a3b8; margin-top: 15px; font-family: 'Cairo', sans-serif;
+            font-size: 12px; cursor: pointer; text-decoration: underline;
         }
 
         /* نافذة النتيجة المحلية الخاصة بالاختبار */
@@ -209,7 +239,7 @@
             body { background-color: white; padding: 0; margin: 0; }
             .page { box-shadow: none; margin: 0; width: 100%; min-height: auto; padding: 15mm; display: block; border-bottom: none; }
             .page:not(:last-of-type) { page-break-after: always; }
-            .controls, .feedback, .modal-overlay, .leaderboard-modal-overlay, .option input[type="radio"], textarea.answer-space, .btn-explain, .explanation-box { display: none !important; }
+            .controls, .feedback, .modal-overlay, .leaderboard-modal-overlay, .login-overlay, .option input[type="radio"], textarea.answer-space, .btn-explain, .explanation-box { display: none !important; }
             .official-header { margin-bottom: 5px !important; }
             .student-info-bar { margin-bottom: 8px !important; } 
             .questions-grid { gap: 5px !important; } 
@@ -225,6 +255,19 @@
     </style>
 </head>
 <body>
+
+    <!-- نافذة تسجيل الدخول المستقلة -->
+    <div id="login-modal" class="login-overlay">
+        <div class="login-card">
+            <h2>تسجيل الدخول للاختبار</h2>
+            <p>يرجى إدخال رقم البطاقة الخاص بك لجلب بياناتك وبدء الاختبار</p>
+            <input type="text" id="student-id-input" class="login-input" placeholder="أدخل رقم البطاقة هنا..." autocomplete="off">
+            <button id="login-btn" class="login-btn" onclick="handleLogin()">دخول وبدء الاختبار</button>
+            <div id="login-error-msg" style="color: #dc3545; font-size: 14px; margin-top: 10px; font-weight: bold; min-height: 20px;"></div>
+            <button class="visitor-btn" onclick="continueAsVisitor()">أو الاستمرار كزائر (بدون حفظ)</button>
+        </div>
+    </div>
+
     <!-- نافذة النتيجة المحلية -->
     <div id="result-modal" class="modal-overlay" style="display: none;">
         <div class="modal-content">
@@ -239,13 +282,13 @@
         </div>
     </div>
     
-    <div class="controls">
+    <div class="controls" id="test-controls" style="display: none;">
         <button class="btn print-button" onclick="window.print()">طباعة</button>
         <button id="grade-all-btn" class="btn correct-button" onclick="gradeAll()">تصحيح وتسليم</button>
         <button id="retry-btn-main" class="btn retry-button" onclick="retryTest()">إعادة الاختبار</button>
     </div>
 
-    <div id="test-container"></div>
+    <div id="test-container" style="display: none;"></div>
 
     <!-- نافذة سجل الأبطال المنبثقة -->
     <div id="leaderboard-modal" class="leaderboard-modal-overlay hidden-modal">
@@ -275,50 +318,141 @@
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxqAQlGhNs8k5RwHs6jrWxDiDwaMABSx8a9Fl81O5oVVa5fHRWTwIEvsGy2cSDP4zGLWQ/exec";
         const urlParams = new URLSearchParams(window.location.search);
         const GAME_ID = urlParams.get('gameId') || 't_2'; 
-        const studentId = urlParams.get('studentId') || urlParams.get('userId');
-        const classId = urlParams.get('classId');
-        let studentName = decodeURIComponent(urlParams.get('name') || urlParams.get('studentName') || "بطل زائر");
+        
+        // التحقق من وجود البيانات في الرابط أو الجلسة المحفوظة مسبقاً
+        let studentId = urlParams.get('studentId') || urlParams.get('userId') || sessionStorage.getItem('test_studentId');
+        let classId = urlParams.get('classId') || sessionStorage.getItem('test_classId');
+        let studentName = decodeURIComponent(urlParams.get('name') || urlParams.get('studentName') || '') || sessionStorage.getItem('test_studentName') || "بطل زائر";
+        
         let localVisitorResult = null; 
         const toAr = (n) => String(n).replace(/\d/g, d => "٠١٢٣٤٥٦٧٨٩"[d]);
 
-        // مفاتيح التخزين المحلية للمحاولات
-        const attemptKey = `attempts_${GAME_ID}_${studentId || 'visitor'}`;
-        const prevScoreKey = `prevScore_${GAME_ID}_${studentId || 'visitor'}`;
-        
-        let attemptCount = parseInt(sessionStorage.getItem(attemptKey)) || 1;
-        let previousScore = sessionStorage.getItem(prevScoreKey) !== null ? parseFloat(sessionStorage.getItem(prevScoreKey)) : null;
+        let attemptKey, prevScoreKey, attemptCount, previousScore;
 
-        // معالجة تحديث الصفحة (F5) أو الإغلاق قبل التسليم
-        window.addEventListener('beforeunload', (e) => {
+        // دالة تهيئة المتغيرات بعد تسجيل الدخول
+        function initStudentVariables() {
+            attemptKey = `attempts_${GAME_ID}_${studentId || 'visitor'}`;
+            prevScoreKey = `prevScore_${GAME_ID}_${studentId || 'visitor'}`;
+            attemptCount = parseInt(sessionStorage.getItem(attemptKey)) || 1;
+            previousScore = sessionStorage.getItem(prevScoreKey) !== null ? parseFloat(sessionStorage.getItem(prevScoreKey)) : null;
+        }
+
+        // ==============================================================
+        // نظام تسجيل الدخول المباشر (نظام الخطوتين المعتمد في المنصة)
+        // ==============================================================
+        function checkLoginStatus() {
+            // إذا كانت البيانات موجودة (من الرابط أو تحديث الصفحة F5)
+            if (studentId && studentId !== 'visitor' && studentName !== 'بطل زائر') {
+                document.getElementById('login-modal').style.display = 'none';
+                startTestSystem();
+            } else {
+                // إظهار نافذة تسجيل الدخول
+                document.getElementById('login-modal').style.display = 'flex';
+                // التركيز على حقل الإدخال تلقائياً
+                document.getElementById('student-id-input').focus();
+            }
+        }
+
+        async function handleLogin() {
+            const idInput = document.getElementById('student-id-input').value.trim();
+            const errorMsg = document.getElementById('login-error-msg');
+            errorMsg.textContent = ''; // مسح الخطأ السابق
+
+            if (!idInput) {
+                errorMsg.textContent = 'الرجاء إدخال رقم البطاقة أولاً.';
+                return;
+            }
+
+            const btn = document.getElementById('login-btn');
+            btn.textContent = '⏳ جاري التحقق...';
+            btn.disabled = true;
+
+            const timestamp = new Date().getTime();
+
+            try {
+                // الخطوة الأولى: البحث عن رقم الطالب لمعرفة الصف (ClassIdentifier)
+                const findUrl = `${SCRIPT_URL}?action=findStudentById&studentId=${encodeURIComponent(idInput)}&t=${timestamp}`;
+                const findRes = await fetch(findUrl).then(r => r.json());
+
+                if (findRes.status === 'success' && findRes.data && findRes.data.found) {
+                    
+                    const foundClassId = findRes.data.classIdentifier;
+                    const foundStudentId = findRes.data.id;
+
+                    // الخطوة الثانية: جلب بيانات الطالب باستخدام رقمه واسم الصف
+                    const dataUrl = `${SCRIPT_URL}?action=getStudentData&studentId=${encodeURIComponent(foundStudentId)}&classId=${encodeURIComponent(foundClassId)}&t=${timestamp}`;
+                    const dataRes = await fetch(dataUrl).then(r => r.json());
+
+                    if (dataRes.status === 'success' && dataRes.data && dataRes.data.name) {
+                        studentId = foundStudentId;
+                        studentName = dataRes.data.name;
+                        classId = foundClassId;
+
+                        // حفظ البيانات في الجلسة لمنع ضياعها عند عمل تحديث F5
+                        sessionStorage.setItem('test_studentId', studentId);
+                        sessionStorage.setItem('test_studentName', studentName);
+                        sessionStorage.setItem('test_classId', classId);
+
+                        document.getElementById('login-modal').style.display = 'none';
+                        startTestSystem();
+                    } else {
+                        throw new Error('حدث خطأ أثناء جلب بيانات الطالب.');
+                    }
+
+                } else {
+                    throw new Error('رقم الهوية غير صحيح أو الطالب غير مسجل.');
+                }
+            } catch (e) {
+                console.error("Login Error:", e);
+                errorMsg.textContent = '❌ ' + (e.message || 'حدث خطأ في الاتصال بالخادم.');
+                btn.textContent = 'دخول وبدء الاختبار';
+                btn.disabled = false;
+            }
+        }
+
+        function continueAsVisitor() {
+            studentId = 'visitor';
+            studentName = 'بطل زائر';
+            classId = null;
+            document.getElementById('login-modal').style.display = 'none';
+            startTestSystem();
+        }
+
+        // إتاحة الدخول بالضغط على زر Enter
+        document.getElementById('student-id-input').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') handleLogin();
+        });
+
+
+        // ==============================================================
+        // بدء النظام بعد تسجيل الدخول
+        // ==============================================================
+        function startTestSystem() {
+            initStudentVariables();
+            document.getElementById('test-controls').style.display = 'flex';
+            document.getElementById('test-container').style.display = 'block';
+            startRandomTest();
+
+            // تفعيل معالجة تحديث الصفحة (F5) أو الإغلاق قبل التسليم
+            window.addEventListener('beforeunload', handleBeforeUnload);
+        }
+
+        function handleBeforeUnload(e) {
             const isGraded = document.getElementById('grade-all-btn').style.display === 'none';
             if (!isGraded) {
                 // عقوبة: إذا تم تحديث الصفحة قبل التسليم، تسجل المحاولة بصفر
                 sessionStorage.setItem(prevScoreKey, 0);
-                if (studentId && classId) {
+                if (studentId && studentId !== 'visitor' && classId) {
                     const p = new URLSearchParams({ action: 'saveScore', studentId, classId, itemId: GAME_ID, score: 0, metricValue: attemptCount, type: 'quiz' });
                     navigator.sendBeacon(`${SCRIPT_URL}?${p.toString()}`);
                 }
             }
             // زيادة المحاولة استعداداً للتحميل القادم
             sessionStorage.setItem(attemptKey, attemptCount + 1);
-        });
-
-        // جلب الاسم من القاعدة إن وجد
-        async function fetchInitialCloudData() {
-            if (!studentId || !classId) return;
-            try {
-                const url = `${SCRIPT_URL}?action=getStudentData&studentId=${studentId}&classId=${encodeURIComponent(classId)}&itemId=${GAME_ID}&t=${Date.now()}`;
-                const res = await (await fetch(url)).json();
-                if (res.status === 'success' && res.data && res.data.name) {
-                    studentName = res.data.name;
-                    // تحديث الاسم في واجهة الاختبار إذا كان قد رُسم
-                    document.querySelectorAll('.display-student-name').forEach(el => el.textContent = studentName);
-                }
-            } catch (e) { console.log("Cloud Connect Failed"); }
         }
 
         async function saveScore(score, metricValue, silent = false) {
-            if (studentId && classId) {
+            if (studentId && studentId !== 'visitor' && classId) {
                 const p = new URLSearchParams({ action: 'saveScore', studentId, classId, itemId: GAME_ID, score: score, metricValue: metricValue || 1, type: 'quiz' });
                 try { await fetch(`${SCRIPT_URL}?${p.toString()}`); } catch(e) { console.log("Save Failed"); }
             } else {
@@ -445,7 +579,7 @@
                     { id: 'q11', type: 'essay', title: 'باستخدام <b>القانون العام</b>، أوجد حل المعادلة التربيعية: <span class="math-exp">س² - ٢س - ١٥ = ٠</span>', 
                       explanation: '<div class="exp-step">١- القانون: <span class="math-exp"><span class="c-x">س</span> = <span class="fraction"><span class="numerator"><span class="c-n">-ب</span> &plusmn; <span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">ب² - ٤أجـ</span></span></span><span class="denominator">٢أ</span></span></span></div><div class="exp-step">٢- التعويض: <span class="math-exp"><span class="c-x">س</span> = <span class="fraction"><span class="numerator"><span class="c-n">-(-٢)</span> &plusmn; <span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num">(<span class="c-n">-٢</span>)² <span class="c-n">- ٤</span>(<span class="c-n">١</span>)(<span class="c-n">-١٥</span>)</span></span></span><span class="denominator">٢(<span class="c-n">١</span>)</span></span></span></div><div class="exp-step">٣- التبسيط: <span class="math-exp"><span class="c-x">س</span> = <span class="fraction"><span class="numerator"><span class="c-n">٢</span> &plusmn; <span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num"><span class="c-n">٤</span> <span class="c-n">+ ٦٠</span></span></span></span><span class="denominator"><span class="c-n">٢</span></span></span> = <span class="fraction"><span class="numerator"><span class="c-n">٢</span> &plusmn; <span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num"><span class="c-n">٦٤</span></span></span></span><span class="denominator"><span class="c-n">٢</span></span></span></span></div><div class="exp-step">٤- حساب الجذر: <span class="math-exp"><span class="c-x">س</span> = <span class="fraction"><span class="numerator"><span class="c-n">٢</span> &plusmn; <span class="c-n">٨</span></span><span class="denominator"><span class="c-n">٢</span></span></span></span></div><div class="exp-step">٥- الحلان: <span class="math-exp"><span class="c-x">س</span> = <span class="fraction"><span class="numerator"><span class="c-n">٢</span> <span class="c-n">+ ٨</span></span><span class="denominator"><span class="c-n">٢</span></span></span> = <span class="c-n">٥</span></span> ، أو <span class="math-exp"><span class="c-x">س</span> = <span class="fraction"><span class="numerator"><span class="c-n">٢</span> <span class="c-n">- ٨</span></span><span class="denominator"><span class="c-n">٢</span></span></span> = <span class="c-n">-٣</span></span></div>' },
                     { id: 'q12', type: 'essay', title: 'باستخدام <b>إكمال المربع</b>، أوجد حل المعادلة: <span class="math-exp">س² - ١٠س + ١٦ = ٠</span>',
-                      explanation: '<div class="exp-step">١- نقل الثابت للطرف الآخر: <span class="math-exp"><span class="c-x">س²</span> <span class="c-n">- ١٠</span><span class="c-x">س</span> = <span class="c-n">-١٦</span></span></div><div class="exp-step">٢- إضافة مربع نصف معامل س: <span class="math-exp">(<span class="c-n">-١٠</span>/٢)² = <span class="c-n">٢٥</span></span> للطرفين.</div><div class="exp-step">٣- المعادلة: <span class="math-exp"><span class="c-x">س²</span> <span class="c-n">- ١٠</span><span class="c-x">س</span> <span class="c-n">+ ٢٥</span> = <span class="c-n">-١٦</span> <span class="c-n">+ ٢٥</span></span></div><div class="exp-step">٤- تحليل المربع الكامل: <span class="math-exp">(<span class="c-x">س</span> <span class="c-n">- ٥</span>)² = <span class="c-n">٩</span></span></div><div class="exp-step">٥- أخذ الجذر للطرفين: <span class="math-exp"><span class="c-x">س</span> <span class="c-n">- ٥</span> = &plusmn;<span class="c-n">٣</span></span></div><div class="exp-step">٦- الحلان: <span class="math-exp"><span class="c-x">س</span> = <span class="c-n">٥</span> <span class="c-n">+ ٣</span> = <span class="c-n">٨</span></span> ، أو <span class="math-exp"><span class="c-x">س</span> = <span class="c-n">٥</span> <span class="c-n">- ٣</span> = <span class="c-n">٢</span></span></div>' }
+                      explanation: '<div class="exp-step">١- نقل الثابت للطرف الآخر: <span class="math-exp"><span class="c-x">س²</span> <span class="c-n">- ١٠</span><span class="c-x">س</span> = <span class="c-n">-١٦</span></span></div><div class="exp-step">٢- إضافة مربع نصف معامل س: <span class="math-exp">(<span class="c-n">-١٠</span>/٢)² = <span class="c-n">٢٥</span></span> للطرفين.</div><div class="exp-step">٣- المعادلة: <span class="math-exp"><span class="c-x">س²</span> <span class="c-n">- ١0</span><span class="c-x">س</span> <span class="c-n">+ ٢٥</span> = <span class="c-n">-١٦</span> <span class="c-n">+ ٢٥</span></span></div><div class="exp-step">٤- تحليل المربع الكامل: <span class="math-exp">(<span class="c-x">س</span> <span class="c-n">- ٥</span>)² = <span class="c-n">٩</span></span></div><div class="exp-step">٥- أخذ الجذر للطرفين: <span class="math-exp"><span class="c-x">س</span> <span class="c-n">- ٥</span> = &plusmn;<span class="c-n">٣</span></span></div><div class="exp-step">٦- الحلان: <span class="math-exp"><span class="c-x">س</span> = <span class="c-n">٥</span> <span class="c-n">+ ٣</span> = <span class="c-n">٨</span></span> ، أو <span class="math-exp"><span class="c-x">س</span> = <span class="c-n">٥</span> <span class="c-n">- ٣</span> = <span class="c-n">٢</span></span></div>' }
                 ]
             }
         ];
@@ -773,10 +907,9 @@
         window.closeLeaderboardModal = () => { document.getElementById('leaderboard-modal').classList.replace('visible-modal', 'hidden-modal'); };
         window.closeGame = () => { window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*'); };
 
-        // التشغيل المبدئي
+        // التشغيل المبدئي وبدء التحقق من تسجيل الدخول
         document.addEventListener('DOMContentLoaded', () => {
-            startRandomTest();
-            fetchInitialCloudData();
+            checkLoginStatus();
         });
     </script>
 </body>

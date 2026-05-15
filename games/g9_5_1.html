@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>تحدي الأبطال V19.7 - رادار الغواصات</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body { font-family: 'Cairo', sans-serif; overflow: hidden; touch-action: manipulation; direction: rtl; }
+        .compact-card {
+            width: 100%; max-width: 420px; background: white; border-radius: 2rem;
+            box-shadow: 0 15px 35px -5px rgba(0,0,0,0.1); border: 1px solid #f1f5f9;
+            display: flex; flex-direction: column; max-height: 96vh; overflow: hidden; position: relative;
+            transition: box-shadow 0.3s, transform 0.1s;
+        }
+        .top-info-bar {
+            background: #f8fafc; border-bottom: 1px solid #e2e8f0; padding: 8px 16px;
+            display: flex; justify-content: space-between; align-items: center;
+            font-size: 11px; font-weight: 800; color: #64748b;
+        }
+        .btn-touch { min-height: 50px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; border-radius: 1rem; font-weight: 800; cursor: pointer; }
+        .btn-touch:active { transform: scale(0.97); }
+        .btn-disabled { opacity: 0.5; pointer-events: none; }
+        
+        .leaderboard-modal { 
+            position: absolute; inset: 0; background: #ffffff; z-index: 200; 
+            display: flex; flex-direction: column; padding: 1.25rem; transition: all 0.3s; 
+        }
+        .hidden-modal { opacity: 0; pointer-events: none; transform: scale(0.95); display: none; }
+        .visible-modal { opacity: 1; pointer-events: auto; transform: scale(1); display: flex; }
+        
+        /* تأثيرات الرادار */
+        .radar-container {
+            background: radial-gradient(circle, #0a2e0a 0%, #031203 100%);
+            position: relative;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.15) inset;
+            border-radius: 1.5rem;
+            transition: background 0.3s, box-shadow 0.3s, border-color 0.3s;
+        }
+        .radar-grid {
+            background-image:
+                linear-gradient(rgba(0, 255, 0, 0.25) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 255, 0, 0.25) 1px, transparent 1px);
+            background-size: 5% 5%;
+            background-position: 0px 0px; 
+        }
+        .radar-sweep {
+            position: absolute;
+            top: 50%; left: 50%;
+            width: 50%; height: 2px;
+            background: linear-gradient(90deg, transparent, #33ff00);
+            transform-origin: 0% 50%;
+            animation: sweep 4s linear infinite;
+            box-shadow: 0 0 8px #33ff00;
+            z-index: 5;
+        }
+        @keyframes sweep { 100% { transform: rotate(360deg); } }
+        
+        .axis-line { background-color: rgba(0, 255, 0, 0.8); position: absolute; box-shadow: 0 0 4px #0f0; }
+        .axis-x { width: 100%; height: 2px; top: 50%; left: 0; transform: translateY(-50%); }
+        .axis-y { height: 100%; width: 2px; left: 50%; top: 0; transform: translateX(-50%); }
+        
+        .blip-label {
+            position: absolute;
+            background: rgba(15, 23, 42, 0.8);
+            padding: 3px 6px;
+            border-radius: 6px;
+            font-size: 10px;
+            font-weight: 900;
+            white-space: nowrap;
+            top: 50%;
+            transform: translateY(-50%);
+            animation: radarBlink 2s infinite;
+        }
+        .label-left { right: 150%; } 
+        .label-right { left: 150%; }  
+        @keyframes radarBlink { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+
+        /* الجذر التربيعي العربي */
+        .math-box { font-family: 'Cairo', sans-serif; }
+        .math-root { 
+            border-top: 1.5px solid currentColor; 
+            padding-top: 4px; 
+            position: relative; 
+            margin-right: 14px;
+            display: inline-block;
+        }
+        .math-root::before {
+            content: '\221A'; 
+            position: absolute;
+            right: -15px;
+            top: -4.5px;
+            font-size: 1.25em;
+            font-family: Arial, sans-serif; 
+            font-weight: normal;
+            transform: scaleX(-1); 
+            display: inline-block;
+        }
+        .subst-input {
+            width: 35px; text-align: center; font-weight: black;
+            border: 2px solid #cbd5e1; border-radius: 6px; padding: 2px;
+            background: #f8fafc; font-size: 14px;
+        }
+        .subst-input:focus { border-color: #3b82f6; outline: none; background: white; }
+
+        /* --- تأثيرات التفاعل المبالغ فيها --- */
+        @keyframes shakeHard {
+            0% { transform: translate(2px, 2px) rotate(0deg); }
+            10% { transform: translate(-4px, -5px) rotate(-2deg); }
+            20% { transform: translate(-6px, 0px) rotate(2deg); }
+            30% { transform: translate(6px, 5px) rotate(0deg); }
+            40% { transform: translate(4px, -4px) rotate(2deg); }
+            50% { transform: translate(-4px, 5px) rotate(-2deg); }
+            60% { transform: translate(-6px, 4px) rotate(0deg); }
+            70% { transform: translate(6px, 4px) rotate(-2deg); }
+            80% { transform: translate(-4px, -4px) rotate(2deg); }
+            90% { transform: translate(4px, 5px) rotate(0deg); }
+            100% { transform: translate(2px, -5px) rotate(-2deg); }
+        }
+        .screen-shake { animation: shakeHard 0.5s cubic-bezier(.36,.07,.19,.97) both; }
+
+        @keyframes redAlert {
+            0%, 100% { background: radial-gradient(circle, #0a2e0a 0%, #031203 100%); }
+            50% { background: radial-gradient(circle, #5a0000 0%, #2a0000 100%); box-shadow: 0 0 40px rgba(255, 0, 0, 0.8) inset; }
+        }
+        .radar-alert { animation: redAlert 0.6s infinite; border-color: #ef4444 !important; }
+
+        @keyframes greenSuccess {
+            0% { background: radial-gradient(circle, #0a2e0a 0%, #031203 100%); }
+            50% { background: radial-gradient(circle, #005a1a 0%, #002a0a 100%); box-shadow: 0 0 40px rgba(0, 255, 0, 0.8) inset; }
+            100% { background: radial-gradient(circle, #0a2e0a 0%, #031203 100%); }
+        }
+        .radar-success { animation: greenSuccess 1s ease-out; border-color: #22c55e !important; }
+
+        .explosion-effect {
+            position: absolute; border-radius: 50%;
+            background: radial-gradient(circle, #ffffff 0%, #ffeb3b 20%, #ff9800 50%, #f44336 80%, transparent 100%);
+            transform: translate(-50%, -50%) scale(0); opacity: 1;
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.8s ease-out;
+            z-index: 30; box-shadow: 0 0 40px #ff9800;
+        }
+        .explode-anim { transform: translate(-50%, -50%) scale(5); opacity: 0; }
+
+        .splash-effect {
+            position: absolute; border-radius: 50%;
+            background: radial-gradient(circle, #ffffff 0%, #7dd3fc 40%, #0284c7 80%, transparent 100%);
+            transform: translate(-50%, -50%) scale(0); opacity: 1;
+            transition: transform 0.5s ease-out, opacity 1s ease-out;
+            z-index: 30; border: 2px dashed rgba(255,255,255,0.5);
+        }
+        .splash-anim { transform: translate(-50%, -50%) scale(3); opacity: 0; }
+
+        /* تأثير الصح والخطأ العملاق المحدث */
+        @keyframes resultZoomFade {
+            0% { transform: translate(-50%, -50%) scale(0.1); opacity: 0; }
+            15% { transform: translate(-50%, -50%) scale(1.5); opacity: 1; }
+            30% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
+            60% { transform: translate(-50%, -50%) scale(1.3); opacity: 1; }
+            100% { transform: translate(-50%, -50%) scale(10); opacity: 0; }
+        }
+        .result-icon-overlay {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%); z-index: 100; font-size: 8rem;
+            pointer-events: none; opacity: 0; filter: drop-shadow(0 0 30px rgba(0,0,0,0.8));
+        }
+        .anim-result { animation: resultZoomFade 2.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+
+        /* الإطار المنبثق في منتصف الشاشة (تأكيد الإجابة الصحيحة) */
+        .overlay-banner {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            background: rgba(15, 23, 42, 0.95);
+            border: 2px solid transparent;
+            padding: 1.25rem; border-radius: 1rem;
+            z-index: 150; text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            opacity: 0; pointer-events: none;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            width: 85%; max-width: 300px;
+            backdrop-filter: blur(4px);
+        }
+        .overlay-banner.show-correct { transform: translate(-50%, -50%) scale(1); opacity: 1; border-color: #22c55e; }
+        .overlay-banner.show-warning { transform: translate(-50%, -50%) scale(1); opacity: 1; border-color: #facc15; }
+        .overlay-banner.show-wrong { transform: translate(-50%, -50%) scale(1); opacity: 1; border-color: #ef4444; }
+
+        /* النافذة المنبثقة لتقرير الهدف */
+        .round-summary-modal {
+            position: absolute; inset: 0; background: rgba(15, 23, 42, 0.9); z-index: 250;
+            display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 1.5rem;
+            opacity: 0; pointer-events: none; transition: all 0.3s; backdrop-filter: blur(4px);
+        }
+        .round-summary-visible { opacity: 1; pointer-events: auto; }
+        
+        /* إخفاء أسهم الأرقام */
+        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number], input[type=tel] { -moz-appearance: textfield; direction: ltr; }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 h-screen w-screen flex items-center justify-center p-3 text-right">
+
+    <div id="main-card" class="compact-card">
+        <!-- الشريط العلوي -->
+        <div class="top-info-bar">
+            <div class="flex items-center gap-2 overflow-hidden">
+                <i class="fas fa-user-graduate text-blue-500"></i>
+                <span id="top-student-name" class="truncate font-black"></span>
+                <script>
+                    (function() {
+                        const p = new URLSearchParams(window.location.search);
+                        const raw = p.get('name') || p.get('studentName') || p.get('username') || p.get('user');
+                        const display = document.getElementById('top-student-name');
+                        display.textContent = raw ? decodeURIComponent(raw) : "بطل التحدي";
+                    })();
+                </script>
+            </div>
+            <div class="flex items-center gap-2 bg-white px-2 py-0.5 rounded-full border shadow-sm font-bold">
+                <span id="sync-icon" class="hidden"><i class="fas fa-sync sync-loader text-blue-400"></i></span>
+                <i class="fas fa-star text-yellow-500 text-[10px]"></i>
+                <span id="top-prev-score">٠ / ٥</span>
+            </div>
+        </div>
+
+        <!-- الشاشة 1: البداية -->
+        <div id="start-screen" class="p-6 text-center flex flex-col gap-4 h-full justify-center relative overflow-hidden">
+            <!-- أيقونة السفينة الخلفية (Watermark) -->
+            <i class="fas fa-ship absolute left-[-10%] bottom-[-5%] text-[16rem] text-slate-200 opacity-40 z-0 transform -rotate-12 pointer-events-none"></i>
+            
+            <div class="relative z-10 w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-2 border-4 border-green-100 shadow-inner">
+                <i class="fas fa-satellite-dish text-4xl text-green-600"></i>
+            </div>
+            <h1 class="relative z-10 text-xl font-black text-slate-800">رادار الغواصات</h1>
+            <h2 class="relative z-10 text-sm font-bold text-slate-500 -mt-3">تحدي المسافة بين نقطتين</h2>
+            
+            <div class="relative z-10 bg-slate-50 p-4 rounded-2xl border border-slate-200 text-[11px] font-bold text-slate-700 leading-relaxed text-center shadow-sm">
+                أيها القائد! التقط الرادار إحداثيات أهداف غامضة على الشبكة الإحداثية. <br>
+                <span class="text-blue-600">اختر القانون، عوّض بالنقاط، ثم احسب المسافة</span> 
+                لإطلاق الطوربيد بدقة.<br>
+            </div>
+            
+            <div class="relative z-10 mt-auto w-full pt-2">
+                <p class="text-[10px] text-slate-400 font-bold mb-2 tracking-wide text-center">تصميم وبرمجة الأستاذ عبدالعزيز العبلان</p>
+                <div class="flex flex-row gap-2 items-stretch">
+                    <button onclick="startSubmarineGame()" class="btn-touch flex-[2.5] bg-green-600 text-white shadow-[0_4px_0_#166534] active:shadow-[0_0px_0_#166534] active:translate-y-1 text-lg">
+                        بدء المهمة <i class="fas fa-crosshairs mr-2"></i>
+                    </button>
+                    <button onclick="fetchAndShowLeaderboard(true)" class="btn-touch flex-1 bg-white text-slate-600 border border-slate-200 text-[10px] flex-col leading-tight py-2">
+                        <i class="fas fa-trophy text-yellow-500 text-xl mb-1"></i>
+                        <span>سجل الأبطال</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- الشاشة 2: اللعبة -->
+        <div id="game-screen" class="hidden p-4 flex flex-col h-full overflow-y-auto">
+            
+            <div class="flex justify-between items-center mb-3 px-2">
+                <span id="round-indicator" class="text-xs font-black text-slate-500 bg-slate-100 px-3 py-1 rounded-full border border-slate-200">الهدف ١ / ٣</span>
+                <span id="timer-display" class="text-xs font-black text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-200"><i class="fas fa-clock mr-1"></i> ٠٠:٠٠</span>
+            </div>
+
+            <!-- الرادار -->
+            <div id="radar-ui" class="radar-container w-full aspect-square border-4 border-green-800 overflow-hidden mb-3">
+                <div class="absolute inset-0 radar-grid"></div>
+                <div class="axis-line axis-x"></div>
+                <div class="axis-line axis-y"></div>
+                <div class="radar-sweep"></div>
+                
+                <div id="sub-blip" class="absolute w-4 h-4 bg-blue-500 rounded-full shadow-[0_0_12px_#3b82f6] border-2 border-white z-10 transition-all duration-700" style="left: 50%; top: 50%; transform: translate(-50%, -50%);">
+                    <div id="sub-label" class="blip-label text-blue-200 border border-blue-500 label-left">(س١، ص١)</div>
+                </div>
+                
+                <div id="target-blip" class="absolute w-4 h-4 bg-red-500 rounded-full shadow-[0_0_15px_#ef4444] border-2 border-white z-10 transition-all duration-700" style="left: 70%; top: 30%; transform: translate(-50%, -50%);">
+                    <div id="target-label" class="blip-label text-red-200 border border-red-500 label-left">(س٢، ص٢)</div>
+                </div>
+                
+                <div id="torpedo-line" class="absolute h-[3px] bg-yellow-400 origin-left scale-x-0 shadow-[0_0_10px_#facc15] z-20" style="display:none;"></div>
+                
+                <div id="explosion-div" class="explosion-effect w-16 h-16 pointer-events-none"></div>
+                <div id="splash-div" class="splash-effect w-12 h-12 pointer-events-none"></div>
+                <div id="result-icon-overlay" class="result-icon-overlay"></div>
+                
+                <!-- الإطار المنبثق الجديد للتأكيد على الإجابات -->
+                <div id="overlay-banner" class="overlay-banner"></div>
+            </div>
+
+            <!-- منطقة التفاعل -->
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex-1 flex flex-col justify-center relative">
+                
+                <p id="instruction-text" class="text-[12px] font-black text-slate-600 text-center mb-4 pb-2 border-b border-slate-100">الخطوة ١: اختر قانون المسافة الصحيح</p>
+
+                <!-- المرحلة 1 -->
+                <div id="phase-1" class="flex flex-col gap-3">
+                    <button id="btn-form-wrong" onclick="checkFormula(false)" class="p-3 rounded-xl border-2 border-slate-200 hover:bg-red-50 hover:border-red-300 transition-colors text-center math-box text-slate-700 font-bold flex justify-center" dir="rtl">
+                        <span class="math-root">(س٢ + س١)² + (ص٢ + ص١)²</span>
+                    </button>
+                    <button id="btn-form-correct" onclick="checkFormula(true)" class="p-3 rounded-xl border-2 border-slate-200 hover:bg-green-50 hover:border-green-400 transition-colors text-center math-box text-slate-700 font-bold flex justify-center" dir="rtl">
+                        <span class="math-root">(س٢ - س١)² + (ص٢ - ص١)²</span>
+                    </button>
+                </div>
+
+                <!-- المرحلة 2 -->
+                <div id="phase-2" class="hidden flex-col items-center gap-4">
+                    <div class="flex gap-6 w-full justify-center bg-slate-50 py-2 px-3 rounded-xl border border-slate-200 shadow-sm">
+                        <div class="flex items-center gap-2">
+                            <span class="text-blue-600 font-bold text-sm">الغواصة</span>
+                            <span id="p2-sub-coords" class="font-black text-blue-900 text-lg"></span>
+                        </div>
+                        <div class="w-px bg-slate-300"></div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-red-500 font-bold text-sm">الهدف</span>
+                            <span id="p2-target-coords" class="font-black text-red-900 text-lg"></span>
+                        </div>
+                    </div>
+                    
+                    <div class="math-box text-slate-800 font-bold flex items-center justify-center text-lg bg-slate-50 p-3 rounded-xl border border-slate-200 w-full">
+                        <div class="math-root flex items-center gap-1" dir="rtl">
+                            <span>(</span>
+                            <input type="tel" id="val-x2" class="subst-input" placeholder="س٢">
+                            <span>-</span>
+                            <input type="tel" id="val-x1" class="subst-input" placeholder="س١">
+                            <span>)² + (</span>
+                            <input type="tel" id="val-y2" class="subst-input" placeholder="ص٢">
+                            <span>-</span>
+                            <input type="tel" id="val-y1" class="subst-input" placeholder="ص١">
+                            <span>)²</span>
+                        </div>
+                    </div>
+                    <button id="btn-check-subst" onclick="checkSubstitution()" class="w-full bg-blue-600 text-white rounded-xl py-2 font-black shadow-[0_3px_0_#1e40af] active:translate-y-1 active:shadow-none text-sm">
+                        تحقق من التعويض <i class="fas fa-check ml-1"></i>
+                    </button>
+                </div>
+
+                <!-- المرحلة 3 -->
+                <div id="phase-3" class="hidden flex-col gap-3">
+                    <div id="final-formula-display" class="math-box text-slate-500 text-sm font-bold text-center bg-slate-50 p-2 rounded-lg border border-slate-100" dir="rtl"></div>
+                    
+                    <div class="flex gap-2 items-stretch justify-center mt-2">
+                        <div class="relative w-28">
+                            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">وحدة</span>
+                            <input type="tel" id="player-answer" class="w-full p-2 pl-10 pr-3 rounded-xl border-2 border-slate-300 text-center font-black text-xl outline-none focus:border-green-500 bg-white transition-colors" placeholder="المسافة؟">
+                        </div>
+                        <button onclick="fireTorpedo()" id="fire-btn" class="flex-1 bg-red-600 text-white rounded-xl font-black text-lg shadow-[0_4px_0_#991b1b] active:shadow-[0_0px_0_#991b1b] active:translate-y-1 transition-all flex items-center justify-center gap-2">
+                            إطلاق! <i class="fas fa-rocket"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <p id="feedback-msg" class="absolute bottom-1 left-0 w-full text-[11px] font-bold h-4 text-center transition-opacity opacity-0 pointer-events-none"></p>
+            </div>
+
+            <!-- تقرير المهمة المنبثق بين الأهداف -->
+            <div id="round-summary-modal" class="round-summary-modal">
+                <div class="bg-white w-full max-w-sm rounded-3xl p-5 text-center shadow-2xl transform transition-transform scale-95" id="summary-card">
+                    <i id="summary-icon" class="fas fa-flag-checkered text-4xl text-blue-500 mb-2"></i>
+                    <h3 class="font-black text-xl text-slate-800 mb-1">تقرير الهدف</h3>
+                    <p id="summary-points" class="text-sm font-bold text-emerald-600 mb-4 bg-emerald-50 py-1 px-3 rounded-full inline-block">حصدت: ٢ / ٣ نقاط</p>
+                    
+                    <div class="text-right bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-3 math-box text-sm font-bold text-slate-700">
+                        <p class="text-[10px] text-slate-400 mb-1 uppercase tracking-wider font-black">خطوات الحل الصحيحة:</p>
+                        <div class="flex items-center gap-2 text-slate-500 border-b border-slate-200 pb-2">
+                            <span class="text-[10px] bg-slate-200 px-2 py-0.5 rounded text-slate-600">١. القانون</span>
+                            <span class="math-root">(س٢ - س١)² + (ص٢ - ص١)²</span>
+                        </div>
+                        <div class="flex items-center gap-2 text-blue-700 border-b border-slate-200 pb-2">
+                            <span class="text-[10px] bg-blue-100 px-2 py-0.5 rounded text-blue-600">٢. التعويض</span>
+                            <div id="summary-subst" class="math-root" dir="rtl"></div>
+                        </div>
+                        <div class="flex items-center gap-2 text-emerald-700">
+                            <span class="text-[10px] bg-emerald-100 px-2 py-0.5 rounded text-emerald-600">٣. الناتج</span>
+                            <span id="summary-result" class="text-lg font-black"></span>
+                        </div>
+                    </div>
+                    
+                    <button onclick="closeSummaryAndProceed()" class="w-full mt-5 bg-slate-900 text-white rounded-xl py-3 font-black text-lg active:scale-95 transition-transform shadow-lg">
+                        المواصلة <i class="fas fa-arrow-left ml-2"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- حقول مخفية للقالب الأساسي -->
+            <div style="display: none;">
+                <input type="number" id="input-achieved">
+                <input type="number" id="input-max" value="9">
+                <input type="number" id="input-metric-value">
+            </div>
+        </div>
+
+        <!-- الشاشة 3: النتائج -->
+        <div id="result-screen" class="hidden p-5 flex flex-col h-full overflow-hidden text-center justify-center">
+            <div class="mb-4">
+                <i class="fas fa-medal text-5xl text-yellow-500 mb-2 drop-shadow-md"></i>
+                <h2 class="font-black text-xl text-slate-800">انتهت المهمة!</h2>
+            </div>
+            
+            <div id="final-stats" class="grid grid-cols-3 gap-1 mb-4"></div>
+            
+            <div class="bg-green-50 p-4 rounded-2xl border border-green-100 mb-4 shadow-inner">
+                <i class="fas fa-check-double text-green-500 text-2xl mb-1"></i>
+                <p id="save-msg" class="font-black text-green-800 text-sm">تم اعتماد نتيجتك بنجاح!</p>
+            </div>
+            <button onclick="fetchAndShowLeaderboard(true)" class="btn-touch w-full bg-blue-600 text-white mb-4 shadow-md">
+                <i class="fas fa-crown ml-2"></i> سجل الأبطال
+            </button>
+            <div class="mt-auto flex gap-2">
+                <button onclick="location.reload()" class="btn-touch flex-1 bg-slate-100 text-slate-600 text-sm font-bold border border-slate-200 hover:bg-slate-200">إعادة</button>
+                <button id="finish-btn" class="btn-touch flex-[2] bg-slate-900 text-white text-sm font-bold shadow-lg hover:bg-slate-800">إنهاء المهمة</button>
+            </div>
+        </div>
+
+        <!-- سجل الأبطال -->
+        <div id="leaderboard-modal" class="leaderboard-modal hidden-modal" dir="rtl">
+            <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-3">
+                <h3 class="font-black text-slate-800 text-lg"><i class="fas fa-trophy text-yellow-500 ml-2"></i>سجل المتصدرين</h3>
+                <button onclick="closeLeaderboardModal()" class="w-9 h-9 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center transition-all hover:bg-red-50 hover:text-red-500"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="flex gap-2 mb-4">
+                <button onclick="switchTab('class')" id="tab-class" class="tab-btn tab-inactive">أبطال فصلي</button>
+                <button onclick="switchTab('global')" id="tab-global" class="tab-btn tab-active">أبطال اللعبة (الكل)</button>
+            </div>
+            <div id="modal-body" class="flex-1 overflow-y-auto bg-slate-50 rounded-2xl border border-slate-100 p-1 relative shadow-inner">
+                <div id="modal-loader" class="absolute inset-0 flex items-center justify-center hidden bg-white/80 z-10 rounded-2xl"><div class="sync-loader text-blue-500 text-3xl"><i class="fas fa-sync"></i></div></div>
+                <div id="leaderboard-content" class="space-y-1"></div>
+            </div>
+            <p class="text-center text-[9px] text-slate-400 mt-2 font-mono italic">الترتيب حسب الدرجة ثم الأسرع وقتاً</p>
+        </div>
+    </div>
+
+    <script>
+    (function() {
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxqAQlGhNs8k5RwHs6jrWxDiDwaMABSx8a9Fl81O5oVVa5fHRWTwIEvsGy2cSDP4zGLWQ/exec";
+        const urlParams = new URLSearchParams(window.location.search);
+        const GAME_ID = urlParams.get('gameId') || 'g9_5_1';
+        const studentId = urlParams.get('studentId') || urlParams.get('userId');
+        const classId = urlParams.get('classId');
+        
+        let studentName = decodeURIComponent(urlParams.get('name') || urlParams.get('studentName') || urlParams.get('username') || "بطل التحدي");
+        let currentLeaderboardMode = classId ? 'class' : 'global';
+        let localVisitorResult = null;
+
+        const toAr = (str) => String(str).replace(/-/g, '−').replace(/\d/g, d => "٠١٢٣٤٥٦٧٨٩"[d]);
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('top-student-name').textContent = studentName;
+            if (!classId) {
+                document.getElementById('tab-class').style.display = 'none';
+                currentLeaderboardMode = 'global';
+            } else {
+                document.getElementById('tab-class').className = 'tab-btn tab-active';
+                document.getElementById('tab-global').className = 'tab-btn tab-inactive';
+            }
+            if (studentId && classId) fetchInitialCloudData();
+            else if (!urlParams.get('name')) document.getElementById('top-student-name').textContent = "بطل زائر";
+            document.getElementById('finish-btn').onclick = () => window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*');
+        });
+
+        async function fetchInitialCloudData() {
+            try {
+                const url = `${SCRIPT_URL}?action=getStudentData&studentId=${studentId}&classId=${encodeURIComponent(classId)}&itemId=${GAME_ID}&t=${Date.now()}`;
+                const res = await (await fetch(url)).json();
+                if (res.status === 'success' && res.data) {
+                    if (res.data.name) document.getElementById('top-student-name').textContent = res.data.name;
+                    if (res.data.games && res.data.games[GAME_ID]) document.getElementById('top-prev-score').textContent = toAr(parseFloat(res.data.games[GAME_ID].grade).toFixed(1)) + " / ٥";
+                }
+            } catch (e) {} finally { document.getElementById('sync-icon').classList.add('hidden'); }
+        }
+
+        // --- دالة إظهار الشريط المنبثق في الرادار ---
+        window.showBanner = (title, message, type, duration = 3000) => {
+            const banner = document.getElementById('overlay-banner');
+            let icon = ''; let bgClass = '';
+            
+            if(type === 'success') { icon = 'fa-check-circle text-green-400'; bgClass = 'show-correct'; }
+            if(type === 'warning') { icon = 'fa-exclamation-triangle text-yellow-400'; bgClass = 'show-warning'; }
+            if(type === 'error') { icon = 'fa-times-circle text-red-500'; bgClass = 'show-wrong'; }
+
+            banner.innerHTML = `<i class="fas ${icon} text-4xl mb-2"></i>
+                                <div class="text-white font-black text-lg leading-tight">${title}</div>
+                                <div class="text-slate-200 font-bold text-[11px] mt-2 leading-relaxed">${message}</div>`;
+            banner.className = `overlay-banner ${bgClass}`;
+
+            if(duration > 0) {
+                setTimeout(() => { banner.className = "overlay-banner"; }, duration);
+            }
+        };
+
+        // --- منطق اللعبة ---
+        const pythagoreanTriples = [ [3, 4, 5], [6, 8, 10] ];
+        let gameCurrentRound = 0; const gameTotalRounds = 3; 
+        let totalGamePoints = 0; 
+        let currentTargetPoints = 0; 
+        let p2Errors = 0; 
+        let p3Errors = 0; 
+        
+        let gameStartTime; let timerInterval;
+        let currentX1, currentY1, currentX2, currentY2, currentCorrectDistance;
+
+        window.startSubmarineGame = () => {
+            document.getElementById('start-screen').classList.add('hidden');
+            document.getElementById('game-screen').classList.remove('hidden');
+            gameCurrentRound = 0; totalGamePoints = 0; gameStartTime = Date.now();
+            
+            timerInterval = setInterval(() => {
+                let seconds = Math.floor((Date.now() - gameStartTime) / 1000);
+                let m = Math.floor(seconds / 60); let s = seconds % 60;
+                document.getElementById('timer-display').innerHTML = `<i class="fas fa-clock mr-1"></i> ${toAr(m.toString().padStart(2, '0'))}:${toAr(s.toString().padStart(2, '0'))}`;
+            }, 1000);
+
+            generateNextRound();
+        };
+
+        function generateNextRound() {
+            if (gameCurrentRound >= gameTotalRounds) { finishSubmarineGame(); return; }
+
+            gameCurrentRound++; 
+            currentTargetPoints = 0; 
+            p2Errors = 0;
+            p3Errors = 0;
+            
+            document.getElementById('round-indicator').textContent = `الهدف ${toAr(gameCurrentRound)} / ${toAr(gameTotalRounds)}`;
+            
+            resetVisualEffects();
+            
+            document.getElementById('btn-form-wrong').classList.remove('btn-disabled');
+            document.getElementById('btn-form-correct').classList.remove('btn-disabled');
+            setPhase(1);
+
+            let validPoints = false;
+            while (!validPoints) {
+                const triple = pythagoreanTriples[Math.floor(Math.random() * pythagoreanTriples.length)];
+                let dx = triple[0]; let dy = triple[1]; currentCorrectDistance = triple[2];
+                if (Math.random() > 0.5) { [dx, dy] = [dy, dx]; }
+                dx *= (Math.random() > 0.5 ? 1 : -1); dy *= (Math.random() > 0.5 ? 1 : -1);
+
+                currentX1 = Math.floor(Math.random() * 15) - 7;
+                currentY1 = Math.floor(Math.random() * 15) - 7;
+                currentX2 = currentX1 + dx; currentY2 = currentY1 + dy;
+
+                if (currentX2 >= -9 && currentX2 <= 9 && currentY2 >= -9 && currentY2 <= 9) validPoints = true;
+            }
+
+            const maxCoord = 10; const totalUnits = 20;
+            const left1 = ((currentX1 + maxCoord) / totalUnits) * 100;
+            const top1 = ((maxCoord - currentY1) / totalUnits) * 100; 
+            const left2 = ((currentX2 + maxCoord) / totalUnits) * 100;
+            const top2 = ((maxCoord - currentY2) / totalUnits) * 100;
+
+            const subBlip = document.getElementById('sub-blip');
+            const targetBlip = document.getElementById('target-blip');
+            const subLabel = document.getElementById('sub-label');
+            const targetLabel = document.getElementById('target-label');
+            
+            subBlip.style.left = left1 + "%"; subBlip.style.top = top1 + "%";
+            targetBlip.style.left = left2 + "%"; targetBlip.style.top = top2 + "%";
+            targetBlip.style.opacity = "1";
+
+            subLabel.className = (currentX1 >= 0) ? "blip-label text-blue-200 border border-blue-500 label-left" : "blip-label text-blue-200 border border-blue-500 label-right";
+            targetLabel.className = (currentX2 >= 0) ? "blip-label text-red-200 border border-red-500 label-left" : "blip-label text-red-200 border border-red-500 label-right";
+
+            subLabel.textContent = `(${toAr(currentX1)}، ${toAr(currentY1)})`;
+            targetLabel.textContent = `(${toAr(currentX2)}، ${toAr(currentY2)})`;
+
+            document.getElementById('p2-sub-coords').textContent = `(${toAr(currentX1)}، ${toAr(currentY1)})`;
+            document.getElementById('p2-target-coords').textContent = `(${toAr(currentX2)}، ${toAr(currentY2)})`;
+
+            ['val-x2', 'val-x1', 'val-y2', 'val-y1', 'player-answer'].forEach(id => document.getElementById(id).value = '');
+            document.getElementById('btn-check-subst').disabled = false;
+            document.getElementById('btn-check-subst').classList.remove('opacity-50');
+            document.getElementById('fire-btn').disabled = false;
+            document.getElementById('fire-btn').classList.remove('opacity-50');
+        }
+
+        function setPhase(phaseNum) {
+            document.getElementById('phase-1').classList.add('hidden');
+            document.getElementById('phase-2').classList.add('hidden');
+            document.getElementById('phase-3').classList.add('hidden');
+            document.getElementById('phase-' + phaseNum).classList.remove('hidden');
+            document.getElementById('phase-' + phaseNum).classList.add('flex');
+
+            const inst = document.getElementById('instruction-text');
+            if(phaseNum === 1) inst.textContent = "الخطوة ١: اختر قانون المسافة الصحيح";
+            if(phaseNum === 2) inst.textContent = "الخطوة ٢: عوّض بنقاط الغواصة والهدف بدقة";
+            if(phaseNum === 3) inst.textContent = "الخطوة ٣: احسب النتيجة النهائية لإطلاق الطوربيد";
+        }
+
+        window.checkFormula = (isCorrect) => {
+            document.getElementById('btn-form-wrong').classList.add('btn-disabled');
+            document.getElementById('btn-form-correct').classList.add('btn-disabled');
+
+            const radarUI = document.getElementById('radar-ui');
+            const radarCard = document.getElementById('main-card');
+
+            if (isCorrect) {
+                currentTargetPoints += 1;
+                radarUI.classList.add('radar-success');
+                radarCard.classList.add('screen-shake'); 
+                showBanner("أحسنت!", "اخترت قانون المسافة الصحيح.", "success", 1500);
+                
+                setTimeout(() => {
+                    radarUI.classList.remove('radar-success');
+                    radarCard.classList.remove('screen-shake');
+                    setPhase(2);
+                }, 1500);
+            } else {
+                radarUI.classList.add('radar-alert');
+                radarCard.classList.add('screen-shake');
+                
+                // رسالة واضحة توضح الخطأ وتعرض الجواب الصحيح (يأخذ 0 نقطة في هذه المرحلة)
+                showBanner("إجابة خاطئة!", "لإيجاد المسافة نحسب <b>(الفرق)</b> بين الإحداثيات، لذا نستخدم <b>الطرح (-)</b> وليس الجمع (+). لا نقاط لهذه المرحلة.", "error", 4000);
+                
+                setTimeout(() => {
+                    radarUI.classList.remove('radar-alert');
+                    radarCard.classList.remove('screen-shake');
+                    setPhase(2);
+                }, 4000); 
+            }
+        };
+
+        window.checkSubstitution = () => {
+            const vx2 = parseInt(document.getElementById('val-x2').value);
+            const vx1 = parseInt(document.getElementById('val-x1').value);
+            const vy2 = parseInt(document.getElementById('val-y2').value);
+            const vy1 = parseInt(document.getElementById('val-y1').value);
+            
+            const radarUI = document.getElementById('radar-ui');
+            const radarCard = document.getElementById('main-card');
+
+            if (vx2 === currentX2 && vx1 === currentX1 && vy2 === currentY2 && vy1 === currentY1) {
+                if (p2Errors === 0) currentTargetPoints += 1;
+                else if (p2Errors === 1) currentTargetPoints += 0.5;
+
+                radarUI.classList.add('radar-success');
+                showBanner("تعويض ممتاز!", "أكمل الآن حساب النتيجة النهائية لإطلاق الطوربيد.", "success", 1500);
+                
+                let html = `<div class="math-root">
+                    <span>(</span><span class="text-slate-800">${toAr(currentX2)} − ${toAr(currentX1)}</span><span>)² + </span>
+                    <span>(</span><span class="text-slate-800">${toAr(currentY2)} − ${toAr(currentY1)}</span><span>)²</span>
+                </div>`;
+                document.getElementById('final-formula-display').innerHTML = html;
+                
+                document.getElementById('btn-check-subst').disabled = true;
+                document.getElementById('btn-check-subst').classList.add('opacity-50');
+
+                setTimeout(() => { 
+                    radarUI.classList.remove('radar-success');
+                    setPhase(3); 
+                    document.getElementById('player-answer').focus(); 
+                }, 1500);
+            } else {
+                p2Errors++;
+                radarUI.classList.add('radar-alert');
+                radarCard.classList.add('screen-shake');
+
+                if (p2Errors === 1) {
+                    showBanner("تعويض خاطئ!", "راجع إحداثيات (س، ص) للغواصة والهدف بدقة. تم خصم ½ درجة، حاول مجدداً.", "warning", 3000);
+                    setTimeout(() => {
+                        radarUI.classList.remove('radar-alert');
+                        radarCard.classList.remove('screen-shake');
+                    }, 3000);
+                } else {
+                    showBanner("استنفدت المحاولات!", "سيتم عرض التعويض الصحيح للهدف الآن لتتمكن من إكمال الحساب.", "error", 3500);
+                    document.getElementById('val-x2').value = currentX2;
+                    document.getElementById('val-x1').value = currentX1;
+                    document.getElementById('val-y2').value = currentY2;
+                    document.getElementById('val-y1').value = currentY1;
+                    
+                    document.getElementById('btn-check-subst').disabled = true;
+                    document.getElementById('btn-check-subst').classList.add('opacity-50');
+
+                    setTimeout(() => {
+                        radarUI.classList.remove('radar-alert');
+                        radarCard.classList.remove('screen-shake');
+                        
+                        let html = `<div class="math-root">
+                            <span>(</span><span class="text-slate-800">${toAr(currentX2)} − ${toAr(currentX1)}</span><span>)² + </span>
+                            <span>(</span><span class="text-slate-800">${toAr(currentY2)} − ${toAr(currentY1)}</span><span>)²</span>
+                        </div>`;
+                        document.getElementById('final-formula-display').innerHTML = html;
+                        
+                        setPhase(3);
+                        document.getElementById('player-answer').focus();
+                    }, 3500);
+                }
+            }
+        };
+
+        window.fireTorpedo = () => {
+            const answer = parseInt(document.getElementById('player-answer').value);
+            if (isNaN(answer)) return;
+            
+            const btn = document.getElementById('fire-btn');
+            btn.disabled = true; btn.classList.add('opacity-50');
+
+            const totalUnits = 20; const maxCoord = 10;
+            const left1 = ((currentX1 + maxCoord) / totalUnits) * 100;
+            const top1 = ((maxCoord - currentY1) / totalUnits) * 100;
+            
+            const domDx = currentX2 - currentX1;
+            const domDy = -(currentY2 - currentY1); 
+            const angle = Math.atan2(domDy, domDx); 
+            const angleDeg = angle * 180 / Math.PI;
+            
+            const lengthPct = (answer / totalUnits) * 100;
+
+            const line = document.getElementById('torpedo-line');
+            line.style.left = left1 + "%"; line.style.top = top1 + "%";
+            line.style.width = "0%"; line.style.transform = `rotate(${angleDeg}deg)`;
+            line.style.display = "block";
+            line.style.transition = `width 0.8s linear`; 
+            
+            void line.offsetWidth; 
+            line.style.width = lengthPct + "%";
+
+            const stopLeft = left1 + (Math.cos(angle) * lengthPct);
+            const stopTop = top1 + (Math.sin(angle) * lengthPct);
+
+            setTimeout(() => {
+                const isCorrect = (answer === currentCorrectDistance);
+                line.style.display = "none"; 
+                const resultIcon = document.getElementById('result-icon-overlay');
+
+                if (isCorrect) {
+                    if (p3Errors === 0) currentTargetPoints += 1;
+                    else if (p3Errors === 1) currentTargetPoints += 0.5;
+                    
+                    const radarCard = document.getElementById('main-card');
+                    const targetBlip = document.getElementById('target-blip');
+                    const explosion = document.getElementById('explosion-div');
+                    
+                    radarCard.classList.add('screen-shake');
+                    setTimeout(() => radarCard.classList.remove('screen-shake'), 600);
+
+                    targetBlip.style.opacity = "0";
+
+                    explosion.style.left = stopLeft + "%";
+                    explosion.style.top = stopTop + "%";
+                    explosion.classList.add('explode-anim');
+                    
+                    resultIcon.innerHTML = '<i class="fas fa-check-circle text-green-400 bg-white rounded-full"></i>';
+                    resultIcon.classList.add('anim-result');
+
+                    // إظهار الإطار المنبثق لتأكيد المسافة الصحيحة
+                    setTimeout(() => {
+                        showBanner("إصابة مدمرة!", `المسافة الصحيحة: <span class="text-2xl text-green-400 mx-1">${toAr(currentCorrectDistance)}</span> وحدات`, "success", 2500);
+                    }, 500);
+
+                    setTimeout(() => { showRoundSummary(); }, 3300);
+
+                } else {
+                    p3Errors++;
+                    const radarUI = document.getElementById('radar-ui');
+                    const radarCard = document.getElementById('main-card');
+                    const splash = document.getElementById('splash-div');
+
+                    radarUI.classList.add('radar-alert');
+                    radarCard.classList.add('screen-shake');
+                    setTimeout(() => radarCard.classList.remove('screen-shake'), 600);
+
+                    splash.style.left = stopLeft + "%";
+                    splash.style.top = stopTop + "%";
+                    splash.classList.add('splash-anim');
+
+                    resultIcon.innerHTML = '<i class="fas fa-times-circle text-red-500 bg-white rounded-full"></i>';
+                    resultIcon.classList.add('anim-result');
+
+                    let hintMsg = (answer > currentCorrectDistance) ? "تجاوزت الهدف!" : "سقط مبكراً!";
+                    
+                    if (p3Errors === 1) {
+                        // المحاولة الأولى الخاطئة
+                        setTimeout(() => {
+                            showBanner("أخطأت الهدف!", `${hintMsg}<br>تم خصم ½ درجة. <span class="text-yellow-400">حاول مجدداً!</span>`, "warning", 3000);
+                        }, 500);
+
+                        // إعادة تفعيل زر الإطلاق للمحاولة الثانية
+                        setTimeout(() => {
+                            radarUI.classList.remove('radar-alert');
+                            splash.classList.remove('splash-anim');
+                            resultIcon.classList.remove('anim-result');
+                            
+                            document.getElementById('player-answer').value = '';
+                            document.getElementById('player-answer').focus();
+                            btn.disabled = false; btn.classList.remove('opacity-50');
+                        }, 3500);
+                    } else {
+                        // استنفاد المحاولات
+                        setTimeout(() => {
+                            showBanner("استنفدت المحاولات!", `${hintMsg}<br>المسافة الصحيحة هي: <span class="text-2xl text-red-400 mx-1">${toAr(currentCorrectDistance)}</span> وحدات`, "error", 3000);
+                        }, 500);
+
+                        setTimeout(() => { showRoundSummary(); }, 3800);
+                    }
+                }
+            }, 800); 
+        };
+
+        window.showRoundSummary = () => {
+            totalGamePoints += currentTargetPoints; 
+
+            const modal = document.getElementById('round-summary-modal');
+            const card = document.getElementById('summary-card');
+            
+            document.getElementById('summary-points').textContent = `حصدت: ${toAr(currentTargetPoints)} / ٣ نقاط`;
+            
+            let subHtml = `<span>(</span><span class="text-blue-700">${toAr(currentX2)} − ${toAr(currentX1)}</span><span>)² + </span><span>(</span><span class="text-blue-700">${toAr(currentY2)} − ${toAr(currentY1)}</span><span>)²</span>`;
+            document.getElementById('summary-subst').innerHTML = subHtml;
+            document.getElementById('summary-result').textContent = `${toAr(currentCorrectDistance)} وحدة`;
+
+            modal.classList.add('round-summary-visible');
+            setTimeout(() => card.classList.replace('scale-95', 'scale-100'), 50);
+        };
+
+        window.closeSummaryAndProceed = () => {
+            const modal = document.getElementById('round-summary-modal');
+            const card = document.getElementById('summary-card');
+            card.classList.replace('scale-100', 'scale-95');
+            modal.classList.remove('round-summary-visible');
+            
+            setTimeout(() => generateNextRound(), 300);
+        };
+
+        function resetVisualEffects() {
+            document.getElementById('torpedo-line').style.display = "none";
+            document.getElementById('explosion-div').classList.remove('explode-anim');
+            document.getElementById('splash-div').classList.remove('splash-anim');
+            document.getElementById('overlay-banner').className = "overlay-banner";
+            document.getElementById('radar-ui').classList.remove('radar-alert', 'radar-success');
+            document.getElementById('result-icon-overlay').classList.remove('anim-result');
+        }
+
+        function finishSubmarineGame() {
+            clearInterval(timerInterval);
+            let timeTaken = Math.floor((Date.now() - gameStartTime) / 1000);
+            
+            document.getElementById('input-achieved').value = totalGamePoints;
+            document.getElementById('input-max').value = 9; 
+            document.getElementById('input-metric-value').value = timeTaken;
+            
+            processResults();
+        }
+
+        // --- دوال القالب لحفظ النتائج ---
+        window.processResults = () => {
+            const ach = parseFloat(document.getElementById('input-achieved').value);
+            const max = parseFloat(document.getElementById('input-max').value);
+            const met = parseFloat(document.getElementById('input-metric-value').value) || 0;
+            if (isNaN(ach) || isNaN(max) || max <= 0) return;
+            
+            const grade = ((ach / max) * 5).toFixed(1);
+            showResult(ach, max, grade, met);
+            
+            if (studentId && classId) saveScore(grade, met);
+            else { 
+                localVisitorResult = { name: studentName, grade: grade, metric: met, isLocal: true }; 
+                fetchAndShowLeaderboard(false); 
+            }
+        };
+
+        function showResult(a, m, g, met) {
+            document.getElementById('game-screen').classList.add('hidden');
+            document.getElementById('result-screen').classList.remove('hidden');
+            let min = Math.floor(met / 60); let sec = met % 60;
+            let timeStr = `${toAr(min.toString().padStart(2,'0'))}:${toAr(sec.toString().padStart(2,'0'))}`;
+
+            document.getElementById('final-stats').innerHTML = `
+                <div class="bg-blue-50 p-2 rounded-xl border border-blue-100 text-center flex flex-col justify-center">
+                    <p class="text-[8px] font-bold text-blue-400 uppercase">إجمالي النقاط</p>
+                    <p class="text-[11px] font-black text-blue-900">${toAr(a)} / ${toAr(m)}</p>
+                </div>
+                <div class="bg-emerald-50 p-2 rounded-xl border border-emerald-100 text-center flex flex-col justify-center shadow-sm">
+                    <p class="text-[8px] font-bold text-emerald-600 uppercase">الدرجة النهائية</p>
+                    <p class="text-lg font-black text-emerald-900">${toAr(g)} من ٥</p>
+                </div>
+                <div class="bg-purple-50 p-2 rounded-xl border border-purple-100 text-center flex flex-col justify-center">
+                    <p class="text-[8px] font-bold text-purple-400 uppercase">زمن المهمة</p>
+                    <p class="text-sm font-black text-purple-900" dir="ltr">${timeStr}</p>
+                </div>
+            `;
+        }
+
+        async function saveScore(g, met) {
+            const p = new URLSearchParams({ action: 'saveScore', studentId, classId, itemId: GAME_ID, score: g, metricValue: met, type: 'game' });
+            try { await fetch(`${SCRIPT_URL}?${p.toString()}`); } finally { fetchAndShowLeaderboard(false); }
+        }
+
+        window.fetchAndShowLeaderboard = function(isManual = false) {
+            const modal = document.getElementById('leaderboard-modal');
+            if (isManual) { modal.classList.remove('hidden-modal'); modal.classList.add('visible-modal'); }
+            const content = document.getElementById('leaderboard-content');
+            document.getElementById('modal-loader').classList.remove('hidden');
+            let reqClassId = (currentLeaderboardMode === 'class') ? classId : 'all';
+            const url = `${SCRIPT_URL}?action=getLeaderboard&gameId=${GAME_ID}&classId=${encodeURIComponent(reqClassId || 'all')}&t=${Date.now()}`;
+            
+            fetch(url).then(r => r.json()).then(res => {
+                let data = (res.status === 'success' && res.data) ? res.data : [];
+                if (localVisitorResult && (currentLeaderboardMode === 'global' || !classId)) {
+                    if (!data.find(p => p.name === localVisitorResult.name)) data.push(localVisitorResult);
+                    data.sort((a, b) => parseFloat(b.grade) - parseFloat(a.grade) || parseFloat(a.metric) - parseFloat(b.metric));
+                }
+                if (data.length > 0) {
+                    let h = `<table class="w-full text-right text-[10px] border-collapse"><thead class="text-slate-400 border-b border-slate-100 bg-slate-50/50"><tr><th class="p-2 text-center">#</th><th class="p-2 text-right">القائد</th><th class="p-2 text-center text-emerald-600">الدرجة</th></tr></thead><tbody class="divide-y divide-slate-50">`;
+                    data.forEach((p, i) => {
+                        const isMe = (p.isLocal || (studentId && String(p.name).trim() === String(studentName).trim()));
+                        let m = Math.floor((p.metric || p.metricValue || 0) / 60);
+                        let s = (p.metric || p.metricValue || 0) % 60;
+                        let tStr = `${toAr(m)}:${toAr(s.toString().padStart(2,'0'))}`;
+                        h += `<tr class="${isMe ? 'rank-row-me' : 'hover:bg-slate-50/50'} transition-colors">
+                            <td class="p-2 leaderboard-rank text-center ${i<3 ? 'text-yellow-500 text-sm' : 'text-slate-400'}">${i < 3 ? ['🥇','🥈','🥉'][i] : toAr(i+1)}</td>
+                            <td class="p-2 leaderboard-name ${isMe ? 'text-blue-700 font-extrabold' : 'text-slate-700'}">${p.name} ${isMe ? '<span class="bg-blue-600 text-white text-[7px] px-1 rounded-full mx-1">أنت</span>' : ''}</td>
+                            <td class="p-2 text-center"><span class="text-emerald-600 font-black">${toAr(parseFloat(p.grade).toFixed(1))}</span> <span class="text-[8px] text-slate-400 block font-bold" dir="ltr"><i class="fas fa-stopwatch text-[7px]"></i> ${tStr}</span></td>
+                        </tr>`;
+                    });
+                    content.innerHTML = h + `</tbody></table>`;
+                } else content.innerHTML = `<div class="py-10 text-center text-slate-400 text-xs italic font-bold">لم يسجل أي قائد نتيجته بعد..</div>`;
+            }).finally(() => document.getElementById('modal-loader').classList.add('hidden'));
+        };
+
+        window.switchTab = (mode) => { currentLeaderboardMode = mode; document.getElementById('tab-class').className = mode === 'class' ? 'tab-btn tab-active' : 'tab-btn tab-inactive'; document.getElementById('tab-global').className = mode === 'global' ? 'tab-btn tab-active' : 'tab-btn tab-inactive'; fetchAndShowLeaderboard(false); };
+        window.closeLeaderboardModal = () => document.getElementById('leaderboard-modal').classList.replace('visible-modal', 'hidden-modal');
+    })();
+    </script>
+</body>
+</html>

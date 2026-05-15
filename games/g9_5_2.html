@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>فجر الحرية</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body { font-family: 'Cairo', sans-serif; overflow: hidden; touch-action: manipulation; direction: rtl; background-color: #020617; }
+        
+        /* خلفية القلعة/السجن العميقة */
+        .dungeon-bg {
+            position: fixed; inset: 0; z-index: -1;
+            display: flex; align-items: center; justify-content: center;
+            overflow: hidden; background: #020617;
+        }
+        .dungeon-bg i { font-size: 45rem; color: rgba(15, 23, 42, 0.6); }
+        .dungeon-bg .vignette {
+            position: absolute; inset: 0;
+            background: radial-gradient(circle, transparent 20%, #020617 80%);
+        }
+
+        /* ARABIC ROOT STYLES - REINFORCED FIX */
+        .ar-root { display: inline-flex; align-items: stretch; direction: rtl; vertical-align: middle; margin: 0 2px; white-space: nowrap; min-width: max-content; }
+        .ar-root-sym { 
+            transform: scaleX(-1); font-family: Arial, sans-serif; font-size: 2.5em; 
+            line-height: 0.7; font-weight: normal; margin-left: -1px; display: flex;
+            align-items: flex-start; padding-top: 6px; color: #ef4444; 
+        }
+        .ar-root-num { 
+            border-top: 3.5px solid #ef4444; padding-top: 8px; padding-left: 6px; 
+            padding-right: 2px; line-height: 1.1; display: flex; align-items: center; 
+            gap: 4px; white-space: nowrap; 
+        }
+
+        /* الكارت الرئيسي شبه شفاف لرؤية القلعة */
+        .compact-card {
+            width: 100%; max-width: 420px; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(12px); border-radius: 1.5rem;
+            box-shadow: 0 0 60px rgba(239, 68, 68, 0.15); border: 1px solid rgba(30, 41, 59, 0.8);
+            display: flex; flex-direction: column; max-height: 98vh; overflow: hidden; position: relative;
+        }
+
+        /* TRANSITION OVERLAY */
+        #transition-overlay {
+            position: absolute; inset: 0; background: #020617; z-index: 200;
+            display: none; flex-direction: column; align-items: center; justify-content: center;
+            text-align: center; color: #ef4444; padding: 30px;
+        }
+        .radar-scan {
+            width: 120px; height: 120px; border: 3px solid #ef4444; border-radius: 50%;
+            position: relative; overflow: hidden; margin-bottom: 25px; box-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
+        }
+        .radar-scan::after {
+            content: ''; position: absolute; inset: 0;
+            background: conic-gradient(from 0deg, rgba(239, 68, 68, 0.6), transparent 120deg);
+            animation: rotate 1.2s linear infinite;
+        }
+        @keyframes rotate { to { transform: rotate(360deg); } }
+
+        /* RESCUE MODAL */
+        #rescue-modal {
+            position: absolute; inset: 0; background: radial-gradient(circle, #0f172a 0%, #020617 100%); z-index: 300;
+            display: none; flex-direction: column; align-items: center; justify-content: center;
+            padding: 2rem; text-align: center;
+        }
+        .rescue-glow { animation: pulse-glow 2s infinite; }
+        @keyframes pulse-glow { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+
+        .top-info-bar {
+            background: rgba(2, 6, 23, 0.9); border-bottom: 2px solid #ef4444; padding: 12px 18px;
+            display: flex; justify-content: space-between; align-items: center;
+            font-size: 12px; font-weight: 800; color: #94a3b8;
+        }
+        .btn-touch { min-height: 52px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; border-radius: 0.75rem; font-weight: 800; cursor: pointer; }
+        .btn-touch:active { transform: scale(0.95); }
+        
+        .step-pill { padding: 4px 8px; border-radius: 20px; font-size: 8px; font-weight: 900; background: rgba(30, 41, 59, 0.8); color: #475569; transition: 0.3s; }
+        .step-pill.active { background: #ef4444; color: white; box-shadow: 0 0 12px rgba(239, 68, 68, 0.5); }
+
+        .formula-box { background: rgba(2, 6, 23, 0.6); border-radius: 14px; border: 1px dashed rgba(51, 65, 85, 0.8); padding: 25px 12px; margin: 12px 0; display: flex; justify-content: center; align-items: center; }
+        
+        input.blank-box { 
+            background: #1e293b !important; color: #ffffff !important; 
+            border: 2.5px solid #334155 !important; text-align: center; 
+            font-family: 'Cairo', sans-serif; width: 44px; height: 44px;
+            font-size: 1.1rem; font-weight: 900; border-radius: 8px;
+            transition: 0.3s; outline: none;
+        }
+        input.error-shake { border-color: #ef4444 !important; animation: shake 0.4s; background: #450a0a !important; }
+        input.correct-glow { border-color: #22c55e !important; box-shadow: 0 0 15px rgba(34, 197, 94, 0.5); pointer-events: none; background: #064e3b !important; }
+        input.revealed-glow { border-color: #eab308 !important; color: #eab308 !important; pointer-events: none; background: rgba(30, 41, 59, 0.9) !important; }
+
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+
+        .stage-title { font-size: 12px; font-weight: 900; color: #ef4444; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px; }
+        #mission-brief { font-size: 1.1rem; font-weight: 900; color: #ef4444; min-height: 50px; display: flex; align-items: center; justify-content: center; flex-direction: column; text-align: center; line-height: 1.5; }
+        #math-problem { font-size: 0.9rem; font-weight: 700; color: #94a3b8; margin-top: 8px; border-top: 1px solid rgba(30, 41, 59, 0.6); padding-top: 8px; width: 100%; }
+
+        .stage3-col { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+
+        .confetti { position: absolute; width: 12px; height: 12px; z-index: 350; animation: fall 3.5s linear infinite; border-radius: 2px; }
+        @keyframes fall { to { transform: translateY(700px) rotate(1080deg); } }
+    </style>
+</head>
+<body class="text-slate-200 h-screen w-screen flex items-center justify-center p-3">
+
+    <!-- الخلفية العميقة للقلعة -->
+    <div class="dungeon-bg">
+        <i class="fas fa-dungeon"></i>
+        <div class="vignette"></div>
+    </div>
+
+    <div class="compact-card">
+        <!-- شاشة الانتقال -->
+        <div id="transition-overlay">
+            <div class="radar-scan"></div>
+            <p id="transition-text" class="font-black text-2xl mb-2">جاري المعالجة...</p>
+            <p id="transition-sub" class="text-[10px] uppercase tracking-[4px] opacity-40 font-mono">Bypassing Encryption</p>
+        </div>
+
+        <!-- شاشة التحرير الاحتفالية والديناميكية -->
+        <div id="rescue-modal">
+            <div class="rescue-glow">
+                <div id="rescue-modal-icon" class="w-24 h-24 bg-green-500 rounded-3xl flex items-center justify-center mb-4 shadow-[0_0_40px_rgba(34,197,94,0.6)]">
+                    <i class="fas fa-unlock-alt text-white text-5xl"></i>
+                </div>
+            </div>
+            
+            <h2 id="rescue-modal-title" class="text-3xl font-black text-green-400 mb-2">تم تحرير الأسير!</h2>
+            <p id="rescue-modal-desc" class="text-slate-200 text-sm mb-4 font-bold px-4 leading-relaxed">
+                عملية مثالية! تم التحرير بسلام للأسير رقم <span class="text-xl text-white">١</span>.
+            </p>
+            
+            <div class="bg-slate-900/80 border border-slate-700 p-4 rounded-2xl mb-6 shadow-inner w-full max-w-[220px] mx-auto">
+                <p class="text-[10px] text-slate-400 font-bold mb-1 uppercase tracking-widest">الإجابة النهائية</p>
+                <p id="rescue-correct-answer" class="text-3xl font-black text-white tracking-widest">أ = ٥</p>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-700 p-4 rounded-3xl w-full mb-6 shadow-inner">
+                <p class="text-[10px] text-slate-500 font-bold mb-2 uppercase tracking-tighter">نقاط المداهمة والتحرير</p>
+                <p id="rescue-points-text" class="text-4xl font-black text-green-400">٠ / ٢٢</p>
+            </div>
+            
+            <button onclick="closeRescueModal()" class="btn-touch w-full bg-slate-100 text-slate-900 text-xl shadow-2xl font-black hover:bg-slate-300">
+                متابعة المهمة <i class="fas fa-arrow-left mr-3"></i>
+            </button>
+        </div>
+
+        <!-- الشريط العلوي -->
+        <div class="top-info-bar">
+            <div class="flex items-center gap-2">
+                <i class="fas fa-user-ninja text-red-500"></i>
+                <span id="top-student-name" class="truncate font-black text-red-400">تحميل..</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <div class="bg-red-950/40 px-2 py-1 rounded border border-red-900/50">
+                    <span id="top-prev-score" class="text-[11px] text-red-500 font-bold tracking-widest">٠ / ٠</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- الشاشة 1: البداية -->
+        <div id="start-screen" class="p-6 text-center flex flex-col h-full justify-center overflow-y-auto">
+            
+            <!-- الرسم البصري للسجن -->
+            <div class="relative w-32 h-32 mx-auto mb-4 border-4 border-slate-700 bg-slate-800 rounded-xl overflow-hidden shadow-2xl shadow-red-900/40 flex items-center justify-center shrink-0">
+                <div class="absolute inset-0 bg-gradient-to-b from-slate-700 to-slate-900"></div>
+                <i class="fas fa-user-secret absolute -bottom-1 text-7xl text-slate-900 opacity-90"></i>
+                
+                <div class="absolute inset-0 flex justify-evenly">
+                    <div class="w-2.5 h-full bg-gradient-to-r from-slate-500 via-slate-300 to-slate-500 shadow-[0_0_8px_rgba(0,0,0,0.9)] border-x border-slate-600"></div>
+                    <div class="w-2.5 h-full bg-gradient-to-r from-slate-500 via-slate-300 to-slate-500 shadow-[0_0_8px_rgba(0,0,0,0.9)] border-x border-slate-600"></div>
+                    <div class="w-2.5 h-full bg-gradient-to-r from-slate-500 via-slate-300 to-slate-500 shadow-[0_0_8px_rgba(0,0,0,0.9)] border-x border-slate-600"></div>
+                </div>
+                
+                <i class="fas fa-hand-rock text-4xl text-amber-200/90 absolute top-1/2 left-[12%] -translate-y-1/2 -rotate-12 drop-shadow-[0_5px_5px_rgba(0,0,0,0.8)]"></i>
+                <i class="fas fa-hand-rock text-4xl text-amber-200/90 absolute top-1/2 right-[12%] -translate-y-1/2 rotate-12 drop-shadow-[0_5px_5px_rgba(0,0,0,0.8)]"></i>
+
+                <div class="absolute top-2 w-full flex justify-between px-1.5 opacity-80">
+                    <i class="fas fa-certificate text-slate-300 text-sm"></i>
+                    <i class="fas fa-certificate text-slate-300 text-sm"></i>
+                    <i class="fas fa-certificate text-slate-300 text-sm"></i>
+                </div>
+                <div class="absolute top-3.5 w-full h-[1.5px] bg-slate-400 opacity-60"></div>
+            </div>
+
+            <div>
+                <h1 class="text-2xl font-black text-white mb-2 tracking-tight">فجر الحرية</h1>
+                <p class="text-slate-400 text-[11px] font-bold leading-relaxed px-2 text-justify mb-2">
+                    أيها القائد، المهمة تشمل ٥ مراحل لإنقاذ كل أسير. دقة البيانات هي مفتاح النصر لتجاوز الأسوار الجبرية.
+                </p>
+            </div>
+
+            <div class="flex gap-2 mt-2 shrink-0">
+                <button onclick="fetchAndShowLeaderboard(true)" class="btn-touch w-14 bg-slate-800/80 text-slate-400 border border-slate-700">
+                    <i class="fas fa-trophy text-xl"></i>
+                </button>
+                <button onclick="showPointsRules()" class="btn-touch flex-1 bg-red-600 text-white shadow-xl shadow-red-900/40 text-xl">
+                    بدء المداهمة <i class="fas fa-bolt mr-2"></i>
+                </button>
+            </div>
+            
+            <p class="text-[9px] text-slate-500 font-bold tracking-[0.1em] mt-4 uppercase">تصميم وبرمجة: أ. عبد العزيز خالد العبلان</p>
+        </div>
+
+        <!-- الشاشة 1.5: نظام النقاط -->
+        <div id="points-screen" class="hidden p-6 text-center flex flex-col h-full justify-center overflow-y-auto">
+            <div class="mb-4">
+                <i class="fas fa-clipboard-list text-red-500 text-5xl mb-4"></i>
+                <h2 class="text-xl font-black text-white mb-2">تعليمات المهام وتوزيع النقاط</h2>
+                <p class="text-slate-400 text-[11px] font-bold px-2">
+                    السجن مراقب بالكامل. بعد كل إجابة صحيحة أو خاطئة مرتين، ستبقى الإجابة ٩ ثوانٍ لتراجع خطواتك قبل المتابعة. اقرأ نظام النقاط لتفادي انكشافك:
+                </p>
+            </div>
+
+            <div class="bg-slate-900/80 border border-slate-700 rounded-xl p-4 my-2 shadow-inner">
+                <div class="flex flex-col gap-3 text-right">
+                    <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+                        <span class="text-[11px] text-slate-300 font-bold">المحاولة الأولى صحيحة</span>
+                        <span class="bg-green-500/20 text-green-400 px-3 py-1 rounded border border-green-500/30 font-black text-sm"><i class="fas fa-plus text-[10px]"></i> ٢ نقطة</span>
+                    </div>
+                    <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+                        <span class="text-[11px] text-slate-300 font-bold">المحاولة الثانية صحيحة</span>
+                        <span class="bg-yellow-500/20 text-yellow-400 px-3 py-1 rounded border border-yellow-500/30 font-black text-sm"><i class="fas fa-plus text-[10px]"></i> ١ نقطة</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-[11px] text-slate-300 font-bold">خطأ مرتين (انكشاف وتدخل آلي)</span>
+                        <span class="bg-red-500/20 text-red-400 px-3 py-1 rounded border border-red-500/30 font-black text-sm">٠ نقطة</span>
+                    </div>
+                </div>
+            </div>
+
+            <button onclick="startActualGame()" class="btn-touch w-full bg-green-600 text-white shadow-xl shadow-green-900/40 text-lg mt-4">
+                فهمت التعليمات، ابدأ المهمة <i class="fas fa-check-circle mr-2"></i>
+            </button>
+        </div>
+
+        <!-- الشاشة 2: اللعبة -->
+        <div id="game-screen" class="hidden p-4 flex flex-col gap-3 overflow-y-auto">
+            <div class="flex justify-between gap-1 mb-2">
+                <div class="step-pill active" id="step-tab-1">١.الخطة</div>
+                <div class="step-pill" id="step-tab-2">٢.الموقع</div>
+                <div class="step-pill" id="step-tab-3">٣.التسلل</div>
+                <div class="step-pill" id="step-tab-4">٤.المداهمة</div>
+                <div class="step-pill" id="step-tab-5">٥.التحرير</div>
+            </div>
+
+            <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 text-center relative overflow-hidden shadow-inner min-h-[150px] flex flex-col justify-center">
+                <div id="mission-brief">تحليل...</div>
+                <div id="math-problem"></div>
+            </div>
+
+            <!-- المرحلة 1: القانون -->
+            <div id="stage-1" class="space-y-4 py-2 animate-in fade-in">
+                <div class="stage-title text-center">١. اختر بروتوكول المسافة الصحيح</div>
+                <div class="grid gap-3">
+                    <button id="btn-protocol-correct" class="p-4 bg-slate-800/80 border-2 border-slate-700 rounded-xl text-center hover:border-red-500 transition-all">
+                        <span class="text-lg text-white font-bold">ف = </span>
+                        <span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num"> (س٢-س١)² + (ص٢-ص١)² </span></span>
+                    </button>
+                    <button id="btn-protocol-wrong" class="p-4 bg-slate-800/80 border-2 border-slate-700 rounded-xl text-center hover:border-red-500 transition-all opacity-80">
+                        <span class="text-lg text-white font-bold">ف = </span>
+                        <span class="ar-root"><span class="ar-root-sym">&radic;</span><span class="ar-root-num"> (س٢+س١)² - (ص٢+ص١)² </span></span>
+                    </button>
+                    <button id="btn-next-1" style="display:none;" class="btn-touch w-full bg-slate-700 text-white font-black shadow-lg mt-2 text-lg"></button>
+                </div>
+            </div>
+
+            <!-- المرحلة 2: الموقع -->
+            <div id="stage-2" class="hidden space-y-4 animate-in fade-in">
+                <div class="stage-title text-center">٢. حدد موقع العناصر بدقة</div>
+                <div class="formula-box">
+                    <div class="flex items-center gap-1 text-white scale-90 sm:scale-100">
+                        <input type="text" id="input-f" class="blank-box" oninput="resetError(this)">
+                        <span class="text-xl font-bold mx-1">=</span>
+                        <span class="ar-root">
+                            <span class="ar-root-sym">&radic;</span>
+                            <span class="ar-root-num">
+                                ( <input type="text" id="input-a" class="blank-box" oninput="resetError(this)"> - 
+                                  <input type="text" id="input-x1" class="blank-box" oninput="resetError(this)"> )² +
+                                ( <input type="text" id="input-y2" class="blank-box" oninput="resetError(this)"> - 
+                                  <input type="text" id="input-y1" class="blank-box" oninput="resetError(this)"> )²
+                            </span>
+                        </span>
+                    </div>
+                </div>
+                <button id="btn-submit-2" onclick="checkStage2()" class="btn-touch w-full bg-red-600 text-white shadow-lg text-lg">تثبيت الإحداثيات <i class="fas fa-crosshairs mr-2"></i></button>
+                <button id="btn-next-2" style="display:none;" class="btn-touch w-full bg-slate-700 text-white font-black shadow-lg mt-2 text-lg"></button>
+            </div>
+
+            <!-- المرحلة 3: التسلل -->
+            <div id="stage-3" class="hidden space-y-4 animate-in fade-in">
+                <div class="stage-title text-center">٣. التسلل (بتربيع الطرفين)</div>
+                <div class="formula-box !flex-col !gap-6">
+                    <div class="flex items-center justify-center gap-4 text-white text-xl font-black">
+                        <div class="stage3-col">
+                            <span>ف²</span>
+                            <input type="text" id="input-f-sq" class="blank-box" oninput="resetError(this)">
+                        </div>
+                        <span class="mt-[-20px]">=</span>
+                        <div class="stage3-col">
+                            <span id="display-a-part" class="text-slate-500 font-bold">(أ-س١)²</span>
+                            <div class="h-[44px] w-[44px] flex items-center justify-center text-slate-500 border border-slate-700 rounded-lg text-[8px] bg-slate-900/80 uppercase">ثابت</div>
+                        </div>
+                        <span class="mt-[-20px]">+</span>
+                        <div class="stage3-col">
+                            <span class="text-slate-500 font-bold">(ص٢-ص١)²</span>
+                            <input type="text" id="input-y-sq" class="blank-box" oninput="resetError(this)">
+                        </div>
+                    </div>
+                </div>
+                <button id="btn-submit-3" onclick="checkStage3()" class="btn-touch w-full bg-red-600 text-white font-black">تحطيم الجدران <i class="fas fa-bomb mr-2"></i></button>
+                <button id="btn-next-3" style="display:none;" class="btn-touch w-full bg-slate-700 text-white font-black shadow-lg mt-2 text-lg"></button>
+            </div>
+
+            <!-- المرحلة 4: المداهمة -->
+            <div id="stage-4" class="hidden space-y-4 animate-in fade-in text-center">
+                <div class="stage-title text-center">٤. المداهمة (جذر الطرفين)</div>
+                <div class="formula-box !bg-slate-900/60 !border-blue-500/30">
+                    <div class="flex items-center gap-3 text-white text-xl font-black">
+                        <input type="text" id="input-sqrt-f" class="blank-box !border-blue-500 !w-[55px]" oninput="resetError(this)">
+                        <span>=</span>
+                        <span id="display-linear-part" class="text-blue-400 font-black">أ - س١</span>
+                    </div>
+                </div>
+                <p class="text-[9px] text-blue-500 font-black italic">خذ جذر الطرف المتبقي لفك تربيع المجهول وبدء التحرير</p>
+                <button id="btn-submit-4" onclick="checkStage4()" class="btn-touch w-full bg-blue-600 text-white font-black shadow-lg">تجهيز التحرير <i class="fas fa-shield-alt mr-2"></i></button>
+                <button id="btn-next-4" style="display:none;" class="btn-touch w-full bg-slate-700 text-white font-black shadow-lg mt-2 text-lg"></button>
+            </div>
+
+            <!-- المرحلة 5: التحرير النهائي -->
+            <div id="stage-5" class="hidden space-y-4 animate-in fade-in text-center py-2">
+                <div class="stage-title text-center">٥. التحرير النهائي (أ)</div>
+                <div class="bg-red-900/10 p-5 rounded-3xl border-2 border-red-500/30 inline-block px-10 shadow-inner">
+                    <span class="text-3xl font-black text-white ml-2">أ = </span>
+                    <input type="text" id="input-final-a" class="w-16 bg-slate-900 border-2 border-red-500 p-2 rounded-xl text-3xl font-black text-white text-center shadow-2xl h-14" oninput="resetError(this)">
+                </div>
+                <button id="btn-submit-5" onclick="checkStage5()" class="btn-touch w-full bg-green-600 text-white text-xl mt-4 shadow-green-900/40 font-black">تأمين خروج الأسير <i class="fas fa-door-open mr-2"></i></button>
+                <button id="btn-next-5" style="display:none;" class="btn-touch w-full bg-slate-700 text-white font-black shadow-lg mt-4 text-lg"></button>
+            </div>
+
+            <div id="feedback" class="text-center min-h-[35px] text-[11px] font-black tracking-wide leading-tight mt-1 px-4"></div>
+        </div>
+
+        <!-- الشاشة 3: النتائج النهائية -->
+        <div id="result-screen" class="hidden p-6 text-center flex flex-col h-full justify-center">
+            <div class="mb-6">
+                <div id="final-icon" class="text-7xl mb-4 text-green-500"></div>
+                <h2 id="final-title" class="text-2xl font-black text-white"></h2>
+                <p id="final-desc" class="text-slate-400 text-xs mt-3 px-6 leading-relaxed"></p>
+            </div>
+            <div id="final-stats" class="grid grid-cols-2 gap-3 mb-6"></div>
+            <div class="space-y-3">
+                <button onclick="fetchAndShowLeaderboard(true)" class="btn-touch w-full bg-red-600 text-white shadow-lg">سجل المكتشفين <i class="fas fa-crown mr-2"></i></button>
+                <button onclick="location.reload()" class="btn-touch w-full bg-slate-800 text-slate-400 border border-slate-700">مهمة جديدة</button>
+            </div>
+        </div>
+
+        <!-- سجل الأبطال -->
+        <div id="leaderboard-modal" class="hidden absolute inset-0 bg-[#020617] z-[400] flex-col p-6">
+            <div class="flex justify-between items-center mb-6 border-b border-slate-800 pb-4">
+                <h3 class="font-black text-red-500 text-lg uppercase"><i class="fas fa-shield-alt ml-2"></i>أبطال فجر الحرية</h3>
+                <button onclick="closeLeaderboardModal()" class="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center transition-all hover:bg-red-500 hover:text-white"><i class="fas fa-times"></i></button>
+            </div>
+            <div id="leaderboard-content" class="flex-1 overflow-y-auto space-y-2 pr-1"></div>
+        </div>
+    </div>
+
+    <script>
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxqAQlGhNs8k5RwHs6jrWxDiDwaMABSx8a9Fl81O5oVVa5fHRWTwIEvsGy2cSDP4zGLWQ/exec";
+        const urlParams = new URLSearchParams(window.location.search);
+        const GAME_ID = urlParams.get('gameId') || 'g9_5_2';
+        const studentId = urlParams.get('studentId') || urlParams.get('userId');
+        const classId = urlParams.get('classId');
+        
+        let studentName = decodeURIComponent(urlParams.get('name') || urlParams.get('studentName') || "محرر مجهول");
+        let qIdx = 0;
+        let totalScore = 0;
+        let maxAvailableScore = 0;
+        let prisonerScore = 0;
+        let startTime;
+        let boxAttempts = {};
+        let countdownInterval;
+
+        const toAr = (n) => String(n).replace(/\d/g, d => "٠١٢٣٤٥٦٧٨٩"[d]);
+
+        const questions = [
+            { p1: [2, 3], p2: ['أ', 7], d: 5, results: ['5', '-1'], stepF2: 25, stepY2: 16, stepSqrtF: 3, linearPart: "أ - ٢", x1: 2, y1: 3, y2: 7, aLabel: "(أ-٢)²", fullPrev: "٢٥ = (أ-٢)² + ١٦", simplified: "٩ = (أ-٢)²" },
+            { p1: [-3, 2], p2: ['أ', 2], d: 10, results: ['7', '-13'], stepF2: 100, stepY2: 0, stepSqrtF: 10, linearPart: "أ + ٣", x1: -3, y1: 2, y2: 2, aLabel: "(أ+٣)²", fullPrev: "١٠٠ = (أ+٣)² + ٠", simplified: "١٠٠ = (أ+٣)²" }
+        ];
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('top-student-name').textContent = studentName;
+            updateTopDisplay();
+        });
+
+        function updateTopDisplay() {
+            document.getElementById('top-prev-score').textContent = toAr(totalScore) + " / " + toAr(maxAvailableScore);
+        }
+
+        window.showPointsRules = function() {
+            document.getElementById('start-screen').classList.add('hidden');
+            document.getElementById('points-screen').classList.remove('hidden');
+        };
+
+        window.startActualGame = function() {
+            document.getElementById('points-screen').classList.add('hidden');
+            document.getElementById('game-screen').classList.remove('hidden');
+            startTime = Date.now();
+            loadQuestion();
+        };
+
+        function showTransition(title, sub, callback) {
+            const overlay = document.getElementById('transition-overlay');
+            document.getElementById('transition-text').textContent = title;
+            document.getElementById('transition-sub').textContent = sub;
+            overlay.style.display = 'flex';
+            setTimeout(() => {
+                overlay.style.display = 'none';
+                if(callback) callback();
+            }, 1500);
+        }
+
+        function loadQuestion() {
+            if (qIdx >= questions.length) { endGame(); return; }
+            const q = questions[qIdx];
+            boxAttempts = {};
+            prisonerScore = 0;
+            document.getElementById('mission-brief').innerHTML = `<span class="text-white text-sm">موقع الأسير <span class="bg-red-500 px-2 rounded-full">${toAr(qIdx+1)}</span></span>`;
+            document.getElementById('math-problem').innerHTML = `(${toAr(q.p1[0])}، ${toAr(q.p1[1])}) ⬅ (${q.p2[0]}، ${q.p2[1]}) <br> المسافة (ف) = ${toAr(q.d)}`;
+            showStage(1);
+            resetAllInputs();
+        }
+
+        function resetAllInputs() {
+            clearInterval(countdownInterval);
+            document.querySelectorAll('input').forEach(i => {
+                i.value = '';
+                i.className = i.id.includes('final') ? 'w-28 bg-slate-900 border-2 border-red-500 p-2 rounded-xl text-5xl font-black text-white text-center shadow-2xl' : 'blank-box';
+                i.readOnly = false;
+            });
+            document.getElementById('feedback').textContent = '';
+            
+            [1,2,3,4,5].forEach(num => { 
+                if(document.getElementById('btn-submit-'+num)) document.getElementById('btn-submit-'+num).style.display = 'flex'; 
+                if(document.getElementById('btn-next-'+num)) document.getElementById('btn-next-'+num).style.display = 'none'; 
+            });
+
+            const btnC = document.getElementById('btn-protocol-correct');
+            const btnW = document.getElementById('btn-protocol-wrong');
+            btnC.onclick = () => window.checkStage1(true);
+            btnW.onclick = () => window.checkStage1(false);
+            btnC.className = "p-4 bg-slate-800 border-2 border-slate-700 rounded-xl text-center hover:border-red-500 transition-all";
+            btnW.className = "p-4 bg-slate-800 border-2 border-slate-700 rounded-xl text-center hover:border-red-500 transition-all opacity-80";
+        }
+
+        window.resetError = function(el) { if(!el.readOnly) el.classList.remove('error-shake'); };
+
+        function showStage(s) {
+            const q = questions[qIdx];
+            [1,2,3,4,5].forEach(i => {
+                document.getElementById(`stage-${i}`).classList.toggle('hidden', i !== s);
+                document.getElementById(`step-tab-${i}`).classList.toggle('active', i <= s);
+            });
+
+            if (s === 3) {
+                document.getElementById('mission-brief').innerHTML = `
+                    <div class="flex items-center justify-center gap-2">
+                        <span class="text-2xl font-black text-white">${toAr(q.d)}</span>
+                        <span class="text-xl font-bold text-slate-400">=</span>
+                        <span class="ar-root">
+                            <span class="ar-root-sym">&radic;</span>
+                            <span class="ar-root-num">${q.aLabel} + (${toAr(q.y2)}-${toAr(q.y1)})²</span>
+                        </span>
+                    </div>
+                `;
+                document.getElementById('math-problem').innerHTML = `<span class="text-red-500 animate-pulse font-bold">بتربيع الطرفين للتخلص من الجذر...</span>`;
+            }
+
+            if (s === 4) {
+                document.getElementById('mission-brief').innerHTML = `
+                    <div class="flex flex-col items-center">
+                        <span class="text-[10px] text-slate-500 font-bold mb-1">المعادلة الناتجة: <span class="text-white">${q.fullPrev}</span></span>
+                        <span class="text-2xl font-black text-blue-500 tracking-widest">إذن: ${q.simplified}</span>
+                    </div>
+                `;
+                document.getElementById('math-problem').innerHTML = `<span class="text-blue-400 font-bold">المهمة: أوجد ناتج جذر الطرفين لتبسيط المجهول</span>`;
+                document.getElementById('display-linear-part').textContent = q.linearPart;
+            }
+
+            if (s === 5) {
+                document.getElementById('mission-brief').innerHTML = `
+                    <div class="flex flex-col items-center">
+                        <span class="text-xs text-slate-500 font-bold mb-1">المعادلة الخطية المحررة:</span>
+                        <span class="text-4xl font-black text-green-500">${toAr(q.stepSqrtF)} = ${q.linearPart}</span>
+                    </div>
+                `;
+                document.getElementById('math-problem').innerHTML = `<span class="text-green-500 font-bold">التحرير النهائي للأسير (أ)</span>`;
+            }
+        }
+
+        function proceedToNext(currentStage, nextStage, title, sub) {
+            const nextBtn = document.getElementById(`btn-next-${currentStage}`);
+            const submitBtn = document.getElementById(`btn-submit-${currentStage}`);
+            
+            if (submitBtn) submitBtn.style.display = 'none';
+            nextBtn.style.display = 'flex';
+            
+            let timeLeft = 9;
+            nextBtn.innerHTML = `متابعة (${toAr(timeLeft)}) <i class="fas fa-forward mr-2"></i>`;
+            
+            const goNext = () => {
+                clearInterval(countdownInterval);
+                nextBtn.style.display = 'none';
+                if (nextStage === 6) {
+                    showRescueCelebration();
+                } else {
+                    showTransition(title, sub, () => showStage(nextStage));
+                }
+            };
+            
+            nextBtn.onclick = goNext;
+            
+            countdownInterval = setInterval(() => {
+                timeLeft--;
+                if (timeLeft > 0) {
+                    nextBtn.innerHTML = `متابعة (${toAr(timeLeft)}) <i class="fas fa-forward mr-2"></i>`;
+                } else {
+                    goNext();
+                }
+            }, 1000);
+        }
+
+        window.checkStage1 = function(correct) {
+            const btnC = document.getElementById('btn-protocol-correct');
+            const btnW = document.getElementById('btn-protocol-wrong');
+            btnC.onclick = null; btnW.onclick = null;
+
+            if (correct) { 
+                btnC.classList.add('border-green-500');
+                document.getElementById('feedback').innerHTML = '<span class="text-green-500 font-bold">جميل! تم اختيار الخطة الصحيحة.</span>';
+                totalScore += 2; prisonerScore += 2; maxAvailableScore += 2; updateTopDisplay();
+                proceedToNext(1, 2, "تفعيل الموقع الجبري", "Calculating Coordinates"); 
+            } else { 
+                btnW.classList.add('border-red-500', 'opacity-50');
+                btnC.classList.add('border-green-500');
+                document.getElementById('feedback').innerHTML = '<span class="text-yellow-500 font-bold">خطة خاطئة! تم إظهار الخطة الصحيحة للمراجعة قبل المتابعة.</span>';
+                maxAvailableScore += 2; updateTopDisplay();
+                proceedToNext(1, 2, "تفعيل الموقع الجبري", "Calculating Coordinates");
+            }
+        }
+
+        function validateBox(boxId, correctValue) {
+            const el = document.getElementById(boxId);
+            const val = el.value.trim();
+            const attempts = (boxAttempts[boxId] || 0) + 1;
+            boxAttempts[boxId] = attempts;
+            const isCorrect = (String(val) == String(correctValue) || String(val) == toAr(correctValue));
+
+            if (isCorrect) {
+                el.classList.add('correct-glow');
+                el.readOnly = true;
+                const p = (attempts === 1) ? 2 : 1;
+                totalScore += p; prisonerScore += p; maxAvailableScore += 2;
+                updateTopDisplay();
+                return true;
+            } else {
+                if (attempts === 1) {
+                    el.classList.add('error-shake');
+                    document.getElementById('feedback').innerHTML = '<span class="text-yellow-500">انتبه! تم رصد تحركاتك.. لديك فرصة أخيرة لهذا المربع.</span>';
+                    return false;
+                } else {
+                    el.classList.add('revealed-glow');
+                    el.value = toAr(correctValue);
+                    el.readOnly = true;
+                    maxAvailableScore += 2; updateTopDisplay();
+                    return "failed";
+                }
+            }
+        }
+
+        window.checkStage2 = function() {
+            const q = questions[qIdx];
+            const r = [validateBox('input-f', q.d), validateBox('input-a', 'أ'), validateBox('input-x1', q.x1), validateBox('input-y2', q.y2), validateBox('input-y1', q.y1)];
+            if (r.every(res => res === true || res === "failed")) {
+                if(r.some(res => res === "failed")) {
+                   document.getElementById('feedback').innerHTML = '<span class="text-red-500 font-bold">انكشفت العملية! تم إظهار الإجابات للمراجعة.</span>';
+                } else {
+                   document.getElementById('feedback').innerHTML = '<span class="text-green-500 font-bold">جميع المواقع دقيقة! استعد للتسلل.</span>';
+                }
+                proceedToNext(2, 3, "جاري التسلل للمبنى", "Infiltrating Building");
+            }
+        };
+
+        window.checkStage3 = function() {
+            const q = questions[qIdx];
+            const r = [validateBox('input-f-sq', q.stepF2), validateBox('input-y-sq', q.stepY2)];
+            if (r.every(res => res === true || res === "failed")) {
+                if(r.some(res => res === "failed")) {
+                   document.getElementById('feedback').innerHTML = '<span class="text-red-500 font-bold">انكشفت العملية! تم إظهار الإجابات للمراجعة.</span>';
+                } else {
+                   document.getElementById('feedback').innerHTML = '<span class="text-green-500 font-bold">تم تحطيم الجدران بنجاح!</span>';
+                }
+                proceedToNext(3, 4, "بدء عملية المداهمة", "Raid in Progress");
+            }
+        };
+
+        window.checkStage4 = function() {
+            const q = questions[qIdx];
+            const res = validateBox('input-sqrt-f', q.stepSqrtF);
+            if (res !== false) {
+                if(res === "failed") {
+                   document.getElementById('feedback').innerHTML = '<span class="text-red-500 font-bold">انكشفت العملية! تم إظهار الإجابة للمراجعة.</span>';
+                } else {
+                   document.getElementById('feedback').innerHTML = '<span class="text-green-500 font-bold">تم فك التربيع! استعد للتحرير.</span>';
+                }
+                proceedToNext(4, 5, "تحضير التحرير النهائي", "Final Extraction Ready");
+            }
+        };
+
+        window.checkStage5 = function() {
+            const q = questions[qIdx];
+            const val = document.getElementById('input-final-a').value.trim();
+            const attempts = (boxAttempts['input-final-a'] || 0) + 1;
+            boxAttempts['input-final-a'] = attempts;
+            const isCorrect = q.results.some(r => String(val) == String(r) || String(val) == toAr(r));
+
+            if (isCorrect) {
+                document.getElementById('input-final-a').classList.add('correct-glow');
+                const p = (attempts === 1) ? 2 : 1;
+                totalScore += p; prisonerScore += p; maxAvailableScore += 2;
+                updateTopDisplay();
+                document.getElementById('feedback').innerHTML = '<span class="text-green-500 font-black">تم إيجاد المفتاح! جاري فتح الزنزانة.</span>';
+                proceedToNext(5, 6, "", "");
+            } else {
+                if (attempts === 1) {
+                    document.getElementById('input-final-a').classList.add('error-shake');
+                    document.getElementById('feedback').innerHTML = '<span class="text-yellow-500 font-bold">احذر! الحرس يقتربون.. حاول مجدداً لفتح القفل.</span>';
+                } else {
+                    document.getElementById('input-final-a').classList.add('revealed-glow');
+                    document.getElementById('input-final-a').value = toAr(q.results[0]);
+                    maxAvailableScore += 2; updateTopDisplay();
+                    document.getElementById('feedback').innerHTML = '<span class="text-red-500 font-bold">فشل التحرير اليدوي! تم التدخل وإظهار الحل للمراجعة.</span>';
+                    proceedToNext(5, 6, "", "");
+                }
+            }
+        };
+
+        function showRescueCelebration() {
+            const q = questions[qIdx];
+            document.getElementById('rescue-correct-answer').textContent = `أ = ${toAr(q.results[0])}`;
+            
+            const titleEl = document.getElementById('rescue-modal-title');
+            const descEl = document.getElementById('rescue-modal-desc');
+            const iconEl = document.getElementById('rescue-modal-icon');
+            const pointsEl = document.getElementById('rescue-points-text');
+            
+            pointsEl.textContent = toAr(prisonerScore) + " / ٢٢";
+
+            if (prisonerScore >= 20) {
+                titleEl.textContent = "تم تحرير الأسير!";
+                titleEl.className = "text-3xl font-black text-green-400 mb-2";
+                descEl.innerHTML = `عملية مثالية! تم التحرير بسلام وبدون أي إصابات للأسير رقم <span class="text-xl text-white">${toAr(qIdx+1)}</span>.`;
+                iconEl.className = "w-24 h-24 bg-green-500 rounded-3xl flex items-center justify-center mb-4 shadow-[0_0_40px_rgba(34,197,94,0.6)]";
+                iconEl.innerHTML = '<i class="fas fa-unlock-alt text-white text-5xl"></i>';
+                pointsEl.className = "text-4xl font-black text-green-400";
+                createConfetti();
+            } else if (prisonerScore >= 14) {
+                titleEl.textContent = "تم تحرير الأسير!";
+                titleEl.className = "text-3xl font-black text-yellow-400 mb-2";
+                descEl.innerHTML = `نجحت المهمة، وتم التحرير مع بعض الإصابات الطفيفة للأسير رقم <span class="text-xl text-white">${toAr(qIdx+1)}</span>.`;
+                iconEl.className = "w-24 h-24 bg-yellow-500 rounded-3xl flex items-center justify-center mb-4 shadow-[0_0_40px_rgba(234,179,8,0.6)]";
+                iconEl.innerHTML = '<i class="fas fa-user-injured text-white text-5xl"></i>';
+                pointsEl.className = "text-4xl font-black text-yellow-400";
+                createConfetti();
+            } else if (prisonerScore >= 9) {
+                titleEl.textContent = "تم تحرير الأسير!";
+                titleEl.className = "text-3xl font-black text-orange-500 mb-2";
+                descEl.innerHTML = `تمت العملية، لكن الأسير رقم <span class="text-xl text-white">${toAr(qIdx+1)}</span> تعرض لإصابات متوسطة وبالغة.`;
+                iconEl.className = "w-24 h-24 bg-orange-500 rounded-3xl flex items-center justify-center mb-4 shadow-[0_0_40px_rgba(249,115,22,0.6)]";
+                iconEl.innerHTML = '<i class="fas fa-crutch text-white text-5xl"></i>';
+                pointsEl.className = "text-4xl font-black text-orange-500";
+                createConfetti();
+            } else {
+                titleEl.textContent = "المهمة غير ناجحة";
+                titleEl.className = "text-3xl font-black text-red-500 mb-2";
+                descEl.innerHTML = `لم يكتمل التحرير بصورة سليمة للأسير رقم <span class="text-xl text-white">${toAr(qIdx+1)}</span>. حاول التعويض مع الأسير الآخر.`;
+                iconEl.className = "w-24 h-24 bg-red-600 rounded-3xl flex items-center justify-center mb-4 shadow-[0_0_40px_rgba(220,38,38,0.6)]";
+                iconEl.innerHTML = '<i class="fas fa-times-circle text-white text-5xl"></i>';
+                pointsEl.className = "text-4xl font-black text-red-500";
+            }
+
+            document.getElementById('rescue-modal').style.display = 'flex';
+        }
+
+        window.closeRescueModal = function() {
+            document.getElementById('rescue-modal').style.display = 'none';
+            qIdx++;
+            loadQuestion();
+        };
+
+        function createConfetti() {
+            for(let i=0; i<60; i++) {
+                const c = document.createElement('div');
+                c.className = 'confetti';
+                c.style.left = Math.random() * 100 + '%';
+                c.style.backgroundColor = ['#ef4444','#22c55e','#3b82f6','#eab308','#ffffff'][Math.floor(Math.random()*5)];
+                c.style.animationDelay = Math.random() * 2 + 's';
+                document.body.appendChild(c);
+                setTimeout(() => c.remove(), 3500);
+            }
+        }
+
+        function endGame() {
+            document.getElementById('game-screen').classList.add('hidden');
+            document.getElementById('result-screen').classList.remove('hidden');
+            const time = Math.floor((Date.now() - startTime) / 1000);
+            const grade = ((totalScore / maxAvailableScore) * 5).toFixed(1);
+
+            document.getElementById('final-icon').innerHTML = grade >= 4 ? '<i class="fas fa-trophy text-yellow-500 animate-bounce"></i>' : '<i class="fas fa-medal text-slate-400"></i>';
+            document.getElementById('final-title').textContent = grade >= 4 ? "قائد عمليات أسطوري" : "قائد ميداني محترف";
+            document.getElementById('final-desc').textContent = grade >= 4 ? "لقد أظهرت دقة مذهلة في تحطيم القيود الجبرية وتحرير الأسرى." : "تمت المهمة، لكن الرادارات رصدت العديد من الأخطاء أثناء التحرير.";
+            
+            document.getElementById('final-stats').innerHTML = `
+                <div class="bg-slate-800 p-4 rounded-3xl border border-slate-700 text-center shadow-xl">
+                    <p class="text-[10px] text-slate-500 font-bold uppercase mb-1">الدرجة المستحقة</p>
+                    <p class="text-3xl font-black text-red-500">${toAr(grade)} / ٥</p>
+                </div>
+                <div class="bg-slate-800 p-4 rounded-3xl border border-slate-700 text-center shadow-xl">
+                    <p class="text-[10px] text-slate-500 font-bold uppercase mb-1">وقت التنفيذ</p>
+                    <p class="text-3xl font-black text-white">${toAr(time)} ث</p>
+                </div>
+            `;
+            if (studentId && classId) saveScore(grade, time);
+        }
+
+        async function saveScore(g, t) {
+            try { fetch(`${SCRIPT_URL}?action=saveScore&studentId=${studentId}&classId=${encodeURIComponent(classId)}&itemId=${GAME_ID}&score=${g}&metricValue=${t}&type=game`); } catch(e){}
+        }
+
+        window.fetchAndShowLeaderboard = function(manual = false) {
+            const modal = document.getElementById('leaderboard-modal');
+            if (manual) modal.style.display = 'flex';
+            const content = document.getElementById('leaderboard-content');
+            content.innerHTML = '<div class="text-center py-10"><i class="fas fa-sync fa-spin text-red-500 text-3xl"></i></div>';
+            fetch(`${SCRIPT_URL}?action=getLeaderboard&gameId=${GAME_ID}&classId=all&t=${Date.now()}`).then(r => r.json()).then(res => {
+                let h = '';
+                (res.data || []).forEach((p, i) => {
+                    const isMe = studentId && String(p.name).trim() === String(studentName).trim();
+                    h += `<div class="flex items-center justify-between p-3 rounded-2xl ${isMe ? 'bg-red-600/20 border-2 border-red-500' : 'bg-slate-800 border border-slate-700'}">
+                        <span class="font-black text-white text-sm w-1/2 truncate">${toAr(i+1)}. ${p.name}</span>
+                        <div class="flex gap-3 text-left w-1/2 justify-end items-center">
+                            <div class="text-center">
+                                <span class="text-[8px] text-slate-500 block mb-0.5 uppercase">الدرجة</span>
+                                <span class="font-black text-red-400">${toAr(parseFloat(p.grade).toFixed(1))}</span>
+                            </div>
+                            <div class="text-center bg-slate-900 px-2 py-1 rounded-lg border border-slate-700">
+                                <span class="text-[8px] text-slate-500 block mb-0.5 uppercase">الزمن</span>
+                                <span class="font-black text-white text-xs">${toAr(p.metricValue || 0)} ث</span>
+                            </div>
+                        </div>
+                    </div>`;
+                });
+                content.innerHTML = h || '<p class="text-center text-slate-500 py-10 italic">بانتظار وصول الأبطال...</p>';
+            });
+        };
+
+        window.closeLeaderboardModal = function() {
+            document.getElementById('leaderboard-modal').style.display = 'none';
+        };
+    </script>
+</body>
+</html>

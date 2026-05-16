@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>مدرب كرة السلة - تحدي الأبطال</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body { font-family: 'Cairo', sans-serif; overflow: hidden; touch-action: manipulation; direction: rtl; }
+        .compact-card {
+            width: 100%; max-width: 420px; background: white; border-radius: 2rem;
+            box-shadow: 0 15px 35px -5px rgba(0,0,0,0.1); border: 1px solid #f1f5f9;
+            display: flex; flex-direction: column; max-height: 96vh; overflow: hidden; position: relative;
+        }
+        .top-info-bar {
+            background: #f8fafc; border-bottom: 1px solid #e2e8f0; padding: 8px 16px;
+            display: flex; justify-content: space-between; align-items: center;
+            font-size: 11px; font-weight: 800; color: #64748b;
+        }
+        .btn-touch { min-height: 45px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; border-radius: 1rem; font-weight: 800; cursor: pointer; }
+        .btn-touch:active { transform: scale(0.97); }
+        
+        .leaderboard-modal { 
+            position: absolute; inset: 0; background: #ffffff; z-index: 100; 
+            display: flex; flex-direction: column; padding: 1.25rem; transition: all 0.3s; 
+        }
+        .hidden-modal { opacity: 0; pointer-events: none; transform: scale(0.95); display: none; }
+        .visible-modal { opacity: 1; pointer-events: auto; transform: scale(1); display: flex; }
+        
+        .tab-btn { flex: 1; padding: 8px; font-size: 11px; font-weight: bold; border-radius: 8px; transition: 0.3s; border: 1px solid transparent; cursor: pointer; }
+        .tab-active { background-color: #f97316; color: white; box-shadow: 0 2px 10px rgba(249, 115, 22, 0.4); }
+        .tab-inactive { background-color: #f1f5f9; color: #64748b; border-color: #e2e8f0; }
+        
+        .rank-row-me { background-color: #fff7ed !important; border-right: 4px solid #ea580c !important; }
+        .sync-loader { font-size: 10px; animation: spin 1s linear infinite; display: inline-block; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        .leaderboard-name { color: #1e293b; font-weight: 800; font-size: 11px; }
+        .leaderboard-rank { font-weight: 900; }
+
+        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance: textfield; }
+
+        /* Game Specific Styles */
+        .tactical-board {
+            background-color: #2b5c3a;
+            background-image: radial-gradient(#3a734d 1px, transparent 1px);
+            background-size: 15px 15px;
+            border: 6px solid #a66a38;
+            border-radius: 12px;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
+            position: relative;
+        }
+        .board-line { stroke: rgba(255, 255, 255, 0.8); stroke-width: 3; stroke-dasharray: 6 4; fill: none; }
+        .board-solid-line { stroke: rgba(255, 255, 255, 0.8); stroke-width: 4; fill: none; }
+        .coach-bubble { position: relative; background: white; border-radius: 12px; padding: 10px; border: 2px solid #e2e8f0; }
+        .coach-bubble::after { content: ''; position: absolute; bottom: -8px; right: 20px; border-width: 8px 8px 0; border-style: solid; border-color: white transparent transparent transparent; }
+        .coach-bubble::before { content: ''; position: absolute; bottom: -11px; right: 19px; border-width: 9px 9px 0; border-style: solid; border-color: #e2e8f0 transparent transparent transparent; }
+        
+        .opt-btn { background: white; border: 2px solid #e2e8f0; border-radius: 12px; padding: 6px; font-weight: 800; font-size: 15px; color: #1e293b; transition: 0.2s; min-height: 45px;}
+        .opt-btn:active { transform: scale(0.95); background: #f8fafc; }
+        .opt-btn.correct { background: #22c55e !important; border-color: #16a34a !important; color: white !important; }
+        .opt-btn.wrong { background: #ef4444 !important; border-color: #dc2626 !important; color: white !important; }
+
+        .progress-bar-container { height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden; }
+        .progress-bar { height: 100%; background: #f97316; transition: width 1s linear; }
+        .progress-warning { background: #ef4444; }
+        
+        .math-font { font-family: 'Courier New', Courier, monospace; letter-spacing: -0.5px; }
+        
+        .frac { display: inline-flex; flex-direction: column; align-items: center; vertical-align: middle; margin: 0 4px; font-size: 11px; line-height: 1.1; }
+        .frac span:first-child { border-bottom: 1.5px solid currentColor; padding: 0 3px 1px 3px; width: 100%; text-align: center; }
+        .frac span:last-child { padding: 1px 3px 0 3px; }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 h-screen w-screen flex items-center justify-center p-3 text-right">
+
+    <div class="compact-card">
+        <!-- الشريط العلوي -->
+        <div class="top-info-bar">
+            <div class="flex items-center gap-2 overflow-hidden">
+                <i class="fas fa-basketball-ball text-orange-500"></i>
+                <span id="top-student-name" class="truncate font-black"></span>
+                <script>
+                    (function() {
+                        const p = new URLSearchParams(window.location.search);
+                        const raw = p.get('name') || p.get('studentName') || p.get('username') || p.get('user');
+                        const display = document.getElementById('top-student-name');
+                        display.textContent = raw ? decodeURIComponent(raw) : "نجم السلة";
+                    })();
+                </script>
+            </div>
+            <div class="flex items-center gap-2 bg-white px-2 py-0.5 rounded-full border shadow-sm font-bold">
+                <span id="sync-icon" class="hidden"><i class="fas fa-sync sync-loader text-blue-400"></i></span>
+                <i class="fas fa-star text-yellow-500 text-[10px]"></i>
+                <span id="top-prev-score">٠ / ٥</span>
+            </div>
+        </div>
+
+        <!-- الشاشة 1: البداية -->
+        <div id="start-screen" class="p-5 text-center flex flex-col gap-3 h-full justify-center">
+            <div class="text-orange-500 text-5xl mb-1 drop-shadow-md"><i class="fas fa-basketball-ball"></i></div>
+            <h1 class="text-2xl font-black text-slate-800">مدرب كرة السلة</h1>
+            <div class="bg-orange-50 p-4 rounded-2xl border border-orange-100 text-[11px] font-bold text-orange-800 leading-relaxed text-center">
+                أهلاً بك أيها النجم الرياضي! 🏀<br>
+                المباراة تتكون من ٣ مراحل، كل مرحلة فيها ٣ هجمات متتالية:<br>
+                ١. هجمة تحديد النسبة المثلثية المناسبة.<br>
+                ٢. هجمة إيجاد قيمة النسبة (الزاوية).<br>
+                ٣. هجمة حساب قيمة الضلع (س).<br><br>
+                <span class="text-emerald-600">🏀 إجابة سريعة (قبل ٤٠ ثانية): ٣ نقاط</span><br>
+                <span class="text-blue-600">🏀 المحاولة الثانية (بعد الخطأ/الوقت): نقطة واحدة</span>
+            </div>
+            
+            <div class="flex flex-row gap-2 items-stretch mt-1">
+                <button onclick="initGame()" class="btn-touch flex-[2.5] bg-orange-500 hover:bg-orange-600 text-white shadow-lg text-lg">
+                    بدء المباراة <i class="fas fa-play-circle mr-2"></i>
+                </button>
+                <button onclick="fetchAndShowLeaderboard(true)" class="btn-touch flex-1 bg-white text-slate-600 border border-slate-200 text-[10px] flex-col leading-tight py-2">
+                    <i class="fas fa-trophy text-yellow-500 text-xl mb-1"></i>
+                    <span>الأبطال</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- الشاشة 2: اللعبة -->
+        <div id="game-screen" class="hidden flex flex-col h-full bg-slate-50 relative">
+            
+            <div class="flex-1 overflow-y-auto p-3 flex flex-col gap-2">
+                <!-- كلام المدرب التحفيزي والموجه -->
+                <div class="flex items-end gap-2 mb-1 mt-1">
+                    <div class="w-10 h-10 shrink-0 rounded-full bg-slate-200 flex items-center justify-center text-xl text-slate-600 shadow-inner border-2 border-white relative z-10">
+                        <i class="fas fa-user-tie"></i>
+                    </div>
+                    <div class="coach-bubble flex-1 shadow-sm !p-2 min-h-[90px] flex flex-col">
+                        <div class="flex justify-between items-center mb-1 border-b border-slate-100 pb-1 shrink-0">
+                            <span class="text-[10px] font-black text-slate-500">المرحلة: <span id="current-q-num" class="text-orange-500">١/٣</span> <span id="current-phase-badge" class="bg-orange-100 text-orange-700 px-1 rounded text-[8px] mr-1">هجمة ١</span></span>
+                            <span class="text-[10px] font-black text-slate-500">النقاط: <span id="current-score" class="text-emerald-600 text-sm">٠</span></span>
+                        </div>
+                        <div id="coach-text-container" class="flex-1 flex flex-col justify-center items-center text-center">
+                            <p id="coach-text" class="transition-all duration-300"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- اللوحة التكتيكية (مقسومة: يمين 40% خطوات، يسار 60% رسم) -->
+                <div class="tactical-board w-full h-36 flex mb-1 shrink-0">
+                    
+                    <!-- النصف الأيمن (40%): السبورة التوضيحية (الخطوات) -->
+                    <div class="w-[40%] p-2 flex flex-col justify-center items-start text-right border-l border-dashed border-white/30 h-full relative overflow-hidden" dir="rtl">
+                        <p class="text-[8px] text-white/50 absolute top-1 right-2"><i class="fas fa-chalkboard"></i> الحل:</p>
+                        <div id="step-1" class="text-[12px] font-bold text-white math-font opacity-0 transition-opacity duration-500 mt-2 whitespace-nowrap"></div>
+                        <div id="step-2" class="text-[12px] font-bold text-yellow-300 math-font opacity-0 transition-opacity duration-500 mt-2 whitespace-nowrap"></div>
+                        <div id="step-3" class="text-[12px] font-bold text-emerald-400 math-font opacity-0 transition-opacity duration-500 mt-2 whitespace-nowrap"></div>
+                    </div>
+
+                    <!-- النصف الأيسر (60%): رسمة المثلث الأكبر -->
+                    <div class="w-[60%] h-full flex items-center justify-center p-1">
+                        <svg id="triangle-svg" viewBox="0 0 140 100" class="w-full h-full drop-shadow-md">
+                            <!-- سيتم رسم المثلث عبر الجافاسكربت -->
+                        </svg>
+                    </div>
+
+                </div>
+
+                <!-- شريط الوقت -->
+                <div id="timer-container" class="mb-1 shrink-0">
+                    <div class="flex justify-between text-[10px] font-bold text-slate-500 mb-1">
+                        <span>وقت الهجمة</span>
+                        <span id="timer-text" class="text-orange-500 font-black">٤٠ ثانية</span>
+                    </div>
+                    <div class="progress-bar-container">
+                        <div id="timer-bar" class="progress-bar" style="width: 100%;"></div>
+                    </div>
+                </div>
+
+                <!-- الخيارات -->
+                <div class="grid grid-cols-2 gap-2 mt-auto shrink-0 pb-2">
+                    <button class="opt-btn" onclick="checkAnswer(0)" id="btn-0">١</button>
+                    <button class="opt-btn" onclick="checkAnswer(1)" id="btn-1">٢</button>
+                    <button class="opt-btn" onclick="checkAnswer(2)" id="btn-2">٣</button>
+                    <button class="opt-btn" onclick="checkAnswer(3)" id="btn-3">٤</button>
+                </div>
+            </div>
+
+            <!-- الحقول المخفية للربط مع القالب -->
+            <div class="hidden">
+                <input type="number" id="input-achieved" value="0">
+                <input type="number" id="input-max" value="27"> <!-- 3 مراحل * 3 هجمات * 3 نقاط -->
+                <input type="number" id="input-metric-value" value="0">
+            </div>
+
+            <!-- النافذة المنبثقة للانتقال بين المراحل -->
+            <div id="intermission-modal" class="absolute inset-0 bg-slate-900/80 z-[150] flex items-center justify-center p-6 backdrop-blur-sm transition-all duration-300 opacity-0 hidden">
+                <div class="bg-white rounded-3xl w-full max-w-[300px] p-6 text-center shadow-2xl transform scale-95 transition-all duration-300" id="intermission-content">
+                    <div class="text-7xl mb-2 drop-shadow-md">⛹️‍♂️</div>
+                    <h2 class="text-2xl font-black text-slate-800 mb-1">نهاية المرحلة!</h2>
+                    <p class="text-[12px] font-bold text-slate-500 mb-4">حصيلتك من النقاط في هذه المرحلة:</p>
+                    <div class="bg-orange-50 rounded-xl py-3 border border-orange-100 mb-5">
+                        <div class="text-5xl font-black text-orange-600"><span id="stage-score-display">٠</span> <span class="text-sm text-orange-400">/ ٩</span></div>
+                    </div>
+                    <button onclick="nextStage()" class="btn-touch w-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg text-lg">
+                        المرحلة التالية <i class="fas fa-play mr-2"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- الشاشة 3: النتائج -->
+        <div id="result-screen" class="hidden p-5 flex flex-col h-full overflow-hidden text-center justify-center">
+            <div class="text-orange-500 text-5xl mb-4"><i class="fas fa-medal"></i></div>
+            <h2 class="text-2xl font-black mb-4">انتهت المباراة!</h2>
+            
+            <div id="final-stats" class="grid grid-cols-3 gap-1 mb-4"></div>
+            
+            <div class="bg-green-50 p-4 rounded-2xl border border-green-100 mb-4">
+                <i class="fas fa-check-double text-green-500 text-2xl mb-1"></i>
+                <p id="save-msg" class="font-black text-green-800 text-sm">تم اعتماد نتيجتك بنجاح!</p>
+            </div>
+            <button onclick="fetchAndShowLeaderboard(true)" class="btn-touch w-full bg-orange-500 text-white mb-4 shadow-md">
+                <i class="fas fa-crown ml-2"></i> سجل الأبطال
+            </button>
+            <div class="mt-auto flex gap-2">
+                <button onclick="location.reload()" class="btn-touch flex-1 bg-slate-100 text-slate-600 text-sm font-bold">إعادة</button>
+                <button id="finish-btn" class="btn-touch flex-[2] bg-slate-900 text-white text-sm font-bold">إنهاء</button>
+            </div>
+        </div>
+
+        <!-- سجل الأبطال -->
+        <div id="leaderboard-modal" class="leaderboard-modal hidden-modal" dir="rtl">
+            <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-3">
+                <h3 class="font-black text-slate-800 text-lg"><i class="fas fa-trophy text-yellow-500 ml-2"></i>سجل المتصدرين</h3>
+                <button onclick="closeLeaderboardModal()" class="w-9 h-9 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center transition-all hover:bg-red-50 hover:text-red-500"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="flex gap-2 mb-4">
+                <button onclick="switchTab('class')" id="tab-class" class="tab-btn tab-inactive">أبطال فصلي</button>
+                <button onclick="switchTab('global')" id="tab-global" class="tab-btn tab-active">أبطال اللعبة (الكل)</button>
+            </div>
+            <div id="modal-body" class="flex-1 overflow-y-auto bg-slate-50 rounded-2xl border border-slate-100 p-1 relative">
+                <div id="modal-loader" class="absolute inset-0 flex items-center justify-center hidden bg-white/80 z-10"><div class="sync-loader text-blue-500 text-3xl"><i class="fas fa-sync"></i></div></div>
+                <div id="leaderboard-content" class="space-y-1"></div>
+            </div>
+            <p class="text-center text-[9px] text-slate-400 mt-2 font-mono italic">الترتيب حسب الدرجة ثم الأفضلية (الأسرع وقتاً)</p>
+        </div>
+    </div>
+
+    <script>
+    // --- دوال المساعدة ---
+    const toAr = (n) => String(n).replace(/\d/g, d => "٠١٢٣٤٥٦٧٨٩"[d]).replace(/\./g, '،');
+    const frac = (n, d) => `<span class="frac"><span>${n}</span><span>${d}</span></span>`;
+
+    // --- متغيرات اللعبة ---
+    const maxTime = 40; 
+    
+    let currentQIndex = 0; 
+    let currentPhase = 1;  
+    let score = 0;
+    let currentStageScore = 0; 
+    let totalGameTime = 0;
+    let questionStartTime = 0;
+    let timerInterval;
+    let timeLeft = maxTime;
+    let isSecondAttempt = false;
+    let isClickable = true;
+
+    // بنك الأسئلة الشامل (9 أسئلة منوعة بين الجا والجتا والظا)
+    const allQuestionsBank = [
+        // --- 3 أسئلة (جا) ---
+        {
+            mainGoal: "إيجاد ارتفاع السلة (س)", targetName: "الارتفاع (س)",
+            p1Opts: ['جا', 'جتا', 'ظا', 'مقلوب'], p1Ans: 'جا',
+            step1Eq: `جا ٣٠° = ${frac('س', '١٠')}`,
+            p2Opts: [0.5, 0.86, 1, 0.7], p2Ans: 0.5,
+            step2Eq: `٠،٥ = ${frac('س', '١٠')}`,
+            p3Opts: [5, 10, 8, 2], p3Ans: 5,
+            step3Eq: `س = ٠،٥ × ١٠ = ٥ م`,
+            angle: "٣٠°", adj: "?", opp: "س", hyp: "١٠ م"
+        },
+        {
+            mainGoal: "إيجاد مسار الكرة (الوتر س)", targetName: "مسار الكرة (س)",
+            p1Opts: ['جا', 'جتا', 'ظا', 'جميع ما سبق'], p1Ans: 'جا',
+            step1Eq: `جا ٣٠° = ${frac('٤', 'س')}`,
+            p2Opts: [0.5, 1, 0.86, 0.7], p2Ans: 0.5,
+            step2Eq: `٠،٥ = ${frac('٤', 'س')}`,
+            p3Opts: [8, 12, 6, 4], p3Ans: 8,
+            step3Eq: `س = ٤ ÷ ٠،٥ = ٨ م`,
+            angle: "٣٠°", adj: "?", opp: "٤ م", hyp: "س"
+        },
+        {
+            mainGoal: "إيجاد ارتفاع السلة (س)", targetName: "الارتفاع (س)",
+            p1Opts: ['جا', 'جتا', 'ظا', 'قاطع'], p1Ans: 'جا',
+            step1Eq: `جا ٣٠° = ${frac('س', '١٢')}`,
+            p2Opts: [0.5, 0.7, 0.86, 1], p2Ans: 0.5,
+            step2Eq: `٠،٥ = ${frac('س', '١٢')}`,
+            p3Opts: [6, 12, 24, 8], p3Ans: 6,
+            step3Eq: `س = ٠،٥ × ١٢ = ٦ م`,
+            angle: "٣٠°", adj: "?", opp: "س", hyp: "١٢ م"
+        },
+
+        // --- 3 أسئلة (جتا) ---
+        {
+            mainGoal: "إيجاد مسار الكرة (الوتر س)", targetName: "مسار الكرة (س)",
+            p1Opts: ['جتا', 'جا', 'ظا', 'قاطع'], p1Ans: 'جتا',
+            step1Eq: `جتا ٦٠° = ${frac('٤', 'س')}`,
+            p2Opts: [0.5, 0.86, 1, 0.7], p2Ans: 0.5,
+            step2Eq: `٠،٥ = ${frac('٤', 'س')}`,
+            p3Opts: [8, 6, 10, 4], p3Ans: 8,
+            step3Eq: `س = ٤ ÷ ٠،٥ = ٨ م`,
+            angle: "٦٠°", adj: "٤ م", opp: "?", hyp: "س"
+        },
+        {
+            mainGoal: "إيجاد المسافة الأفقية (س)", targetName: "المسافة الأفقية (س)",
+            p1Opts: ['جتا', 'جا', 'ظا', 'مقلوب'], p1Ans: 'جتا',
+            step1Eq: `جتا ٦٠° = ${frac('س', '١٠')}`,
+            p2Opts: [0.5, 1, 0.86, 0.7], p2Ans: 0.5,
+            step2Eq: `٠،٥ = ${frac('س', '١٠')}`,
+            p3Opts: [5, 10, 20, 8], p3Ans: 5,
+            step3Eq: `س = ٠،٥ × ١٠ = ٥ م`,
+            angle: "٦٠°", adj: "س", opp: "?", hyp: "١٠ م"
+        },
+        {
+            mainGoal: "إيجاد المسافة الأفقية (س)", targetName: "المسافة الأفقية (س)",
+            p1Opts: ['جتا', 'ظا', 'جا', 'لا شيء'], p1Ans: 'جتا',
+            step1Eq: `جتا ٦٠° = ${frac('س', '١٤')}`,
+            p2Opts: [0.5, 0.7, 0.86, 1], p2Ans: 0.5,
+            step2Eq: `٠،٥ = ${frac('س', '١٤')}`,
+            p3Opts: [7, 14, 28, 9], p3Ans: 7,
+            step3Eq: `س = ٠،٥ × ١٤ = ٧ م`,
+            angle: "٦٠°", adj: "س", opp: "?", hyp: "١٤ م"
+        },
+
+        // --- 3 أسئلة (ظا) ---
+        {
+            mainGoal: "إيجاد المسافة الأفقية (س)", targetName: "المسافة الأفقية (س)",
+            p1Opts: ['ظا', 'جا', 'جتا', 'فيثاغورس'], p1Ans: 'ظا',
+            step1Eq: `ظا ٤٥° = ${frac('٣', 'س')}`,
+            p2Opts: [1, 0.5, 0.86, 0.7], p2Ans: 1,
+            step2Eq: `١ = ${frac('٣', 'س')}`,
+            p3Opts: [3, 4, 6, 2], p3Ans: 3,
+            step3Eq: `س = ٣ ÷ ١ = ٣ م`,
+            angle: "٤٥°", adj: "س", opp: "٣ م", hyp: "?"
+        },
+        {
+            mainGoal: "إيجاد ارتفاع السلة (س)", targetName: "الارتفاع (س)",
+            p1Opts: ['ظا', 'جا', 'جتا', 'لا يمكن'], p1Ans: 'ظا',
+            step1Eq: `ظا ٤٥° = ${frac('س', '٦')}`,
+            p2Opts: [1, 0.5, 0.7, 0.86], p2Ans: 1,
+            step2Eq: `١ = ${frac('س', '٦')}`,
+            p3Opts: [6, 8, 3, 12], p3Ans: 6,
+            step3Eq: `س = ١ × ٦ = ٦ م`,
+            angle: "٤٥°", adj: "٦ م", opp: "س", hyp: "?"
+        },
+        {
+            mainGoal: "إيجاد المسافة الأفقية (س)", targetName: "المسافة الأفقية (س)",
+            p1Opts: ['ظا', 'جا', 'جتا', 'مقلوب'], p1Ans: 'ظا',
+            step1Eq: `ظا ٤٥° = ${frac('٥', 'س')}`,
+            p2Opts: [1, 0.5, 0.86, 0.7], p2Ans: 1,
+            step2Eq: `١ = ${frac('٥', 'س')}`,
+            p3Opts: [5, 10, 2.5, 8], p3Ans: 5,
+            step3Eq: `س = ٥ ÷ ١ = ٥ م`,
+            angle: "٤٥°", adj: "س", opp: "٥ م", hyp: "?"
+        }
+    ];
+
+    let questions = []; // سيتم ملؤه بـ 3 أسئلة عشوائية لاحقاً
+
+    function shuffleArray(array) {
+        let arr = [...array];
+        for (let i = arr.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+        return arr;
+    }
+
+    // دالة للتحكم بنص المدرب بشكل ديناميكي بخط أكبر
+    function updateCoachText(html, styleType = 'normal') {
+        const el = document.getElementById('coach-text');
+        el.innerHTML = html;
+        if(styleType === 'normal') el.className = 'text-[13px] font-bold text-slate-700 leading-snug m-0';
+        if(styleType === 'warn') el.className = 'text-[13px] font-black text-orange-600 leading-snug m-0 animate-pulse';
+        if(styleType === 'danger') el.className = 'text-[12px] font-black text-red-600 leading-snug m-0';
+        if(styleType === 'success') el.className = 'text-[13px] font-black text-emerald-600 leading-snug m-0';
+    }
+
+    function drawTacticalBoard(q) {
+        const svg = document.getElementById('triangle-svg');
+        const x1 = 15, y1 = 80; 
+        const x2 = 110, y2 = 80; 
+        const x3 = 110, y3 = 20;  
+
+        const html = `
+            <line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" class="board-solid-line" stroke-width="3.5" />
+            <text x="62" y="96" fill="white" font-size="11" font-family="Cairo" font-weight="bold" text-anchor="middle">${q.adj !== '?' ? q.adj : ''}</text>
+
+            <line x1="${x2}" y1="${y2}" x2="${x3}" y2="${y3}" class="board-solid-line" stroke-width="3.5" />
+            <text x="125" y="55" fill="white" font-size="11" font-family="Cairo" font-weight="bold" text-anchor="middle">${q.opp !== '?' ? q.opp : ''}</text>
+
+            <line x1="${x1}" y1="${y1}" x2="${x3}" y2="${y3}" class="board-line" stroke-width="2.5" />
+            <text x="55" y="45" fill="orange" font-size="11" font-family="Cairo" font-weight="bold" text-anchor="middle" transform="rotate(-32 62 50)">${q.hyp !== '?' ? q.hyp : ''}</text>
+
+            <path d="M ${x2-8} ${y2} L ${x2-8} ${y2-8} L ${x2} ${y2-8}" stroke="white" stroke-width="1.5" fill="none" opacity="0.6"/>
+
+            <!-- الزاوية المكبرة مع الظل -->
+            <path d="M ${x1+20} ${y1} A 20 20 0 0 0 ${x1+16} ${y1-12}" stroke="yellow" stroke-width="1.5" fill="none" />
+            <text x="${x1+25}" y="${y1-6}" fill="yellow" font-size="13" font-family="Cairo" font-weight="900" style="text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">${q.angle}</text>
+
+            <text x="${x1-12}" y="${y1+5}" font-size="14">🧍</text>
+            <text x="${x3-7}" y="${y3-3}" font-size="16">🏀</text>
+        `;
+        svg.innerHTML = html;
+    }
+
+    window.initGame = () => {
+        document.getElementById('start-screen').classList.add('hidden');
+        document.getElementById('game-screen').classList.remove('hidden');
+        
+        // سحب 3 أسئلة عشوائياً من بنك الأسئلة الـ 9 في كل مرة تلعب فيها
+        questions = shuffleArray([...allQuestionsBank]).slice(0, 3);
+        
+        currentQIndex = 0;
+        currentPhase = 1;
+        score = 0;
+        currentStageScore = 0;
+        totalGameTime = 0;
+        loadQuestion();
+    };
+
+    function loadQuestion() {
+        const q = questions[currentQIndex];
+        isSecondAttempt = false;
+        isClickable = true;
+        timeLeft = maxTime;
+        questionStartTime = Date.now();
+
+        document.getElementById('current-q-num').textContent = toAr(currentQIndex + 1) + " / " + toAr(questions.length);
+        document.getElementById('current-phase-badge').textContent = `هجمة ${toAr(currentPhase)}`;
+        document.getElementById('current-score').textContent = toAr(score);
+        
+        let optsToDisplay = [];
+        let specificQuestion = "";
+
+        if (currentPhase === 1) {
+            specificQuestion = `💡 الهجمة ١: حدد النسبة المثلثية المناسبة.`;
+            updateCoachText(specificQuestion);
+            optsToDisplay = q.p1Opts;
+            // مسح السبورة
+            document.getElementById('step-1').style.opacity = '0';
+            document.getElementById('step-2').style.opacity = '0';
+            document.getElementById('step-3').style.opacity = '0';
+        } else if (currentPhase === 2) {
+            specificQuestion = `🧮 الهجمة ٢: أوجد قيمة (${q.p1Ans} ${q.angle}).`;
+            updateCoachText(specificQuestion);
+            optsToDisplay = q.p2Opts;
+        } else {
+            specificQuestion = `🎯 الهجمة ٣: أوجد قيمة ${q.targetName}.`;
+            updateCoachText(specificQuestion);
+            optsToDisplay = q.p3Opts;
+        }
+
+        originalQuestionText = specificQuestion; 
+
+        const shuffledOpts = shuffleArray(optsToDisplay);
+        for (let i = 0; i < 4; i++) {
+            const btn = document.getElementById('btn-' + i);
+            let displayVal = shuffledOpts[i];
+            
+            if(typeof displayVal === 'number') displayVal = toAr(displayVal);
+            if(currentPhase === 3 && typeof shuffledOpts[i] === 'number') displayVal += ' م';
+
+            btn.innerHTML = displayVal;
+            btn.dataset.val = shuffledOpts[i];
+            btn.className = 'opt-btn'; 
+        }
+        
+        drawTacticalBoard(q);
+
+        document.getElementById('timer-container').style.visibility = 'visible'; 
+        document.getElementById('timer-bar').style.width = '100%';
+        document.getElementById('timer-bar').className = 'progress-bar';
+        document.getElementById('timer-text').textContent = toAr(timeLeft) + " ثانية";
+        
+        clearInterval(timerInterval);
+        timerInterval = setInterval(timerTick, 1000);
+    }
+
+    function timerTick() {
+        timeLeft--;
+        const percentage = (timeLeft / maxTime) * 100;
+        document.getElementById('timer-bar').style.width = percentage + '%';
+        document.getElementById('timer-text').textContent = toAr(Math.max(0, timeLeft)) + " ثانية";
+
+        if (timeLeft <= 10) document.getElementById('timer-bar').classList.add('progress-warning');
+        
+        if (timeLeft === 15 && !isSecondAttempt) {
+            updateCoachText("⏳ الوقت يمر يا بطل! استعجل قليلاً.", "warn");
+        } else if (timeLeft === 5 && !isSecondAttempt) {
+            updateCoachText("🔥 اغتنم الفرصة! ٥ ثواني وتضيع الهجمة السريعة!", "danger");
+        }
+
+        if (timeLeft <= 0) {
+            clearInterval(timerInterval);
+            timeUp();
+        }
+    }
+
+    function timeUp() {
+        if (!isSecondAttempt) {
+            isSecondAttempt = true;
+            document.getElementById('timer-container').style.visibility = 'hidden'; 
+            updateCoachText(`⏰ انتهى الوقت! 🏀 <b>الرمية الحرة:</b><br><span class="text-slate-500 text-[11px]">${originalQuestionText}</span>`, "danger");
+        }
+    }
+
+    window.checkAnswer = (btnIndex) => {
+        if (!isClickable) return;
+        isClickable = false;
+        clearInterval(timerInterval);
+        
+        const timeTaken = Math.floor((Date.now() - questionStartTime) / 1000);
+        totalGameTime += isSecondAttempt ? maxTime + timeTaken : timeTaken;
+
+        const btn = document.getElementById('btn-' + btnIndex);
+        let selectedVal = btn.dataset.val;
+        const q = questions[currentQIndex];
+        let isCorrect = false;
+
+        if (currentPhase === 1) {
+            isCorrect = (selectedVal === q.p1Ans);
+        } else if (currentPhase === 2) {
+            isCorrect = (parseFloat(selectedVal) === q.p2Ans);
+        } else {
+            isCorrect = (parseFloat(selectedVal) === q.p3Ans);
+        }
+
+        if (isCorrect) {
+            btn.classList.add('correct');
+            let pointsEarned = isSecondAttempt ? 1 : 3;
+            score += pointsEarned;
+            currentStageScore += pointsEarned;
+            document.getElementById('current-score').textContent = toAr(score);
+            
+            if (currentPhase === 1) {
+                const step1 = document.getElementById('step-1');
+                step1.innerHTML = q.step1Eq; 
+                step1.style.opacity = '1';
+            } else if (currentPhase === 2) {
+                const step2 = document.getElementById('step-2');
+                step2.innerHTML = q.step2Eq;
+                step2.style.opacity = '1';
+            } else if (currentPhase === 3) {
+                const step3 = document.getElementById('step-3');
+                step3.innerHTML = q.step3Eq;
+                step3.style.opacity = '1';
+            }
+
+            updateCoachText(isSecondAttempt ? "🏀 رمية حرة ناجحة! انظر للسبورة." : "🏀 هجمة في الصميم! انظر للسبورة.", "success");
+            
+            setTimeout(() => {
+                proceedNextStep();
+            }, 1800); 
+
+        } else {
+            btn.classList.add('wrong');
+            
+            if (!isSecondAttempt) {
+                isSecondAttempt = true;
+                document.getElementById('timer-container').style.visibility = 'hidden';
+                updateCoachText(`❌ ضاعت المحاولة! 🏀 <b>فرصة التعويض:</b><br><span class="text-slate-500 text-[11px]">${originalQuestionText}</span>`, "danger");
+                
+                setTimeout(() => {
+                    btn.classList.remove('wrong');
+                    isClickable = true;
+                    questionStartTime = Date.now();
+                }, 1000);
+
+            } else {
+                for (let i = 0; i < 4; i++) {
+                    let b = document.getElementById('btn-' + i);
+                    let v = b.dataset.val;
+                    if ((currentPhase === 1 && v === q.p1Ans) || 
+                        (currentPhase === 2 && parseFloat(v) === q.p2Ans) || 
+                        (currentPhase === 3 && parseFloat(v) === q.p3Ans)) {
+                        b.classList.add('correct');
+                    }
+                }
+
+                updateCoachText("❌ أوت! تم كتابة الإجابة الصحيحة على السبورة لتتعلم.", "danger");
+
+                if (currentPhase === 1) {
+                    const step1 = document.getElementById('step-1');
+                    step1.innerHTML = q.step1Eq;
+                    step1.style.opacity = '1';
+                } else if (currentPhase === 2) {
+                    const step2 = document.getElementById('step-2');
+                    step2.innerHTML = q.step2Eq;
+                    step2.style.opacity = '1';
+                } else if (currentPhase === 3) {
+                    const step3 = document.getElementById('step-3');
+                    step3.innerHTML = q.step3Eq;
+                    step3.style.opacity = '1';
+                }
+
+                setTimeout(() => {
+                    proceedNextStep();
+                }, 2500);
+            }
+        }
+    };
+
+    function proceedNextStep() {
+        if (currentPhase < 3) {
+            currentPhase++;
+            loadQuestion();
+        } else {
+            if (currentQIndex < questions.length - 1) {
+                showIntermissionModal();
+            } else {
+                finishGame();
+            }
+        }
+    }
+
+    function showIntermissionModal() {
+        document.getElementById('stage-score-display').textContent = toAr(currentStageScore);
+        const modal = document.getElementById('intermission-modal');
+        const content = document.getElementById('intermission-content');
+        
+        modal.classList.remove('hidden');
+        setTimeout(() => {
+            modal.classList.remove('opacity-0');
+            content.classList.remove('scale-95');
+        }, 10);
+    }
+
+    window.nextStage = () => {
+        const modal = document.getElementById('intermission-modal');
+        const content = document.getElementById('intermission-content');
+        
+        modal.classList.add('opacity-0');
+        content.classList.add('scale-95');
+        
+        setTimeout(() => {
+            modal.classList.add('hidden');
+            currentQIndex++;
+            currentPhase = 1;
+            currentStageScore = 0; 
+            loadQuestion();
+        }, 300); 
+    };
+
+    function finishGame() {
+        document.getElementById('input-achieved').value = score;
+        document.getElementById('input-max').value = 27; 
+        document.getElementById('input-metric-value').value = totalGameTime;
+        setMetricType('time'); 
+        processResults();
+    }
+
+    // ==========================================
+    // كود القالب الأصلي للتخزين السحابي
+    // ==========================================
+    (function() {
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxqAQlGhNs8k5RwHs6jrWxDiDwaMABSx8a9Fl81O5oVVa5fHRWTwIEvsGy2cSDP4zGLWQ/exec";
+        const urlParams = new URLSearchParams(window.location.search);
+        // تم تغيير المعرف السحابي للعبة إلى g9_7_2
+        const GAME_ID = urlParams.get('gameId') || 'g9_7_2';
+        const studentId = urlParams.get('studentId') || urlParams.get('userId');
+        const classId = urlParams.get('classId');
+        
+        let studentName = decodeURIComponent(urlParams.get('name') || urlParams.get('studentName') || urlParams.get('username') || "نجم السلة");
+        let currentMetricType = 'time';
+        let currentLeaderboardMode = classId ? 'class' : 'global';
+        let localVisitorResult = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('top-student-name').textContent = studentName;
+            if (!classId) {
+                document.getElementById('tab-class').style.display = 'none';
+                currentLeaderboardMode = 'global';
+            } else {
+                document.getElementById('tab-class').className = 'tab-btn tab-active';
+                document.getElementById('tab-global').className = 'tab-btn tab-inactive';
+            }
+            if (studentId && classId) {
+                document.getElementById('sync-icon').classList.remove('hidden');
+                fetchInitialCloudData();
+            } else if (!urlParams.get('name')) {
+                studentName = "زائر رياضي";
+                document.getElementById('top-student-name').textContent = studentName;
+            }
+            document.getElementById('finish-btn').onclick = () => window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*');
+        });
+
+        async function fetchInitialCloudData() {
+            try {
+                const url = `${SCRIPT_URL}?action=getStudentData&studentId=${studentId}&classId=${encodeURIComponent(classId)}&itemId=${GAME_ID}&t=${Date.now()}`;
+                const res = await (await fetch(url)).json();
+                if (res.status === 'success' && res.data) {
+                    if (res.data.name) { studentName = res.data.name; document.getElementById('top-student-name').textContent = studentName; }
+                    if (res.data.games && res.data.games[GAME_ID]) document.getElementById('top-prev-score').textContent = toAr(parseFloat(res.data.games[GAME_ID].grade).toFixed(1)) + " / ٥";
+                } else if (!urlParams.get('name')) { studentName = "زائر رياضي"; document.getElementById('top-student-name').textContent = studentName; }
+            } catch (e) { console.log("Cloud Connect Failed"); }
+            finally { document.getElementById('sync-icon').classList.add('hidden'); }
+        }
+
+        window.setMetricType = (type) => { currentMetricType = type; };
+
+        window.processResults = () => {
+            const ach = parseFloat(document.getElementById('input-achieved').value);
+            const max = parseFloat(document.getElementById('input-max').value);
+            const met = parseFloat(document.getElementById('input-metric-value').value) || 0;
+            if (isNaN(ach) || isNaN(max) || max <= 0) return;
+            const grade = ((ach / max) * 5).toFixed(1);
+            showResult(ach, max, grade, met);
+            if (studentId && classId) saveScore(grade, met);
+            else { localVisitorResult = { name: studentName, grade: grade, metric: met, isLocal: true }; fetchAndShowLeaderboard(false); }
+        };
+
+        function showResult(a, m, g, met) {
+            document.getElementById('game-screen').classList.add('hidden');
+            document.getElementById('result-screen').classList.remove('hidden');
+            document.getElementById('final-stats').innerHTML = `
+                <div class="bg-orange-50 p-2 rounded-xl border border-orange-100 text-center flex flex-col justify-center">
+                    <p class="text-[8px] font-bold text-orange-600 uppercase">نقاطك</p>
+                    <p class="text-[11px] font-black text-orange-900">${toAr(a)} / ${toAr(m)}</p>
+                </div>
+                <div class="bg-emerald-50 p-2 rounded-xl border border-emerald-100 text-center flex flex-col justify-center shadow-sm">
+                    <p class="text-[8px] font-bold text-emerald-600 uppercase">الدرجة</p>
+                    <p class="text-lg font-black text-emerald-900">${toAr(g)}</p>
+                </div>
+                <div class="bg-blue-50 p-2 rounded-xl border border-blue-100 text-center flex flex-col justify-center">
+                    <p class="text-[8px] font-bold text-blue-400 uppercase">الوقت الكلي</p>
+                    <p class="text-lg font-black text-blue-900">${toAr(met)} <span class="text-[8px]">ث</span></p>
+                </div>
+            `;
+        }
+
+        async function saveScore(g, met) {
+            const p = new URLSearchParams({ action: 'saveScore', studentId, classId, itemId: GAME_ID, score: g, metricValue: met, type: 'game' });
+            try { await fetch(`${SCRIPT_URL}?${p.toString()}`); } finally { fetchAndShowLeaderboard(false); }
+        }
+
+        window.fetchAndShowLeaderboard = function(isManual = false) {
+            const modal = document.getElementById('leaderboard-modal');
+            if (isManual) { modal.classList.remove('hidden-modal'); modal.classList.add('visible-modal'); }
+            const content = document.getElementById('leaderboard-content');
+            document.getElementById('modal-loader').classList.remove('hidden');
+            let reqClassId = (currentLeaderboardMode === 'class') ? classId : 'all';
+            const url = `${SCRIPT_URL}?action=getLeaderboard&gameId=${GAME_ID}&classId=${encodeURIComponent(reqClassId || 'all')}&t=${Date.now()}`;
+            fetch(url).then(r => r.json()).then(res => {
+                let data = (res.status === 'success' && res.data) ? res.data : [];
+                if (localVisitorResult && (currentLeaderboardMode === 'global' || !classId)) {
+                    if (!data.find(p => p.name === localVisitorResult.name)) data.push(localVisitorResult);
+                    data.sort((a, b) => parseFloat(b.grade) - parseFloat(a.grade) || parseFloat(a.metric) - parseFloat(b.metric));
+                }
+                if (data.length > 0) {
+                    let h = `<table class="w-full text-right text-[10px] border-collapse"><thead class="text-slate-400 border-b border-slate-100 bg-slate-50/50"><tr><th class="p-2 text-center">#</th><th class="p-2 text-right">البطل</th><th class="p-2 text-center text-emerald-600">الدرجة</th></tr></thead><tbody class="divide-y divide-slate-50">`;
+                    data.forEach((p, i) => {
+                        const isMe = (p.isLocal || (studentId && String(p.name).trim() === String(studentName).trim()));
+                        h += `<tr class="${isMe ? 'rank-row-me' : 'hover:bg-slate-50/50'} transition-colors">
+                            <td class="p-2 leaderboard-rank text-center ${i<3 ? 'text-yellow-500 text-sm' : 'text-slate-400'}">${i < 3 ? ['🥇','🥈','🥉'][i] : toAr(i+1)}</td>
+                            <td class="p-2 leaderboard-name ${isMe ? 'text-orange-700 font-extrabold' : 'text-slate-700'}">${p.name} ${isMe ? '<span class="bg-orange-500 text-white text-[7px] px-1 rounded-full mx-1">أنت</span>' : ''}</td>
+                            <td class="p-2 text-center"><span class="text-emerald-600 font-black">${toAr(parseFloat(p.grade).toFixed(1))}</span> <span class="text-[8px] text-slate-400 block font-bold">(${toAr(p.metric || p.metricValue || 0)} ث)</span></td>
+                        </tr>`;
+                    });
+                    content.innerHTML = h + `</tbody></table>`;
+                } else content.innerHTML = `<div class="py-10 text-center text-slate-400 text-xs italic font-bold">بانتظار تسجيل الأبطال..</div>`;
+            }).finally(() => document.getElementById('modal-loader').classList.add('hidden'));
+        };
+
+        window.switchTab = (mode) => { currentLeaderboardMode = mode; document.getElementById('tab-class').className = mode === 'class' ? 'tab-btn tab-active' : 'tab-btn tab-inactive'; document.getElementById('tab-global').className = mode === 'global' ? 'tab-btn tab-active' : 'tab-btn tab-inactive'; fetchAndShowLeaderboard(false); };
+        window.closeLeaderboardModal = () => document.getElementById('leaderboard-modal').classList.replace('visible-modal', 'hidden-modal');
+    })();
+    </script>
+</body>
+</html>

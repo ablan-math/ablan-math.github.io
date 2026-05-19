@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>تحدي الأبطال - أولمبياد المدارس</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body { font-family: 'Cairo', sans-serif; overflow: hidden; touch-action: manipulation; direction: rtl; }
+        .compact-card {
+            width: 100%; max-width: 420px; background: white; border-radius: 2rem;
+            box-shadow: 0 15px 35px -5px rgba(0,0,0,0.1); border: 1px solid #f1f5f9;
+            display: flex; flex-direction: column; max-height: 96vh; overflow: hidden; position: relative;
+        }
+        .top-info-bar {
+            background: #f8fafc; border-bottom: 1px solid #e2e8f0; padding: 8px 16px;
+            display: flex; justify-content: space-between; align-items: center;
+            font-size: 11px; font-weight: 800; color: #64748b;
+        }
+        .btn-touch { min-height: 50px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; border-radius: 1rem; font-weight: 800; cursor: pointer; }
+        .btn-touch:active { transform: scale(0.97); }
+        
+        .leaderboard-modal { 
+            position: absolute; inset: 0; background: #ffffff; z-index: 100; 
+            display: flex; flex-direction: column; padding: 1.25rem; transition: all 0.3s; 
+        }
+        .hidden-modal { opacity: 0; pointer-events: none; transform: scale(0.95); display: none; }
+        .visible-modal { opacity: 1; pointer-events: auto; transform: scale(1); display: flex; }
+        
+        .tab-btn { flex: 1; padding: 8px; font-size: 11px; font-weight: bold; border-radius: 8px; transition: 0.3s; border: 1px solid transparent; cursor: pointer; }
+        .tab-active { background-color: #3b82f6; color: white; box-shadow: 0 2px 10px rgba(59, 130, 246, 0.4); }
+        .tab-inactive { background-color: #f1f5f9; color: #64748b; border-color: #e2e8f0; }
+        
+        .rank-row-me { background-color: #eff6ff !important; border-right: 4px solid #2563eb !important; }
+        .sync-loader { font-size: 10px; animation: spin 1s linear infinite; display: inline-block; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        .leaderboard-name { color: #1e293b; font-weight: 800; font-size: 11px; }
+        .leaderboard-rank { font-weight: 900; }
+
+        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance: textfield; }
+
+        /* حركات إضافية للعبة */
+        .pop-in { animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        @keyframes popIn { 0% { transform: scale(0.5); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+        .game-btn { border: 2px solid #e2e8f0; transition: all 0.2s; }
+        .game-btn:hover { border-color: #3b82f6; background-color: #eff6ff; }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 h-screen w-screen flex items-center justify-center p-3 text-right">
+
+    <div class="compact-card">
+        <!-- الشريط العلوي -->
+        <div class="top-info-bar">
+            <div class="flex items-center gap-2 overflow-hidden">
+                <i class="fas fa-user-graduate text-blue-500"></i>
+                <span id="top-student-name" class="truncate font-black"></span>
+                <script>
+                    (function() {
+                        const p = new URLSearchParams(window.location.search);
+                        const raw = p.get('name') || p.get('studentName') || p.get('username') || p.get('user');
+                        const display = document.getElementById('top-student-name');
+                        display.textContent = raw ? decodeURIComponent(raw) : "بطل التحدي";
+                    })();
+                </script>
+            </div>
+            <div class="flex items-center gap-2 bg-white px-2 py-0.5 rounded-full border shadow-sm font-bold">
+                <span id="sync-icon" class="hidden"><i class="fas fa-sync sync-loader text-blue-400"></i></span>
+                <i class="fas fa-star text-yellow-500 text-[10px]"></i>
+                <span id="top-prev-score">٠ / ٥</span>
+            </div>
+        </div>
+
+        <!-- الشاشة 1: البداية -->
+        <div id="start-screen" class="p-6 text-center flex flex-col gap-4 h-full justify-center relative overflow-hidden">
+            <i class="fas fa-gamepad absolute top-[-20px] left-[-20px] text-9xl text-slate-100 opacity-50 z-0"></i>
+            <div class="z-10">
+                <div class="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-3xl mx-auto mb-3 shadow-inner">
+                    <i class="fas fa-trophy"></i>
+                </div>
+                <h1 class="text-2xl font-black text-slate-800 leading-tight">أولمبياد المدارس<br><span class="text-blue-600 text-lg">للرياضات الإلكترونية</span></h1>
+                <div class="bg-blue-50 p-4 rounded-2xl border border-blue-100 text-[12px] font-bold text-blue-800 leading-relaxed text-center mt-4">
+                    أنت المنظم الرئيسي للبطولة! 🎮<br>
+                    مهمتك هي تحديد نوع العينة الإحصائية المستخدمة في المواقف التي ستواجهك لتنظيم الحدث بنجاح. أسرع لتدخل قائمة المتصدرين!
+                </div>
+                
+                <div class="flex flex-row gap-2 items-stretch mt-6">
+                    <button onclick="startInteractiveGame()" class="btn-touch flex-[2.5] bg-blue-600 text-white shadow-lg shadow-blue-500/30 text-lg">
+                        بدء التحدي <i class="fas fa-play-circle mr-2"></i>
+                    </button>
+                    <button onclick="fetchAndShowLeaderboard(true)" class="btn-touch flex-1 bg-white text-slate-600 border border-slate-200 text-[10px] flex-col leading-tight py-2">
+                        <i class="fas fa-medal text-yellow-500 text-xl mb-1"></i>
+                        <span>سجل الأبطال</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- الشاشة 2: اللعبة التفاعلية -->
+        <div id="game-screen" class="hidden p-5 flex flex-col h-full bg-slate-50">
+            <!-- شريط تقدم ووقت -->
+            <div class="flex justify-between items-center bg-white border border-slate-200 p-3 rounded-2xl mb-4 shadow-sm">
+                <div class="flex flex-col">
+                    <span class="text-[9px] text-slate-400 font-bold">المهمة</span>
+                    <span id="question-counter" class="text-sm font-black text-blue-600">١ / ٦</span>
+                </div>
+                <div class="flex flex-col items-end">
+                    <span class="text-[9px] text-slate-400 font-bold">الوقت</span>
+                    <span id="timer-display" class="text-sm font-black text-slate-700 flex items-center gap-1"><i class="fas fa-stopwatch text-blue-500"></i> 00:00</span>
+                </div>
+            </div>
+
+            <!-- منطقة السؤال -->
+            <div class="flex-1 bg-white border border-slate-200 rounded-3xl p-5 flex flex-col justify-center relative overflow-hidden shadow-sm mb-4">
+                <!-- تأثيرات بصرية للإجابة -->
+                <div id="feedback-overlay" class="absolute inset-0 bg-white/90 z-20 flex flex-col items-center justify-center hidden">
+                    <div id="feedback-icon" class="text-6xl mb-2"></div>
+                    <span id="feedback-text" class="font-black text-xl"></span>
+                </div>
+
+                <!-- العلامة المائية المتغيرة -->
+                <i id="question-bg-icon" class="fas fa-clipboard-list absolute -bottom-6 -left-6 z-0 opacity-30 transform -rotate-12 transition-all duration-500 pointer-events-none" style="font-size: 10rem;"></i>
+                
+                <div class="relative z-10">
+                    <p class="text-[10px] font-bold text-blue-500 mb-2">الموقف التنظيمي:</p>
+                    <h2 id="question-text" class="text-lg font-black text-slate-800 leading-snug">
+                        <!-- سيتم حقن السؤال هنا -->
+                    </h2>
+                </div>
+            </div>
+
+            <!-- أزرار الإجابات -->
+            <div class="flex flex-col gap-2 mt-auto pb-2">
+                <button onclick="checkAnswer('بسيطة')" class="btn-touch game-btn bg-white text-slate-700 text-base py-3 justify-start px-5 relative overflow-hidden">
+                    <span class="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center absolute right-3 font-bold text-xs"><i class="fas fa-dice"></i></span>
+                    <span class="mr-10">عينة عشوائية بسيطة</span>
+                </button>
+                <button onclick="checkAnswer('طبقية')" class="btn-touch game-btn bg-white text-slate-700 text-base py-3 justify-start px-5 relative overflow-hidden">
+                    <span class="w-8 h-8 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center absolute right-3 font-bold text-xs"><i class="fas fa-layer-group"></i></span>
+                    <span class="mr-10">عينة عشوائية طبقية</span>
+                </button>
+                <button onclick="checkAnswer('منتظمة')" class="btn-touch game-btn bg-white text-slate-700 text-base py-3 justify-start px-5 relative overflow-hidden">
+                    <span class="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center absolute right-3 font-bold text-xs"><i class="fas fa-ruler"></i></span>
+                    <span class="mr-10">عينة عشوائية منتظمة</span>
+                </button>
+            </div>
+
+            <!-- حقول مخفية لربطها بقالبك الأصلي -->
+            <div class="hidden">
+                <input type="number" id="input-achieved">
+                <input type="number" id="input-max">
+                <input type="number" id="input-metric-value">
+                <button id="btn-metric-time"></button>
+            </div>
+        </div>
+
+        <!-- الشاشة 3: النتائج -->
+        <div id="result-screen" class="hidden p-5 flex flex-col h-full overflow-hidden text-center justify-center relative">
+            <div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-5"></div>
+            
+            <i class="fas fa-award text-yellow-400 text-6xl mb-4 drop-shadow-md"></i>
+            <h2 class="text-xl font-black text-slate-800 mb-6">اكتمل التحدي!</h2>
+
+            <div id="final-stats" class="grid grid-cols-3 gap-2 mb-6 relative z-10"></div>
+            
+            <div class="bg-green-50 p-4 rounded-2xl border border-green-100 mb-6 relative z-10">
+                <i class="fas fa-cloud-upload-alt text-green-500 text-2xl mb-2"></i>
+                <p id="save-msg" class="font-black text-green-800 text-sm">تم اعتماد نتيجتك في السجلات بنجاح!</p>
+            </div>
+            
+            <button onclick="fetchAndShowLeaderboard(true)" class="btn-touch w-full bg-blue-600 text-white mb-3 shadow-lg shadow-blue-500/30 relative z-10">
+                <i class="fas fa-crown ml-2"></i> سجل الأبطال
+            </button>
+            <div class="mt-auto flex gap-2 relative z-10">
+                <button onclick="location.reload()" class="btn-touch flex-1 bg-white border border-slate-200 text-slate-600 text-sm font-bold">إعادة اللعب</button>
+                <button id="finish-btn" class="btn-touch flex-[2] bg-slate-900 text-white text-sm font-bold">إنهاء</button>
+            </div>
+        </div>
+
+        <!-- سجل الأبطال -->
+        <div id="leaderboard-modal" class="leaderboard-modal hidden-modal" dir="rtl">
+            <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-3">
+                <h3 class="font-black text-slate-800 text-lg"><i class="fas fa-trophy text-yellow-500 ml-2"></i>سجل المتصدرين</h3>
+                <button onclick="closeLeaderboardModal()" class="w-9 h-9 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center transition-all hover:bg-red-50 hover:text-red-500"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="flex gap-2 mb-4">
+                <button onclick="switchTab('class')" id="tab-class" class="tab-btn tab-inactive">أبطال فصلي</button>
+                <button onclick="switchTab('global')" id="tab-global" class="tab-btn tab-active">أبطال اللعبة (الكل)</button>
+            </div>
+            <div id="modal-body" class="flex-1 overflow-y-auto bg-slate-50 rounded-2xl border border-slate-100 p-1 relative">
+                <div id="modal-loader" class="absolute inset-0 flex items-center justify-center hidden bg-white/80 z-10"><div class="sync-loader text-blue-500 text-3xl"><i class="fas fa-sync"></i></div></div>
+                <div id="leaderboard-content" class="space-y-1"></div>
+            </div>
+            <p class="text-center text-[9px] text-slate-400 mt-2 font-mono italic">الترتيب حسب الدرجة ثم الأسرع وقتاً</p>
+        </div>
+    </div>
+
+    <script>
+    // --- متغيرات اللعبة التفاعلية ---
+    const questions = [
+        {
+            text: "لتوزيع جوائز (بلايستيشن 5)، قمت بسحب أرقام تذاكر الحضور من صندوق زجاجي كبير لضمان فرصة متساوية للجميع.",
+            answer: "بسيطة",
+            icon: "fa-box-open", // صندوق سحب
+            color: "text-amber-500" // لون بني/ذهبي
+        },
+        {
+            text: "لمعرفة رأي اللاعبين في التنظيم، قمت بتصنيفهم حسب اللعبة (فيفا، روكيت ليج، كول أوف ديوتي) ثم اخترت 3 لاعبين من كل لعبة.",
+            answer: "طبقية",
+            icon: "fa-gamepad", // يد تحكم
+            color: "text-purple-500" // لون بنفسجي
+        },
+        {
+            text: "لفحص جودة الاتصال بالإنترنت، كلفت موظفاً بسؤال اللاعب الذي يخرج من بوابة صالة الألعاب (كل نصف ساعة).",
+            answer: "منتظمة",
+            icon: "fa-wifi", // شبكة انترنت
+            color: "text-emerald-500" // لون أخضر
+        },
+        {
+            text: "استخدمت برنامج كمبيوتر لاختيار 10 أسماء عشوائياً من قائمة جميع المسجلين في البطولة لإعطائهم تذاكر مجانية للمباراة النهائية.",
+            answer: "بسيطة",
+            icon: "fa-ticket-alt", // تذكرة
+            color: "text-rose-500" // لون وردي/أحمر
+        },
+        {
+            text: "لتوزيع قمصان البطولة على المشجعين، قررت إيقاف المشجع رقم (20)، ثم المشجع رقم (40)، ثم (60) وهكذا عند بوابة الدخول.",
+            answer: "منتظمة",
+            icon: "fa-tshirt", // قميص
+            color: "text-blue-500" // لون أزرق
+        },
+        {
+            text: "لمعرفة مدى الرضا عن الحدث، قمت بتقسيم المدارس المشاركة إلى (ابتدائي، متوسط، ثانوي) واخترت عينة عشوائية من كل مرحلة.",
+            answer: "طبقية",
+            icon: "fa-school", // مدرسة
+            color: "text-indigo-500" // لون نيلي
+        }
+    ];
+
+    let currentQuestionIndex = 0;
+    let score = 0;
+    let startTime;
+    let timerInterval;
+    let totalSeconds = 0;
+    let isAnswering = false;
+
+    // --- الوظائف الأصلية للقالب (مع التعديلات للربط باللعبة) ---
+    (function() {
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxqAQlGhNs8k5RwHs6jrWxDiDwaMABSx8a9Fl81O5oVVa5fHRWTwIEvsGy2cSDP4zGLWQ/exec";
+        const urlParams = new URLSearchParams(window.location.search);
+        const GAME_ID = urlParams.get('gameId') || 'g10_1_1';
+        const studentId = urlParams.get('studentId') || urlParams.get('userId');
+        const classId = urlParams.get('classId');
+        
+        let studentName = decodeURIComponent(urlParams.get('name') || urlParams.get('studentName') || urlParams.get('username') || "بطل التحدي");
+        let currentLeaderboardMode = classId ? 'class' : 'global';
+        let localVisitorResult = null;
+        
+        // تثبيت معيار المفاضلة على الوقت
+        let currentMetricType = 'time'; 
+
+        const toAr = (n) => String(n).replace(/\d/g, d => "٠١٢٣٤٥٦٧٨٩"[d]);
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('top-student-name').textContent = studentName;
+            if (!classId) {
+                document.getElementById('tab-class').style.display = 'none';
+                currentLeaderboardMode = 'global';
+            } else {
+                document.getElementById('tab-class').className = 'tab-btn tab-active';
+                document.getElementById('tab-global').className = 'tab-btn tab-inactive';
+            }
+            if (studentId && classId) {
+                document.getElementById('sync-icon').classList.remove('hidden');
+                fetchInitialCloudData();
+            } else if (!urlParams.get('name')) {
+                studentName = "بطل زائر";
+                document.getElementById('top-student-name').textContent = studentName;
+            }
+            document.getElementById('finish-btn').onclick = () => window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*');
+        });
+
+        async function fetchInitialCloudData() {
+            try {
+                const url = `${SCRIPT_URL}?action=getStudentData&studentId=${studentId}&classId=${encodeURIComponent(classId)}&itemId=${GAME_ID}&t=${Date.now()}`;
+                const res = await (await fetch(url)).json();
+                if (res.status === 'success' && res.data) {
+                    if (res.data.name) { studentName = res.data.name; document.getElementById('top-student-name').textContent = studentName; }
+                    if (res.data.games && res.data.games[GAME_ID]) document.getElementById('top-prev-score').textContent = toAr(parseFloat(res.data.games[GAME_ID].grade).toFixed(1)) + " / ٥";
+                } else if (!urlParams.get('name')) { studentName = "بطل زائر"; document.getElementById('top-student-name').textContent = studentName; }
+            } catch (e) { console.log("Cloud Connect Failed"); }
+            finally { document.getElementById('sync-icon').classList.add('hidden'); }
+        }
+
+        // --- دوال اللعبة التفاعلية ---
+        window.startInteractiveGame = () => {
+            document.getElementById('start-screen').classList.add('hidden');
+            document.getElementById('game-screen').classList.remove('hidden');
+            
+            // خلط الأسئلة لزيادة التحدي في الإعادات
+            questions.sort(() => Math.random() - 0.5);
+            
+            currentQuestionIndex = 0;
+            score = 0;
+            totalSeconds = 0;
+            
+            startTimer();
+            loadQuestion();
+        };
+
+        function startTimer() {
+            startTime = Date.now();
+            const display = document.getElementById('timer-display');
+            timerInterval = setInterval(() => {
+                totalSeconds = Math.floor((Date.now() - startTime) / 1000);
+                const m = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
+                const s = (totalSeconds % 60).toString().padStart(2, '0');
+                display.innerHTML = `<i class="fas fa-stopwatch text-blue-500"></i> ${toAr(m)}:${toAr(s)}`;
+            }, 1000);
+        }
+
+        function loadQuestion() {
+            isAnswering = false;
+            document.getElementById('question-counter').textContent = toAr(currentQuestionIndex + 1) + " / " + toAr(questions.length);
+            
+            const qData = questions[currentQuestionIndex];
+            
+            // تحديث الأيقونة الخلفية (العلامة المائية) بلونها الخاص حسب السؤال
+            const bgIcon = document.getElementById('question-bg-icon');
+            bgIcon.className = `fas ${qData.icon} ${qData.color} absolute -bottom-6 -left-6 z-0 opacity-30 transform -rotate-12 transition-all duration-500 pointer-events-none`;
+            
+            // تحديث النص مع حركة الدخول
+            const qText = document.getElementById('question-text');
+            qText.textContent = qData.text;
+            qText.classList.remove('pop-in');
+            void qText.offsetWidth; // Trigger reflow
+            qText.classList.add('pop-in');
+        }
+
+        window.checkAnswer = (selectedAnswer) => {
+            if(isAnswering) return;
+            isAnswering = true;
+
+            const correct = questions[currentQuestionIndex].answer;
+            const isCorrect = (selectedAnswer === correct);
+            
+            if(isCorrect) {
+                score++;
+                showFeedback(true);
+            } else {
+                showFeedback(false);
+            }
+
+            setTimeout(() => {
+                currentQuestionIndex++;
+                if(currentQuestionIndex < questions.length) {
+                    loadQuestion();
+                } else {
+                    endGame();
+                }
+            }, 1200);
+        };
+
+        function showFeedback(isCorrect) {
+            const overlay = document.getElementById('feedback-overlay');
+            const icon = document.getElementById('feedback-icon');
+            const text = document.getElementById('feedback-text');
+            
+            overlay.classList.remove('hidden');
+            overlay.classList.add('pop-in');
+
+            if(isCorrect) {
+                icon.innerHTML = '<i class="fas fa-check-circle text-green-500"></i>';
+                text.textContent = 'إجابة صحيحة!';
+                text.className = 'font-black text-xl text-green-600 mt-2';
+            } else {
+                icon.innerHTML = '<i class="fas fa-times-circle text-red-500"></i>';
+                text.textContent = 'للأسف خاطئة';
+                text.className = 'font-black text-xl text-red-600 mt-2';
+            }
+
+            setTimeout(() => {
+                overlay.classList.add('hidden');
+                overlay.classList.remove('pop-in');
+            }, 1000);
+        }
+
+        function endGame() {
+            clearInterval(timerInterval);
+            
+            // حقن البيانات في الحقول المخفية للربط مع القالب الأساسي
+            document.getElementById('input-achieved').value = score;
+            document.getElementById('input-max').value = questions.length;
+            document.getElementById('input-metric-value').value = totalSeconds;
+            
+            processResults();
+        }
+
+        // --- معالجة النتائج الأصلية ---
+        window.processResults = () => {
+            const ach = parseFloat(document.getElementById('input-achieved').value);
+            const max = parseFloat(document.getElementById('input-max').value);
+            const met = parseFloat(document.getElementById('input-metric-value').value) || 0;
+            if (isNaN(ach) || isNaN(max) || max <= 0) return;
+            
+            const grade = ((ach / max) * 5).toFixed(1);
+            showResult(ach, max, grade, met);
+            
+            if (studentId && classId) saveScore(grade, met);
+            else { 
+                localVisitorResult = { name: studentName, grade: grade, metric: met, isLocal: true }; 
+                fetchAndShowLeaderboard(false); 
+            }
+        };
+
+        function showResult(a, m, g, met) {
+            document.getElementById('game-screen').classList.add('hidden');
+            document.getElementById('result-screen').classList.remove('hidden');
+            
+            // حساب الثواني والدقائق للعرض
+            const m_disp = Math.floor(met / 60);
+            const s_disp = met % 60;
+            const timeStr = m_disp > 0 ? `${toAr(m_disp)}د و ${toAr(s_disp)}ث` : `${toAr(s_disp)} ثانية`;
+
+            document.getElementById('final-stats').innerHTML = `
+                <div class="bg-blue-50 p-3 rounded-2xl border border-blue-100 text-center flex flex-col justify-center">
+                    <p class="text-[9px] font-bold text-blue-500 uppercase mb-1">نقاطك</p>
+                    <p class="text-base font-black text-blue-900">${toAr(a)} / ${toAr(m)}</p>
+                </div>
+                <div class="bg-emerald-50 p-3 rounded-2xl border-2 border-emerald-300 text-center flex flex-col justify-center shadow-md transform scale-110 z-10">
+                    <p class="text-[9px] font-bold text-emerald-600 uppercase mb-1">الدرجة</p>
+                    <p class="text-2xl font-black text-emerald-700">${toAr(g)}</p>
+                </div>
+                <div class="bg-purple-50 p-3 rounded-2xl border border-purple-100 text-center flex flex-col justify-center">
+                    <p class="text-[9px] font-bold text-purple-500 uppercase mb-1">الوقت</p>
+                    <p class="text-sm font-black text-purple-900 pt-1">${timeStr}</p>
+                </div>
+            `;
+        }
+
+        async function saveScore(g, met) {
+            const p = new URLSearchParams({ action: 'saveScore', studentId, classId, itemId: GAME_ID, score: g, metricValue: met, type: 'game' });
+            try { await fetch(`${SCRIPT_URL}?${p.toString()}`); } finally { fetchAndShowLeaderboard(false); }
+        }
+
+        window.fetchAndShowLeaderboard = function(isManual = false) {
+            const modal = document.getElementById('leaderboard-modal');
+            if (isManual) { modal.classList.remove('hidden-modal'); modal.classList.add('visible-modal'); }
+            const content = document.getElementById('leaderboard-content');
+            document.getElementById('modal-loader').classList.remove('hidden');
+            let reqClassId = (currentLeaderboardMode === 'class') ? classId : 'all';
+            const url = `${SCRIPT_URL}?action=getLeaderboard&gameId=${GAME_ID}&classId=${encodeURIComponent(reqClassId || 'all')}&t=${Date.now()}`;
+            
+            fetch(url).then(r => r.json()).then(res => {
+                let data = (res.status === 'success' && res.data) ? res.data : [];
+                if (localVisitorResult && (currentLeaderboardMode === 'global' || !classId)) {
+                    if (!data.find(p => p.name === localVisitorResult.name)) data.push(localVisitorResult);
+                    // الترتيب: الدرجة الأعلى، ثم الوقت الأقل
+                    data.sort((a, b) => parseFloat(b.grade) - parseFloat(a.grade) || parseFloat(a.metric) - parseFloat(b.metric));
+                }
+                if (data.length > 0) {
+                    let h = `<table class="w-full text-right text-[10px] border-collapse"><thead class="text-slate-400 border-b border-slate-100 bg-slate-50/50"><tr><th class="p-2 text-center">#</th><th class="p-2 text-right">البطل</th><th class="p-2 text-center text-emerald-600">الدرجة</th></tr></thead><tbody class="divide-y divide-slate-50">`;
+                    data.forEach((p, i) => {
+                        const isMe = (p.isLocal || (studentId && String(p.name).trim() === String(studentName).trim()));
+                        h += `<tr class="${isMe ? 'rank-row-me' : 'hover:bg-slate-50/50'} transition-colors">
+                            <td class="p-2 leaderboard-rank text-center ${i<3 ? 'text-yellow-500 text-sm' : 'text-slate-400'}">${i < 3 ? ['🥇','🥈','🥉'][i] : toAr(i+1)}</td>
+                            <td class="p-2 leaderboard-name ${isMe ? 'text-blue-700 font-extrabold' : 'text-slate-700'}">${p.name} ${isMe ? '<span class="bg-blue-600 text-white text-[7px] px-1 rounded-full mx-1">أنت</span>' : ''}</td>
+                            <td class="p-2 text-center"><span class="text-emerald-600 font-black">${toAr(parseFloat(p.grade).toFixed(1))}</span> <span class="text-[8px] text-slate-400 block font-bold">(${toAr(p.metric || p.metricValue || 0)} ث)</span></td>
+                        </tr>`;
+                    });
+                    content.innerHTML = h + `</tbody></table>`;
+                } else content.innerHTML = `<div class="py-10 text-center text-slate-400 text-xs italic font-bold">بانتظار تسجيل الأبطال..</div>`;
+            }).finally(() => document.getElementById('modal-loader').classList.add('hidden'));
+        };
+
+        window.switchTab = (mode) => { currentLeaderboardMode = mode; document.getElementById('tab-class').className = mode === 'class' ? 'tab-btn tab-active' : 'tab-btn tab-inactive'; document.getElementById('tab-global').className = mode === 'global' ? 'tab-btn tab-active' : 'tab-btn tab-inactive'; fetchAndShowLeaderboard(false); };
+        window.closeLeaderboardModal = () => document.getElementById('leaderboard-modal').classList.replace('visible-modal', 'hidden-modal');
+    })();
+    </script>
+</body>
+</html>

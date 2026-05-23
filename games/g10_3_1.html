@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>عملية التحليل السري - الإحصاء</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=Tajawal:wght@500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body { font-family: 'Cairo', sans-serif; overflow: hidden; touch-action: manipulation; direction: rtl; }
+        .compact-card {
+            width: 100%; max-width: 420px; background: white; border-radius: 2rem;
+            box-shadow: 0 15px 35px -5px rgba(0,0,0,0.1); border: 1px solid #f1f5f9;
+            display: flex; flex-direction: column; max-height: 96vh; overflow: hidden; position: relative;
+        }
+        .top-info-bar {
+            background: #f8fafc; border-bottom: 1px solid #e2e8f0; padding: 8px 16px;
+            display: flex; justify-content: space-between; align-items: center;
+            font-size: 11px; font-weight: 800; color: #64748b;
+        }
+        .btn-touch { min-height: 50px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; border-radius: 1rem; font-weight: 800; cursor: pointer; }
+        .btn-touch:active { transform: scale(0.97); }
+        
+        .leaderboard-modal { 
+            position: absolute; inset: 0; background: #ffffff; z-index: 100; 
+            display: flex; flex-direction: column; padding: 1.25rem; transition: all 0.3s; 
+        }
+        .hidden-modal { opacity: 0; pointer-events: none; transform: scale(0.95); display: none; }
+        .visible-modal { opacity: 1; pointer-events: auto; transform: scale(1); display: flex; }
+        
+        .tab-btn { flex: 1; padding: 8px; font-size: 11px; font-weight: bold; border-radius: 8px; transition: 0.3s; border: 1px solid transparent; cursor: pointer; }
+        .tab-active { background-color: #3b82f6; color: white; box-shadow: 0 2px 10px rgba(59, 130, 246, 0.4); }
+        .tab-inactive { background-color: #f1f5f9; color: #64748b; border-color: #e2e8f0; }
+        
+        .rank-row-me { background-color: #eff6ff !important; border-right: 4px solid #2563eb !important; }
+        .sync-loader { font-size: 10px; animation: spin 1s linear infinite; display: inline-block; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        /* تأثيرات الثيم الاستخباراتي */
+        .spy-theme { background-color: #0f172a; color: #e2e8f0; font-family: 'Tajawal', sans-serif; }
+        .spy-box { background: #1e293b; border: 1px solid #334155; box-shadow: inset 0 0 10px rgba(0,0,0,0.5); }
+        .scan-line { width: 100%; height: 2px; background: rgba(34, 197, 94, 0.3); position: absolute; animation: scan 3s linear infinite; pointer-events: none; z-index: 5; }
+        @keyframes scan { 0% { top: 0; } 100% { top: 100%; } }
+        .classified-stamp { border: 2px solid #ef4444; color: #ef4444; padding: 2px 8px; border-radius: 4px; font-weight: 900; transform: rotate(-5deg); font-size: 10px; display: inline-block;}
+        
+        .option-btn { background: #1e293b; border: 1px solid #3b82f6; color: #bfdbfe; transition: 0.2s; text-align: right; padding: 8px 12px; border-radius: 10px; font-size: 11px; font-weight: 700; width: 100%; line-height: 1.4; }
+        .option-btn:active { transform: scale(0.98); }
+        .option-btn.correct { background: #166534 !important; border-color: #22c55e !important; color: white !important; }
+        .option-btn.wrong { background: #7f1d1d !important; border-color: #ef4444 !important; color: white !important; animation: shake 0.4s; opacity: 0.6; }
+        
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; background: #22c55e; } }
+        .blink-correct { animation: blink 0.8s infinite; border: 2px solid #4ade80 !important; }
+
+        /* تأثير الختم (Stamp Overlay) */
+        .stamp-overlay { position: absolute; inset: 0; background: rgba(15, 23, 42, 0.9); z-index: 50; display: flex; flex-direction: column; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: 0.3s; padding: 20px; text-align: center; }
+        .stamp-overlay.active { opacity: 1; pointer-events: auto; }
+        .stamp-box { border: 4px solid; padding: 15px 30px; border-radius: 10px; font-size: 2rem; font-weight: 900; transform: scale(3) rotate(-15deg); opacity: 0; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); margin-bottom: 20px; }
+        .stamp-overlay.active .stamp-box { transform: scale(1) rotate(-15deg); opacity: 1; }
+        .stamp-success { border-color: #22c55e; color: #22c55e; box-shadow: 0 0 20px rgba(34, 197, 94, 0.3), inset 0 0 20px rgba(34, 197, 94, 0.3); }
+        .stamp-fail { border-color: #ef4444; color: #ef4444; box-shadow: 0 0 20px rgba(239, 68, 68, 0.3), inset 0 0 20px rgba(239, 68, 68, 0.3); }
+        
+        /* تأثيرات خطوات الأقدام (الانتقال) */
+        .footstep { position: absolute; font-size: 2.5rem; color: #34d399; opacity: 0; text-shadow: 0 0 5px rgba(52, 211, 153, 0.3); z-index: 20; }
+        @keyframes footprint-fade {
+            /* تدوير الحذاء 35- درجة ليتجه نحو أعلى اليسار */
+            0% { opacity: 0; transform: rotate(-35deg) scale(0.8); }
+            15% { opacity: 1; transform: rotate(-35deg) scale(1); }
+            80% { opacity: 1; transform: rotate(-35deg) scale(1); }
+            100% { opacity: 0; transform: rotate(-35deg) scale(0.9); }
+        }
+        /* مسار مائل من أسفل اليمين إلى أعلى اليسار (زاوية 30-35 درجة) */
+        .step-1 { right: 20%; bottom: 15%; }
+        .step-2 { right: 40%; bottom: 30%; }
+        .step-3 { right: 60%; bottom: 45%; }
+        .step-4 { right: 80%; bottom: 60%; }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 h-screen w-screen flex items-center justify-center p-3 text-right">
+
+    <div class="compact-card">
+        <!-- الشريط العلوي -->
+        <div class="top-info-bar">
+            <div class="flex items-center gap-2 overflow-hidden">
+                <i class="fas fa-user-secret text-blue-500 text-lg"></i>
+                <span id="top-student-name" class="truncate font-black"></span>
+                <script>
+                    (function() {
+                        const p = new URLSearchParams(window.location.search);
+                        const raw = p.get('name') || p.get('studentName') || p.get('username') || p.get('user');
+                        const display = document.getElementById('top-student-name');
+                        display.textContent = raw ? decodeURIComponent(raw) : "عميل سري";
+                    })();
+                </script>
+            </div>
+            <div class="flex items-center gap-2 bg-white px-2 py-0.5 rounded-full border shadow-sm font-bold">
+                <span id="sync-icon" class="hidden"><i class="fas fa-sync sync-loader text-blue-400"></i></span>
+                <i class="fas fa-star text-yellow-500 text-[10px]"></i>
+                <span id="top-prev-score">٠ / ٥</span>
+            </div>
+        </div>
+
+        <!-- الشاشة 1: البداية -->
+        <div id="start-screen" class="p-6 text-center flex flex-col gap-4 h-full justify-center spy-theme relative">
+            <div class="scan-line"></div>
+            <div class="text-4xl text-emerald-500 mb-2"><i class="fas fa-fingerprint"></i></div>
+            <h1 class="text-2xl font-black text-white tracking-widest">عملية التحليل السري</h1>
+            <div class="classified-stamp mx-auto mb-2">TOP SECRET - مستوى 5</div>
+            
+            <div class="spy-box p-4 rounded-xl text-[12px] text-emerald-300 leading-relaxed text-center font-bold">
+                أهلاً بك أيها العميل الميداني. <br>
+                مهمتك هي تحليل تقارير البيانات وتحديد بدقة:<br>
+                <span class="text-blue-400">(المجتمع، العينة، معلمة المجتمع، إحصائي العينة)</span><br>
+                لديك <span class="text-yellow-400">محاولتان</span> لكل هدف. الأخطاء تكلفك نقاطاً ووقتاً!
+            </div>
+            
+            <div class="flex flex-row gap-2 items-stretch mt-4 z-10">
+                <button onclick="startMission()" class="btn-touch flex-[2.5] bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg text-lg border border-emerald-400">
+                    بدء المهمة <i class="fas fa-play ml-2"></i>
+                </button>
+                <button onclick="fetchAndShowLeaderboard(true)" class="btn-touch flex-1 bg-slate-800 text-slate-300 border border-slate-600 text-[10px] flex-col leading-tight py-2">
+                    <i class="fas fa-shield-alt text-emerald-500 text-xl mb-1"></i>
+                    <span>سجل العملاء</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- الشاشة 2: اللعبة -->
+        <div id="game-screen" class="hidden p-4 flex flex-col h-full overflow-hidden spy-theme relative">
+            <div class="scan-line"></div>
+            
+            <!-- الهيدر الاستخباراتي -->
+            <div class="flex justify-between items-center mb-2 text-emerald-400 border-b border-slate-700 pb-1">
+                <div class="font-mono text-[11px] flex items-center gap-1.5">
+                    <i class="fas fa-clock"></i> <span id="timer-display" class="font-bold text-sm text-white">00:00</span>
+                </div>
+                <div class="text-[10px] font-bold text-yellow-400">
+                    النقاط: <span id="score-display">0</span>
+                </div>
+                <div class="text-[10px] font-bold bg-slate-800 px-2 py-0.5 rounded-full border border-slate-600">
+                    ملف <span id="mission-progress">1/3</span>
+                </div>
+            </div>
+
+            <!-- التقرير -->
+            <div class="spy-box p-3 rounded-lg mb-2 relative">
+                <div class="absolute -top-2.5 right-3 bg-red-600 text-white text-[8px] font-black px-1.5 py-0.5 rounded shadow-md">بيانات معترضة</div>
+                <p id="scenario-text" class="text-[11px] leading-snug text-slate-200 mt-1 font-semibold">
+                    جاري فك التشفير...
+                </p>
+            </div>
+
+            <!-- السؤال والخيارات -->
+            <div class="flex-1 flex flex-col justify-end pb-1">
+                <div class="bg-blue-900/40 border border-blue-800 p-2 rounded-lg mb-2 flex justify-between items-center">
+                    <div class="flex items-center gap-2">
+                        <span class="text-[10px] text-blue-300 font-bold"><i class="fas fa-crosshairs text-blue-400 ml-1"></i> الهدف:</span>
+                        <span id="question-prompt" class="text-sm font-black text-white">المجتمع</span>
+                    </div>
+                    <div id="attempts-indicator" class="flex gap-1 text-yellow-500 text-[10px]">
+                        <i class="fas fa-circle"></i><i class="fas fa-circle"></i>
+                    </div>
+                </div>
+                
+                <div id="options-container" class="space-y-1.5 z-10 relative">
+                    <!-- الأزرار تُولد هنا -->
+                </div>
+            </div>
+
+            <!-- نافذة التغذية الراجعة (الختم) -->
+            <div id="stamp-overlay" class="stamp-overlay">
+                <div id="stamp-box" class="stamp-box stamp-success">مُطابق</div>
+                <div class="bg-slate-800 border border-slate-600 p-4 rounded-xl text-center shadow-2xl max-w-[90%]">
+                    <p id="stamp-explanation" class="text-slate-200 text-xs leading-relaxed font-bold"></p>
+                    <button id="stamp-next-btn" class="mt-4 bg-blue-600 text-white px-6 py-2 rounded-lg text-xs font-bold w-full hidden">المتابعة <i class="fas fa-arrow-left mr-1"></i></button>
+                </div>
+            </div>
+        </div>
+
+        <!-- الشاشة 3: المراجعة (الملخص) -->
+        <div id="review-screen" class="hidden p-4 flex flex-col h-full overflow-hidden spy-theme relative">
+            <h2 class="text-center text-lg font-black text-white mb-2 border-b border-slate-700 pb-2"><i class="fas fa-file-signature text-emerald-500 ml-2"></i>ملخص الملف السري</h2>
+            <div class="spy-box p-3 rounded-lg mb-3 relative text-[10px] text-slate-300 leading-snug">
+                <p id="review-scenario" class="italic"></p>
+            </div>
+            <div id="review-answers" class="flex-1 overflow-y-auto space-y-2 pr-1">
+                <!-- الإجابات الصحيحة تدرج هنا -->
+            </div>
+            <button onclick="endReviewAndContinue()" class="btn-touch w-full bg-emerald-600 text-white mt-3 text-sm">
+                الانتقال للملف التالي <i class="fas fa-forward mr-2"></i>
+            </button>
+        </div>
+
+        <!-- الشاشة الانتقالية (خطوات التسلل) -->
+        <div id="transition-screen" class="hidden p-5 flex flex-col h-full overflow-hidden text-center justify-center spy-theme relative">
+            <div class="scan-line"></div>
+            <div class="z-30 bg-slate-900/90 p-4 rounded-xl border border-slate-700 shadow-xl">
+                <i class="fas fa-user-ninja text-4xl text-emerald-500 mb-3 animate-pulse"></i>
+                <h2 class="text-lg font-black text-white">جاري التسلل للملف <span id="next-file-num" class="text-yellow-400"></span>...</h2>
+                <p class="text-[10px] text-slate-400 mt-2 font-mono">الرجاء الانتظار، يتم تأمين الاتصال</p>
+            </div>
+            
+            <!-- مسار الخطوات -->
+            <i class="fas fa-shoe-prints footstep step-1"></i>
+            <i class="fas fa-shoe-prints footstep step-2"></i>
+            <i class="fas fa-shoe-prints footstep step-3"></i>
+            <i class="fas fa-shoe-prints footstep step-4"></i>
+        </div>
+
+        <!-- الشاشة 4: النتائج النهائية -->
+        <div id="result-screen" class="hidden p-5 flex flex-col h-full overflow-hidden text-center justify-center spy-theme relative">
+            <div class="scan-line"></div>
+            <h2 class="text-xl font-black text-white mb-4">اكتملت المهمة بنجاح</h2>
+            <div id="final-stats" class="grid grid-cols-3 gap-2 mb-6"></div>
+            
+            <div class="bg-emerald-900/30 p-4 rounded-2xl border border-emerald-800 mb-6">
+                <i class="fas fa-check-double text-emerald-500 text-3xl mb-2"></i>
+                <p id="save-msg" class="font-black text-emerald-300 text-sm">تم تشفير واعتماد تقريرك!</p>
+            </div>
+            <button onclick="fetchAndShowLeaderboard(true)" class="btn-touch w-full bg-blue-600 text-white mb-3 shadow-md border border-blue-500">
+                <i class="fas fa-shield-alt ml-2"></i> سجل الوكالة للعملاء
+            </button>
+            <div class="mt-auto flex gap-2">
+                <button onclick="location.reload()" class="btn-touch flex-1 bg-slate-800 text-slate-300 text-sm font-bold border border-slate-700">مهمة جديدة</button>
+                <button id="finish-btn" class="btn-touch flex-[2] bg-emerald-700 text-white text-sm font-bold">إنهاء الاتصال</button>
+            </div>
+        </div>
+
+        <!-- سجل الأبطال -->
+        <div id="leaderboard-modal" class="leaderboard-modal hidden-modal" dir="rtl">
+            <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-3">
+                <h3 class="font-black text-slate-800 text-lg"><i class="fas fa-shield-alt text-emerald-500 ml-2"></i>سجل العملاء المتصدرين</h3>
+                <button onclick="closeLeaderboardModal()" class="w-9 h-9 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center transition-all hover:bg-red-50 hover:text-red-500"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="flex gap-2 mb-4">
+                <button onclick="switchTab('class')" id="tab-class" class="tab-btn tab-inactive">عملاء قطاعي</button>
+                <button onclick="switchTab('global')" id="tab-global" class="tab-btn tab-active">الوكالة (الكل)</button>
+            </div>
+            <div id="modal-body" class="flex-1 overflow-y-auto bg-slate-50 rounded-2xl border border-slate-100 p-1 relative">
+                <div id="modal-loader" class="absolute inset-0 flex items-center justify-center hidden bg-white/80 z-10"><div class="sync-loader text-blue-500 text-3xl"><i class="fas fa-sync"></i></div></div>
+                <div id="leaderboard-content" class="space-y-1"></div>
+            </div>
+            <p class="text-center text-[9px] text-slate-400 mt-2 font-mono italic">الترتيب حسب الدرجة ثم الأفضلية للوقت الأسرع</p>
+        </div>
+    </div>
+
+    <script>
+    (function() {
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxqAQlGhNs8k5RwHs6jrWxDiDwaMABSx8a9Fl81O5oVVa5fHRWTwIEvsGy2cSDP4zGLWQ/exec";
+        const urlParams = new URLSearchParams(window.location.search);
+        const GAME_ID = urlParams.get('gameId') || 'g10_3_1';
+        const studentId = urlParams.get('studentId') || urlParams.get('userId');
+        const classId = urlParams.get('classId');
+        
+        let studentName = decodeURIComponent(urlParams.get('name') || urlParams.get('studentName') || urlParams.get('username') || "عميل سري");
+        let currentLeaderboardMode = classId ? 'class' : 'global';
+        let localVisitorResult = null;
+
+        const toAr = (n) => String(n).replace(/\d/g, d => "٠١٢٣٤٥٦٧٨٩"[d]);
+
+        // بيانات اللعبة مع الشروحات (بنك الأسئلة 5 ملفات)
+        const allMissionsData = [
+            {
+                scenario: "تم اختيار عينة عشوائية طبقية من الممرضين العاملين في جميع مستشفيات المناطق (الشرقية، الغربية، الوسطى)، ثم حُسب وسيط رواتب هؤلاء الممرضين المختارين لتقدير الرواتب.",
+                questions: [
+                    { type: "المجتمع", answer: "جميع الممرضين في المستشفيات الثلاث", explanation: "المجتمع هو المجموعة الكلية التي نريد دراستها، وهنا هم جميع الممرضين في تلك المناطق." },
+                    { type: "العينة", answer: "الممرضون الذين تم اختيارهم عشوائياً", explanation: "العينة هي الجزء الصغير الذي تم سحبه (اختياره) من المجتمع لإجراء الدراسة عليه." },
+                    { type: "إحصائي العينة", answer: "وسيط رواتب الممرضين في العينة", explanation: "الإحصائي هو أي قيمة (مثل الوسيط، المتوسط) يتم حسابها من بيانات 'العينة' فقط." },
+                    { type: "مَعْلَمة المجتمع", answer: "وسيط رواتب جميع الممرضين في المستشفيات", explanation: "المعلمة هي القيمة (الوسيط) التي تصف 'المجتمع' بأكمله، وغالباً يتم تقديرها." }
+                ],
+                allOptions: [
+                    "جميع الممرضين في المستشفيات الثلاث",
+                    "الممرضون الذين تم اختيارهم عشوائياً",
+                    "وسيط رواتب الممرضين في العينة",
+                    "وسيط رواتب جميع الممرضين في المستشفيات"
+                ]
+            },
+            {
+                scenario: "يتم اختيار عبوة عشوائياً من خط إنتاج أحد الأغذية المحفوظة، ثم يؤخذ بدءاً من تلك العبوة العبوات التي أرقامها من مضاعفات 50، وتُدوّن كتلتها ويُحسب المنوال لعينة الكتل.",
+                questions: [
+                    { type: "المجتمع", answer: "جميع عبوات الإنتاج اليومي", explanation: "المجتمع المستهدف في هذا المصنع هو كل العبوات التي تم إنتاجها في ذلك اليوم." },
+                    { type: "العينة", answer: "العبوات التي أرقامها من مضاعفات 50", explanation: "هذه هي المجموعة المحددة التي تم استخراجها فعلياً لقياس كتلتها." },
+                    { type: "إحصائي العينة", answer: "منوال كتل العبوات في العينة", explanation: "المنوال هنا تم حسابه بناءً على الكتل التي تم قياسها في العينة المسحوبة." },
+                    { type: "مَعْلَمة المجتمع", answer: "منوال كتل جميع عبوات الإنتاج", explanation: "هي القيمة الحقيقية لمنوال كتل 'جميع' العبوات في المصنع (والتي نحاول تقديرها)." }
+                ],
+                allOptions: [
+                    "جميع عبوات الإنتاج اليومي",
+                    "العبوات التي أرقامها من مضاعفات 50",
+                    "منوال كتل العبوات في العينة",
+                    "منوال كتل جميع عبوات الإنتاج"
+                ]
+            },
+            {
+                scenario: "لتقدير معدل نجاح المهمات السرية، تم فحص ملفات 80 عميلاً ميدانياً تم اختيارهم عشوائياً من بين جميع العملاء في الوكالة، وحُسبت نسبة نجاحهم.",
+                questions: [
+                    { type: "المجتمع", answer: "جميع العملاء الميدانيين في الوكالة", explanation: "المجموعة الكلية المستهدفة بالدراسة هي كل عملاء الوكالة." },
+                    { type: "العينة", answer: "الـ 80 عميلاً الذين تم فحص ملفاتهم", explanation: "العدد (80) يمثل الجزء الذي تم اختياره من المجتمع للدراسة." },
+                    { type: "إحصائي العينة", answer: "نسبة نجاح المهمات للـ 80 عميلاً", explanation: "النسبة المحسوبة هنا تخص الـ 80 عميلاً فقط، لذا هي إحصائي عينة." },
+                    { type: "مَعْلَمة المجتمع", answer: "نسبة نجاح المهمات لجميع العملاء", explanation: "النسبة الحقيقية لنجاح جميع عملاء الوكالة هي المعلمة التي نسعى لمعرفتها." }
+                ],
+                allOptions: [
+                    "جميع العملاء الميدانيين في الوكالة",
+                    "الـ 80 عميلاً الذين تم فحص ملفاتهم",
+                    "نسبة نجاح المهمات للـ 80 عميلاً",
+                    "نسبة نجاح المهمات لجميع العملاء"
+                ]
+            },
+            {
+                scenario: "لمعرفة متوسط درجات طلاب المرحلة الثانوية في اختبار القدرات، تم اختيار 500 طالب عشوائياً من مختلف المدارس، وحُسب متوسط درجاتهم.",
+                questions: [
+                    { type: "المجتمع", answer: "جميع طلاب المرحلة الثانوية", explanation: "المجتمع هنا هو جميع الطلاب المستهدفين بالدراسة في المرحلة الثانوية." },
+                    { type: "العينة", answer: "الـ 500 طالب الذين تم اختيارهم", explanation: "العدد (500) يمثل الجزء الذي تم اختياره من المجتمع لإجراء الدراسة عليه." },
+                    { type: "إحصائي العينة", answer: "متوسط درجات الـ 500 طالب", explanation: "المتوسط المحسوب هنا مبني على درجات العينة فقط." },
+                    { type: "مَعْلَمة المجتمع", answer: "متوسط درجات جميع طلاب الثانوية", explanation: "المتوسط الحقيقي لجميع الطلاب هو المعلمة التي نحاول تقديرها." }
+                ],
+                allOptions: [
+                    "جميع طلاب المرحلة الثانوية",
+                    "الـ 500 طالب الذين تم اختيارهم",
+                    "متوسط درجات الـ 500 طالب",
+                    "متوسط درجات جميع طلاب الثانوية"
+                ]
+            },
+            {
+                scenario: "لتقييم كفاءة استهلاك الوقود لسيارات الدفع الرباعي في مصنع، تم اختبار 40 سيارة اختيرت عشوائياً من خط التجميع، وحُسب متوسط المسافة المقطوعة لكل لتر.",
+                questions: [
+                    { type: "المجتمع", answer: "جميع سيارات الدفع الرباعي بالمصنع", explanation: "المجموعة الكلية المستهدفة هي كل سيارات الدفع الرباعي التي ينتجها المصنع." },
+                    { type: "العينة", answer: "الـ 40 سيارة التي تم اختبارها", explanation: "الـ 40 سيارة هي الجزء الذي تم سحبه لاختبار استهلاك الوقود." },
+                    { type: "إحصائي العينة", answer: "متوسط استهلاك الوقود للـ 40 سيارة", explanation: "متوسط الاستهلاك تم حسابه للسيارات المختبرة (العينة) فقط." },
+                    { type: "مَعْلَمة المجتمع", answer: "متوسط استهلاك لجميع سيارات المصنع", explanation: "القيمة الحقيقية لاستهلاك الوقود لكل سيارات المصنع هي المعلمة." }
+                ],
+                allOptions: [
+                    "جميع سيارات الدفع الرباعي بالمصنع",
+                    "الـ 40 سيارة التي تم اختبارها",
+                    "متوسط استهلاك الوقود للـ 40 سيارة",
+                    "متوسط استهلاك لجميع سيارات المصنع"
+                ]
+            }
+        ];
+
+        let missionsData = [];
+        let currentMissionIdx = 0;
+        let currentQuestionIdx = 0;
+        let score = 0;
+        let maxTotalScore = 0;
+        let attemptsLeft = 2;
+        let secondsElapsed = 0;
+        let timerInterval;
+        let isProcessing = false;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('top-student-name').textContent = studentName;
+            if (!classId) {
+                document.getElementById('tab-class').style.display = 'none';
+                currentLeaderboardMode = 'global';
+            } else {
+                document.getElementById('tab-class').className = 'tab-btn tab-active';
+                document.getElementById('tab-global').className = 'tab-btn tab-inactive';
+            }
+            if (studentId && classId) {
+                document.getElementById('sync-icon').classList.remove('hidden');
+                fetchInitialCloudData();
+            }
+            document.getElementById('finish-btn').onclick = () => window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*');
+            
+            document.getElementById('stamp-next-btn').onclick = () => {
+                document.getElementById('stamp-overlay').classList.remove('active');
+                startTimer();
+                nextQuestion();
+            };
+        });
+
+        async function fetchInitialCloudData() {
+            try {
+                const url = `${SCRIPT_URL}?action=getStudentData&studentId=${studentId}&classId=${encodeURIComponent(classId)}&itemId=${GAME_ID}&t=${Date.now()}`;
+                const res = await (await fetch(url)).json();
+                if (res.status === 'success' && res.data) {
+                    if (res.data.name) { studentName = res.data.name; document.getElementById('top-student-name').textContent = studentName; }
+                    if (res.data.games && res.data.games[GAME_ID]) document.getElementById('top-prev-score').textContent = toAr(parseFloat(res.data.games[GAME_ID].grade).toFixed(1)) + " / ٥";
+                }
+            } catch (e) { console.log("Cloud Connect Failed"); }
+            finally { document.getElementById('sync-icon').classList.add('hidden'); }
+        }
+
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        function startTimer() {
+            if(timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                secondsElapsed++;
+                const mins = Math.floor(secondsElapsed / 60).toString().padStart(2, '0');
+                const secs = (secondsElapsed % 60).toString().padStart(2, '0');
+                document.getElementById('timer-display').textContent = `${toAr(mins)}:${toAr(secs)}`;
+            }, 1000);
+        }
+        function stopTimer() { clearInterval(timerInterval); }
+
+        window.startMission = () => {
+            // سحب 3 ملفات عشوائية من البنك وخلط الأسئلة داخلها
+            missionsData = shuffleArray([...allMissionsData]).slice(0, 3);
+            missionsData.forEach(m => {
+                m.questions = shuffleArray([...m.questions]);
+            });
+            maxTotalScore = missionsData.length * 4 * 2;
+            
+            document.getElementById('start-screen').classList.add('hidden');
+            document.getElementById('review-screen').classList.add('hidden');
+            document.getElementById('game-screen').classList.remove('hidden');
+            startTimer();
+            loadQuestion();
+        };
+
+        function updateAttemptsUI() {
+            const ind = document.getElementById('attempts-indicator');
+            if(attemptsLeft === 2) ind.innerHTML = '<i class="fas fa-circle"></i><i class="fas fa-circle"></i>';
+            else if(attemptsLeft === 1) ind.innerHTML = '<i class="fas fa-circle"></i><i class="far fa-circle"></i>';
+            else ind.innerHTML = '<i class="far fa-circle"></i><i class="far fa-circle"></i>';
+            document.getElementById('score-display').textContent = toAr(score);
+        }
+
+        function loadQuestion() {
+            isProcessing = false;
+            attemptsLeft = 2;
+            updateAttemptsUI();
+            
+            const mission = missionsData[currentMissionIdx];
+            const question = mission.questions[currentQuestionIdx];
+            
+            document.getElementById('mission-progress').textContent = toAr(currentMissionIdx + 1) + "/" + toAr(missionsData.length);
+            document.getElementById('scenario-text').textContent = mission.scenario;
+            document.getElementById('question-prompt').textContent = question.type;
+
+            const container = document.getElementById('options-container');
+            container.innerHTML = '';
+            
+            let shuffledOptions = shuffleArray([...mission.allOptions]);
+
+            shuffledOptions.forEach(opt => {
+                const btn = document.createElement('button');
+                btn.className = 'option-btn';
+                btn.textContent = opt;
+                btn.onclick = () => handleAnswer(btn, opt, question);
+                container.appendChild(btn);
+            });
+        }
+
+        function showStamp(isSuccess, explanationText, autoHide = false) {
+            stopTimer(); // إيقاف الوقت لكي يقرأ الطالب براحته
+            const overlay = document.getElementById('stamp-overlay');
+            const box = document.getElementById('stamp-box');
+            const exp = document.getElementById('stamp-explanation');
+            const btn = document.getElementById('stamp-next-btn');
+            
+            box.className = 'stamp-box ' + (isSuccess ? 'stamp-success' : 'stamp-fail');
+            box.textContent = isSuccess ? 'مُـطـابـق' : 'مـرفـوض';
+            exp.innerHTML = explanationText;
+            
+            if (autoHide) {
+                btn.classList.add('hidden');
+                overlay.classList.add('active');
+                setTimeout(() => {
+                    overlay.classList.remove('active');
+                    startTimer();
+                    isProcessing = false;
+                }, 2000);
+            } else {
+                btn.classList.remove('hidden');
+                overlay.classList.add('active');
+            }
+        }
+
+        function handleAnswer(btn, selectedStr, questionObj) {
+            if (isProcessing) return;
+            const correctStr = questionObj.answer;
+
+            if (selectedStr === correctStr) {
+                isProcessing = true;
+                score += (attemptsLeft === 2) ? 2 : 1;
+                updateAttemptsUI();
+                btn.classList.add('correct');
+                
+                showStamp(true, `<span class="text-emerald-400 block mb-1 text-sm"><i class="fas fa-check-circle"></i> أحسنت! الإجابة صحيحة</span>${questionObj.explanation}`);
+            } else {
+                attemptsLeft--;
+                updateAttemptsUI();
+                btn.classList.add('wrong');
+                secondsElapsed += 3; // عقوبة الوقت
+                
+                if (attemptsLeft > 0) {
+                    isProcessing = true;
+                    showStamp(false, "تحليل غير دقيق! بيانات غير متطابقة.<br><span class='text-yellow-400 block mt-2'>تبقت لك محاولة واحدة للهدف الحالي.</span>", true);
+                } else {
+                    isProcessing = true;
+                    // توميض الإجابة الصحيحة
+                    document.querySelectorAll('.option-btn').forEach(b => {
+                        if (b.textContent === correctStr) {
+                            b.classList.add('correct', 'blink-correct');
+                        }
+                    });
+                    showStamp(false, `<span class="text-red-400 block mb-1 text-sm"><i class="fas fa-times-circle"></i> نفدت المحاولات!</span>الاجابة الصحيحة هي: <b class="text-blue-300">${correctStr}</b><br><br>${questionObj.explanation}`);
+                }
+            }
+        }
+
+        function nextQuestion() {
+            currentQuestionIdx++;
+            if (currentQuestionIdx >= 4) {
+                showReviewScreen();
+            } else {
+                loadQuestion();
+            }
+        }
+
+        function showReviewScreen() {
+            document.getElementById('game-screen').classList.add('hidden');
+            const reviewScreen = document.getElementById('review-screen');
+            reviewScreen.classList.remove('hidden');
+            
+            const mission = missionsData[currentMissionIdx];
+            document.getElementById('review-scenario').textContent = mission.scenario;
+            
+            const answersContainer = document.getElementById('review-answers');
+            answersContainer.innerHTML = '';
+            
+            mission.questions.forEach(q => {
+                answersContainer.innerHTML += `
+                    <div class="bg-slate-800 p-2 rounded border border-slate-700 text-[11px]">
+                        <span class="text-blue-400 font-bold block mb-1">${q.type}:</span>
+                        <span class="text-white">${q.answer}</span>
+                    </div>
+                `;
+            });
+        }
+
+        window.endReviewAndContinue = () => {
+            currentQuestionIdx = 0;
+            currentMissionIdx++;
+            if (currentMissionIdx >= missionsData.length) {
+                endGame();
+            } else {
+                document.getElementById('review-screen').classList.add('hidden');
+                
+                // إعداد وإظهار شاشة الانتقال
+                document.getElementById('next-file-num').textContent = toAr(currentMissionIdx + 1);
+                const transScreen = document.getElementById('transition-screen');
+                transScreen.classList.remove('hidden');
+
+                // إعادة تشغيل أنيميشن الخطوات
+                const steps = document.querySelectorAll('.footstep');
+                steps.forEach((step, index) => {
+                    step.style.animation = 'none';
+                    step.offsetHeight; // Trigger reflow لإعادة ضبط الأنيميشن
+                    // تأخير ظهور كل خطوة (نصف ثانية بين كل خطوة)
+                    step.style.animation = `footprint-fade 2s ${index * 0.5}s forwards`;
+                });
+
+                // الانتظار لمدة 2.5 ثانية (مدة الأنيميشن) ثم الانتقال للملف التالي
+                setTimeout(() => {
+                    transScreen.classList.add('hidden');
+                    document.getElementById('game-screen').classList.remove('hidden');
+                    startTimer();
+                    loadQuestion();
+                }, 2600);
+            }
+        };
+
+        function endGame() {
+            stopTimer();
+            // حساب الدرجة من 5
+            const grade = ((score / maxTotalScore) * 5).toFixed(1);
+            
+            document.getElementById('review-screen').classList.add('hidden');
+            document.getElementById('result-screen').classList.remove('hidden');
+            
+            document.getElementById('final-stats').innerHTML = `
+                <div class="bg-slate-800 p-2 rounded-xl border border-slate-600 text-center flex flex-col justify-center">
+                    <p class="text-[8px] font-bold text-slate-400 uppercase">النقاط السرية</p>
+                    <p class="text-[12px] font-black text-blue-400">${toAr(score)} / ${toAr(maxTotalScore)}</p>
+                </div>
+                <div class="bg-emerald-900/40 p-2 rounded-xl border border-emerald-700 text-center flex flex-col justify-center shadow-sm">
+                    <p class="text-[8px] font-bold text-emerald-400 uppercase">التقييم (من 5)</p>
+                    <p class="text-xl font-black text-emerald-400">${toAr(grade)}</p>
+                </div>
+                <div class="bg-slate-800 p-2 rounded-xl border border-slate-600 text-center flex flex-col justify-center">
+                    <p class="text-[8px] font-bold text-slate-400 uppercase">زمن العملية</p>
+                    <p class="text-[12px] font-black text-yellow-500">${toAr(secondsElapsed)} ث</p>
+                </div>
+            `;
+
+            if (studentId && classId) {
+                saveScore(grade, secondsElapsed);
+            } else {
+                localVisitorResult = { name: studentName, grade: grade, metric: secondsElapsed, isLocal: true };
+                fetchAndShowLeaderboard(false);
+            }
+        }
+
+        async function saveScore(g, met) {
+            const p = new URLSearchParams({ action: 'saveScore', studentId, classId, itemId: GAME_ID, score: g, metricValue: met, type: 'game' });
+            try { await fetch(`${SCRIPT_URL}?${p.toString()}`); } finally { fetchAndShowLeaderboard(false); }
+        }
+
+        window.fetchAndShowLeaderboard = function(isManual = false) {
+            const modal = document.getElementById('leaderboard-modal');
+            if (isManual) { modal.classList.remove('hidden-modal'); modal.classList.add('visible-modal'); }
+            const content = document.getElementById('leaderboard-content');
+            document.getElementById('modal-loader').classList.remove('hidden');
+            let reqClassId = (currentLeaderboardMode === 'class') ? classId : 'all';
+            const url = `${SCRIPT_URL}?action=getLeaderboard&gameId=${GAME_ID}&classId=${encodeURIComponent(reqClassId || 'all')}&t=${Date.now()}`;
+            
+            fetch(url).then(r => r.json()).then(res => {
+                let data = (res.status === 'success' && res.data) ? res.data : [];
+                if (localVisitorResult && (currentLeaderboardMode === 'global' || !classId)) {
+                    if (!data.find(p => p.name === localVisitorResult.name)) data.push(localVisitorResult);
+                    data.sort((a, b) => parseFloat(b.grade) - parseFloat(a.grade) || parseFloat(a.metric) - parseFloat(b.metric));
+                }
+                if (data.length > 0) {
+                    let h = `<table class="w-full text-right text-[10px] border-collapse"><thead class="text-slate-400 border-b border-slate-700 bg-slate-800/50"><tr><th class="p-2 text-center">#</th><th class="p-2 text-right">العميل</th><th class="p-2 text-center text-emerald-500">الدرجة</th></tr></thead><tbody class="divide-y divide-slate-700/50">`;
+                    data.forEach((p, i) => {
+                        const isMe = (p.isLocal || (studentId && String(p.name).trim() === String(studentName).trim()));
+                        const rowBg = isMe ? 'bg-blue-900/20 border-r-4 border-blue-500' : 'hover:bg-slate-800/50';
+                        h += `<tr class="${rowBg} transition-colors">
+                            <td class="p-2 leaderboard-rank text-center ${i<3 ? 'text-yellow-500 text-sm' : 'text-slate-400'}">${i < 3 ? ['🥇','🥈','🥉'][i] : toAr(i+1)}</td>
+                            <td class="p-2 leaderboard-name ${isMe ? 'text-blue-400 font-extrabold' : 'text-slate-300'}">${p.name} ${isMe ? '<span class="bg-blue-600 text-white text-[7px] px-1 rounded-full mx-1">أنت</span>' : ''}</td>
+                            <td class="p-2 text-center"><span class="text-emerald-400 font-black">${toAr(parseFloat(p.grade).toFixed(1))}</span> <span class="text-[8px] text-slate-500 block font-bold">(${toAr(p.metric || p.metricValue || 0)}ث)</span></td>
+                        </tr>`;
+                    });
+                    content.innerHTML = h + `</tbody></table>`;
+                } else content.innerHTML = `<div class="py-10 text-center text-slate-500 text-xs italic font-bold">بانتظار وصول التقارير..</div>`;
+            }).finally(() => document.getElementById('modal-loader').classList.add('hidden'));
+        };
+
+        window.switchTab = (mode) => { currentLeaderboardMode = mode; document.getElementById('tab-class').className = mode === 'class' ? 'tab-btn tab-active' : 'tab-btn tab-inactive'; document.getElementById('tab-global').className = mode === 'global' ? 'tab-btn tab-active' : 'tab-btn tab-inactive'; fetchAndShowLeaderboard(false); };
+        window.closeLeaderboardModal = () => document.getElementById('leaderboard-modal').classList.replace('visible-modal', 'hidden-modal');
+    })();
+    </script>
+</body>
+</html>

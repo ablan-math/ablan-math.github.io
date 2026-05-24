@@ -1,0 +1,1152 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>تحدي الأبطال - مهندس الجودة</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body { font-family: 'Cairo', sans-serif; overflow: hidden; touch-action: manipulation; direction: rtl; background-color: #0f172a; }
+        
+        /* تخصيص شريط التمرير (المزلاق) ليكون حديثاً وأنيقاً ورفيعاً */
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.02); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.6); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(100, 116, 139, 0.9); }
+
+        .compact-card {
+            width: 100%; max-width: 440px; border-radius: 2rem;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); border: 2px solid rgba(255,255,255,0.1);
+            display: flex; flex-direction: column; height: 85vh; max-height: 760px; min-height: 550px; overflow: hidden; position: relative;
+        }
+
+        /* صورة الخلفية الثابتة */
+        .main-bg {
+            position: absolute; inset: 0; z-index: 0;
+            background-image: url('https://ablan-math.github.io/img/g10/car.jpeg');
+            background-size: cover;
+            background-position: center;
+        }
+
+        /* الطبقة الزجاجية التي تظهر تدريجياً */
+        .bg-overlay {
+            position: absolute; inset: 0; z-index: 1;
+            background: linear-gradient(to bottom, rgba(15, 23, 42, 0.4), rgba(15, 23, 42, 0.9));
+            backdrop-filter: blur(4px);
+            opacity: 0; transition: opacity 1.5s ease-in-out;
+        }
+        .bg-overlay.active { opacity: 1; }
+
+        /* حركات الظهور التتابعي (Intro Animations) */
+        .top-bar-anim { opacity: 0; transform: translateY(-100%); transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1); }
+        .top-bar-anim.show { opacity: 1; transform: translateY(0); }
+        
+        .stagger-1 { opacity: 0; transform: scale(0.8) translateY(15px); transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1); }
+        .stagger-2 { opacity: 0; transform: translateY(15px); transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1); }
+        .stagger-3 { opacity: 0; transform: translateY(15px); transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1); }
+
+        .stagger-1.show { opacity: 1; transform: scale(1) translateY(0); transition-delay: 1.5s; }
+        .stagger-2.show { opacity: 1; transform: translateY(0); transition-delay: 1.7s; }
+        .stagger-3.show { opacity: 1; transform: translateY(0); transition-delay: 1.9s; }
+
+        /* تصميمات اللوحة والمعادلات */
+        .industrial-panel { background: rgba(255, 255, 255, 0.92); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.5); border-radius: 1rem; padding: 12px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
+        
+        .btn-touch { min-height: 44px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; border-radius: 1rem; font-weight: 800; cursor: pointer; border: none; }
+        .btn-touch:active { transform: scale(0.95); }
+        
+        .math-input {
+            width: 36px; padding: 2px; border-radius: 6px; border: 2px solid #cbd5e1; text-align: center;
+            font-size: 13px; font-weight: 900; outline: none; transition: all 0.2s; background: rgba(255,255,255,0.9);
+            color: #0f172a; font-family: 'Cairo', sans-serif; box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .math-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.3); background: #ffffff; }
+        .math-input.correct { border-color: #22c55e !important; background: #f0fdf4 !important; color: #166534 !important; pointer-events: none; }
+        .math-input.wrong { border-color: #ef4444 !important; background: #fef2f2 !important; color: #991b1b !important; animation: shakeRed 0.5s; }
+
+        .step-container { display: none; animation: fadeIn 0.4s ease-in; }
+        .step-active { display: flex; flex-direction: column; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes shakeRed { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+        
+        /* Floating Points Animation */
+        @keyframes floatUpFade { 0% { transform: translate(-50%, 0) scale(0.8); opacity: 1; } 100% { transform: translate(-50%, -40px) scale(1.3); opacity: 0; } }
+        .floating-point { position: absolute; pointer-events: none; font-weight: 900; font-size: 18px; animation: floatUpFade 1.2s ease-out forwards; z-index: 150; text-shadow: 0 2px 4px rgba(0,0,0,0.3); }
+
+        /* Background Animations */
+        @keyframes fallDownBg { 0% { top: -20%; opacity: 0; transform: translate(-50%, 0) rotate(0deg); } 15% { opacity: 0.25; } 85% { opacity: 0.25; } 100% { top: 120%; opacity: 0; transform: translate(-50%, 0) rotate(15deg); } }
+        @keyframes floatUpBg { 0% { bottom: -20%; opacity: 0; transform: translate(-50%, 0) rotate(0deg); } 15% { opacity: 0.2; } 85% { opacity: 0.2; } 100% { bottom: 120%; opacity: 0; transform: translate(-50%, 0) rotate(-20deg); } }
+
+        /* Fraction Math Styles */
+        .equation-box { overflow-x: auto; padding: 8px 2px; background: rgba(248, 250, 252, 0.8); border: 1px solid rgba(226, 232, 240, 0.9); border-radius: 8px; margin-bottom: 10px; direction: ltr; text-align: center; scroll-behavior: smooth; }
+        
+        .fraction { display: inline-block; vertical-align: middle; margin: 0; text-align: center; }
+        .numerator { border-bottom: 2px solid #1e293b; padding-bottom: 6px; display: flex; align-items: center; justify-content: center; gap: 2px; white-space: nowrap; font-weight: 800; font-size: 12px; color: #1e293b;}
+        .denominator { padding-top: 6px; display: block; font-weight: 900; font-size: 14px; color: #0f172a;}
+        
+        .formula-btn { width: 100%; text-align: center; padding: 6px 2px; border: 2px solid #cbd5e1; border-radius: 8px; background: rgba(255,255,255,0.9); margin-bottom: 8px; cursor: pointer; transition: 0.2s; overflow-x: auto; direction: ltr;}
+        .formula-btn:hover { border-color: #3b82f6; background: #eff6ff; }
+        .formula-btn.correct { border-color: #22c55e; background: #f0fdf4; pointer-events: none;}
+        .formula-btn.wrong { border-color: #ef4444; background: #fef2f2; animation: shakeRed 0.5s; pointer-events: none;}
+
+        /* Leaderboard Modal Styles */
+        .leaderboard-modal { position: absolute; inset: 0; background: rgba(255,255,255,0.95); backdrop-filter: blur(10px); z-index: 100; display: flex; flex-direction: column; padding: 1.25rem; transition: all 0.3s; }
+        .hidden-modal { opacity: 0; pointer-events: none; transform: scale(0.95); display: none; }
+        .visible-modal { opacity: 1; pointer-events: auto; transform: scale(1); display: flex; }
+        .tab-btn { flex: 1; padding: 8px; font-size: 11px; font-weight: bold; border-radius: 8px; transition: 0.3s; border: 1px solid transparent; cursor: pointer; }
+        .tab-active { background-color: #3b82f6; color: white; box-shadow: 0 2px 10px rgba(59, 130, 246, 0.4); }
+        .tab-inactive { background-color: #f1f5f9; color: #64748b; border-color: #e2e8f0; }
+        .rank-row-me { background-color: #eff6ff !important; border-right: 4px solid #2563eb !important; }
+        .sync-loader { font-size: 10px; animation: spin 1s linear infinite; display: inline-block; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="h-screen w-screen flex items-center justify-center p-2 text-right relative">
+
+    <!-- إشعار النقاط (Toast) -->
+    <div id="toast-notification" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900/90 backdrop-blur-md text-white px-5 py-2.5 rounded-full shadow-2xl font-bold text-xs transform transition-transform duration-300 translate-y-20 opacity-0 z-[200] flex items-center gap-2 border border-slate-700">
+        <i class="fas fa-star text-yellow-400 animate-pulse text-sm"></i>
+        <span id="toast-text"></span>
+    </div>
+
+    <div class="compact-card">
+        <!-- الخلفية الثابتة والغطاء -->
+        <div class="main-bg"></div>
+        <div class="bg-overlay" id="main-overlay"></div>
+
+        <!-- محتوى اللعبة (فوق الخلفية) -->
+        <div class="relative z-10 flex flex-col h-full w-full">
+            
+            <!-- الشريط العلوي -->
+            <div class="top-info-bar top-bar-anim" id="top-bar">
+                <div class="flex items-center gap-2 overflow-hidden">
+                    <i class="fas fa-user-cog text-yellow-400"></i>
+                    <span id="top-student-name" class="truncate font-black text-white"></span>
+                </div>
+                <div class="flex items-center gap-2 bg-slate-800/80 px-3 py-1 rounded-full border border-slate-600 shadow-sm font-bold text-white">
+                    <span id="sync-icon" class="hidden"><i class="fas fa-sync sync-loader text-blue-400"></i></span>
+                    <i class="fas fa-star text-yellow-400 text-[10px]"></i>
+                    <span id="top-prev-score">٠ / ٥</span>
+                </div>
+            </div>
+
+            <!-- الشاشة 1: البداية -->
+            <div id="start-screen" class="p-6 text-center flex flex-col gap-5 h-full justify-center bg-transparent z-10">
+                
+                <div class="stagger-1 w-full h-32 bg-slate-900/40 rounded-2xl flex items-center justify-center border border-white/20 overflow-hidden relative backdrop-blur-md shadow-2xl">
+                    <div class="text-white flex flex-col items-center z-10 drop-shadow-lg">
+                        <i class="fas fa-car text-6xl text-slate-100"></i>
+                    </div>
+                </div>
+                
+                <div class="stagger-2 bg-slate-900/60 backdrop-blur-md p-5 rounded-2xl border border-white/20 shadow-lg">
+                    <h1 class="text-3xl font-black text-white tracking-tight drop-shadow-md">تحدي مصنع السيارات</h1>
+                    <p class="text-sm font-bold text-yellow-400 mt-2">هندسة الجودة والتشتت</p>
+                </div>
+                
+                <div class="stagger-3 flex gap-2 w-full mt-2">
+                    <button onclick="showStoryScreen()" class="btn-touch flex-[2.5] bg-yellow-500 text-slate-900 shadow-lg shadow-yellow-500/30 text-lg border-b-4 border-yellow-600">
+                        دخول لخط الإنتاج <i class="fas fa-cogs mr-2"></i>
+                    </button>
+                    <button onclick="fetchAndShowLeaderboard(true)" class="btn-touch flex-1 bg-slate-800/80 backdrop-blur-sm text-white border border-slate-600 text-[10px] flex-col leading-tight py-2 shadow-lg">
+                        <i class="fas fa-trophy text-yellow-400 text-xl mb-1"></i>
+                        <span>الأبطال</span>
+                    </button>
+                </div>
+                
+                <!-- حقوق التصميم والبرمجة -->
+                <div class="stagger-3 mt-auto text-center pt-4 pb-2">
+                    <p class="text-[10px] text-slate-300 font-bold tracking-widest uppercase">
+                        تصميم وبرمجة: <span class="text-white">أ. عبد العزيز خالد العبلان</span>
+                    </p>
+                </div>
+            </div>
+
+            <!-- الشاشة 2: القصة والمهمة -->
+            <div id="story-screen" class="hidden p-4 flex flex-col h-full justify-center bg-transparent relative overflow-hidden z-10">
+                <div id="bg-anim-container" class="absolute inset-0 pointer-events-none z-0"></div>
+                <div class="absolute top-2 left-2 text-white text-5xl opacity-20"><i class="fas fa-quote-left"></i></div>
+                
+                <div class="flex items-center gap-2 mb-3 z-10 relative mt-1 shrink-0 bg-slate-900/70 backdrop-blur-md p-2.5 rounded-xl border border-white/20 shadow-lg">
+                    <div class="w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center text-white text-lg shadow-md border-2 border-yellow-500 shrink-0">
+                        <i class="fas fa-user-tie"></i>
+                    </div>
+                    <div class="leading-tight text-white">
+                        <h2 class="font-black text-base">رسالة من مدير المصنع:</h2>
+                        <p class="text-[10px] text-slate-300 font-bold">إلى: كبير مهندسي الجودة</p>
+                    </div>
+                </div>
+
+                <div class="industrial-panel flex-1 text-[14px] font-bold text-slate-800 leading-relaxed mb-3 relative z-10 overflow-y-auto">
+                    <div id="typewriter-container" class="inline"></div>
+                    <span id="typing-cursor" class="inline-block w-1.5 h-4 bg-slate-800 animate-pulse ml-1 align-middle"></span>
+                </div>
+
+                <button id="btn-next-to-task" onclick="startActualGame()" class="btn-touch bg-blue-600 text-white shadow-lg shadow-blue-600/30 text-base border-b-4 border-blue-800 mt-auto opacity-0 pointer-events-none transition-opacity duration-500 relative z-10 shrink-0">
+                    استلمت المهمة، فلنبدأ! <i class="fas fa-arrow-left mr-2"></i>
+                </button>
+            </div>
+
+            <!-- الشاشة 3: اللعبة (الخطوات التفاعلية) -->
+            <div id="game-screen" class="hidden p-4 flex flex-col gap-2 overflow-y-auto text-right h-full relative z-10">
+                <div class="flex justify-between items-center bg-slate-900/90 backdrop-blur-md text-white p-2.5 rounded-xl text-[10px] font-bold shadow-lg border border-slate-700 shrink-0">
+                    <div class="flex items-center gap-1 text-sm"><i class="fas fa-car text-yellow-400"></i> شحنة <span id="q-current" class="mx-1 font-black">١</span> / ٢</div>
+                    <div class="bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-600 text-sm">النقاط: <span id="score-display" class="text-yellow-400 font-black">٠</span></div>
+                </div>
+
+                <!-- اللوحة العلوية المتغيرة -->
+                <div class="industrial-panel border-r-4 border-r-blue-500 mb-1 p-3 shrink-0 relative min-h-[90px] flex flex-col justify-center" id="top-dynamic-panel">
+                    <button id="btn-show-scenario" onclick="toggleScenarioModal()" class="hidden absolute top-2 left-2 bg-blue-100 border border-blue-200 text-blue-700 px-2 py-1 rounded shadow-sm text-[10px] font-black hover:bg-blue-200 transition-colors z-10"><i class="fas fa-eye ml-1"></i>عرض السؤال</button>
+                    
+                    <div id="scenario-content">
+                        <p id="scenario-text" class="text-[11px] font-bold text-slate-700 leading-relaxed mb-2"></p>
+                        <div id="data-container" class="flex justify-center gap-2 font-mono text-base bg-slate-200/80 p-2 rounded-lg text-slate-900 font-black border border-slate-300" dir="ltr"></div>
+                    </div>
+
+                    <div id="selected-formula-container" class="hidden w-full overflow-hidden">
+                        <p id="formula-title" class="text-[10px] text-emerald-700 font-black mb-1 text-center"><i class="fas fa-check-circle mr-1"></i> بناءً على اختيارك الصحيح:</p>
+                        <div id="formula-display-area" class="w-full"></div>
+                    </div>
+                </div>
+
+                <!-- Step 1 -->
+                <div id="step-1" class="step-container step-active">
+                    <h3 class="text-xs font-black text-blue-900 mb-2 bg-blue-100/90 backdrop-blur-sm p-2 rounded border border-blue-200"><i class="fas fa-calculator ml-1"></i> ١. حساب المتوسط الحسابي</h3>
+                    <div class="industrial-panel p-3">
+                        <p class="text-[11px] font-bold text-slate-700 mb-3 text-center">ما هو المتوسط الحسابي لهذه القراءات؟</p>
+                        <div id="mean-options" class="flex gap-2 justify-center mb-2"></div>
+                        <div id="mean-hint" class="hidden bg-amber-100/90 border border-amber-300 text-amber-900 text-[10px] p-2 rounded mb-2 font-bold shadow-sm">
+                            <i class="fas fa-lightbulb text-amber-600 ml-1"></i> تلميح: المتوسط = (مجموع القراءات) ÷ عددها. حاول مجدداً!
+                        </div>
+                        <div id="mean-solution" class="hidden bg-emerald-50/90 border border-emerald-200 text-emerald-900 text-[11px] p-3 rounded mb-2 font-black text-center shadow-sm" dir="ltr"></div>
+                    </div>
+                </div>
+
+                <!-- Step 2 -->
+                <div id="step-2" class="step-container">
+                    <h3 class="text-xs font-black text-indigo-900 mb-2 bg-indigo-100/90 backdrop-blur-sm p-2 rounded border border-indigo-200"><i class="fas fa-arrows-alt-h ml-1"></i> ٢. الانحراف المتوسط</h3>
+                    
+                    <div class="industrial-panel p-3">
+                        <div id="mad-phase-1">
+                            <p class="text-[10px] font-bold text-slate-700 mb-2 text-center">المتوسط = <span class="mean-val font-black text-blue-700 bg-blue-50 px-1 rounded border border-blue-200"></span><br>أي القوانين يمثل الانحراف المتوسط؟</p>
+                            <div id="mad-options-container"></div>
+                        </div>
+
+                        <div id="mad-phase-2" class="hidden">
+                            <p class="text-[11px] font-bold text-slate-800 mb-2 text-center">عوض في المربعات بناءً على المعادلة بالأعلى:</p>
+                            <div class="equation-box relative bg-slate-100/80 border-slate-300" id="mad-calc-equation"></div>
+                            
+                            <div class="mt-3 flex justify-between items-center bg-slate-50/90 p-3 rounded border border-slate-300 relative shadow-sm">
+                                <span class="text-[11px] font-bold text-slate-800">الناتج (الانحراف):</span>
+                                <input type="text" inputmode="decimal" id="final-mad" class="math-input w-14" placeholder="=">
+                            </div>
+                            <button id="btn-check-mad" onclick="checkMadInputs()" class="btn-touch w-full bg-slate-900 text-white mt-3 text-sm shadow-md border-b-4 border-black">تحقق من النواتج <i class="fas fa-check mr-2"></i></button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 3 -->
+                <div id="step-3" class="step-container">
+                    <h3 class="text-xs font-black text-purple-900 mb-2 bg-purple-100/90 backdrop-blur-sm p-2 rounded border border-purple-200"><i class="fas fa-expand-arrows-alt ml-1"></i> ٣. التباين (تضخيم الأخطاء)</h3>
+                    
+                    <div class="industrial-panel p-3">
+                        <div id="var-phase-1">
+                            <p class="text-[10px] font-bold text-slate-700 mb-2 text-center">أي القوانين يمثل التباين بشكل صحيح (لتضخيم الأخطاء)؟</p>
+                            <div id="var-options-container"></div>
+                        </div>
+
+                        <div id="var-phase-2" class="hidden">
+                            <p class="text-[11px] font-bold text-slate-800 mb-2 text-center">عوض (بالتربيع) بناءً على المعادلة بالأعلى:</p>
+                            <div class="equation-box relative bg-slate-100/80 border-slate-300" id="var-calc-equation"></div>
+                            
+                            <div class="mt-3 flex justify-between items-center bg-slate-50/90 p-3 rounded border border-slate-300 relative shadow-sm">
+                                <span class="text-[11px] font-bold text-slate-800">الناتج (التباين):</span>
+                                <input type="text" inputmode="decimal" id="final-var" class="math-input w-14" placeholder="=">
+                            </div>
+                            <button id="btn-check-var" onclick="checkVarInputs()" class="btn-touch w-full bg-slate-900 text-white mt-3 text-sm shadow-md border-b-4 border-black">تحقق من التباين <i class="fas fa-check mr-2"></i></button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 4 -->
+                <div id="step-4" class="step-container">
+                    <h3 class="text-xs font-black text-emerald-900 mb-2 bg-emerald-100/90 backdrop-blur-sm p-2 rounded border border-emerald-200"><i class="fas fa-compress-arrows-alt ml-1"></i> ٤. الانحراف المعياري (ع)</h3>
+                    
+                    <div class="industrial-panel p-3">
+                        <div id="sd-explanation" class="hidden bg-amber-100/90 border border-amber-300 p-3 rounded-xl mb-3 text-[11px] font-bold text-amber-900 shadow-sm">
+                            <i class="fas fa-info-circle ml-1 text-amber-600"></i> تلميح: الانحراف المعياري (ع) هو <span class="font-black text-amber-800 bg-white px-1 rounded border border-amber-200">الجذر التربيعي</span> للتباين. (تم خصم ٥ نقاط).
+                        </div>
+                        
+                        <p class="text-[11px] font-bold text-slate-800 mb-3 text-center">بناءً على التباين السابق، ما هي قيمة الانحراف المعياري (ع)؟</p>
+                        
+                        <div id="sd-options-container" class="grid grid-cols-2 gap-2 mb-2 relative"></div>
+                    </div>
+                    <button id="next-scenario-btn" onclick="nextScenario()" class="btn-touch bg-slate-900 text-yellow-400 w-full hidden text-base mt-3 shrink-0 shadow-lg border-b-4 border-black">الانتقال للشحنة التالية <i class="fas fa-forward mr-2"></i></button>
+                </div>
+            </div>
+
+            <!-- الشاشة 4: النتائج -->
+            <div id="result-screen" class="hidden p-5 flex flex-col h-full overflow-hidden text-center justify-center bg-white/95 backdrop-blur-xl z-20">
+                <div class="text-6xl text-emerald-500 mb-4 drop-shadow-md animate-bounce"><i class="fas fa-clipboard-check"></i></div>
+                <h2 class="text-2xl font-black text-slate-900 mb-6">اكتمل التفتيش بنجاح!</h2>
+                
+                <div class="grid grid-cols-2 gap-3 mb-6">
+                    <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 shadow-inner text-center">
+                        <p class="text-[10px] font-bold text-slate-500 uppercase mb-1">النقاط المكتسبة</p>
+                        <p class="text-3xl font-black text-slate-800"><span id="final-score-display">٠</span> <span class="text-sm text-slate-400 block" id="max-score-display"></span></p>
+                    </div>
+                    <div class="bg-yellow-50 p-4 rounded-2xl border-2 border-yellow-300 shadow-md text-center relative overflow-hidden">
+                        <i class="fas fa-star absolute -top-2 -right-2 text-5xl text-yellow-200 opacity-50"></i>
+                        <p class="text-[10px] font-bold text-yellow-700 uppercase mb-1">الدرجة الموزونة</p>
+                        <p class="text-3xl font-black text-yellow-800"><span id="final-grade-display">٠</span> <span class="text-lg text-yellow-600">/ ٥</span></p>
+                    </div>
+                </div>
+
+                <div class="bg-emerald-50 p-3 rounded-xl border border-emerald-200 mb-8 flex items-center justify-center gap-2 shadow-sm">
+                    <i class="fas fa-cloud-upload-alt text-emerald-600"></i>
+                    <p id="save-msg" class="font-bold text-emerald-900 text-sm">تم تسجيل التقرير في المنصة</p>
+                </div>
+
+                <button onclick="fetchAndShowLeaderboard(true)" class="btn-touch w-full bg-slate-900 text-white mb-3 shadow-lg border-b-4 border-black">
+                    <i class="fas fa-trophy ml-2 text-yellow-500"></i> لوحة شرف المهندسين
+                </button>
+                <button onclick="location.reload()" class="btn-touch flex-1 bg-white border-2 border-slate-300 text-slate-700 text-sm w-full hover:bg-slate-50">تفتيش شحنات جديدة</button>
+            </div>
+            
+            <!-- النافذة المنبثقة للسؤال -->
+            <div id="scenario-modal" class="hidden fixed inset-0 bg-slate-900/80 z-[100] items-center justify-center p-4 backdrop-blur-sm" onclick="if(event.target===this) toggleScenarioModal()">
+                <div class="bg-white rounded-2xl p-5 w-full max-w-[340px] relative shadow-2xl transform transition-transform scale-95" id="scenario-modal-content">
+                    <button onclick="toggleScenarioModal()" class="absolute top-3 left-3 text-slate-400 hover:text-red-500 text-xl"><i class="fas fa-times"></i></button>
+                    <h3 class="font-black text-slate-900 mb-3 text-sm border-b pb-2 flex items-center"><i class="fas fa-clipboard-list text-blue-600 ml-2"></i>السؤال الأساسي (للتذكير)</h3>
+                    <p id="modal-scenario-text" class="text-[12px] font-bold text-slate-800 leading-relaxed mb-4 text-right"></p>
+                    <div id="modal-data-container" class="flex justify-center gap-2 font-mono text-base bg-slate-100 p-2 rounded-lg text-slate-900 font-black border border-slate-300" dir="ltr"></div>
+                    <button onclick="toggleScenarioModal()" class="w-full bg-slate-100 text-slate-700 font-bold py-2 rounded-lg mt-4 text-xs hover:bg-slate-200 border border-slate-300">إغلاق</button>
+                </div>
+            </div>
+
+            <!-- سجل الأبطال -->
+            <div id="leaderboard-modal" class="leaderboard-modal hidden-modal" dir="rtl">
+                <div class="flex justify-between items-center mb-4 border-b border-slate-200 pb-3">
+                    <h3 class="font-black text-slate-900 text-lg"><i class="fas fa-award text-yellow-500 ml-2"></i>سجل الجودة (المهندسين)</h3>
+                    <button onclick="closeLeaderboardModal()" class="w-9 h-9 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center transition-all hover:bg-red-100 hover:text-red-600"><i class="fas fa-times"></i></button>
+                </div>
+                <div class="flex gap-2 mb-4">
+                    <button onclick="switchTab('class')" id="tab-class" class="tab-btn tab-inactive">مهندسو قسمي</button>
+                    <button onclick="switchTab('global')" id="tab-global" class="tab-btn tab-active">كل المهندسين (المصنع)</button>
+                </div>
+                <div id="modal-body" class="flex-1 overflow-y-auto bg-slate-50/80 rounded-2xl border border-slate-200 p-1 relative backdrop-blur-sm">
+                    <div id="modal-loader" class="absolute inset-0 flex items-center justify-center hidden bg-white/80 z-10"><div class="sync-loader text-slate-800 text-3xl"><i class="fas fa-cog"></i></div></div>
+                    <div id="leaderboard-content" class="space-y-1"></div>
+                </div>
+                <p class="text-center text-[9px] text-slate-500 mt-2 font-bold italic">الأولوية للدرجة ثم سرعة الإنجاز</p>
+            </div>
+
+        </div> <!-- End of Content Wrapper -->
+    </div>
+
+    <script>
+    (function() {
+        // تأثير ظهور البداية (Loading Screen effect)
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => {
+                document.getElementById('main-overlay').classList.add('active');
+                document.getElementById('top-bar').classList.add('show');
+                document.querySelectorAll('.stagger-1, .stagger-2, .stagger-3').forEach(el => el.classList.add('show'));
+            }, 1200); // إظهار الصورة واضحة لمدة 1.2 ثانية
+        });
+
+        // Cloud Variables
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxqAQlGhNs8k5RwHs6jrWxDiDwaMABSx8a9Fl81O5oVVa5fHRWTwIEvsGy2cSDP4zGLWQ/exec";
+        const urlParams = new URLSearchParams(window.location.search);
+        const GAME_ID = urlParams.get('gameId') || 'g10_3_2'; // تم تحديث رابط اللعبة الجديد
+        const studentId = urlParams.get('studentId') || urlParams.get('userId');
+        const classId = urlParams.get('classId');
+        let studentName = decodeURIComponent(urlParams.get('name') || urlParams.get('studentName') || urlParams.get('username') || "المهندس البطل");
+        let currentLeaderboardMode = classId ? 'class' : 'global';
+        let localVisitorResult = null;
+        let startTime, timerInterval, timeSeconds = 0;
+
+        // Arabic numbering helpers
+        const toAr = (n) => String(n).replace(/\d/g, d => "٠١٢٣٤٥٦٧٨٩"[d]).replace('.', ',');
+        const toEn = (s) => String(s).replace(/[٠-٩]/g, d => "٠١٢٣٤٥٦٧٨٩".indexOf(d)).replace(',', '.');
+
+        // --- بنك الأسئلة ---
+        // 3 أسئلة بـ 5 عناصر
+        const scenarios5 = [
+            {
+                text: "المكابس: تم قياس أقطار ٥ مكابس لمحرك بالميليمتر. القراءات:",
+                data: [80, 82, 78, 81, 79], mean: 80, mad: 1.2, variance: 2.0, sd: 1.41
+            },
+            {
+                text: "البطاريات: فحص سعة بطاريات التشغيل بالأمبير. القراءات:",
+                data: [50, 45, 55, 40, 60], mean: 50, mad: 6.0, variance: 50.0, sd: 7.07
+            },
+            {
+                text: "أحزمة الأمان: اختبار قوة شد أحزمة الأمان بالميجا باسكال. القراءات:",
+                data: [100, 104, 96, 100, 100], mean: 100, mad: 1.6, variance: 6.4, sd: 2.53
+            }
+        ];
+        // 3 أسئلة بـ 6 عناصر
+        const scenarios6 = [
+            {
+                text: "طلاء السيارات: قياس سماكة الطلاء بالميكرون. القراءات:",
+                data: [9, 11, 8, 14, 6, 6], mean: 9, mad: 2.33, variance: 8.0, sd: 2.83
+            },
+            {
+                text: "ضغط الإطارات: قياس ضغط الهواء لـ ٦ إطارات. القراءات:",
+                data: [34, 30, 34, 30, 36, 28], mean: 32, mad: 2.67, variance: 8.0, sd: 2.83
+            },
+            {
+                text: "نوابض المقاعد: اختبار قوة تحمل النوابض بالنيوتن. القراءات:",
+                data: [55, 45, 51, 49, 51, 49], mean: 50, mad: 2.33, variance: 9.0, sd: 3.0
+            }
+        ];
+
+        let selectedQuestions = [];
+        let currentQIndex = 0;
+        let q = null;
+        let score = 0;
+        let maxGameScore = 0; 
+
+        // Attempts Trackers
+        let meanAttempts = 0; 
+        let madFormulaAttempts = 0; let madCheckCount = 0; let madSubScore = 0;
+        let varFormulaAttempts = 0; let varCheckCount = 0; let varSubScore = 0;
+        let sdAttempts = 0;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('top-student-name').textContent = studentName;
+            if (!classId) {
+                document.getElementById('tab-class').style.display = 'none';
+                currentLeaderboardMode = 'global';
+            } else {
+                document.getElementById('tab-class').className = 'tab-btn tab-active';
+                document.getElementById('tab-global').className = 'tab-btn tab-inactive';
+            }
+            if (studentId && classId) {
+                document.getElementById('sync-icon').classList.remove('hidden');
+                fetchInitialCloudData();
+            } else if (!urlParams.get('name')) {
+                studentName = "مهندس زائر";
+                document.getElementById('top-student-name').textContent = studentName;
+            }
+        });
+
+        async function fetchInitialCloudData() {
+            try {
+                const url = `${SCRIPT_URL}?action=getStudentData&studentId=${studentId}&classId=${encodeURIComponent(classId)}&itemId=${GAME_ID}&t=${Date.now()}`;
+                const res = await (await fetch(url)).json();
+                if (res.status === 'success' && res.data) {
+                    if (res.data.name) { studentName = res.data.name; document.getElementById('top-student-name').textContent = studentName; }
+                    if (res.data.games && res.data.games[GAME_ID]) document.getElementById('top-prev-score').textContent = toAr(parseFloat(res.data.games[GAME_ID].grade).toFixed(1)) + " / ٥";
+                }
+            } catch (e) { console.log("Cloud Connect Failed"); }
+            finally { document.getElementById('sync-icon').classList.add('hidden'); }
+        }
+
+        // Visual Feedback Functions
+        function showFloatingPoint(element, text, colorType) {
+            const rect = element.getBoundingClientRect();
+            const floatEl = document.createElement('div');
+            floatEl.textContent = text;
+            
+            let colorClass = 'text-green-500';
+            if (colorType === 'yellow') colorClass = 'text-yellow-500';
+            else if (colorType === 'red') colorClass = 'text-red-500';
+            
+            floatEl.className = `floating-point ${colorClass}`;
+            floatEl.style.left = (rect.left + rect.width / 2) + 'px';
+            floatEl.style.top = rect.top + 'px';
+            document.body.appendChild(floatEl);
+            setTimeout(() => floatEl.remove(), 1200);
+        }
+
+        function showStepToast(points, maxPoints, customText = "") {
+            const toast = document.getElementById('toast-notification');
+            const txt = document.getElementById('toast-text');
+            if(customText) {
+                txt.textContent = customText;
+            } else {
+                txt.textContent = `حصدت ${toAr(points)} من ${toAr(maxPoints)} نقطة في هذه الخطوة!`;
+            }
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 2500);
+        }
+
+        // Story Logic
+        const storyParts = [
+            { text: "أهلاً بك يا مهندس!\nالسيارات هنا تصنع " },
+            { text: "بدقة متناهية", class: "text-blue-700 font-black text-[15px]" },
+            { text: ".\nتخيل أن " },
+            { text: "مسماراً صغيراً ", class: "text-red-600 font-black text-[15px]", trigger: "screw", pause: 400 },
+            { text: "اختلف حجمه، قد يعطل " },
+            { text: "المحرك بالكامل! ", class: "text-red-700 font-black text-[15px]", trigger: "engine", pause: 600 },
+            { text: "\n\nلحساب " },
+            { text: "(مقاييس التشتت) ", class: "text-yellow-600 font-black text-[15px]" },
+            { text: "لضمان الجودة، أمامنا ٤ خطوات " },
+            { text: "مهمة", class: "text-emerald-600 font-black text-[15px]" },
+            { text: ".\nفلنبدأ!" }
+        ];
+
+        let currentPartIdx = 0, currentCharIdx = 0, currentSpan = null, typeContainer = null, isTypingActive = false;
+
+        window.showStoryScreen = () => {
+            document.getElementById('start-screen').classList.add('hidden');
+            document.getElementById('story-screen').classList.remove('hidden');
+            typeContainer = document.getElementById('typewriter-container');
+            typeContainer.innerHTML = '';
+            currentPartIdx = 0; currentCharIdx = 0; isTypingActive = true;
+            typeNextCharacter();
+        };
+
+        function typeNextCharacter() {
+            if (!isTypingActive) return;
+            if (currentPartIdx >= storyParts.length) {
+                document.getElementById('typing-cursor').classList.add('hidden');
+                document.getElementById('btn-next-to-task').classList.remove('opacity-0', 'pointer-events-none');
+                return;
+            }
+            let part = storyParts[currentPartIdx];
+            if (currentCharIdx === 0) {
+                currentSpan = document.createElement('span');
+                if (part.class) currentSpan.className = part.class;
+                typeContainer.appendChild(currentSpan);
+                if (part.trigger) triggerBackgroundAnimation(part.trigger);
+            }
+            if (currentCharIdx < part.text.length) {
+                let char = part.text.charAt(currentCharIdx);
+                currentSpan.innerHTML += (char === '\n') ? '<br>' : char;
+                currentCharIdx++;
+                setTimeout(typeNextCharacter, (char === '.' || char === '!') ? 300 : 25);
+            } else {
+                currentPartIdx++; currentCharIdx = 0;
+                setTimeout(typeNextCharacter, part.pause || 0);
+            }
+        }
+
+        window.triggerBackgroundAnimation = function(type) {
+            const container = document.getElementById('bg-anim-container');
+            if(!container) return;
+            const el = document.createElement('div');
+            el.className = 'absolute left-1/2 -translate-x-1/2 opacity-0 flex items-center justify-center pointer-events-none';
+            if (type === 'screw') {
+                el.innerHTML = `<svg width="120" height="120" viewBox="0 0 24 24" fill="#64748b"><path d="M15,4V5H14V17L12,20L10,17V5H9V4H15M17,2H7V6H9V17.5L12,22L15,17.5V6H17V2Z" /></svg>`;
+                el.style.animation = 'fallDownBg 3s ease-in forwards';
+            } else if (type === 'engine') {
+                el.innerHTML = `<i class='fas fa-cogs text-[10rem] text-slate-300'></i>`;
+                el.style.animation = 'floatUpBg 3.5s ease-out forwards';
+            }
+            container.appendChild(el);
+            setTimeout(() => el.remove(), 4000);
+        }
+
+        window.startActualGame = () => {
+            document.getElementById('story-screen').classList.add('hidden');
+            document.getElementById('game-screen').classList.remove('hidden');
+            
+            // اختيار مسألة من فئة 5 قراءات ومسألة من فئة 6 قراءات
+            let random5 = scenarios5[Math.floor(Math.random() * scenarios5.length)];
+            let random6 = scenarios6[Math.floor(Math.random() * scenarios6.length)];
+            selectedQuestions = [random5, random6].sort(() => 0.5 - Math.random());
+            
+            // حساب أقصى درجة بناءً على عدد القراءات المختارة
+            maxGameScore = 0;
+            selectedQuestions.forEach(q => {
+                let inputCount = q.data.length + 1; // الفراغات + الناتج النهائي
+                // (10 متوسط) + (10 اختيار انحراف + مدخلاته*2) + (10 اختيار تباين + مدخلاته*2) + (10 انحراف معياري)
+                maxGameScore += 10 + 10 + (inputCount * 2) + 10 + (inputCount * 2) + 10;
+            });
+
+            currentQIndex = 0; score = 0;
+            timeSeconds = 0;
+            clearInterval(timerInterval);
+            timerInterval = setInterval(() => timeSeconds++, 1000);
+            loadScenario();
+        };
+
+        // --- Top Panel Management ---
+        function resetTopPanel() {
+            document.getElementById('scenario-content').classList.remove('hidden');
+            document.getElementById('selected-formula-container').classList.add('hidden');
+            document.getElementById('btn-show-scenario').classList.add('hidden');
+            document.getElementById('formula-title').innerHTML = `<i class="fas fa-check-circle mr-1"></i> بناءً على اختيارك الصحيح:`;
+        }
+
+        function showFormulaInTopPanel(formulaHtml) {
+            document.getElementById('scenario-content').classList.add('hidden');
+            document.getElementById('selected-formula-container').classList.remove('hidden');
+            document.getElementById('formula-display-area').innerHTML = `<div class="equation-box border-none bg-transparent mb-0">${formulaHtml}</div>`;
+            document.getElementById('btn-show-scenario').classList.remove('hidden');
+        }
+
+        function showFinalResultInTopPanel(title, valueHtml) {
+            document.getElementById('scenario-content').classList.add('hidden');
+            document.getElementById('selected-formula-container').classList.remove('hidden');
+            document.getElementById('formula-title').innerHTML = `<i class="fas fa-clipboard-check mr-1"></i> ${title}`;
+            document.getElementById('formula-display-area').innerHTML = valueHtml;
+            document.getElementById('btn-show-scenario').classList.remove('hidden');
+        }
+
+        window.toggleScenarioModal = () => {
+            const modal = document.getElementById('scenario-modal');
+            const content = document.getElementById('scenario-modal-content');
+            if (modal.classList.contains('hidden')) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+                setTimeout(() => content.classList.replace('scale-95', 'scale-100'), 10);
+            } else {
+                content.classList.replace('scale-100', 'scale-95');
+                setTimeout(() => {
+                    modal.classList.add('hidden');
+                    modal.classList.remove('flex');
+                }, 150);
+            }
+        };
+
+        function showStep(stepNum) {
+            document.querySelectorAll('.step-container').forEach(el => el.classList.remove('step-active'));
+            document.getElementById('step-' + stepNum).classList.add('step-active');
+            document.getElementById('game-screen').scrollTop = 0;
+        }
+
+        function addScore(pts) {
+            score += pts;
+            document.getElementById('score-display').textContent = toAr(score);
+        }
+
+        function loadScenario() {
+            q = selectedQuestions[currentQIndex];
+            document.getElementById('q-current').textContent = toAr(currentQIndex + 1);
+            
+            meanAttempts = 0; 
+            madFormulaAttempts = 0; madCheckCount = 0; madSubScore = 0;
+            varFormulaAttempts = 0; varCheckCount = 0; varSubScore = 0;
+            sdAttempts = 0;
+
+            document.getElementById('scenario-text').textContent = q.text;
+            document.getElementById('data-container').innerHTML = q.data.map(n => `<span>${toAr(n)}</span>`).join(' - ');
+            document.getElementById('modal-scenario-text').textContent = q.text;
+            document.getElementById('modal-data-container').innerHTML = q.data.map(n => `<span>${toAr(n)}</span>`).join(' - ');
+            
+            document.getElementById('next-scenario-btn').classList.add('hidden');
+            document.querySelectorAll('.mean-val').forEach(el => el.textContent = toAr(q.mean));
+            
+            setupStep1();
+            showStep(1);
+        }
+
+        // --- STEP 1: Mean ---
+        function setupStep1() {
+            resetTopPanel();
+            const optsContainer = document.getElementById('mean-options');
+            document.getElementById('mean-hint').classList.add('hidden');
+            document.getElementById('mean-solution').classList.add('hidden');
+            optsContainer.classList.remove('hidden');
+            
+            let options = [q.mean, q.mean - 2, q.mean + 1].sort(() => 0.5 - Math.random());
+            optsContainer.innerHTML = options.map(opt => 
+                `<button onclick="checkMean(${opt}, this)" class="px-5 py-3 bg-white border-2 border-slate-300 rounded-xl font-black text-slate-800 text-lg w-20 transition-all hover:bg-blue-50 hover:border-blue-300 relative shadow-sm">${toAr(opt)}</button>`
+            ).join('');
+        }
+
+        window.checkMean = (val, btn) => {
+            if (val === q.mean) {
+                btn.classList.replace('bg-white', 'bg-green-500'); btn.classList.replace('border-slate-300', 'border-green-600'); btn.classList.replace('text-slate-800', 'text-white');
+                
+                let earned = meanAttempts === 0 ? 10 : 5;
+                addScore(earned);
+                showFloatingPoint(btn, `+${toAr(earned)}`, earned === 10 ? 'green' : 'yellow');
+                showStepToast(earned, 10);
+
+                setTimeout(() => { setupStep2(); showStep(2); }, 1000);
+            } else {
+                btn.classList.replace('bg-white', 'bg-red-500'); btn.classList.replace('border-slate-300', 'border-red-600'); btn.classList.replace('text-slate-800', 'text-white');
+                btn.classList.add('pointer-events-none');
+                meanAttempts++;
+                
+                if (meanAttempts === 1) {
+                    document.getElementById('mean-hint').classList.remove('hidden');
+                } else {
+                    document.getElementById('mean-options').classList.add('hidden');
+                    document.getElementById('mean-hint').classList.add('hidden');
+                    let sumStr = q.data.map(toAr).join(' + ');
+                    let sum = q.data.reduce((a,b)=>a+b,0);
+                    let formulaHtml = `
+                        <div class="fraction text-base text-emerald-900 mb-2" dir="ltr">
+                            <span class="numerator border-emerald-800">${sumStr}</span>
+                            <span class="denominator text-emerald-900">${toAr(q.data.length)}</span>
+                        </div>
+                    `;
+                    document.getElementById('mean-solution').innerHTML = `المتوسط (مجموع القيم على عددها):<br>${formulaHtml}<br>الناتج = <span class="text-xl text-emerald-700">${toAr(q.mean)}</span>`;
+                    document.getElementById('mean-solution').classList.remove('hidden');
+                    
+                    showFloatingPoint(btn, '٠', 'red');
+                    showStepToast(0, 10);
+                    
+                    setTimeout(() => { setupStep2(); showStep(2); }, 3500);
+                }
+            }
+        };
+
+        function buildFormulaHTML(type, isVariance = false) {
+            let numStr = "";
+            let m = toAr(q.mean);
+            
+            let aO = `<span class="text-red-600 font-black text-[15px] mx-[1px]">|</span>`;
+            let aC = `<span class="text-red-600 font-black text-[15px] mx-[1px]">|</span>`;
+            let pO = `<span class="text-green-700 font-black text-[15px] mx-[1px]">(</span>`;
+            let pC = `<span class="text-green-700 font-black text-[15px] mx-[1px]">)</span>`;
+            let sq = `<sup class="text-[11px] text-slate-800 font-black">٢</sup>`;
+
+            for(let i=0; i<q.data.length; i++) {
+                let v = toAr(q.data[i]);
+                if (!isVariance) {
+                    if(type === 'correct') numStr += `${aO}${v}-${m}${aC}`;
+                    if(type === 'wrong_plus') numStr += `${aO}${v}+${m}${aC}`;
+                    if(type === 'wrong_paren') numStr += `${pO}${v}-${m}${pC}${sq}`;
+                } else {
+                    if(type === 'correct') numStr += `${pO}${v}-${m}${pC}${sq}`;
+                    if(type === 'wrong_plus') numStr += `${pO}${v}+${m}${pC}${sq}`;
+                    if(type === 'wrong_paren') numStr += `${aO}${v}-${m}${aC}${sq}`;
+                }
+                if(i < q.data.length - 1) numStr += `<span class="text-slate-500 mx-[2px]">+</span>`;
+            }
+            return `
+                <div class="fraction" dir="ltr">
+                    <span class="numerator">${numStr}</span>
+                    <span class="denominator">${toAr(q.data.length)}</span>
+                </div>
+            `;
+        }
+
+        // --- STEP 2: MAD Formula & Inputs ---
+        function setupStep2() {
+            resetTopPanel();
+            document.getElementById('mad-phase-1').classList.remove('hidden');
+            document.getElementById('mad-phase-2').classList.add('hidden');
+            
+            const optsContainer = document.getElementById('mad-options-container');
+            let options = ['correct', 'wrong_plus', 'wrong_paren'].sort(() => 0.5 - Math.random());
+            
+            optsContainer.innerHTML = options.map(opt => `
+                <div class="formula-btn relative shadow-sm" onclick="selectMadFormula('${opt}', this)">
+                    ${buildFormulaHTML(opt, false)}
+                </div>
+            `).join('');
+        }
+
+        window.selectMadFormula = (type, el) => {
+            if (type === 'correct') {
+                el.classList.add('correct');
+                
+                let earned = madFormulaAttempts === 0 ? 10 : 5;
+                addScore(earned);
+                showFloatingPoint(el, `+${toAr(earned)}`, earned === 10 ? 'green' : 'yellow');
+                showStepToast(earned, 10, `حصدت ${toAr(earned)} نقاط لاختيار القانون الصحيح!`);
+
+                setTimeout(() => {
+                    document.getElementById('mad-phase-1').classList.add('hidden');
+                    setupMadInputs();
+                    showFormulaInTopPanel(buildFormulaHTML('correct', false));
+                    document.getElementById('mad-phase-2').classList.remove('hidden');
+                }, 1200);
+            } else {
+                el.classList.add('wrong');
+                madFormulaAttempts++;
+                if (madFormulaAttempts >= 2) {
+                     document.querySelectorAll('#mad-options-container .formula-btn').forEach(btn => {
+                         if (!btn.classList.contains('wrong')) btn.click();
+                     });
+                     showFloatingPoint(el, '٠', 'red');
+                }
+            }
+        };
+
+        function setupMadInputs() {
+            madSubScore = 0;
+            let inputsHtml = "";
+            for(let i=0; i<q.data.length; i++) {
+                let ans = Math.abs(q.data[i] - q.mean);
+                inputsHtml += `<input type="text" inputmode="decimal" class="math-input mad-sub-in" data-ans="${ans}" data-scored="false" onclick="this.select()">`;
+                if(i < q.data.length - 1) inputsHtml += `<span class="font-black text-slate-500 mx-[1px]">+</span>`;
+            }
+            
+            let fractionHtml = `
+                <div class="fraction" dir="ltr">
+                    <span class="numerator border-slate-400">${inputsHtml}</span>
+                    <span class="denominator text-slate-800">${toAr(q.data.length)}</span>
+                </div>
+            `;
+            document.getElementById('mad-calc-equation').innerHTML = fractionHtml;
+            document.getElementById('final-mad').value = '';
+            document.getElementById('final-mad').className = 'math-input w-14';
+            document.getElementById('final-mad').dataset.ans = q.mad;
+            document.getElementById('final-mad').dataset.scored = "false";
+            document.getElementById('final-mad').readOnly = false;
+        }
+
+        window.checkMadInputs = () => {
+            let emptyCount = 0;
+            let allCorrect = true;
+            let hasWrong = false;
+            let maxPointsForThisStep = (q.data.length + 1) * 2;
+            
+            const allInputs = document.querySelectorAll('.mad-sub-in, #final-mad');
+
+            allInputs.forEach(inp => {
+                if (inp.dataset.scored === "true") return;
+                if (inp.value.trim() === '') emptyCount++;
+            });
+
+            if (emptyCount > 0 && madCheckCount === 0) {
+                alert('الرجاء تعبئة جميع الفراغات (بما فيها الناتج النهائي) قبل التحقق للمرة الأولى!');
+                return;
+            }
+
+            madCheckCount++;
+
+            allInputs.forEach(inp => {
+                if (inp.dataset.scored === "true") return;
+
+                let userVal = parseFloat(toEn(inp.value));
+                let ans = parseFloat(inp.dataset.ans);
+                
+                if (!isNaN(userVal) && Math.abs(userVal - ans) <= 0.1) {
+                    inp.classList.add('correct'); 
+                    inp.classList.remove('wrong');
+                    inp.readOnly = true;
+                    inp.dataset.scored = "true";
+                    
+                    if (madCheckCount === 1) {
+                        addScore(2); madSubScore += 2;
+                        showFloatingPoint(inp, '+٢', 'green');
+                    } else {
+                        addScore(1); madSubScore += 1;
+                        showFloatingPoint(inp, '+١', 'yellow');
+                    }
+                } else {
+                    inp.classList.add('wrong'); 
+                    inp.classList.remove('correct');
+                    allCorrect = false;
+                    hasWrong = true;
+                    if (madCheckCount >= 2) {
+                        inp.value = toAr(ans);
+                        inp.classList.add('pointer-events-none', 'bg-red-50', 'text-red-600');
+                        inp.readOnly = true;
+                        inp.dataset.scored = "true";
+                        showFloatingPoint(inp, '٠', 'red');
+                    }
+                }
+            });
+
+            if (allCorrect || madCheckCount >= 2) {
+                showStepToast(madSubScore, maxPointsForThisStep, `جمعت ${toAr(madSubScore)} من ${toAr(maxPointsForThisStep)} نقطة في هذه الحسابات!`);
+                let btn = document.getElementById('btn-check-mad');
+                btn.classList.replace('bg-slate-900', 'bg-emerald-600');
+                btn.classList.replace('border-black', 'border-emerald-800');
+                btn.innerHTML = 'عمل رائع! ننتقل للخطوة التالية <i class="fas fa-arrow-left mr-2"></i>';
+                setTimeout(() => { 
+                    btn.classList.replace('bg-emerald-600', 'bg-slate-900');
+                    btn.classList.replace('border-emerald-800', 'border-black');
+                    btn.innerHTML = 'تحقق من النواتج <i class="fas fa-check mr-2"></i>';
+                    setupStep3(); 
+                    showStep(3); 
+                }, 2500);
+            } else if (hasWrong) {
+                document.querySelectorAll('.wrong').forEach(el => {
+                    el.style.animation = 'none';
+                    el.offsetHeight; 
+                    el.style.animation = null; 
+                });
+            }
+        }
+
+        // --- STEP 3: Variance Formula & Inputs ---
+        function setupStep3() {
+            resetTopPanel();
+            document.getElementById('var-phase-1').classList.remove('hidden');
+            document.getElementById('var-phase-2').classList.add('hidden');
+            
+            const optsContainer = document.getElementById('var-options-container');
+            let options = ['correct', 'wrong_plus', 'wrong_paren'].sort(() => 0.5 - Math.random());
+            
+            optsContainer.innerHTML = options.map(opt => `
+                <div class="formula-btn relative shadow-sm" onclick="selectVarFormula('${opt}', this)">
+                    ${buildFormulaHTML(opt, true)}
+                </div>
+            `).join('');
+        }
+
+        window.selectVarFormula = (type, el) => {
+            if (type === 'correct') {
+                el.classList.add('correct');
+                
+                let earned = varFormulaAttempts === 0 ? 10 : 5;
+                addScore(earned);
+                showFloatingPoint(el, `+${toAr(earned)}`, earned === 10 ? 'green' : 'yellow');
+                showStepToast(earned, 10, `حصدت ${toAr(earned)} نقاط لاختيار قانون التباين!`);
+                
+                setTimeout(() => {
+                    document.getElementById('var-phase-1').classList.add('hidden');
+                    setupVarInputs();
+                    showFormulaInTopPanel(buildFormulaHTML('correct', true));
+                    document.getElementById('var-phase-2').classList.remove('hidden');
+                }, 1200);
+            } else {
+                el.classList.add('wrong');
+                varFormulaAttempts++;
+                if (varFormulaAttempts >= 2) {
+                     document.querySelectorAll('#var-options-container .formula-btn').forEach(btn => {
+                         if (!btn.classList.contains('wrong')) btn.click();
+                     });
+                     showFloatingPoint(el, '٠', 'red');
+                }
+            }
+        };
+
+        function setupVarInputs() {
+            varSubScore = 0;
+            let inputsHtml = "";
+            for(let i=0; i<q.data.length; i++) {
+                let diff = Math.abs(q.data[i] - q.mean);
+                let ans = diff * diff; // Square
+                inputsHtml += `<input type="text" inputmode="decimal" class="math-input var-sub-in" data-ans="${ans}" data-scored="false" onclick="this.select()">`;
+                if(i < q.data.length - 1) inputsHtml += `<span class="font-black text-slate-500 mx-[1px]">+</span>`;
+            }
+            
+            let fractionHtml = `
+                <div class="fraction" dir="ltr">
+                    <span class="numerator border-slate-400">${inputsHtml}</span>
+                    <span class="denominator text-slate-800">${toAr(q.data.length)}</span>
+                </div>
+            `;
+            document.getElementById('var-calc-equation').innerHTML = fractionHtml;
+            document.getElementById('final-var').value = '';
+            document.getElementById('final-var').className = 'math-input w-14';
+            document.getElementById('final-var').dataset.ans = q.variance;
+            document.getElementById('final-var').dataset.scored = "false";
+            document.getElementById('final-var').readOnly = false;
+        }
+
+        window.checkVarInputs = () => {
+            let emptyCount = 0;
+            let allCorrect = true;
+            let hasWrong = false;
+            let maxPointsForThisStep = (q.data.length + 1) * 2;
+            
+            const allInputs = document.querySelectorAll('.var-sub-in, #final-var');
+
+            allInputs.forEach(inp => {
+                if (inp.dataset.scored === "true") return;
+                if (inp.value.trim() === '') emptyCount++;
+            });
+
+            if (emptyCount > 0 && varCheckCount === 0) {
+                alert('الرجاء تعبئة جميع الفراغات (التربيعات والناتج النهائي) قبل التحقق للمرة الأولى!');
+                return;
+            }
+
+            varCheckCount++;
+
+            allInputs.forEach(inp => {
+                if (inp.dataset.scored === "true") return;
+
+                let userVal = parseFloat(toEn(inp.value));
+                let ans = parseFloat(inp.dataset.ans);
+                
+                if (!isNaN(userVal) && Math.abs(userVal - ans) <= 0.1) {
+                    inp.classList.add('correct'); 
+                    inp.classList.remove('wrong');
+                    inp.readOnly = true;
+                    inp.dataset.scored = "true";
+                    
+                    if (varCheckCount === 1) {
+                        addScore(2); varSubScore += 2;
+                        showFloatingPoint(inp, '+٢', 'green');
+                    } else {
+                        addScore(1); varSubScore += 1;
+                        showFloatingPoint(inp, '+١', 'yellow');
+                    }
+                } else {
+                    inp.classList.add('wrong'); 
+                    inp.classList.remove('correct');
+                    allCorrect = false;
+                    hasWrong = true;
+                    if (varCheckCount >= 2) {
+                        inp.value = toAr(ans);
+                        inp.classList.add('pointer-events-none', 'bg-red-50', 'text-red-600');
+                        inp.readOnly = true;
+                        inp.dataset.scored = "true";
+                        showFloatingPoint(inp, '٠', 'red');
+                    }
+                }
+            });
+
+            if (allCorrect || varCheckCount >= 2) {
+                showStepToast(varSubScore, maxPointsForThisStep, `جمعت ${toAr(varSubScore)} من ${toAr(maxPointsForThisStep)} نقطة في حسابات التباين!`);
+                let btn = document.getElementById('btn-check-var');
+                btn.classList.replace('bg-slate-900', 'bg-emerald-600');
+                btn.classList.replace('border-black', 'border-emerald-800');
+                btn.innerHTML = 'ممتاز! بقيت الخطوة الأخيرة <i class="fas fa-arrow-left mr-2"></i>';
+                setTimeout(() => { 
+                    btn.classList.replace('bg-emerald-600', 'bg-slate-900');
+                    btn.classList.replace('border-emerald-800', 'border-black');
+                    btn.innerHTML = 'تحقق من التباين <i class="fas fa-check mr-2"></i>';
+                    setupStep4(); 
+                    showStep(4); 
+                }, 2500);
+            } else if (hasWrong) {
+                document.querySelectorAll('.wrong').forEach(el => {
+                    el.style.animation = 'none';
+                    el.offsetHeight; 
+                    el.style.animation = null; 
+                });
+            }
+        }
+
+        // --- STEP 4: Standard Deviation (ع) ---
+        function setupStep4() {
+            document.getElementById('sd-explanation').classList.add('hidden');
+            
+            const varResultHtml = `
+                <div class="bg-indigo-50 border border-indigo-200 text-indigo-900 p-3 rounded-lg text-center mt-2 shadow-sm">
+                    <span class="text-xs font-bold block mb-1">قيمة التباين التي حسبتها هي:</span>
+                    <span class="font-black text-2xl font-mono" dir="ltr">σ² = ${toAr(q.variance)}</span>
+                </div>
+            `;
+            showFinalResultInTopPanel('خلاصة الخطوة السابقة:', varResultHtml);
+
+            const optsContainer = document.getElementById('sd-options-container');
+            optsContainer.innerHTML = '';
+            
+            let dist1 = parseFloat((q.variance / 2).toFixed(2)); 
+            let dist2 = parseFloat((q.variance).toFixed(2));     
+            let dist3 = parseFloat((q.sd + 1.25).toFixed(2));    
+            
+            let options = [q.sd];
+            [dist1, dist2, dist3].forEach(d => {
+                if(!options.includes(d) && d > 0) options.push(d);
+            });
+            
+            while(options.length < 4) {
+               let extraDist = parseFloat((q.sd - 0.45).toFixed(2));
+               if(!options.includes(extraDist) && extraDist > 0) options.push(extraDist);
+               else options.push(parseFloat((q.sd + Math.random()).toFixed(2)));
+            }
+            
+            options = options.sort(() => 0.5 - Math.random());
+            
+            optsContainer.innerHTML = options.map(opt => `
+                <button onclick="checkSDOption(${opt}, this)" class="relative py-4 bg-white/90 backdrop-blur-sm border-2 border-slate-300 rounded-xl font-black text-slate-800 text-lg transition-all hover:bg-slate-50 hover:border-slate-400 shadow-sm" dir="ltr">
+                    ${toAr(opt)}
+                </button>
+            `).join('');
+            
+            document.getElementById('next-scenario-btn').classList.add('hidden');
+        }
+
+        window.checkSDOption = (val, btn) => {
+            if (Math.abs(val - q.sd) <= 0.1) {
+                btn.classList.replace('bg-white/90', 'bg-emerald-500');
+                btn.classList.replace('border-slate-300', 'border-emerald-600');
+                btn.classList.replace('text-slate-800', 'text-white');
+                
+                let earned = sdAttempts === 0 ? 10 : 5;
+                addScore(earned);
+                showFloatingPoint(btn, `+${toAr(earned)}`, earned === 10 ? 'green' : 'yellow');
+                showStepToast(earned, 10, `نهاية الشحنة! حصدت ${toAr(earned)} نقاط للانحراف المعياري.`);
+                
+                document.querySelectorAll('#sd-options-container button').forEach(b => {
+                    b.classList.add('pointer-events-none');
+                    if(b !== btn) b.classList.add('opacity-50');
+                });
+                
+                let nxtBtn = document.getElementById('next-scenario-btn');
+                nxtBtn.innerHTML = (currentQIndex === selectedQuestions.length - 1) ? 'إصدار تقرير الجودة النهائي <i class="fas fa-file-signature mr-2"></i>' : 'الانتقال للشحنة التالية <i class="fas fa-forward mr-2"></i>';
+                nxtBtn.classList.remove('hidden');
+                nxtBtn.scrollIntoView({behavior: 'smooth'});
+            } else {
+                btn.classList.replace('bg-white/90', 'bg-red-500');
+                btn.classList.replace('border-slate-300', 'border-red-600');
+                btn.classList.replace('text-slate-800', 'text-white');
+                btn.classList.add('pointer-events-none');
+                
+                sdAttempts++;
+                showFloatingPoint(btn, '٠', 'red');
+                
+                if (sdAttempts === 1) {
+                    document.getElementById('sd-explanation').classList.remove('hidden');
+                }
+            }
+        };
+
+        window.nextScenario = () => {
+            currentQIndex++;
+            if (currentQIndex < selectedQuestions.length) {
+                loadScenario();
+            } else {
+                clearInterval(timerInterval);
+                document.getElementById('game-screen').classList.add('hidden');
+                document.getElementById('result-screen').classList.remove('hidden');
+                
+                let finalGrade = ((score / maxGameScore) * 5).toFixed(1);
+                
+                document.getElementById('final-score-display').textContent = toAr(score);
+                document.getElementById('max-score-display').textContent = `من ${toAr(maxGameScore)}`;
+                document.getElementById('final-grade-display').textContent = toAr(finalGrade);
+
+                if (studentId && classId) {
+                    saveScore(finalGrade, timeSeconds);
+                } else { 
+                    localVisitorResult = { name: studentName, grade: finalGrade, metric: timeSeconds, isLocal: true }; 
+                    fetchAndShowLeaderboard(false); 
+                }
+            }
+        }
+
+        // Leaderboard & Cloud sync Functions
+        async function saveScore(g, met) {
+            const p = new URLSearchParams({ action: 'saveScore', studentId, classId, itemId: GAME_ID, score: g, metricValue: met, type: 'game' });
+            try { await fetch(`${SCRIPT_URL}?${p.toString()}`); } finally { fetchAndShowLeaderboard(false); }
+        }
+
+        window.fetchAndShowLeaderboard = function(isManual = false) {
+            const modal = document.getElementById('leaderboard-modal');
+            if (isManual) { modal.classList.remove('hidden-modal'); modal.classList.add('visible-modal'); }
+            const content = document.getElementById('leaderboard-content');
+            document.getElementById('modal-loader').classList.remove('hidden');
+            let reqClassId = (currentLeaderboardMode === 'class') ? classId : 'all';
+            const url = `${SCRIPT_URL}?action=getLeaderboard&gameId=${GAME_ID}&classId=${encodeURIComponent(reqClassId || 'all')}&t=${Date.now()}`;
+            fetch(url).then(r => r.json()).then(res => {
+                let data = (res.status === 'success' && res.data) ? res.data : [];
+                if (localVisitorResult && (currentLeaderboardMode === 'global' || !classId)) {
+                    if (!data.find(p => p.name === localVisitorResult.name)) data.push(localVisitorResult);
+                    data.sort((a, b) => parseFloat(b.grade) - parseFloat(a.grade) || parseFloat(a.metric || a.metricValue) - parseFloat(b.metric || b.metricValue));
+                }
+                if (data.length > 0) {
+                    let h = `<table class="w-full text-right text-[10px] border-collapse"><thead class="text-slate-600 border-b-2 border-slate-300 bg-slate-100/80"><tr><th class="p-2 text-center">#</th><th class="p-2 text-right">البطل</th><th class="p-2 text-center text-emerald-700">الدرجة</th></tr></thead><tbody class="divide-y divide-slate-200">`;
+                    data.forEach((p, i) => {
+                        const isMe = (p.isLocal || (studentId && String(p.name).trim() === String(studentName).trim()));
+                        h += `<tr class="${isMe ? 'bg-blue-50/80 border-r-4 border-blue-500' : 'hover:bg-slate-100/50'} transition-colors">
+                            <td class="p-2 leaderboard-rank text-center ${i<3 ? 'text-yellow-600 text-sm' : 'text-slate-500'}">${i < 3 ? ['🥇','🥈','🥉'][i] : toAr(i+1)}</td>
+                            <td class="p-2 leaderboard-name ${isMe ? 'text-blue-800 font-extrabold' : 'text-slate-800'}">${p.name} ${isMe ? '<span class="bg-blue-600 text-white text-[7px] px-1 rounded-full mx-1">أنت</span>' : ''}</td>
+                            <td class="p-2 text-center"><span class="text-emerald-700 font-black">${toAr(parseFloat(p.grade).toFixed(1))}</span> <span class="text-[8px] text-slate-500 block font-bold">(${toAr(p.metric || p.metricValue || 0)} ث)</span></td>
+                        </tr>`;
+                    });
+                    content.innerHTML = h + `</tbody></table>`;
+                } else content.innerHTML = `<div class="py-10 text-center text-slate-500 text-xs italic font-bold">بانتظار تقارير المهندسين..</div>`;
+            }).finally(() => document.getElementById('modal-loader').classList.add('hidden'));
+        };
+
+        window.switchTab = (mode) => { currentLeaderboardMode = mode; document.getElementById('tab-class').className = mode === 'class' ? 'tab-btn tab-active' : 'tab-btn tab-inactive'; document.getElementById('tab-global').className = mode === 'global' ? 'tab-btn tab-active' : 'tab-btn tab-inactive'; fetchAndShowLeaderboard(false); };
+        window.closeLeaderboardModal = () => document.getElementById('leaderboard-modal').classList.replace('visible-modal', 'hidden-modal');
+
+    })();
+    </script>
+</body>
+</html>

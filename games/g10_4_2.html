@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>مستشار الأزمات - التباديل والتوافيق</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body { font-family: 'Cairo', sans-serif; overflow: hidden; touch-action: manipulation; direction: rtl; background-color: #f8fafc; }
+        .compact-card {
+            width: 100%; max-width: 420px; background: rgba(255, 255, 255, 0.95); border-radius: 2rem;
+            box-shadow: 0 15px 35px -5px rgba(0,0,0,0.1); border: 1px solid #f1f5f9;
+            display: flex; flex-direction: column; height: 96vh; max-height: 850px; overflow: hidden; position: relative;
+            backdrop-filter: blur(10px);
+        }
+        
+        /* Medical Background Pattern */
+        .bg-pattern {
+            position: absolute; inset: 0; z-index: -1; pointer-events: none; overflow: hidden;
+            display: flex; flex-wrap: wrap; justify-content: space-around; align-items: center; gap: 2rem;
+            opacity: 0.04; color: #0f172a; font-size: 3rem; padding: 1rem;
+        }
+
+        .top-info-bar {
+            background: #ffffff; border-bottom: 1px solid #e2e8f0; padding: 8px 16px;
+            display: flex; justify-content: space-between; align-items: center;
+            font-size: 11px; font-weight: 800; color: #64748b; z-index: 10;
+        }
+        .btn-touch { min-height: 45px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; border-radius: 1rem; font-weight: 800; cursor: pointer; }
+        .btn-touch:active { transform: scale(0.95); }
+        .btn-touch:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+        
+        .leaderboard-modal { 
+            position: absolute; inset: 0; background: #ffffff; z-index: 100; 
+            display: flex; flex-direction: column; padding: 1.25rem; transition: all 0.3s; 
+        }
+        .hidden-modal { opacity: 0; pointer-events: none; transform: scale(0.95); display: none; }
+        .visible-modal { opacity: 1; pointer-events: auto; transform: scale(1); display: flex; }
+        
+        .tab-btn { flex: 1; padding: 8px; font-size: 11px; font-weight: bold; border-radius: 8px; transition: 0.3s; border: 1px solid transparent; cursor: pointer; }
+        .tab-active { background-color: #3b82f6; color: white; box-shadow: 0 2px 10px rgba(59, 130, 246, 0.4); }
+        .tab-inactive { background-color: #f1f5f9; color: #64748b; border-color: #e2e8f0; }
+        
+        .rank-row-me { background-color: #eff6ff !important; border-right: 4px solid #2563eb !important; }
+        .sync-loader { font-size: 10px; animation: spin 1s linear infinite; display: inline-block; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        .leaderboard-name { color: #1e293b; font-weight: 800; font-size: 11px; }
+        .leaderboard-rank { font-weight: 900; }
+
+        /* Animations */
+        @keyframes slideDown { 0% { transform: translateY(-10px); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
+        .slide-down { animation: slideDown 0.3s ease forwards; }
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+        .shake-err { animation: shake 0.3s ease; }
+    </style>
+</head>
+<body class="flex items-center justify-center p-2 text-right">
+
+    <div class="compact-card">
+        <!-- الخلفية الطبية المبعثرة -->
+        <div class="bg-pattern">
+            <i class="fas fa-hospital"></i> <i class="fas fa-ambulance"></i> <i class="fas fa-stethoscope"></i>
+            <i class="fas fa-user-md"></i> <i class="fas fa-heartbeat"></i> <i class="fas fa-briefcase-medical"></i>
+            <i class="fas fa-notes-medical"></i> <i class="fas fa-pills"></i> <i class="fas fa-hospital-user"></i>
+            <i class="fas fa-ambulance"></i> <i class="fas fa-user-nurse"></i> <i class="fas fa-syringe"></i>
+        </div>
+
+        <!-- الشريط العلوي -->
+        <div class="top-info-bar">
+            <div class="flex items-center gap-2 overflow-hidden">
+                <i class="fas fa-user-tie text-blue-600"></i>
+                <span id="top-student-name" class="truncate font-black"></span>
+            </div>
+            <div class="flex items-center gap-2 bg-slate-100 px-2 py-0.5 rounded-full border shadow-sm font-bold">
+                <span id="sync-icon" class="hidden"><i class="fas fa-sync sync-loader text-blue-500"></i></span>
+                <i class="fas fa-star text-yellow-500 text-[10px]"></i>
+                <span id="top-prev-score">٠ / ٥</span>
+            </div>
+        </div>
+
+        <!-- الشاشة 1: البداية -->
+        <div id="start-screen" class="p-5 text-center flex flex-col gap-3 h-full justify-center z-10">
+            <div class="text-blue-600 text-6xl mb-1"><i class="fas fa-hospital-user drop-shadow-md"></i></div>
+            <h1 class="text-3xl font-black text-slate-800 tracking-tight">مستشار الأزمات</h1>
+            <div class="bg-blue-50/90 p-4 rounded-2xl border border-blue-100 text-xs font-bold text-blue-800 leading-relaxed shadow-sm">
+                مستشفى الأمل يمر بأزمات متتالية!<br>
+                استخدم مهاراتك في (التباديل والتوافيق) لتنظيم الكوادر والموارد بأسرع وقت.
+            </div>
+            
+            <div class="flex flex-row gap-2 items-stretch mt-4">
+                <button onclick="startMission()" class="btn-touch flex-[2.5] bg-blue-600 text-white shadow-lg text-xl hover:bg-blue-700">
+                    ابدأ المهمة <i class="fas fa-rocket mr-2"></i>
+                </button>
+                <button onclick="fetchAndShowLeaderboard(true)" class="btn-touch flex-1 bg-white text-slate-600 border-2 border-slate-200 text-[10px] flex-col leading-tight py-2 hover:bg-slate-50">
+                    <i class="fas fa-trophy text-yellow-500 text-xl mb-1"></i>
+                    <span>قائمة النخبة</span>
+                </button>
+            </div>
+            
+            <p class="text-[11px] text-slate-400 font-bold mt-2 text-center">أ. عبد العزيز خالد العبلان</p>
+        </div>
+
+        <!-- الشاشة 2: اللعبة (الأسئلة التفاعلية) -->
+        <div id="game-screen" class="hidden p-4 flex flex-col h-full z-10">
+            <!-- شريط التقدم -->
+            <div class="flex justify-between items-center mb-3 bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm">
+                <div class="font-bold text-xs text-slate-500">
+                    مهمة: <span id="q-counter" class="text-blue-600 font-black text-sm">1 / 4</span>
+                </div>
+                <div class="font-bold text-xs text-slate-500 flex items-center gap-1.5">
+                    <i class="fas fa-stopwatch text-rose-500 text-sm"></i> 
+                    <span id="timer-display" class="font-mono text-base text-slate-700">00:00</span>
+                </div>
+            </div>
+
+            <div class="flex-1 overflow-y-auto pb-4">
+                <!-- نص المهمة -->
+                <div class="bg-blue-600 p-4 rounded-2xl shadow-md mb-4 text-white">
+                    <h2 class="text-sm font-bold text-blue-200 mb-1"><i class="fas fa-clipboard-list mr-1"></i> تفاصيل المهمة:</h2>
+                    <p id="q-text" class="text-sm font-bold leading-relaxed"></p>
+                </div>
+                
+                <!-- الخطوة الأولى: اختيار النوع -->
+                <div id="step-1-container" class="bg-white p-4 rounded-2xl border-2 border-slate-100 shadow-sm mb-4">
+                    <label class="block text-xs font-black text-slate-600 mb-3 text-center">أولاً: هل ترتيب العناصر مهم هنا؟</label>
+                    <div class="flex gap-2">
+                        <button onclick="checkType('تباديل', this)" class="btn-touch flex-1 bg-slate-50 border-2 border-slate-200 text-slate-700 hover:bg-slate-100">
+                            تباديل (ل)
+                        </button>
+                        <button onclick="checkType('توافيق', this)" class="btn-touch flex-1 bg-slate-50 border-2 border-slate-200 text-slate-700 hover:bg-slate-100">
+                            توافيق (ق)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- الخطوة الثانية: اختيار النتيجة (مخفية في البداية) -->
+                <div id="step-2-container" class="hidden bg-white p-4 rounded-2xl border-2 border-slate-100 shadow-sm slide-down">
+                    <label class="block text-xs font-black text-slate-600 mb-3 text-center">ثانياً: اختر النتيجة الصحيحة</label>
+                    <div id="options-container" class="grid grid-cols-3 gap-2">
+                        <!-- الخيارات تُزرع هنا عبر جافاسكريبت -->
+                    </div>
+                </div>
+
+                <!-- رسائل التغذية الراجعة -->
+                <div id="feedback-area" class="mt-2 text-center text-sm font-bold hidden"></div>
+            </div>
+
+            <!-- الحقول المخفية للتوافق مع القالب -->
+            <input type="hidden" id="input-achieved" value="0">
+            <input type="hidden" id="input-max" value="16">
+            <input type="hidden" id="input-metric-value" value="0">
+        </div>
+
+        <!-- النافذة المنبثقة للتغذية الراجعة (الشرح والتحفيز) -->
+        <div id="custom-modal" class="absolute inset-0 z-[200] hidden flex items-center justify-center p-4">
+            <!-- خلفية داكنة للنافذة -->
+            <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"></div>
+            <!-- المحتوى -->
+            <div id="modal-card" class="relative bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl transform scale-95 opacity-0 transition-all duration-300 flex flex-col items-center text-center">
+                <div id="modal-icon" class="text-5xl mb-4"></div>
+                <h3 id="modal-title" class="text-xl font-black text-slate-800 mb-2"></h3>
+                <div id="modal-message" class="text-sm font-bold text-slate-600 leading-relaxed mb-6 bg-slate-50 p-3 rounded-xl border border-slate-100 w-full"></div>
+                <button id="modal-btn" class="btn-touch w-full text-white text-lg shadow-md">متابعة <i class="fas fa-arrow-left mr-2"></i></button>
+            </div>
+        </div>
+
+        <!-- الشاشة 3: النتائج -->
+        <div id="result-screen" class="hidden p-5 flex flex-col h-full overflow-hidden text-center justify-center z-10 bg-white">
+            <div class="text-emerald-500 text-6xl mb-2 drop-shadow-md"><i class="fas fa-check-circle"></i></div>
+            <h2 class="text-2xl font-black text-slate-800 mb-4 tracking-tight">تم إنجاز المهام!</h2>
+            
+            <div id="final-stats" class="grid grid-cols-3 gap-2 mb-6"></div>
+            
+            <div class="bg-green-50 p-3 rounded-xl border border-green-200 mb-6">
+                <p class="font-black text-green-700 text-xs">تم حفظ تقريرك في سجل المستشفى بنجاح.</p>
+            </div>
+            
+            <button onclick="fetchAndShowLeaderboard(true)" class="btn-touch w-full bg-blue-600 text-white mb-3 shadow-md text-lg">
+                <i class="fas fa-crown ml-2"></i> لوحة النخبة
+            </button>
+            <div class="mt-auto flex gap-2">
+                <button onclick="location.reload()" class="btn-touch flex-1 bg-slate-100 text-slate-600 text-sm font-bold border border-slate-200">إعادة</button>
+                <button id="finish-btn" class="btn-touch flex-[2] bg-slate-900 text-white text-sm font-bold shadow-md">إنهاء الخفارة</button>
+            </div>
+        </div>
+
+        <!-- سجل الأبطال -->
+        <div id="leaderboard-modal" class="leaderboard-modal hidden-modal" dir="rtl">
+            <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-3">
+                <h3 class="font-black text-slate-800 text-lg"><i class="fas fa-trophy text-yellow-500 ml-2"></i>نخبة المستشارين</h3>
+                <button onclick="closeLeaderboardModal()" class="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center transition-all hover:bg-red-50 hover:text-red-500"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="flex gap-2 mb-4">
+                <button onclick="switchTab('class')" id="tab-class" class="tab-btn tab-inactive">مستشاري فصلي</button>
+                <button onclick="switchTab('global')" id="tab-global" class="tab-btn tab-active">الجميع</button>
+            </div>
+            <div id="modal-body" class="flex-1 overflow-y-auto bg-slate-50 rounded-2xl border border-slate-100 p-1 relative">
+                <div id="modal-loader" class="absolute inset-0 flex items-center justify-center hidden bg-white/80 z-10"><div class="sync-loader text-blue-500 text-3xl"><i class="fas fa-sync"></i></div></div>
+                <div id="leaderboard-content" class="space-y-1"></div>
+            </div>
+            <p class="text-center text-[9px] text-slate-400 mt-2 font-mono italic">الترتيب حسب النقاط ثم الأسرع وقتاً</p>
+        </div>
+    </div>
+
+    <script>
+    (function() {
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxqAQlGhNs8k5RwHs6jrWxDiDwaMABSx8a9Fl81O5oVVa5fHRWTwIEvsGy2cSDP4zGLWQ/exec";
+        const urlParams = new URLSearchParams(window.location.search);
+        const GAME_ID = urlParams.get('gameId') || 'g10_4_2'; // تم تحديث المعرف
+        const studentId = urlParams.get('studentId') || urlParams.get('userId');
+        const classId = urlParams.get('classId');
+        
+        let studentName = decodeURIComponent(urlParams.get('name') || urlParams.get('studentName') || urlParams.get('username') || "المستشار الإداري");
+        let currentLeaderboardMode = classId ? 'class' : 'global';
+        let localVisitorResult = null;
+
+        const toAr = (n) => String(n).replace(/\d/g, d => "٠١٢٣٤٥٦٧٨٩"[d]);
+
+        // بنك الأسئلة (12 سؤال)
+        const bankPermutations = [
+            { text: "لدينا 5 أطباء استشاريين. نحتاج لتعيين طبيبين في منصبي: مدير طوارئ، ونائب مدير.", type: "تباديل", options: [10, 20, 120], answer: 20, typeReason: "المناصب مختلفة (مدير ونائب)، فتغيير الترتيب ينتج إدارة مختلفة، لذا الترتيب مهم.", mathReason: "العملية: 5 ل 2 = 5 × 4 = 20" },
+            { text: "وصول 4 سيارات إسعاف معاً، ولدينا 4 مسارات مختلفة لاستقبالها أمام الطوارئ.", type: "تباديل", options: [8, 16, 24], answer: 24, typeReason: "المسارات مختلفة، وتوزيع السيارات عليها يتطلب ترتيباً.", mathReason: "العملية: 4 ل 4 = 4 × 3 × 2 × 1 = 24" },
+            { text: "يوجد 6 جراحين متاحين. نحتاج لتوزيع 3 منهم على 3 غرف عمليات مختلفة (أ، ب، ج).", type: "تباديل", options: [20, 120, 216], answer: 120, typeReason: "غرف العمليات مختلفة المهام، تعيين جراح لغرفة (أ) يختلف عن تعيينه لغرفة (ب).", mathReason: "العملية: 6 ل 3 = 6 × 5 × 4 = 120" },
+            { text: "لبرمجة قفل خزانة الأدوية، نحتاج لاختيار رمز سري من 4 أرقام مختلفة من بين (0 إلى 9).", type: "تباديل", options: [210, 5040, 10000], answer: 5040, typeReason: "في الرموز السرية، ترتيب الأرقام يغير الرمز بالكامل، لذا الترتيب في غاية الأهمية.", mathReason: "العملية: 10 ل 4 = 10 × 9 × 8 × 7 = 5040" },
+            { text: "لدينا 7 خبراء. نحتاج لاختيار 3 منهم كمتحدثين (أول، ثاني، ثالث) في ندوة طبية.", type: "تباديل", options: [35, 210, 343], answer: 210, typeReason: "تحديد المتحدث الأول يختلف عن الثاني، فالترتيب هنا ضروري ليصنع فرقاً.", mathReason: "العملية: 7 ل 3 = 7 × 6 × 5 = 210" },
+            { text: "من بين 8 ممرضين، نريد تعيين: مشرف عام، رئيس قسم، ومراقب جودة.", type: "تباديل", options: [56, 336, 512], answer: 336, typeReason: "المناصب ذات مهام ورتب مختلفة، لذا ترتيب الأشخاص فيها يصنع فرقاً.", mathReason: "العملية: 8 ل 3 = 8 × 7 × 6 = 336" }
+        ];
+
+        const bankCombinations = [
+            { text: "يوجد 7 ممرضين متاحين. نحتاج لاختيار 3 منهم لتشكيل 'فريق استجابة' بنفس المهام.", type: "توافيق", options: [21, 35, 210], answer: 35, typeReason: "جميع الممرضين في الفريق لهم نفس المهام والصلاحيات، فالترتيب لا يهم.", mathReason: "العملية: 7 ق 3 = (7×6×5) / (3×2×1) = 35" },
+            { text: "يتوفر 6 أجهزة تنفس متطابقة، ونحتاج لإرسال جهازين منها لقسم العناية.", type: "توافيق", options: [12, 15, 30], answer: 15, typeReason: "الأجهزة متطابقة ولا يوجد فرق أي جهاز تختاره أولاً، الترتيب غير مهم.", mathReason: "العملية: 6 ق 2 = (6×5) / (2×1) = 15" },
+            { text: "لمناقشة حالة نادرة، نحتاج لتشكيل لجنة من 4 أطباء من بين 10 أطباء متاحين.", type: "توافيق", options: [40, 210, 5040], answer: 210, typeReason: "أعضاء اللجنة متساوون في الصلاحيات ولا توجد مناصب محددة بينهم، الترتيب غير مهم.", mathReason: "العملية: 10 ق 4 = (10×9×8×7) / (4×3×2×1) = 210" },
+            { text: "يوجد 8 أكياس دم متطابقة (O+). نحتاج لاختيار 3 أكياس لغرفة العمليات.", type: "توافيق", options: [24, 56, 336], answer: 56, typeReason: "أكياس الدم من نفس الفصيلة متطابقة، لا فرق بين اختيار الكيس الأول أو الثاني.", mathReason: "العملية: 8 ق 3 = (8×7×6) / (3×2×1) = 56" },
+            { text: "قسم الأبحاث يضم 5 باحثين. يجب اختيار 2 منهم لتمثيل المستشفى كحضور في مؤتمر.", type: "توافيق", options: [10, 20, 25], answer: 10, typeReason: "كلاهما سيحضر المؤتمر بنفس الصفة التمثيلية، فلا يهم من يُختار أولاً.", mathReason: "العملية: 5 ق 2 = (5×4) / (2×1) = 10" },
+            { text: "في الجناح 12 سريراً. تقرر استبدال 5 أسرة عشوائية منها بأسرة حديثة.", type: "توافيق", options: [60, 792, 95040], answer: 792, typeReason: "الأسرة سيتم استبدالها معاً كدفعة واحدة ولا يوجد تمييز لترتيب الاستبدال.", mathReason: "العملية: 12 ق 5 = (12×11×10×9×8) / (5×4×3×2×1) = 792" }
+        ];
+
+        let questions = []; // الأسئلة الـ 4 المنتقاة
+        let currentQuestionIndex = 0;
+        let score = 0; // إجمالي النقاط (الحد الأقصى 16)
+        let startTime = 0;
+        let timerInterval = null;
+        let totalSeconds = 0;
+        
+        let step2Attempts = 0; // عدد محاولات الخطوة الثانية (حد أقصى 2)
+
+        // دالة لخلط المصفوفة
+        function shuffle(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        // اختيار وتجهيز الأسئلة
+        function prepareGameQuestions() {
+            let pShuffle = shuffle([...bankPermutations]);
+            let cShuffle = shuffle([...bankCombinations]);
+            // أخذ 2 من كل نوع
+            let selected = [pShuffle[0], pShuffle[1], cShuffle[0], cShuffle[1]];
+            questions = shuffle(selected); // خلط الـ 4 أسئلة النهائية
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            let rawName = urlParams.get('name') || urlParams.get('studentName') || urlParams.get('username');
+            document.getElementById('top-student-name').textContent = rawName ? decodeURIComponent(rawName) : studentName;
+            
+            if (!classId) {
+                document.getElementById('tab-class').style.display = 'none';
+                currentLeaderboardMode = 'global';
+            } else {
+                document.getElementById('tab-class').className = 'tab-btn tab-active';
+                document.getElementById('tab-global').className = 'tab-btn tab-inactive';
+            }
+            if (studentId && classId) {
+                document.getElementById('sync-icon').classList.remove('hidden');
+                fetchInitialCloudData();
+            }
+            document.getElementById('finish-btn').onclick = () => window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*');
+        });
+
+        async function fetchInitialCloudData() {
+            try {
+                const url = `${SCRIPT_URL}?action=getStudentData&studentId=${studentId}&classId=${encodeURIComponent(classId)}&itemId=${GAME_ID}&t=${Date.now()}`;
+                const res = await (await fetch(url)).json();
+                if (res.status === 'success' && res.data) {
+                    if (res.data.name) { studentName = res.data.name; document.getElementById('top-student-name').textContent = studentName; }
+                    if (res.data.games && res.data.games[GAME_ID]) document.getElementById('top-prev-score').textContent = toAr(parseFloat(res.data.games[GAME_ID].grade).toFixed(1)) + " / ٥";
+                }
+            } catch (e) { console.log("Cloud Connect Failed"); }
+            finally { document.getElementById('sync-icon').classList.add('hidden'); }
+        }
+
+        window.startMission = () => { 
+            prepareGameQuestions();
+            document.getElementById('start-screen').classList.add('hidden'); 
+            document.getElementById('game-screen').classList.remove('hidden'); 
+            loadQuestion();
+            
+            startTime = Date.now();
+            timerInterval = setInterval(() => {
+                totalSeconds = Math.floor((Date.now() - startTime) / 1000);
+                let m = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
+                let s = (totalSeconds % 60).toString().padStart(2, '0');
+                document.getElementById('timer-display').textContent = toAr(`${m}:${s}`);
+            }, 1000);
+        };
+
+        function loadQuestion() {
+            let q = questions[currentQuestionIndex];
+            step2Attempts = 0;
+
+            document.getElementById('q-counter').textContent = toAr(`${currentQuestionIndex + 1} / ${questions.length}`);
+            document.getElementById('q-text').innerHTML = q.text;
+            
+            document.getElementById('step-2-container').classList.add('hidden');
+            document.getElementById('feedback-area').classList.add('hidden');
+            
+            const typeBtns = document.querySelectorAll('#step-1-container button');
+            typeBtns.forEach(btn => {
+                btn.disabled = false;
+                btn.className = "btn-touch flex-1 bg-slate-50 border-2 border-slate-200 text-slate-700 hover:bg-slate-100";
+            });
+        }
+
+        // نظام النافذة المنبثقة التوضيحية
+        let currentModalCallback = null;
+        function showFeedbackModal(title, msg, type, callback) {
+            const modal = document.getElementById('custom-modal');
+            const card = document.getElementById('modal-card');
+            const icon = document.getElementById('modal-icon');
+            const btn = document.getElementById('modal-btn');
+            
+            document.getElementById('modal-title').innerHTML = title;
+            document.getElementById('modal-message').innerHTML = msg;
+            
+            if (type === 'success') {
+                icon.innerHTML = '<i class="fas fa-check-circle text-green-500"></i>';
+                document.getElementById('modal-title').className = "text-xl font-black text-green-700 mb-2";
+                btn.className = "btn-touch w-full bg-green-500 hover:bg-green-600 text-white text-lg shadow-md";
+            } else if (type === 'error') {
+                icon.innerHTML = '<i class="fas fa-exclamation-circle text-red-500"></i>';
+                document.getElementById('modal-title').className = "text-xl font-black text-red-700 mb-2";
+                btn.className = "btn-touch w-full bg-red-500 hover:bg-red-600 text-white text-lg shadow-md";
+            } else {
+                icon.innerHTML = '<i class="fas fa-info-circle text-blue-500"></i>';
+                document.getElementById('modal-title').className = "text-xl font-black text-blue-700 mb-2";
+                btn.className = "btn-touch w-full bg-blue-500 hover:bg-blue-600 text-white text-lg shadow-md";
+            }
+
+            currentModalCallback = callback;
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                card.classList.remove('scale-95', 'opacity-0');
+                card.classList.add('scale-100', 'opacity-100');
+            }, 10);
+        }
+
+        document.getElementById('modal-btn').onclick = () => {
+            const modal = document.getElementById('custom-modal');
+            const card = document.getElementById('modal-card');
+            card.classList.remove('scale-100', 'opacity-100');
+            card.classList.add('scale-95', 'opacity-0');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                if (currentModalCallback) currentModalCallback();
+            }, 300);
+        };
+
+        // فحص الخطوة الأولى
+        window.checkType = (selectedType, btnElement) => {
+            if(btnElement.disabled) return;
+            let q = questions[currentQuestionIndex];
+            
+            document.querySelectorAll('#step-1-container button').forEach(b => b.disabled = true);
+            
+            if (selectedType === q.type) {
+                // إجابة صحيحة (نقطة واحدة)
+                score += 1;
+                btnElement.className = "btn-touch flex-1 bg-green-500 border-2 border-green-600 text-white font-black";
+                showStep2Options(q);
+            } else {
+                // إجابة خاطئة (لا نقطة) - إظهار الشرح والانتقال للخطوة الثانية
+                btnElement.className = "btn-touch flex-1 bg-red-500 border-2 border-red-600 text-white font-black";
+                
+                // تلوين الزر الصحيح بالأخضر
+                document.querySelectorAll('#step-1-container button').forEach(b => {
+                    if(b.textContent.includes(q.type)) b.className = "btn-touch flex-1 bg-green-100 border-2 border-green-500 text-green-700 font-black";
+                });
+
+                showFeedbackModal(
+                    "تصحيح توجيهي", 
+                    `الصحيح هو <b>${q.type}</b>.<br><br><span class='text-xs'><b>السبب:</b> ${q.typeReason}</span>`, 
+                    "error", 
+                    () => showStep2Options(q)
+                );
+            }
+        };
+
+        function showStep2Options(q) {
+            const container = document.getElementById('options-container');
+            container.innerHTML = '';
+            
+            q.options.forEach(opt => {
+                const btn = document.createElement('button');
+                btn.className = "btn-touch bg-blue-50 border-2 border-blue-200 text-blue-700 text-xl hover:bg-blue-100 font-mono";
+                btn.textContent = toAr(opt);
+                btn.onclick = () => checkAnswer(opt, btn);
+                container.appendChild(btn);
+            });
+            
+            document.getElementById('step-2-container').classList.remove('hidden');
+        }
+
+        // فحص الخطوة الثانية (الرقم)
+        window.checkAnswer = (selectedAnswer, btnElement) => {
+            if(btnElement.disabled) return;
+            let q = questions[currentQuestionIndex];
+            
+            step2Attempts++;
+
+            if (selectedAnswer === q.answer) {
+                // إجابة صحيحة
+                document.querySelectorAll('#options-container button').forEach(b => b.disabled = true);
+                btnElement.className = "btn-touch bg-green-500 border-2 border-green-600 text-white text-xl font-mono scale-105 shadow-md";
+                
+                let earnedPoints = (step2Attempts === 1) ? 3 : 1;
+                score += earnedPoints;
+
+                showFeedbackModal(
+                    "عمل رائع!", 
+                    `لقد اخترت الحل الصحيح (${toAr(q.answer)}).<br>حصلت على <b>${toAr(earnedPoints)}</b> نقطة.`, 
+                    "success", 
+                    moveToNext
+                );
+            } else {
+                // إجابة خاطئة
+                btnElement.className = "btn-touch bg-red-100 border-2 border-red-400 text-red-600 text-xl font-mono";
+                btnElement.disabled = true;
+
+                if (step2Attempts === 1) {
+                    // فرصة ثانية (لا نافذة منبثقة، فقط اهتزاز وترك المحاولة)
+                    btnElement.classList.add('shake-err');
+                    setTimeout(() => btnElement.classList.remove('shake-err'), 300);
+                } else {
+                    // نفدت المحاولات (محاولتين)
+                    document.querySelectorAll('#options-container button').forEach(b => {
+                        b.disabled = true;
+                        if(b.textContent === toAr(q.answer)) b.className = "btn-touch bg-green-100 border-2 border-green-500 text-green-700 text-xl font-mono";
+                    });
+
+                    showFeedbackModal(
+                        "نفدت المحاولات", 
+                        `الإجابة الصحيحة هي <b>${toAr(q.answer)}</b>.<br><br><span class='text-xs' dir='rtl'><b>التوضيح:</b> ${q.mathReason}</span>`, 
+                        "error", 
+                        moveToNext
+                    );
+                }
+            }
+        };
+
+        function moveToNext() {
+            currentQuestionIndex++;
+            if (currentQuestionIndex < questions.length) {
+                loadQuestion();
+            } else {
+                finishGame();
+            }
+        }
+
+        function finishGame() {
+            clearInterval(timerInterval);
+            document.getElementById('input-achieved').value = score;
+            // الحد الأقصى للنقاط = 4 أسئلة × (1 نقطة للنوع + 3 نقاط للحل من أول مرة) = 16 نقطة
+            document.getElementById('input-max').value = 16; 
+            document.getElementById('input-metric-value').value = totalSeconds;
+            processResults();
+        }
+
+        window.processResults = () => {
+            const ach = parseFloat(document.getElementById('input-achieved').value);
+            const max = parseFloat(document.getElementById('input-max').value);
+            const met = parseFloat(document.getElementById('input-metric-value').value) || 0;
+            
+            const grade = ((ach / max) * 5).toFixed(1); // تحويل النقاط (من 16) إلى مقياس من 5 للقاعدة
+            showResult(ach, max, grade, met);
+            
+            if (studentId && classId) saveScore(grade, met);
+            else { localVisitorResult = { name: studentName, grade: grade, metric: met, isLocal: true }; fetchAndShowLeaderboard(false); }
+        };
+
+        function showResult(a, m, g, met) {
+            document.getElementById('game-screen').classList.add('hidden');
+            document.getElementById('result-screen').classList.remove('hidden');
+            
+            let minutes = Math.floor(met / 60);
+            let seconds = met % 60;
+            let timeStr = `${minutes > 0 ? minutes + ' د ' : ''}${seconds} ث`;
+
+            document.getElementById('final-stats').innerHTML = `
+                <div class="bg-blue-50 p-2 rounded-xl border border-blue-100 text-center flex flex-col justify-center">
+                    <p class="text-[9px] font-bold text-blue-500 mb-1">النقاط المكتسبة</p>
+                    <p class="text-base font-black text-blue-900" dir="ltr">${toAr(a)} / ${toAr(m)}</p>
+                </div>
+                <div class="bg-emerald-50 p-2 rounded-xl border border-emerald-200 text-center flex flex-col justify-center shadow-md scale-105">
+                    <p class="text-[9px] font-bold text-emerald-600 mb-1">التقييم من 5</p>
+                    <p class="text-2xl font-black text-emerald-700">${toAr(g)}</p>
+                </div>
+                <div class="bg-purple-50 p-2 rounded-xl border border-purple-100 text-center flex flex-col justify-center">
+                    <p class="text-[9px] font-bold text-purple-500 mb-1">زمن الإنجاز</p>
+                    <p class="text-sm font-black text-purple-900">${toAr(timeStr)}</p>
+                </div>
+            `;
+        }
+
+        async function saveScore(g, met) {
+            const p = new URLSearchParams({ action: 'saveScore', studentId, classId, itemId: GAME_ID, score: g, metricValue: met, type: 'game' });
+            try { await fetch(`${SCRIPT_URL}?${p.toString()}`); } finally { fetchAndShowLeaderboard(false); }
+        }
+
+        window.fetchAndShowLeaderboard = function(isManual = false) {
+            const modal = document.getElementById('leaderboard-modal');
+            if (isManual) { modal.classList.remove('hidden-modal'); modal.classList.add('visible-modal'); }
+            const content = document.getElementById('leaderboard-content');
+            document.getElementById('modal-loader').classList.remove('hidden');
+            let reqClassId = (currentLeaderboardMode === 'class') ? classId : 'all';
+            const url = `${SCRIPT_URL}?action=getLeaderboard&gameId=${GAME_ID}&classId=${encodeURIComponent(reqClassId || 'all')}&t=${Date.now()}`;
+            
+            fetch(url).then(r => r.json()).then(res => {
+                let data = (res.status === 'success' && res.data) ? res.data : [];
+                if (localVisitorResult && (currentLeaderboardMode === 'global' || !classId)) {
+                    if (!data.find(p => p.name === localVisitorResult.name)) data.push(localVisitorResult);
+                    data.sort((a, b) => parseFloat(b.grade) - parseFloat(a.grade) || parseFloat(a.metric) - parseFloat(b.metric));
+                }
+                if (data.length > 0) {
+                    let h = `<table class="w-full text-right text-[10px] border-collapse"><thead class="text-slate-400 border-b border-slate-100 bg-slate-50/50"><tr><th class="p-2 text-center">#</th><th class="p-2 text-right">المستشار</th><th class="p-2 text-center text-emerald-600">التقييم</th></tr></thead><tbody class="divide-y divide-slate-50">`;
+                    data.forEach((p, i) => {
+                        const isMe = (p.isLocal || (studentId && String(p.name).trim() === String(studentName).trim()));
+                        h += `<tr class="${isMe ? 'rank-row-me' : 'hover:bg-slate-50/50'} transition-colors">
+                            <td class="p-2 leaderboard-rank text-center ${i<3 ? 'text-yellow-500 text-sm' : 'text-slate-400'}">${i < 3 ? ['🥇','🥈','🥉'][i] : toAr(i+1)}</td>
+                            <td class="p-2 leaderboard-name ${isMe ? 'text-blue-700 font-extrabold' : 'text-slate-700'}">${p.name} ${isMe ? '<span class="bg-blue-600 text-white text-[7px] px-1 rounded-full mx-1">أنت</span>' : ''}</td>
+                            <td class="p-2 text-center flex flex-col items-center"><span class="text-emerald-600 font-black">${toAr(parseFloat(p.grade).toFixed(1))}</span> <span class="text-[7px] text-slate-400 font-bold"><i class="fas fa-clock mr-0.5"></i>${toAr(p.metric || p.metricValue || 0)} ثانية</span></td>
+                        </tr>`;
+                    });
+                    content.innerHTML = h + `</tbody></table>`;
+                } else content.innerHTML = `<div class="py-10 text-center text-slate-400 text-xs italic font-bold">بانتظار تقارير المستشارين..</div>`;
+            }).finally(() => document.getElementById('modal-loader').classList.add('hidden'));
+        };
+
+        window.switchTab = (mode) => { currentLeaderboardMode = mode; document.getElementById('tab-class').className = mode === 'class' ? 'tab-btn tab-active' : 'tab-btn tab-inactive'; document.getElementById('tab-global').className = mode === 'global' ? 'tab-btn tab-active' : 'tab-btn tab-inactive'; fetchAndShowLeaderboard(false); };
+        window.closeLeaderboardModal = () => document.getElementById('leaderboard-modal').classList.replace('visible-modal', 'hidden-modal');
+    })();
+    </script>
+</body>
+</html>

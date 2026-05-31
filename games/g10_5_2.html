@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>الحوادث المتنافية</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body { font-family: 'Cairo', sans-serif; overflow: hidden; touch-action: manipulation; direction: rtl; }
+        .compact-card { width: 100%; max-width: 420px; background: white; border-radius: 2rem; box-shadow: 0 15px 35px -5px rgba(0,0,0,0.1); border: 1px solid #f1f5f9; display: flex; flex-direction: column; height: 95vh; max-height: 850px; overflow: hidden; position: relative; }
+        .top-info-bar { background: #f8fafc; border-bottom: 1px solid #e2e8f0; padding: 8px 16px; display: flex; justify-content: space-between; align-items: center; font-size: 11px; font-weight: 800; color: #64748b; }
+        .btn-touch { min-height: 50px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; border-radius: 1rem; font-weight: 800; cursor: pointer; }
+        .btn-touch:active { transform: scale(0.97); }
+        .leaderboard-modal { position: absolute; inset: 0; background: #ffffff; z-index: 100; display: flex; flex-direction: column; padding: 1.25rem; transition: all 0.3s; }
+        .hidden-modal { opacity: 0; pointer-events: none; transform: scale(0.95); display: none; }
+        .visible-modal { opacity: 1; pointer-events: auto; transform: scale(1); display: flex; }
+        .tab-btn { flex: 1; padding: 8px; font-size: 11px; font-weight: bold; border-radius: 8px; transition: 0.3s; border: 1px solid transparent; cursor: pointer; }
+        .tab-active { background-color: #3b82f6; color: white; box-shadow: 0 2px 10px rgba(59, 130, 246, 0.4); }
+        .tab-inactive { background-color: #f1f5f9; color: #64748b; border-color: #e2e8f0; }
+        .rank-row-me { background-color: #eff6ff !important; border-right: 4px solid #2563eb !important; }
+        .sync-loader { font-size: 10px; animation: spin 1s linear infinite; display: inline-block; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .leaderboard-name { color: #1e293b; font-weight: 800; font-size: 11px; }
+        .leaderboard-rank { font-weight: 900; }
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px) rotate(-2deg); } 50% { transform: translateX(5px) rotate(2deg); } 75% { transform: translateX(-5px) rotate(-2deg); } }
+        .shake-err { animation: shake 0.4s ease-in-out; }
+        
+        .game-btn { transition: all 0.2s; }
+        .game-btn:hover { transform: translateY(-2px); }
+        .game-btn:active { transform: scale(0.95); }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 h-screen w-screen flex items-center justify-center p-3 text-right">
+    <div class="compact-card">
+        <!-- Top bar -->
+        <div class="top-info-bar">
+            <div class="flex items-center gap-2 overflow-hidden">
+                <i class="fas fa-user-graduate text-blue-500"></i>
+                <span id="top-student-name" class="truncate font-black"></span>
+            </div>
+            <div class="flex items-center gap-2 bg-white px-2 py-0.5 rounded-full border shadow-sm font-bold">
+                <span id="sync-icon" class="hidden"><i class="fas fa-sync sync-loader text-blue-400"></i></span>
+                <i class="fas fa-clock text-blue-500 text-[10px]"></i>
+                <span id="game-timer">٠٠:٠٠</span>
+            </div>
+        </div>
+
+        <!-- Start Screen -->
+        <div id="start-screen" class="p-6 text-center flex flex-col gap-4 h-full justify-center">
+            <div class="text-6xl mb-2 drop-shadow-md">🔐</div>
+            <h1 class="text-2xl font-black text-slate-800">الحوادث المتنافية</h1>
+            <div class="bg-blue-50 p-4 rounded-2xl border border-blue-100 text-[13px] font-bold text-blue-700 leading-relaxed text-center shadow-inner mt-2">
+                لفتح الأبواب، يجب عليك فك الشفرة عبر ٣ خطوات:<br>
+                <span class="text-red-500">١. حدد النوع (متنافية أم لا)</span><br>
+                <span class="text-emerald-600">٢. اختر قانون الاحتمال الصحيح</span><br>
+                <span class="text-purple-600">٣. احسب الناتج النهائي</span>
+            </div>
+            
+            <div class="flex flex-row gap-2 items-stretch mt-4">
+                <button onclick="startInteractiveGame()" class="btn-touch flex-[2.5] bg-slate-800 text-white shadow-xl text-lg hover:bg-slate-700">
+                    بدء المهمة <i class="fas fa-door-open mr-2"></i>
+                </button>
+                <button onclick="fetchAndShowLeaderboard(true)" class="btn-touch flex-1 bg-white text-slate-600 border-2 border-slate-200 text-[10px] flex-col leading-tight py-2">
+                    <i class="fas fa-trophy text-yellow-500 text-xl mb-1"></i>
+                    <span>الأبطال</span>
+                </button>
+            </div>
+            <p class="text-[10px] text-slate-400 font-bold mt-4 tracking-widest uppercase text-center">أ. عبد العزيز خالد العبلان</p>
+        </div>
+
+        <!-- Game Screen -->
+        <div id="game-screen" class="hidden p-4 flex flex-col h-full overflow-hidden text-center relative">
+            <div class="w-full bg-slate-200 rounded-full h-2 mb-3">
+              <div id="progress-bar" class="bg-blue-600 h-2 rounded-full transition-all duration-500" style="width: 0%"></div>
+            </div>
+
+            <div id="question-container" class="flex-1 flex flex-col items-center justify-start overflow-y-auto pb-4">
+                <div class="flex justify-between items-center w-full border-b-2 border-slate-100 pb-2 mb-2">
+                    <h2 id="q-title" class="text-lg font-black text-slate-800"></h2>
+                    <span class="text-[10px] font-black bg-slate-100 border border-slate-200 text-slate-600 px-2 py-1 rounded-md"><span id="score-display">٠</span> نقطة</span>
+                </div>
+                <div id="visual-area" class="w-full mt-2 bg-white border border-slate-200 shadow-sm rounded-xl p-3 min-h-[60px] flex flex-col justify-center items-center gap-1 text-sm font-bold text-slate-600"></div>
+                <p id="q-text" class="text-sm font-black text-slate-700 leading-relaxed mb-4 bg-blue-50 p-4 rounded-2xl border border-blue-100 shadow-sm"></p>
+                <div id="type-section" class="w-full">
+                    <p class="text-[11px] text-slate-500 font-bold mb-2">الخطوة ١: ما نوع هاتين الحادثتين؟</p>
+                    <div class="flex gap-2">
+                        <button onclick="checkType('M', this)" class="game-btn flex-1 py-3 rounded-xl border-2 border-red-400 bg-white text-red-600 font-black shadow-sm">متنافية</button>
+                        <button onclick="checkType('NM', this)" class="game-btn flex-1 py-3 rounded-xl border-2 border-emerald-500 bg-white text-emerald-600 font-black shadow-sm">غير متنافية</button>
+                    </div>
+                </div>
+                <p id="explanation-text" class="text-[10px] font-bold mb-3 p-3 rounded-xl hidden w-full leading-relaxed"></p>
+                <div id="expr-section" class="w-full hidden">
+                    <p class="text-[11px] text-slate-500 font-bold mb-2" id="expr-q-text"></p>
+                    <div id="expr-grid" class="grid grid-cols-1 gap-2"></div>
+                </div>
+                <div id="math-section" class="w-full hidden mt-4">
+                    <p class="text-[11px] text-slate-500 font-bold mb-2" id="math-q-text"></p>
+                    <div id="math-correct-expr" class="flex justify-center items-center bg-white border border-slate-200 rounded-xl p-3 mb-3 shadow-sm" dir="rtl"></div>
+                    <div id="math-grid" class="grid grid-cols-2 gap-2"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Result Screen -->
+        <div id="result-screen" class="hidden p-5 flex flex-col h-full overflow-hidden text-center justify-center">
+            <div class="text-6xl mb-4 text-yellow-500 drop-shadow-md">🏆</div>
+            <h2 class="text-2xl font-black text-slate-800 mb-4">تم فك الشفرات!</h2>
+            <div id="final-stats" class="grid grid-cols-3 gap-2 mb-6"></div>
+            <button onclick="fetchAndShowLeaderboard(true)" class="btn-touch w-full bg-slate-800 text-white mb-4 shadow-xl text-lg hover:bg-slate-700">سجل الأبطال</button>
+            <div class="mt-auto flex gap-2">
+                <button onclick="location.reload()" class="btn-touch flex-1 bg-slate-200 text-slate-700 text-sm font-bold">إعادة</button>
+                <button id="finish-btn" class="btn-touch flex-[2] bg-blue-600 text-white text-sm font-bold">إنهاء</button>
+            </div>
+        </div>
+
+        <!-- Leaderboard -->
+        <div id="leaderboard-modal" class="leaderboard-modal hidden-modal" dir="rtl">
+            <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-3">
+                <h3 class="font-black text-slate-800 text-lg">سجل المتصدرين</h3>
+                <button onclick="closeLeaderboardModal()" class="w-9 h-9 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center transition-all hover:bg-red-50 hover:text-red-500"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="flex gap-2 mb-4">
+                <button onclick="switchTab('class')" id="tab-class" class="tab-btn tab-inactive">أبطال فصلي</button>
+                <button onclick="switchTab('global')" id="tab-global" class="tab-btn tab-active">أبطال اللعبة</button>
+            </div>
+            <div id="modal-body" class="flex-1 overflow-y-auto bg-slate-50 rounded-2xl border border-slate-100 p-1 relative">
+                <div id="modal-loader" class="absolute inset-0 flex items-center justify-center hidden bg-white/80 z-10"><div class="sync-loader text-blue-500 text-3xl"><i class="fas fa-sync"></i></div></div>
+                <div id="leaderboard-content" class="space-y-1"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    (function() {
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxqAQlGhNs8k5RwHs6jrWxDiDwaMABSx8a9Fl81O5oVVa5fHRWTwIEvsGy2cSDP4zGLWQ/exec";
+        const urlParams = new URLSearchParams(window.location.search);
+        const GAME_ID = 'g10_5_2';
+        const studentId = urlParams.get('studentId') || urlParams.get('userId');
+        const classId = urlParams.get('classId');
+        let studentName = decodeURIComponent(urlParams.get('name') || urlParams.get('studentName') || urlParams.get('username') || "بطل التحدي");
+        let currentLeaderboardMode = classId ? 'class' : 'global';
+        const toAr = (n) => String(n).replace(/\d/g, d => "٠١٢٣٤٥٦٧٨٩"[d]);
+
+        let startTime, timerInterval, timeElapsed = 0, currentQIndex = 0, gameScore = 0, currentAttempts = 0;
+        
+        const questions = [
+            { title: 'سحب بطاقة ملونة 🃏', text: 'صندوق يحوي ٥ حمراء و ٥ سوداء. سحبنا بطاقة واحدة. ما احتمال أن تكون البطاقة (حمراء أو سوداء)؟', type: 'M', visual: '🔴🔴🔴🔴🔴 | ⚫⚫⚫⚫⚫', explanation: 'لا يمكن أن تكون البطاقة حمراء وسوداء معاً، لذلك هي حوادث متنافية.', exprQuestion: 'ما التعبير الرياضي الصحيح؟', exprOptions: ['5/10 + 5/10 - 2/10', '5/10 + 5/10', '5/10 + 5/10 - 5/10', '1/10 + 1/10'], correctExpr: 1, mathQuestion: 'ما ناتج الجمع (احتمال مؤكد)؟', mathOptions: ['10/20', '0', '8/10', '1'], correctMath: 3 },
+            { title: 'رمي حجر النرد 🎲', text: 'رمي حجر نرد مرة واحدة. ما احتمال ظهور (عدد زوجي أو أكبر من ٤)؟', type: 'NM', visual: 'الزوجي: ٢، ٤، ٦ | أكبر من ٤: ٥، ٦', explanation: 'الرقم (٦) تقاطع، لذا نطرحه من المجموع.', exprQuestion: 'ما التعبير الرياضي الصحيح؟', exprOptions: ['3/6 + 2/6 - 3/6', '3/6 + 2/6', '3/6 + 2/6 - 1/6', '3/6 + 2/6 - 2/6'], correctExpr: 2, mathQuestion: 'ما الناتج في أبسط صورة؟', mathOptions: ['2/3', '1/3', '5/6', '1/6'], correctMath: 0 },
+            { title: 'اختيار طالب 👨‍🎓', text: 'مدرسة بها ٣٠ طالباً: ١٠ صف أول، ١٥ ثاني، ٥ ثالث. ما احتمال اختيار طالب من (الأول أو الثاني)؟', type: 'M', visual: 'صف أول (١٠) | صف ثاني (١٥)', explanation: 'متنافية لأنه يستحيل أن يدرس الطالب في صفين.', exprQuestion: 'ما التعبير الرياضي؟', exprOptions: ['25/30 - 10/30', '10/30 + 15/30 - 5/30', '10/30 + 15/30 - 10/30', '10/30 + 15/30'], correctExpr: 3, mathQuestion: 'ما الناتج في أبسط صورة؟', mathOptions: ['25/60', '1/2', '5/6', '1/3'], correctMath: 1 },
+            { title: 'بطاقات الأرقام 🔢', text: '١٠ بطاقات (١-٥) حمراء، (٦-١٠) زرقاء. ما احتمال أن تكون (حمراء أو زوجية)؟', type: 'NM', visual: '🔴 حمراء (١-٥) | 🔢 زوجية (٢،٤،٦،٨،١٠)', explanation: 'البطاقات (٢، ٤) حمراء وزوجية (تقاطع)، لذا نطرحه.', exprQuestion: 'ما التعبير الرياضي؟', exprOptions: ['5/10 + 5/10 - 2/10', '5/10 + 5/10', '5/10 + 5/10 - 5/10', '5/10 + 5/10 - 10/10'], correctExpr: 0, mathQuestion: 'ما الناتج في أبسط صورة؟', mathOptions: ['10/10', '4/5', '3/5', '1/2'], correctMath: 2 }
+        ];
+
+        document.addEventListener('DOMContentLoaded', () => { document.getElementById('top-student-name').textContent = studentName; });
+        window.startInteractiveGame = () => { document.getElementById('start-screen').classList.add('hidden'); document.getElementById('game-screen').classList.remove('hidden'); startTime = Date.now(); timerInterval = setInterval(() => { timeElapsed = Math.floor((Date.now() - startTime) / 1000); const m = Math.floor(timeElapsed / 60).toString().padStart(2, '0'); const s = (timeElapsed % 60).toString().padStart(2, '0'); document.getElementById('game-timer').textContent = toAr(`${m}:${s}`); }, 1000); loadQuestion(0); };
+        function updateScoreDisplay() { document.getElementById('score-display').textContent = toAr(gameScore); }
+        function loadQuestion(index) { if (index >= questions.length) { endGame(); return; } const q = questions[index]; updateScoreDisplay(); document.getElementById('q-title').textContent = q.title; document.getElementById('q-text').textContent = q.text; document.getElementById('visual-area').innerHTML = q.visual; document.getElementById('type-section').classList.remove('hidden'); document.getElementById('expr-section').classList.add('hidden'); document.getElementById('math-section').classList.add('hidden'); document.getElementById('explanation-text').classList.add('hidden'); const progress = (index / questions.length) * 100; document.getElementById('progress-bar').style.width = `${progress}%`; }
+        window.checkType = (selectedType, btnElement) => { const q = questions[currentQIndex]; const isCorrect = (selectedType === q.type); if (isCorrect) { gameScore += 1; updateScoreDisplay(); btnElement.classList.replace('bg-white', 'bg-emerald-100'); btnElement.classList.add('border-emerald-500'); } else { btnElement.classList.replace('bg-white', 'bg-red-100'); btnElement.classList.add('border-red-500'); } setTimeout(() => { document.getElementById('type-section').classList.add('hidden'); const expBox = document.getElementById('explanation-text'); expBox.classList.remove('hidden'); expBox.innerHTML = `<strong>${isCorrect ? 'إجابة صحيحة!' : 'التصحيح:'}</strong> <span class="block mt-1">${q.explanation}</span>`; loadExprSection(q); }, 800); };
+        function loadExprSection(q) { currentAttempts = 0; document.getElementById('expr-section').classList.remove('hidden'); document.getElementById('expr-q-text').textContent = q.exprQuestion; const grid = document.getElementById('expr-grid'); grid.innerHTML = ''; q.exprOptions.forEach((opt, idx) => { grid.innerHTML += `<button onclick="checkExpr(${idx}, this)" class="game-btn py-3 rounded-xl border-2 border-slate-200 bg-white font-black shadow-sm" dir="rtl">${opt}</button>`; }); }
+        window.checkExpr = (idx, btn) => { const q = questions[currentQIndex]; if (idx === q.correctExpr) { gameScore += 2; updateScoreDisplay(); btn.classList.replace('bg-white', 'bg-emerald-100'); btn.classList.add('border-emerald-500'); setTimeout(() => loadMathSection(q), 500); } else { btn.classList.replace('bg-white', 'bg-red-100'); btn.classList.add('border-red-500'); } };
+        function loadMathSection(q) { document.getElementById('expr-section').classList.add('hidden'); document.getElementById('math-section').classList.remove('hidden'); document.getElementById('math-q-text').textContent = q.mathQuestion; const grid = document.getElementById('math-grid'); grid.innerHTML = ''; q.mathOptions.forEach((opt, idx) => { grid.innerHTML += `<button onclick="checkMath(${idx}, this)" class="game-btn py-4 rounded-xl border-2 border-slate-200 bg-white font-black">${toAr(opt)}</button>`; }); }
+        window.checkMath = (idx, btn) => { const q = questions[currentQIndex]; if (idx === q.correctMath) { gameScore += 2; updateScoreDisplay(); btn.classList.replace('bg-white', 'bg-emerald-100'); btn.classList.add('border-emerald-500'); setTimeout(() => { currentQIndex++; loadQuestion(currentQIndex); }, 500); } else { btn.classList.replace('bg-white', 'bg-red-100'); btn.classList.add('border-red-500'); } };
+        function endGame() { clearInterval(timerInterval); document.getElementById('input-achieved').value = gameScore; document.getElementById('input-max').value = 20; document.getElementById('input-metric-value').value = timeElapsed; document.getElementById('game-screen').classList.add('hidden'); document.getElementById('result-screen').classList.remove('hidden'); }
+        window.fetchAndShowLeaderboard = (isManual) => { const modal = document.getElementById('leaderboard-modal'); if (isManual) { modal.classList.replace('hidden-modal', 'visible-modal'); } };
+        window.closeLeaderboardModal = () => document.getElementById('leaderboard-modal').classList.replace('visible-modal', 'hidden-modal');
+        window.switchTab = (mode) => { document.getElementById('tab-class').className = mode === 'class' ? 'tab-btn tab-active' : 'tab-btn tab-inactive'; document.getElementById('tab-global').className = mode === 'global' ? 'tab-btn tab-active' : 'tab-btn tab-inactive'; };
+    })();
+    </script>
+</body>
+</html>

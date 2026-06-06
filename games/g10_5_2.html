@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>الحوادث المتنافية</title>
+    <title>تحدي الأبطال - شفرة الحوادث</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -30,6 +30,12 @@
         .game-btn { transition: all 0.2s; }
         .game-btn:hover { transform: translateY(-2px); }
         .game-btn:active { transform: scale(0.95); }
+
+        /* تنسيق مخصص للكسور لتبدو احترافية */
+        .math-fraction { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; vertical-align: middle; margin: 0 4px; }
+        .math-num { border-bottom: 2px solid #334155; padding: 0 6px; line-height: 1.2; font-size: 1.1rem; font-weight: 900; }
+        .math-den { line-height: 1.2; font-size: 1.1rem; font-weight: 900; padding-top: 2px; }
+        .math-op { font-size: 1.4rem; font-weight: 900; margin: 0 6px; vertical-align: middle; }
     </style>
 </head>
 <body class="bg-slate-100 text-slate-800 h-screen w-screen flex items-center justify-center p-3 text-right">
@@ -56,6 +62,9 @@
                 <span class="text-red-500">١. حدد النوع (متنافية أم لا)</span><br>
                 <span class="text-emerald-600">٢. اختر قانون الاحتمال الصحيح</span><br>
                 <span class="text-purple-600">٣. احسب الناتج النهائي</span>
+                <div class="mt-2 text-xs bg-white p-2 rounded text-red-600 border border-red-200">
+                    <i class="fas fa-exclamation-triangle"></i> لديك <b>محاولتان فقط</b> لكل خطوة!
+                </div>
             </div>
             
             <div class="flex flex-row gap-2 items-stretch mt-4">
@@ -72,6 +81,8 @@
 
         <!-- Game Screen -->
         <div id="game-screen" class="hidden p-4 flex flex-col h-full overflow-hidden text-center relative">
+            
+            <!-- Progress -->
             <div class="w-full bg-slate-200 rounded-full h-2 mb-3">
               <div id="progress-bar" class="bg-blue-600 h-2 rounded-full transition-all duration-500" style="width: 0%"></div>
             </div>
@@ -81,26 +92,60 @@
                     <h2 id="q-title" class="text-lg font-black text-slate-800"></h2>
                     <span class="text-[10px] font-black bg-slate-100 border border-slate-200 text-slate-600 px-2 py-1 rounded-md"><span id="score-display">٠</span> نقطة</span>
                 </div>
-                <div id="visual-area" class="w-full mt-2 bg-white border border-slate-200 shadow-sm rounded-xl p-3 min-h-[60px] flex flex-col justify-center items-center gap-1 text-sm font-bold text-slate-600"></div>
+                
+                <!-- Visual Area -->
+                <div class="w-full mb-3">
+                    <button onclick="toggleVisual()" class="w-full flex items-center justify-center gap-2 text-xs font-bold text-slate-500 bg-slate-50 border border-slate-200 rounded-lg p-2 transition-colors hover:bg-slate-100 outline-none">
+                        <span id="toggle-text">إخفاء التوضيح البصري</span>
+                        <i id="toggle-icon" class="fas fa-chevron-up"></i>
+                    </button>
+                    <div id="visual-area" class="w-full mt-2 bg-white border border-slate-200 shadow-sm rounded-xl p-3 min-h-[60px] flex flex-col justify-center items-center gap-1 text-sm font-bold text-slate-600 transition-all duration-300">
+                    </div>
+                </div>
+
                 <p id="q-text" class="text-sm font-black text-slate-700 leading-relaxed mb-4 bg-blue-50 p-4 rounded-2xl border border-blue-100 shadow-sm"></p>
+
+                <!-- Step 1: Type Section -->
                 <div id="type-section" class="w-full">
                     <p class="text-[11px] text-slate-500 font-bold mb-2">الخطوة ١: ما نوع هاتين الحادثتين؟</p>
                     <div class="flex gap-2">
-                        <button onclick="checkType('M', this)" class="game-btn flex-1 py-3 rounded-xl border-2 border-red-400 bg-white text-red-600 font-black shadow-sm">متنافية</button>
-                        <button onclick="checkType('NM', this)" class="game-btn flex-1 py-3 rounded-xl border-2 border-emerald-500 bg-white text-emerald-600 font-black shadow-sm">غير متنافية</button>
+                        <button onclick="checkType('M', this)" class="game-btn flex-1 py-3 rounded-xl border-2 border-slate-200 bg-white text-red-600 font-black shadow-sm">
+                            <i class="fas fa-ban mb-1 block text-lg"></i> متنافية
+                        </button>
+                        <button onclick="checkType('NM', this)" class="game-btn flex-1 py-3 rounded-xl border-2 border-slate-200 bg-white text-emerald-600 font-black shadow-sm">
+                            <i class="fas fa-link mb-1 block text-lg"></i> غير متنافية
+                        </button>
                     </div>
                 </div>
+
+                <!-- Explanation Box -->
                 <p id="explanation-text" class="text-[10px] font-bold mb-3 p-3 rounded-xl hidden w-full leading-relaxed"></p>
+
+                <!-- Step 2: Expression Section -->
                 <div id="expr-section" class="w-full hidden">
-                    <p class="text-[11px] text-slate-500 font-bold mb-2" id="expr-q-text"></p>
+                    <p class="text-[11px] text-slate-500 font-bold mb-2 flex justify-between px-1">
+                        <span id="expr-q-text"></span>
+                        <span id="expr-attempts" class="text-red-500 font-black bg-red-50 px-2 rounded hidden">محاولة أخيرة!</span>
+                    </p>
                     <div id="expr-grid" class="grid grid-cols-1 gap-2"></div>
                 </div>
+
+                <!-- Step 3: Math Section -->
                 <div id="math-section" class="w-full hidden mt-4">
-                    <p class="text-[11px] text-slate-500 font-bold mb-2" id="math-q-text"></p>
-                    <div id="math-correct-expr" class="flex justify-center items-center bg-white border border-slate-200 rounded-xl p-3 mb-3 shadow-sm" dir="rtl"></div>
+                    <p class="text-[11px] text-slate-500 font-bold mb-2 flex justify-between px-1">
+                        <span id="math-q-text"></span>
+                        <span id="math-attempts" class="text-red-500 font-black bg-red-50 px-2 rounded hidden">محاولة أخيرة!</span>
+                    </p>
+                    <!-- صندوق التعبير البصري للجمع والطرح -->
+                    <div id="math-correct-expr" class="flex justify-center items-center bg-emerald-50 border-2 border-emerald-200 rounded-xl p-3 mb-3 shadow-sm min-h-[60px]" dir="rtl"></div>
+                    
                     <div id="math-grid" class="grid grid-cols-2 gap-2"></div>
                 </div>
             </div>
+
+            <input type="hidden" id="input-achieved" value="0">
+            <input type="hidden" id="input-max" value="20">
+            <input type="hidden" id="input-metric-value" value="0">
         </div>
 
         <!-- Result Screen -->
@@ -108,9 +153,11 @@
             <div class="text-6xl mb-4 text-yellow-500 drop-shadow-md">🏆</div>
             <h2 class="text-2xl font-black text-slate-800 mb-4">تم فك الشفرات!</h2>
             <div id="final-stats" class="grid grid-cols-3 gap-2 mb-6"></div>
-            <button onclick="fetchAndShowLeaderboard(true)" class="btn-touch w-full bg-slate-800 text-white mb-4 shadow-xl text-lg hover:bg-slate-700">سجل الأبطال</button>
+            <button onclick="fetchAndShowLeaderboard(true)" class="btn-touch w-full bg-slate-800 text-white mb-4 shadow-xl text-lg hover:bg-slate-700">
+                <i class="fas fa-list-ol ml-2"></i> سجل الأبطال
+            </button>
             <div class="mt-auto flex gap-2">
-                <button onclick="location.reload()" class="btn-touch flex-1 bg-slate-200 text-slate-700 text-sm font-bold">إعادة</button>
+                <button onclick="location.reload()" class="btn-touch flex-1 bg-slate-200 text-slate-700 text-sm font-bold">إعادة التحدي</button>
                 <button id="finish-btn" class="btn-touch flex-[2] bg-blue-600 text-white text-sm font-bold">إنهاء</button>
             </div>
         </div>
@@ -118,12 +165,12 @@
         <!-- Leaderboard -->
         <div id="leaderboard-modal" class="leaderboard-modal hidden-modal" dir="rtl">
             <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-3">
-                <h3 class="font-black text-slate-800 text-lg">سجل المتصدرين</h3>
+                <h3 class="font-black text-slate-800 text-lg"><i class="fas fa-trophy text-yellow-500 ml-2"></i>سجل المتصدرين</h3>
                 <button onclick="closeLeaderboardModal()" class="w-9 h-9 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center transition-all hover:bg-red-50 hover:text-red-500"><i class="fas fa-times"></i></button>
             </div>
             <div class="flex gap-2 mb-4">
                 <button onclick="switchTab('class')" id="tab-class" class="tab-btn tab-inactive">أبطال فصلي</button>
-                <button onclick="switchTab('global')" id="tab-global" class="tab-btn tab-active">أبطال اللعبة</button>
+                <button onclick="switchTab('global')" id="tab-global" class="tab-btn tab-active">أبطال اللعبة (الكل)</button>
             </div>
             <div id="modal-body" class="flex-1 overflow-y-auto bg-slate-50 rounded-2xl border border-slate-100 p-1 relative">
                 <div id="modal-loader" class="absolute inset-0 flex items-center justify-center hidden bg-white/80 z-10"><div class="sync-loader text-blue-500 text-3xl"><i class="fas fa-sync"></i></div></div>
@@ -139,32 +186,430 @@
         const GAME_ID = 'g10_5_2';
         const studentId = urlParams.get('studentId') || urlParams.get('userId');
         const classId = urlParams.get('classId');
+        
         let studentName = decodeURIComponent(urlParams.get('name') || urlParams.get('studentName') || urlParams.get('username') || "بطل التحدي");
         let currentLeaderboardMode = classId ? 'class' : 'global';
-        const toAr = (n) => String(n).replace(/\d/g, d => "٠١٢٣٤٥٦٧٨٩"[d]);
+        let localVisitorResult = null;
 
-        let startTime, timerInterval, timeElapsed = 0, currentQIndex = 0, gameScore = 0, currentAttempts = 0;
+        // دالة تحويل الأرقام للعربية المشرقية
+        const toAr = (str) => String(str).replace(/\d/g, d => "٠١٢٣٤٥٦٧٨٩"[d]);
+
+        let startTime, timerInterval;
+        let timeElapsed = 0;
+        let currentQIndex = 0;
+        let gameScore = 0; 
+        let currentAttempts = 0; 
         
         const questions = [
-            { title: 'سحب بطاقة ملونة 🃏', text: 'صندوق يحوي ٥ حمراء و ٥ سوداء. سحبنا بطاقة واحدة. ما احتمال أن تكون البطاقة (حمراء أو سوداء)؟', type: 'M', visual: '🔴🔴🔴🔴🔴 | ⚫⚫⚫⚫⚫', explanation: 'لا يمكن أن تكون البطاقة حمراء وسوداء معاً، لذلك هي حوادث متنافية.', exprQuestion: 'ما التعبير الرياضي الصحيح؟', exprOptions: ['5/10 + 5/10 - 2/10', '5/10 + 5/10', '5/10 + 5/10 - 5/10', '1/10 + 1/10'], correctExpr: 1, mathQuestion: 'ما ناتج الجمع (احتمال مؤكد)؟', mathOptions: ['10/20', '0', '8/10', '1'], correctMath: 3 },
-            { title: 'رمي حجر النرد 🎲', text: 'رمي حجر نرد مرة واحدة. ما احتمال ظهور (عدد زوجي أو أكبر من ٤)؟', type: 'NM', visual: 'الزوجي: ٢، ٤، ٦ | أكبر من ٤: ٥، ٦', explanation: 'الرقم (٦) تقاطع، لذا نطرحه من المجموع.', exprQuestion: 'ما التعبير الرياضي الصحيح؟', exprOptions: ['3/6 + 2/6 - 3/6', '3/6 + 2/6', '3/6 + 2/6 - 1/6', '3/6 + 2/6 - 2/6'], correctExpr: 2, mathQuestion: 'ما الناتج في أبسط صورة؟', mathOptions: ['2/3', '1/3', '5/6', '1/6'], correctMath: 0 },
-            { title: 'اختيار طالب 👨‍🎓', text: 'مدرسة بها ٣٠ طالباً: ١٠ صف أول، ١٥ ثاني، ٥ ثالث. ما احتمال اختيار طالب من (الأول أو الثاني)؟', type: 'M', visual: 'صف أول (١٠) | صف ثاني (١٥)', explanation: 'متنافية لأنه يستحيل أن يدرس الطالب في صفين.', exprQuestion: 'ما التعبير الرياضي؟', exprOptions: ['25/30 - 10/30', '10/30 + 15/30 - 5/30', '10/30 + 15/30 - 10/30', '10/30 + 15/30'], correctExpr: 3, mathQuestion: 'ما الناتج في أبسط صورة؟', mathOptions: ['25/60', '1/2', '5/6', '1/3'], correctMath: 1 },
-            { title: 'بطاقات الأرقام 🔢', text: '١٠ بطاقات (١-٥) حمراء، (٦-١٠) زرقاء. ما احتمال أن تكون (حمراء أو زوجية)؟', type: 'NM', visual: '🔴 حمراء (١-٥) | 🔢 زوجية (٢،٤،٦،٨،١٠)', explanation: 'البطاقات (٢، ٤) حمراء وزوجية (تقاطع)، لذا نطرحه.', exprQuestion: 'ما التعبير الرياضي؟', exprOptions: ['5/10 + 5/10 - 2/10', '5/10 + 5/10', '5/10 + 5/10 - 5/10', '5/10 + 5/10 - 10/10'], correctExpr: 0, mathQuestion: 'ما الناتج في أبسط صورة؟', mathOptions: ['10/10', '4/5', '3/5', '1/2'], correctMath: 2 }
+            {
+                title: 'سحب بطاقة ملونة 🃏',
+                text: 'صندوق يحوي ٥ بطاقات حمراء و ٥ بطاقات سوداء. سحبنا بطاقة واحدة. ما احتمال أن تكون البطاقة المسحوبة (حمراء أو سوداء)؟',
+                type: 'M',
+                visual: '<span class="text-2xl tracking-widest">🔴🔴🔴🔴🔴 <span class="text-slate-300 mx-2">|</span> ⚫⚫⚫⚫⚫</span>',
+                explanation: 'البطاقة لا يمكن أن تكون حمراء وسوداء معاً في نفس الوقت، لذلك هي حوادث متنافية (لا يوجد تقاطع).',
+                exprQuestion: 'الخطوة ٢: ما هو التعبير الرياضي الصحيح؟',
+                exprOptions: ['5/10 + 5/10 - 2/10', '5/10 + 5/10', '5/10 + 5/10 - 5/10', '1/10 + 1/10'],
+                correctExpr: 1,
+                mathQuestion: 'الخطوة ٣: ما ناتج الجمع في أبسط صورة؟',
+                mathOptions: ['10/20', '0', '8/10', '1'],
+                correctMath: 3
+            },
+            {
+                title: 'رمي حجر النرد 🎲',
+                text: 'عند رمي حجر نرد منتظم مرة واحدة. ما احتمال ظهور (عدد زوجي أو عدد أكبر من ٤)؟',
+                type: 'NM',
+                visual: '<span>الزوجي: ٢، ٤، <span class="text-blue-500 font-black">٦</span></span> <br> <span>أكبر من ٤: ٥، <span class="text-blue-500 font-black">٦</span></span>',
+                explanation: 'الرقم (٦) زوجي وأكبر من ٤ في نفس الوقت (يوجد تقاطع)، لذا هي غير متنافية ونطرح التقاطع.',
+                exprQuestion: 'الخطوة ٢: ما التعبير الرياضي الصحيح؟',
+                exprOptions: ['3/6 + 2/6 - 3/6', '3/6 + 2/6', '3/6 + 2/6 - 1/6', '3/6 + 2/6 - 2/6'],
+                correctExpr: 2,
+                mathQuestion: 'الخطوة ٣: ما الناتج في أبسط صورة؟',
+                mathOptions: ['2/3', '1/3', '5/6', '1/6'], 
+                correctMath: 0
+            },
+            {
+                title: 'اختيار طالب 👨‍🎓',
+                text: 'مدرسة بها ٣٠ طالباً. ١٠ في الصف الأول، ١٥ في الثاني، ٥ في الثالث. اختير طالب. ما احتمال أن يكون من (الصف الأول أو الثاني)؟',
+                type: 'M',
+                visual: '🏫 صف أول (١٠) <br> 🏫 صف ثاني (١٥) <br> 🏫 صف ثالث (٥)',
+                explanation: 'متنافية لأنه يستحيل أن يدرس الطالب في صفين مختلفين، فنقوم بجمع الاحتمالات فقط.',
+                exprQuestion: 'الخطوة ٢: ما التعبير الرياضي الصحيح؟',
+                exprOptions: ['25/30 - 10/30', '10/30 + 15/30 - 5/30', '10/30 + 15/30 - 10/30', '10/30 + 15/30'],
+                correctExpr: 3,
+                mathQuestion: 'الخطوة ٣: ما الناتج في أبسط صورة؟',
+                mathOptions: ['25/60', '1/2', '5/6', '1/3'], 
+                correctMath: 2
+            },
+            {
+                title: 'بطاقات الأرقام 🔢',
+                text: '١٠ بطاقات مرقمة من ١ إلى ١٠. البطاقات (١-٥) لونها أحمر، و (٦-١٠) لونها أزرق. سحبنا بطاقة. ما احتمال أن تكون (حمراء أو تحمل رقماً زوجياً)؟',
+                type: 'NM',
+                visual: '<span>🔴 حمراء: ١، <span class="text-blue-500 font-black">٢</span>، ٣، <span class="text-blue-500 font-black">٤</span>، ٥</span><br><span>🔢 زوجية: <span class="text-blue-500 font-black">٢</span>، <span class="text-blue-500 font-black">٤</span>، ٦، ٨، ١٠</span>',
+                explanation: 'البطاقات (٢، ٤) لونها أحمر وزوجية معاً، لذلك يوجد تقاطع ويجب طرحه من المجموع.',
+                exprQuestion: 'الخطوة ٢: ما التعبير الرياضي؟ (احتمال الأولى + الثانية - التقاطع)',
+                exprOptions: ['5/10 + 5/10 - 2/10', '5/10 + 5/10', '5/10 + 5/10 - 5/10', '5/10 + 5/10 - 10/10'],
+                correctExpr: 0,
+                mathQuestion: 'الخطوة ٣: ما الناتج في أبسط صورة؟',
+                mathOptions: ['10/10', '4/5', '3/5', '1/2'], 
+                correctMath: 1
+            }
         ];
 
-        document.addEventListener('DOMContentLoaded', () => { document.getElementById('top-student-name').textContent = studentName; });
-        window.startInteractiveGame = () => { document.getElementById('start-screen').classList.add('hidden'); document.getElementById('game-screen').classList.remove('hidden'); startTime = Date.now(); timerInterval = setInterval(() => { timeElapsed = Math.floor((Date.now() - startTime) / 1000); const m = Math.floor(timeElapsed / 60).toString().padStart(2, '0'); const s = (timeElapsed % 60).toString().padStart(2, '0'); document.getElementById('game-timer').textContent = toAr(`${m}:${s}`); }, 1000); loadQuestion(0); };
-        function updateScoreDisplay() { document.getElementById('score-display').textContent = toAr(gameScore); }
-        function loadQuestion(index) { if (index >= questions.length) { endGame(); return; } const q = questions[index]; updateScoreDisplay(); document.getElementById('q-title').textContent = q.title; document.getElementById('q-text').textContent = q.text; document.getElementById('visual-area').innerHTML = q.visual; document.getElementById('type-section').classList.remove('hidden'); document.getElementById('expr-section').classList.add('hidden'); document.getElementById('math-section').classList.add('hidden'); document.getElementById('explanation-text').classList.add('hidden'); const progress = (index / questions.length) * 100; document.getElementById('progress-bar').style.width = `${progress}%`; }
-        window.checkType = (selectedType, btnElement) => { const q = questions[currentQIndex]; const isCorrect = (selectedType === q.type); if (isCorrect) { gameScore += 1; updateScoreDisplay(); btnElement.classList.replace('bg-white', 'bg-emerald-100'); btnElement.classList.add('border-emerald-500'); } else { btnElement.classList.replace('bg-white', 'bg-red-100'); btnElement.classList.add('border-red-500'); } setTimeout(() => { document.getElementById('type-section').classList.add('hidden'); const expBox = document.getElementById('explanation-text'); expBox.classList.remove('hidden'); expBox.innerHTML = `<strong>${isCorrect ? 'إجابة صحيحة!' : 'التصحيح:'}</strong> <span class="block mt-1">${q.explanation}</span>`; loadExprSection(q); }, 800); };
-        function loadExprSection(q) { currentAttempts = 0; document.getElementById('expr-section').classList.remove('hidden'); document.getElementById('expr-q-text').textContent = q.exprQuestion; const grid = document.getElementById('expr-grid'); grid.innerHTML = ''; q.exprOptions.forEach((opt, idx) => { grid.innerHTML += `<button onclick="checkExpr(${idx}, this)" class="game-btn py-3 rounded-xl border-2 border-slate-200 bg-white font-black shadow-sm" dir="rtl">${opt}</button>`; }); }
-        window.checkExpr = (idx, btn) => { const q = questions[currentQIndex]; if (idx === q.correctExpr) { gameScore += 2; updateScoreDisplay(); btn.classList.replace('bg-white', 'bg-emerald-100'); btn.classList.add('border-emerald-500'); setTimeout(() => loadMathSection(q), 500); } else { btn.classList.replace('bg-white', 'bg-red-100'); btn.classList.add('border-red-500'); } };
-        function loadMathSection(q) { document.getElementById('expr-section').classList.add('hidden'); document.getElementById('math-section').classList.remove('hidden'); document.getElementById('math-q-text').textContent = q.mathQuestion; const grid = document.getElementById('math-grid'); grid.innerHTML = ''; q.mathOptions.forEach((opt, idx) => { grid.innerHTML += `<button onclick="checkMath(${idx}, this)" class="game-btn py-4 rounded-xl border-2 border-slate-200 bg-white font-black">${toAr(opt)}</button>`; }); }
-        window.checkMath = (idx, btn) => { const q = questions[currentQIndex]; if (idx === q.correctMath) { gameScore += 2; updateScoreDisplay(); btn.classList.replace('bg-white', 'bg-emerald-100'); btn.classList.add('border-emerald-500'); setTimeout(() => { currentQIndex++; loadQuestion(currentQIndex); }, 500); } else { btn.classList.replace('bg-white', 'bg-red-100'); btn.classList.add('border-red-500'); } };
-        function endGame() { clearInterval(timerInterval); document.getElementById('input-achieved').value = gameScore; document.getElementById('input-max').value = 20; document.getElementById('input-metric-value').value = timeElapsed; document.getElementById('game-screen').classList.add('hidden'); document.getElementById('result-screen').classList.remove('hidden'); }
-        window.fetchAndShowLeaderboard = (isManual) => { const modal = document.getElementById('leaderboard-modal'); if (isManual) { modal.classList.replace('hidden-modal', 'visible-modal'); } };
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('top-student-name').textContent = studentName;
+            if (!classId) {
+                document.getElementById('tab-class').style.display = 'none';
+                currentLeaderboardMode = 'global';
+            } else {
+                document.getElementById('tab-class').className = 'tab-btn tab-active';
+                document.getElementById('tab-global').className = 'tab-btn tab-inactive';
+            }
+            document.getElementById('finish-btn').onclick = () => window.parent.postMessage({ event: 'gameFinished', gameId: GAME_ID }, '*');
+        });
+
+        window.toggleVisual = () => {
+            const vArea = document.getElementById('visual-area');
+            const icon = document.getElementById('toggle-icon');
+            const text = document.getElementById('toggle-text');
+            if (vArea.classList.contains('hidden')) {
+                vArea.classList.remove('hidden');
+                icon.classList.replace('fa-chevron-down', 'fa-chevron-up');
+                text.textContent = 'إخفاء التوضيح البصري';
+            } else {
+                vArea.classList.add('hidden');
+                icon.classList.replace('fa-chevron-up', 'fa-chevron-down');
+                text.textContent = 'عرض التوضيح البصري';
+            }
+        };
+
+        window.startInteractiveGame = () => {
+            document.getElementById('start-screen').classList.add('hidden');
+            document.getElementById('game-screen').classList.remove('hidden');
+            startTime = Date.now();
+            timerInterval = setInterval(() => {
+                timeElapsed = Math.floor((Date.now() - startTime) / 1000);
+                const m = Math.floor(timeElapsed / 60).toString().padStart(2, '0');
+                const s = (timeElapsed % 60).toString().padStart(2, '0');
+                document.getElementById('game-timer').textContent = toAr(`${m}:${s}`);
+            }, 1000);
+            loadQuestion(0);
+        };
+
+        function updateScoreDisplay() {
+            document.getElementById('score-display').textContent = toAr(gameScore);
+        }
+
+        // دالة إنشاء كود HTML للكسور والأرقام بشكل جميل
+        function renderMathOption(optionString) {
+            const parts = optionString.split(' ');
+            return parts.map(p => {
+                if (p === '+' || p === '-' || p === '*') {
+                    const op = p === '*' ? '×' : p;
+                    const color = op === '+' ? 'text-emerald-500' : (op === '-' ? 'text-red-500' : 'text-slate-600');
+                    return `<span class="math-op ${color}">${op}</span>`;
+                } else if (p.includes('/')) {
+                    const [num, den] = p.split('/');
+                    return `<div class="math-fraction">
+                                <span class="math-num">${toAr(num)}</span>
+                                <span class="math-den">${toAr(den)}</span>
+                            </div>`;
+                } else {
+                    return `<span class="text-xl font-black text-slate-800 mx-2">${toAr(p)}</span>`;
+                }
+            }).join('');
+        }
+
+        function loadQuestion(index) {
+            if (index >= questions.length) { endGame(); return; }
+            const q = questions[index];
+            updateScoreDisplay();
+            
+            document.getElementById('q-title').textContent = q.title;
+            document.getElementById('q-text').textContent = q.text;
+            document.getElementById('visual-area').innerHTML = q.visual;
+            
+            // Reset sections
+            document.getElementById('type-section').classList.remove('hidden');
+            document.getElementById('expr-section').classList.add('hidden');
+            document.getElementById('math-section').classList.add('hidden');
+            document.getElementById('explanation-text').classList.add('hidden');
+            
+            const vArea = document.getElementById('visual-area');
+            vArea.classList.remove('hidden', 'border-emerald-500', 'border-red-500', 'bg-emerald-50', 'bg-red-50');
+            vArea.className = "w-full mt-2 bg-white border border-slate-200 shadow-sm rounded-xl p-3 min-h-[60px] flex flex-col justify-center items-center gap-1 text-sm font-bold text-slate-600 transition-all duration-300";
+            
+            document.getElementById('type-section').classList.remove('pointer-events-none');
+            document.querySelectorAll('#type-section button').forEach(btn => {
+                btn.className = btn.className.replace(/bg-(red|emerald)-50/g, 'bg-white').replace(/border-(red|emerald)-500/g, 'border-slate-200');
+            });
+
+            document.getElementById('progress-bar').style.width = `${(index / questions.length) * 100}%`;
+        }
+
+        window.checkType = (selectedType, btnElement) => {
+            const typeSection = document.getElementById('type-section');
+            if(typeSection.classList.contains('pointer-events-none')) return;
+            typeSection.classList.add('pointer-events-none');
+
+            const q = questions[currentQIndex];
+            const isCorrect = (selectedType === q.type);
+
+            if (isCorrect) {
+                gameScore += 1; 
+                updateScoreDisplay();
+                btnElement.classList.replace('bg-white', 'bg-emerald-50');
+                btnElement.classList.replace('border-slate-200', 'border-emerald-500');
+            } else {
+                btnElement.classList.replace('bg-white', 'bg-red-50');
+                btnElement.classList.replace('border-slate-200', 'border-red-500');
+                
+                // تحديد الإجابة الصحيحة تلقائياً
+                const otherBtns = document.querySelectorAll('#type-section button');
+                otherBtns.forEach(b => {
+                    if (b !== btnElement) {
+                        b.classList.replace('bg-white', 'bg-emerald-50');
+                        b.classList.replace('border-slate-200', 'border-emerald-500');
+                    }
+                });
+
+                const container = document.getElementById('question-container');
+                container.classList.remove('shake-err');
+                void container.offsetWidth;
+                container.classList.add('shake-err');
+            }
+            
+            setTimeout(() => {
+                document.getElementById('type-section').classList.add('hidden');
+                
+                const expBox = document.getElementById('explanation-text');
+                expBox.classList.remove('hidden', 'text-emerald-700', 'text-red-700', 'bg-emerald-50', 'bg-red-50', 'border-emerald-200', 'border-red-200');
+                expBox.classList.add(isCorrect ? 'text-emerald-700' : 'text-red-700', isCorrect ? 'bg-emerald-50' : 'bg-red-50', 'border', isCorrect ? 'border-emerald-200' : 'border-red-200');
+                const expTitle = isCorrect ? 'إجابة صحيحة!' : 'التصحيح:';
+                const expIcon = isCorrect ? 'fa-check-circle' : 'fa-times-circle';
+                expBox.innerHTML = `<i class="fas ${expIcon} ml-1 text-lg"></i> <strong>${expTitle}</strong> <span class="text-slate-700 font-semibold block mt-1">${q.explanation}</span>`;
+                
+                loadExprSection(q);
+            }, 1500);
+        };
+
+        function loadExprSection(q) {
+            currentAttempts = 0;
+            document.getElementById('expr-section').classList.remove('hidden');
+            document.getElementById('expr-q-text').textContent = q.exprQuestion;
+            document.getElementById('expr-attempts').classList.add('hidden');
+            
+            const grid = document.getElementById('expr-grid');
+            grid.innerHTML = '';
+            
+            q.exprOptions.forEach((opt, idx) => {
+                grid.innerHTML += `
+                <button id="expr-btn-${idx}" onclick="checkExpr(${idx}, this)" class="game-btn py-3 px-2 rounded-xl border-2 border-slate-200 bg-white shadow-sm hover:bg-slate-50 flex items-center justify-center transition-all duration-300" dir="rtl">
+                    ${renderMathOption(opt)}
+                </button>`;
+            });
+        }
+
+        window.checkExpr = (selectedIndex, btnElement) => {
+            if(btnElement.disabled) return;
+            const q = questions[currentQIndex];
+
+            if (selectedIndex === q.correctExpr) {
+                if (currentAttempts === 0) gameScore += 2;
+                else if (currentAttempts === 1) gameScore += 1;
+                updateScoreDisplay();
+
+                btnElement.classList.replace('border-slate-200', 'border-emerald-500');
+                btnElement.classList.replace('bg-white', 'bg-emerald-50');
+                
+                document.querySelectorAll('#expr-grid button').forEach(b => b.disabled = true);
+                
+                const expBox = document.getElementById('explanation-text');
+                expBox.classList.remove('text-red-700', 'bg-red-50', 'border-red-200');
+                expBox.classList.add('text-emerald-700', 'bg-emerald-50', 'border-emerald-200');
+                expBox.innerHTML = `<i class="fas fa-check-circle ml-1"></i> التعبير الرياضي صحيح! احسب الناتج النهائي..`;
+
+                setTimeout(() => { loadMathSection(q); }, 1500);
+            } else {
+                currentAttempts++;
+                btnElement.classList.replace('border-slate-200', 'border-red-500');
+                btnElement.classList.replace('bg-white', 'bg-red-50');
+                btnElement.disabled = true;
+
+                const container = document.getElementById('question-container');
+                container.classList.remove('shake-err');
+                void container.offsetWidth; 
+                container.classList.add('shake-err');
+
+                if (currentAttempts === 1) {
+                    document.getElementById('expr-attempts').classList.remove('hidden');
+                } else if (currentAttempts >= 2) {
+                    document.getElementById('expr-attempts').classList.add('hidden');
+                    // استنفد المحاولتين - إظهار الإجابة الصحيحة
+                    const correctBtn = document.getElementById(`expr-btn-${q.correctExpr}`);
+                    if(correctBtn) {
+                        correctBtn.classList.replace('border-slate-200', 'border-emerald-500');
+                        correctBtn.classList.replace('bg-white', 'bg-emerald-50');
+                        correctBtn.classList.add('scale-105');
+                    }
+                    document.querySelectorAll('#expr-grid button').forEach(b => b.disabled = true);
+                    
+                    const expBox = document.getElementById('explanation-text');
+                    expBox.innerHTML = `<i class="fas fa-info-circle ml-1"></i> تم تجاوز المحاولات. التعبير المظلل بالأخضر هو الصحيح.`;
+                    
+                    setTimeout(() => { loadMathSection(q); }, 2500);
+                }
+            }
+        };
+
+        function loadMathSection(q) {
+            currentAttempts = 0; 
+            document.getElementById('expr-section').classList.add('hidden');
+            document.getElementById('math-section').classList.remove('hidden');
+            document.getElementById('math-q-text').textContent = q.mathQuestion;
+            document.getElementById('math-attempts').classList.add('hidden');
+            
+            // رسم التعبير الرياضي بصرياً في صندوق بارز
+            const correctOpt = q.exprOptions[q.correctExpr];
+            let exprHtml = renderMathOption(correctOpt);
+            exprHtml += `<span class="text-slate-400 font-black text-xl mx-3">=</span> <span class="text-blue-600 font-black text-3xl">؟</span>`;
+            document.getElementById('math-correct-expr').innerHTML = exprHtml;
+            
+            const grid = document.getElementById('math-grid');
+            grid.innerHTML = '';
+            
+            q.mathOptions.forEach((opt, idx) => {
+                grid.innerHTML += `
+                <button id="math-btn-${idx}" onclick="checkMath(${idx}, this)" class="game-btn py-4 rounded-xl border-2 border-slate-200 bg-white shadow-sm hover:bg-slate-50 flex items-center justify-center transition-all duration-300">
+                    ${renderMathOption(opt)}
+                </button>`;
+            });
+        }
+
+        window.checkMath = (selectedIndex, btnElement) => {
+            if(btnElement.disabled) return;
+            const q = questions[currentQIndex];
+
+            if (selectedIndex === q.correctMath) {
+                if (currentAttempts === 0) gameScore += 2;
+                else if (currentAttempts === 1) gameScore += 1;
+                updateScoreDisplay();
+
+                btnElement.classList.replace('border-slate-200', 'border-emerald-500');
+                btnElement.classList.replace('bg-white', 'bg-emerald-50');
+
+                document.querySelectorAll('#math-grid button').forEach(b => b.disabled = true);
+                setTimeout(() => { currentQIndex++; loadQuestion(currentQIndex); }, 1500);
+            } else {
+                currentAttempts++;
+                btnElement.classList.replace('border-slate-200', 'border-red-500');
+                btnElement.classList.replace('bg-white', 'bg-red-50');
+                btnElement.disabled = true;
+
+                const container = document.getElementById('question-container');
+                container.classList.remove('shake-err');
+                void container.offsetWidth; 
+                container.classList.add('shake-err');
+
+                if (currentAttempts === 1) {
+                    document.getElementById('math-attempts').classList.remove('hidden');
+                } else if (currentAttempts >= 2) {
+                    document.getElementById('math-attempts').classList.add('hidden');
+                    
+                    const correctBtn = document.getElementById(`math-btn-${q.correctMath}`);
+                    if(correctBtn) {
+                        correctBtn.classList.replace('border-slate-200', 'border-emerald-500');
+                        correctBtn.classList.replace('bg-white', 'bg-emerald-50');
+                        correctBtn.classList.add('scale-105');
+                    }
+                    document.querySelectorAll('#math-grid button').forEach(b => b.disabled = true);
+                    setTimeout(() => { currentQIndex++; loadQuestion(currentQIndex); }, 2500);
+                }
+            }
+        };
+
+        function endGame() {
+            clearInterval(timerInterval);
+            document.getElementById('input-achieved').value = gameScore;
+            document.getElementById('input-max').value = 20;
+            document.getElementById('input-metric-value').value = timeElapsed;
+            processResults();
+        }
+
+        window.processResults = () => {
+            const ach = parseFloat(document.getElementById('input-achieved').value);
+            const max = parseFloat(document.getElementById('input-max').value);
+            const met = parseFloat(document.getElementById('input-metric-value').value) || 0;
+            
+            const grade = ((ach / max) * 5).toFixed(1);
+            showResultScreen(ach, max, grade, met);
+            
+            if (studentId && classId) saveScore(grade, met);
+            else { 
+                localVisitorResult = { name: studentName, grade: grade, metric: met, isLocal: true }; 
+                fetchAndShowLeaderboard(false); 
+            }
+        };
+
+        function showResultScreen(a, m, g, met) {
+            document.getElementById('game-screen').classList.add('hidden');
+            document.getElementById('result-screen').classList.remove('hidden');
+            const min = Math.floor(met / 60);
+            const sec = met % 60;
+            const timeStr = `${min}:${sec.toString().padStart(2, '0')}`;
+            document.getElementById('final-stats').innerHTML = `
+                <div class="bg-blue-50 p-2 rounded-2xl border border-blue-100 text-center flex flex-col justify-center">
+                    <p class="text-[9px] font-bold text-blue-500 mb-1">النقاط المكتسبة</p>
+                    <p class="text-xl font-black text-blue-900">${toAr(a)} / ${toAr(m)}</p>
+                </div>
+                <div class="bg-emerald-50 p-2 rounded-2xl border border-emerald-100 text-center flex flex-col justify-center shadow-md transform scale-110 z-10">
+                    <p class="text-[10px] font-bold text-emerald-600 mb-1">الدرجة النهائية</p>
+                    <p class="text-3xl font-black text-emerald-600">${toAr(g)} <span class="text-xs text-emerald-500">/ ٥</span></p>
+                </div>
+                <div class="bg-slate-50 p-2 rounded-2xl border border-slate-200 text-center flex flex-col justify-center">
+                    <p class="text-[9px] font-bold text-slate-500 mb-1">الزمن المستغرق</p>
+                    <p class="text-xl font-black text-slate-900">${toAr(timeStr)}</p>
+                </div>
+            `;
+        }
+
+        async function saveScore(g, met) {
+            const p = new URLSearchParams({ action: 'saveScore', studentId, classId, itemId: GAME_ID, score: g, metricValue: met, type: 'game' });
+            try { await fetch(`${SCRIPT_URL}?${p.toString()}`); } catch(e){} finally { fetchAndShowLeaderboard(false); }
+        }
+
+        window.fetchAndShowLeaderboard = function(isManual = false) {
+            const modal = document.getElementById('leaderboard-modal');
+            if (isManual) { modal.classList.remove('hidden-modal'); modal.classList.add('visible-modal'); }
+            const content = document.getElementById('leaderboard-content');
+            document.getElementById('modal-loader').classList.remove('hidden');
+            let reqClassId = (currentLeaderboardMode === 'class') ? classId : 'all';
+            const url = `${SCRIPT_URL}?action=getLeaderboard&gameId=${GAME_ID}&classId=${encodeURIComponent(reqClassId || 'all')}&t=${Date.now()}`;
+            
+            fetch(url).then(r => r.json()).then(res => {
+                let data = (res.status === 'success' && res.data) ? res.data : [];
+                if (localVisitorResult && (currentLeaderboardMode === 'global' || !classId)) {
+                    if (!data.find(p => p.name === localVisitorResult.name)) data.push(localVisitorResult);
+                    data.sort((a, b) => parseFloat(b.grade) - parseFloat(a.grade) || parseFloat(a.metric) - parseFloat(b.metric));
+                }
+                if (data.length > 0) {
+                    let h = `<table class="w-full text-right text-[10px] border-collapse"><thead class="text-slate-400 border-b border-slate-100 bg-slate-50/50"><tr><th class="p-2 text-center">#</th><th class="p-2 text-right">البطل</th><th class="p-2 text-center">الدرجة (الزمن)</th></tr></thead><tbody class="divide-y divide-slate-50">`;
+                    data.forEach((p, i) => {
+                        const isMe = (p.isLocal || (studentId && String(p.name).trim() === String(studentName).trim()));
+                        const timeFormatted = toAr(`${Math.floor(p.metric/60)}:${(p.metric%60).toString().padStart(2,'0')}`);
+                        h += `<tr class="${isMe ? 'rank-row-me' : 'hover:bg-slate-50/50'} transition-colors">
+                            <td class="p-2 leaderboard-rank text-center ${i<3 ? 'text-yellow-500 text-sm' : 'text-slate-400'}">${i < 3 ? ['🥇','🥈','🥉'][i] : toAr(i+1)}</td>
+                            <td class="p-2 leaderboard-name ${isMe ? 'text-blue-700 font-extrabold' : 'text-slate-700'}">${p.name} ${isMe ? '<span class="bg-blue-600 text-white text-[7px] px-1 rounded-full mx-1">أنت</span>' : ''}</td>
+                            <td class="p-2 text-center"><span class="text-emerald-600 font-black">${toAr(parseFloat(p.grade).toFixed(1))}</span> <span class="text-[8px] text-slate-400 block font-bold" dir="ltr">⏱ ${timeFormatted}</span></td>
+                        </tr>`;
+                    });
+                    content.innerHTML = h + `</tbody></table>`;
+                } else content.innerHTML = `<div class="py-10 text-center text-slate-400 text-xs italic font-bold">بانتظار تسجيل الأبطال..</div>`;
+            }).catch(()=> content.innerHTML = `<div class="py-10 text-center text-red-400 text-xs font-bold">حدث خطأ في جلب السجل.</div>`)
+            .finally(() => document.getElementById('modal-loader').classList.add('hidden'));
+        };
+
+        window.switchTab = (mode) => { currentLeaderboardMode = mode; document.getElementById('tab-class').className = mode === 'class' ? 'tab-btn tab-active' : 'tab-btn tab-inactive'; document.getElementById('tab-global').className = mode === 'global' ? 'tab-btn tab-active' : 'tab-btn tab-inactive'; fetchAndShowLeaderboard(false); };
         window.closeLeaderboardModal = () => document.getElementById('leaderboard-modal').classList.replace('visible-modal', 'hidden-modal');
-        window.switchTab = (mode) => { document.getElementById('tab-class').className = mode === 'class' ? 'tab-btn tab-active' : 'tab-btn tab-inactive'; document.getElementById('tab-global').className = mode === 'global' ? 'tab-btn tab-active' : 'tab-btn tab-inactive'; };
     })();
     </script>
 </body>

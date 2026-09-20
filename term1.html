@@ -1,283 +1,301 @@
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>منصة الرياضيات التفاعلية | أ.عبدالعزيز خالد العبلان</title>
-    
-    <!-- مكتبات خارجية -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    
-    <style>
-        body { font-family: 'Cairo', sans-serif; display: flex; flex-direction: column; min-height: 100vh; background-color: #f0f4f8; }
-        .hidden { display: none; }
-        .loader { border: 4px solid #f3f3f3; border-top: 4px solid #3b82f6; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        #app-container, #login-view { flex-grow: 1; }
-        #login-view { display: flex; align-items: center; justify-content: center; }
-        #app-container { display: grid; grid-template-rows: auto 1fr; }
-
-        /* --- Tabbed Card Styles --- */
-        .tabbed-card-container { background-color: white; border-radius: 1.25rem; box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.07), 0 4px 6px -4px rgb(0 0 0 / 0.07); overflow: hidden; }
-        .card-tabs { display: flex; justify-content: space-between; background-color: #f3f4f6; border-bottom: 1px solid #e5e7eb; }
-        .tab-button { flex-grow: 0; padding: 1rem 1.5rem; font-size: 1.125rem; font-weight: 700; text-align: center; cursor: pointer; border: none; background-color: transparent; color: #6b7280; position: relative; transition: color 0.3s ease; }
-        .tab-button.active { color: #4f46e5; }
-        .tab-button.active::after { content: ''; position: absolute; bottom: -1px; left: 0; right: 0; height: 3px; background-color: #4f46e5; border-top-left-radius: 3px; border-top-right-radius: 3px; }
-        .card-content .content-view { padding: 1.5rem; }
-        @media (max-width: 768px) { .card-content .content-view { padding: 1rem; } .tab-button { font-size: 1rem; padding: 1rem 0.75rem; } }
-
-        /* --- Leaderboard Styles --- */
-        .leaderboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; }
-        .leaderboard-card { background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 1rem; padding: 1rem; }
-        .leaderboard-title { font-size: 1.25rem; font-weight: 800; color: #1e3a8a; margin-bottom: 1rem; text-align: center; }
-        .leaderboard-table { width: 100%; border-collapse: collapse; }
-        .leaderboard-table th, .leaderboard-table td { padding: 0.75rem 0.5rem; text-align: right; border-bottom: 1px solid #e5e7eb; vertical-align: middle; }
-        .leaderboard-table th { font-weight: 700; color: #4b5563; }
-        .leaderboard-table tr:last-child td { border-bottom: none; }
-        .leaderboard-table .rank { width: 60px; text-align: center; vertical-align: middle; }
-        .leaderboard-table .score { text-align: left; line-height: 1.2; }
-        .leaderboard-table tr.current-student { background-color: #eef2ff; }
-        .current-student-rank-card { margin-top: 1rem; padding: 0.75rem; background-color: #e0e7ff; border-radius: 0.75rem; text-align: center; font-weight: 700; color: #312e81; }
-        .expand-leaderboard-btn { width: 100%; margin-top: 0.75rem; padding: 0.5rem; background-color: #f3f4f6; border: 1px solid #d1d5db; border-radius: 0.5rem; font-weight: 600; color: #4b5563; cursor: pointer; transition: background-color 0.2s; }
-        .expand-leaderboard-btn:hover { background-color: #e5e7eb; }
-        .expand-leaderboard-btn .fas { transition: transform 0.3s; }
-
-        /* --- STREAMING_CHUNK: أنماط النجوم والإنجازات --- */
-        .rank-star-container { position: relative; display: inline-flex; justify-content: center; align-items: center; width: 40px; height: 40px; }
-        .rank-star-icon { font-size: 2.2rem; filter: drop-shadow(0 2px 2px rgba(0,0,0,0.1)); }
-        .rank-star-gold { color: #FFD700; }
-        .rank-star-silver { color: #C0C0C0; }
-        .rank-star-bronze { color: #CD7F32; }
-        .rank-star-number { position: absolute; color: #fff; font-weight: 900; font-size: 0.9rem; text-shadow: 0 1px 2px rgba(0,0,0,0.5); top: 50%; left: 50%; transform: translate(-50%, -45%); }
-        .rank-simple-number { font-weight: 700; color: #6b7280; font-size: 1.1rem; }
-
-        /* --- Lesson & Path Styles --- */
-        .lesson-checkpoint.locked .lesson-card, .lesson-checkpoint.locked .game-card { opacity: 0.6; background-color: #f3f4f6; pointer-events: none; cursor: not-allowed; }
-        .lesson-checkpoint.locked .checkpoint-icon { background-color: #9ca3af; box-shadow: 0 0 0 3px #9ca3af; }
-        .lesson-summary-box.locked { opacity: 0.5; background-color: #f8f8f8; pointer-events: none; cursor: not-allowed; }
-        .lesson-summary-box.locked .summary-icon { color: #b0b0b0 !important; }
-        .unlock-date { font-size: 0.8rem; font-weight: 600; color: #4b5563; background-color: #e5e7eb; padding: 0.25rem 0.5rem; border-radius: 0.5rem; margin-top: 0.5rem; display: inline-block; }
-        .card { background-color: white; border-radius: 1rem; padding: 1.5rem; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05); }
-        .chapter-card { background-color: white; border-radius: 1rem; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05); transition: all 0.3s ease-in-out; border: 1px solid #e5e7eb; }
-        .chapter-card-header { padding: 1.5rem; cursor: pointer; }
-        .chapter-card:hover { transform: translateY(-4px); box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.07), 0 4px 6px -4px rgb(0 0 0 / 0.07); border-color: #4f46e5; }
-        .chapter-lessons-container { max-height: 0; overflow: hidden; transition: max-height 0.5s ease-in-out, padding 0.5s ease-in-out; padding: 0 1.5rem; border-top: 1px solid #e5e7eb; }
-        .chapter-card.expanded .chapter-lessons-container { max-height: 2000px; padding: 1.5rem; }
-        .chapter-card.expanded .expand-icon { transform: rotate(180deg); }
-        .expand-icon { transition: transform 0.3s ease-in-out; }
-        .lesson-summary-grid { display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 1rem; justify-content: center; }
-        .lesson-summary-box { width: 80px; height: 80px; border: 2px solid #e5e7eb; background-color: #f9fafb; border-radius: 0.75rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.25rem; padding: 0.25rem; transition: all 0.2s ease; }
-        .lesson-summary-box:hover:not(.locked) { border-color: #4f46e5; transform: scale(1.05); box-shadow: 0 5px 10px rgba(0,0,0,0.1); }
-        .lesson-summary-box .top-part, .lesson-summary-box .bottom-part a { transition: background-color 0.2s ease; width: 100%; display: flex; justify-content: center; align-items: center; text-decoration: none; color: inherit; }
-        .lesson-summary-box .top-part:hover, .lesson-summary-box .bottom-part a:hover { background-color: #eef2ff; }
-        .lesson-summary-box .top-part { gap: 0.5rem; flex-grow: 1; border-top-left-radius: 0.6rem; border-top-right-radius: 0.6rem; }
-        .lesson-summary-box .bottom-part { display: flex; gap: 1rem; flex-grow: 1; }
-        .lesson-summary-box .bottom-part a { border-bottom-left-radius: 0.6rem; border-bottom-right-radius: 0.6rem; }
-        .lesson-summary-box .lesson-number { font-size: 1.2rem; font-weight: 700; color: #6b7280; }
-        .lesson-summary-box .top-part .summary-icon { font-size: 1.8rem; }
-        .lesson-summary-box .bottom-part .summary-icon { font-size: 1.2rem; }
-        .summary-icon { font-size: 1.4rem; }
-        .summary-icon.fa-trophy { color: #f59e0b; }
-        .summary-icon.fa-check { color: #22c55e; }
-        .summary-icon.fa-sync-alt { color: #ef4444; }
-        .summary-icon.fa-circle-notch { color: #9ca3af; font-size: 1.2rem; }
-        
-        /* --- STREAMING_CHUNK: أنماط المسار التعليمي --- */
-        .lessons-path { padding-top: 1rem; }
-        .lesson-checkpoint { display: flex; align-items: flex-start; position: relative; padding-bottom: 2rem; }
-        .lesson-checkpoint:not(:last-child)::before { content: ''; position: absolute; top: 25px; right: 24px; width: 2px; height: 100%; background-color: #d1d5db; }
-        .checkpoint-icon { width: 50px; height: 50px; border-radius: 50%; display: grid; place-items: center; font-size: 1.5rem; color: white; border: 4px solid #f0f4f8; transition: all 0.3s ease; }
-        .lesson-checkpoint.not-started .checkpoint-icon { background-color: #6366f1; box-shadow: 0 0 0 3px #6366f1; }
-        .lesson-checkpoint.improve .checkpoint-icon { background-color: #ef4444; box-shadow: 0 0 0 3px #ef4444; }
-        .lesson-checkpoint.good .checkpoint-icon { background-color: #22c55e; box-shadow: 0 0 0 3px #22c55e; }
-        .lesson-checkpoint.excellent .checkpoint-icon { background-color: #f59e0b; box-shadow: 0 0 0 3px #f59e0b; }
-        .checkpoint-content { margin-right: 1.5rem; width: 100%; }
-        .lesson-card { background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 0.75rem; padding: 1rem; transition: border-color 0.3s; position: relative; }
-        .lesson-test-card { display: flex; align-items: center; background-color: #eef2ff; border: 1px solid #c7d2fe; border-radius: 0.75rem; padding: 1rem; text-decoration: none; color: #312e81; transition: all 0.2s ease; margin-bottom: 1rem; position: relative; }
-        .lesson-test-card:hover { background-color: #e0e7ff; border-color: #a5b4fc; transform: translateY(-2px); }
-        .lesson-test-card .lesson-title { font-weight: 700; }
-        .lesson-test-card .lesson-grade { font-weight: 700; margin-right: auto; }
-        .lesson-test-card.spotlight { border-color: #4f46e5; box-shadow: 0 0 15px rgba(79, 70, 229, 0.3); animation: pulse-border 2s infinite; }
-        .games-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 1rem; }
-        .game-card { position: relative; background-color: white; border-radius: 0.5rem; padding: 0.75rem; text-align: center; border: 1px solid #e5e7eb; transition: transform 0.2s, border-color 0.3s, box-shadow 0.3s; text-decoration: none; color: #374151; cursor: pointer; }
-        .game-card:hover { transform: translateY(-3px); }
-        .game-title { font-weight: 600; font-size: 0.875rem; padding-top: 0.5rem; }
-        .game-grade { font-size: 0.875rem; font-weight: 700; color: #1d4ed8; margin-top: 0.25rem; }
-
-        /* --- Modals --- */
-        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0, 0, 0, 0.6); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 1rem; }
-        .modal-content { background-color: white; border-radius: 1rem; padding: 1rem; width: 100%; max-width: 900px; max-height: 90%; display: flex; flex-direction: column; }
-        .modal-header { display: flex; justify-content: flex-end; padding-bottom: 0.5rem; }
-        .modal-close-btn { background: #e5e7eb; color: #4b5563; border-radius: 50%; width: 2rem; height: 2rem; display: flex; align-items: center; justify-content: center; font-size: 1.25rem; border: none; cursor: pointer; }
-        .modal-body { flex-grow: 1; }
-        .modal-body iframe { width: 100%; height: 100%; border: none; min-height: 500px; }
-        .diagnostic-modal-content { background-color: white; box-shadow: 0 10px 25px rgba(0,0,0,0.1); max-width: 500px; text-align: center; padding: 2.5rem; border-radius: 1rem; position: relative; }
-        #close-diagnostic-modal { position: absolute; top: 0.75rem; left: 0.75rem; background: #f1f5f9; color: #64748b; border: none; width: 2.25rem; height: 2.25rem; border-radius: 50%; font-size: 1.5rem; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-        .progress-circle { width: 150px; height: 150px; border-radius: 50%; display: grid; place-items: center; transition: background 0.5s; }
-        .progress-circle-inner { width: 120px; height: 120px; border-radius: 50%; background: white; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        
-        /* --- STREAMING_CHUNK: أنماط المساعد الشخصي --- */
-        .game-card.spotlight { border-color: #ef4444; box-shadow: 0 0 15px rgba(239, 68, 68, 0.4); animation: pulse-border-red 2s infinite; }
-        .start-here-badge { position: absolute; top: -12px; right: -12px; background-color: #ef4444; color: white; padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.2); z-index: 10; }
-        .game-icon-badge { position: absolute; top: -15px; left: -15px; background-color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; box-shadow: 0 2px 5px rgba(0,0,0,0.15); }
-        @keyframes pulse-border { 0% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(79, 70, 229, 0); } 100% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0); } }
-        @keyframes pulse-border-red { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
-        .musaid-modal-content { background: white; border-radius: 1.5rem; width: 100%; max-width: 500px; text-align: center; padding: 2rem; box-shadow: 0 10px 25px rgba(0,0,0,0.1); position: relative; animation: fadeIn 0.3s ease-out; }
-        .musaid-modal-header .emoji-icon { font-size: 4rem; line-height: 1; }
-        .musaid-modal-title { font-size: 2rem; font-weight: 800; color: #1e3a8a; margin-top: 0.5rem; }
-        .musaid-modal-body p { color: #4b5563; font-size: 1.1rem; line-height: 1.6; }
-        .task-name { font-weight: 700; color: #1d4ed8; background-color: #eef2ff; padding: 0.25rem 0.75rem; border-radius: 0.5rem; display: inline-block; margin-top: 0.5rem; margin-bottom: 1.5rem; }
-        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1.5rem 0; text-align: center; }
-        .stat-item { background-color: #f3f4f6; padding: 1rem; border-radius: 0.75rem; }
-        .stat-value { font-size: 2rem; font-weight: 800; color: #1e3a8a; }
-        .stat-label { font-size: 0.9rem; color: #4b5563; }
-        .action-btn { background: linear-gradient(to right, #22c55e, #16a34a); color: white; font-weight: 700; font-size: 1.1rem; padding: 0.75rem 2rem; border-radius: 9999px; text-decoration: none; display: inline-block; transition: transform 0.2s; border: none; cursor: pointer; }
-        .action-btn:hover { transform: scale(1.05); }
-        .dismiss-btn { background: transparent; border: none; color: #6b7280; font-size: 0.9rem; font-weight: 600; cursor: pointer; margin-top: 1rem; transition: color 0.2s; }
-        .dismiss-btn:hover { color: #1f2937; text-decoration: underline; }
-        .secondary-action-btn { background: transparent; border: none; color: #4f46e5; font-size: 0.9rem; font-weight: 700; cursor: pointer; text-decoration: underline; }
-        .recall-musaid-btn { background-color: #eef2ff; color: #4f46e5; border-radius: 50%; width: 48px; height: 48px; font-size: 1.5rem; display: inline-flex; align-items: center; justify-content: center; border: none; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.1); transition: all 0.2s; animation: pulse-glow 2s infinite; }
-        .recall-musaid-btn:hover { transform: scale(1.1); background-color: #e0e7ff; }
-        .recall-musaid-btn.musaid-dismissed { background-color: #e5e7eb; color: #9ca3af; animation: none; opacity: 0.8; }
-        .recall-musaid-btn.musaid-dismissed:hover { background-color: #d1d5db; transform: scale(1.1); }
-        @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
-        @keyframes pulse-glow { 0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.7); } 70% { transform: scale(1.1); box-shadow: 0 0 10px 10px rgba(79, 70, 229, 0); } 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(79, 70, 229, 0); } }
-        .social-icon { transition: transform 0.2s ease-in-out; }
-        .social-icon:hover { transform: scale(1.15); }
-        .star-badge { display: flex; flex-direction: column; align-items: center; transition: opacity 0.3s, transform 0.3s; position: relative; width: 80px; height: auto; justify-content: flex-start; margin-bottom: 0.5rem; }
-        .star-badge.active { opacity: 1; transform: scale(1.02); }
-        .star-badge .fa-star { font-size: 2rem; color: #e5e7eb; text-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .star-badge .fa-lock { font-size: 1.8rem; color: #9ca3af; }
-        @keyframes float { 0% { transform: translateY(0px); } 50% { transform: translateY(-3px); } 100% { transform: translateY(0px); } }
-        .star-animate { animation: float 4s ease-in-out infinite; }
-        .star-label { font-size: 0.8rem; font-weight: 700; margin-top: 0.3rem; color: #6b7280; text-align: center; }
-        .star-badge.active .star-label { color: #1e3a8a; }
-        .star-sublabel { font-size: 0.7rem; color: #9ca3af; text-align: center; }
-        .star-badge.active .star-sublabel { color: #4b5563; font-weight: bold; }
-        .star-score-box { margin-top: 4px; border: 1px solid #3b82f6; background-color: #fff; color: #1e3a8a; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; box-shadow: 0 1px 3px rgba(0,0,0,0.1); direction: ltr; white-space: nowrap; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2563eb">
+<title>منصة الرياضيات التفاعلية | أ.عبدالعزيز خالد العبلان</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3C!-- Cap Base (Dark Blue) --%3E%3Cpath d='M25 58 V72 Q50 85 75 72 V58' fill='%231e40af' /%3E%3C!-- Cap Top (Primary Blue) --%3E%3Cpath d='M50 25 L90 50 L50 75 L10 50 Z' fill='%232563eb' stroke='%231e40af' stroke-width='2'/%3E%3C!-- Tassel Button --%3E%3Ccircle cx='50' cy='50' r='5' fill='%231d4ed8'/%3E%3C!-- Tassel (White) --%3E%3Cline x1='50' y1='50' x2='85' y2='65' stroke='white' stroke-width='4'/%3E%3Ccircle cx='85' cy='65' r='5' fill='white'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f3f5fb;--card:#ffffff;--text:#0f172a;--muted:#64748b;--line:#e3e8f2;--ok:#15803d;--lock1:#d5dbe6;--lock2:#a9b3c4;--ac:#2563eb;--ac-d:#1e40af;--nav:64px;color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0b1020;--card:#151b2e;--text:#e8ecf6;--muted:#93a0b8;--line:#263049;--ok:#4ade80;--lock1:#2b3550;--lock2:#1c2438;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0b1020;--card:#151b2e;--text:#e8ecf6;--muted:#93a0b8;--line:#263049;--ok:#4ade80;--lock1:#2b3550;--lock2:#1c2438;color-scheme:dark}
+html{-webkit-text-size-adjust:100%}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--text);font-family:'Cairo','Segoe UI',Tahoma,sans-serif;line-height:1.6;overflow-x:clip;padding-bottom:calc(var(--nav) + 24px + env(safe-area-inset-bottom,0px))}
+body.has-dock{padding-bottom:calc(var(--nav) + 230px + env(safe-area-inset-bottom,0px))}
+button,input{font-family:inherit;touch-action:manipulation}
+button:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid var(--ac);outline-offset:3px}
+svg{display:block}
+a{color:inherit}
+.g1{--g1:#fb923c;--g2:#ea580c;--g3:#c2410c}
+.g2{--g1:#38bdf8;--g2:#0284c7;--g3:#075985}
+.col{max-width:480px;margin:0 auto;padding:0 16px}
+.pre{position:fixed;inset:0;z-index:200;background:var(--bg);display:grid;place-items:center}
+.spin{width:44px;height:44px;border-radius:50%;border:5px solid var(--line);border-top-color:var(--ac);animation:rot 1s linear infinite}
+@keyframes rot{to{transform:rotate(360deg)}}
+.login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px 16px}
+.lcard{width:100%;max-width:400px;background:var(--card);border:1px solid var(--line);border-radius:28px;padding:28px 22px;text-align:center;box-shadow:0 20px 40px -24px rgba(15,23,42,.35)}
+.logo{width:76px;height:76px;margin:0 auto 14px;border-radius:24px;background:linear-gradient(140deg,#3b82f6,#1e40af);color:#fff;display:grid;place-items:center;box-shadow:0 6px 0 #1e3a8a}
+.lcard h1{margin:0;font-size:24px;font-weight:900;line-height:1.4}
+.lcard p{margin:4px 0 0;color:var(--muted);font-size:14px;font-weight:600}
+.lcard hr{border:0;border-top:1px solid var(--line);margin:20px 0}
+.inp{width:100%;min-height:54px;border-radius:16px;border:2px solid var(--line);background:var(--bg);color:var(--text);text-align:center;font-size:20px;font-weight:700;padding:0 14px;letter-spacing:1px}
+.inp:focus{border-color:var(--ac);outline:none}
+.err{margin-top:12px;padding:10px 12px;border-radius:14px;background:color-mix(in srgb,#ef4444 14%,var(--card));border:1px solid color-mix(in srgb,#ef4444 40%,var(--line));color:#b91c1c;font-size:14px;font-weight:700}
+.link{margin-top:16px;border:0;background:none;color:var(--muted);font-weight:800;font-size:15px;cursor:pointer;min-height:44px;padding:0 12px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-top:calc(12px + env(safe-area-inset-top,0px));padding-bottom:10px}
+.who{display:flex;align-items:center;gap:10px;min-width:0}
+.who>div:last-child{min-width:0}
+.av{width:42px;height:42px;border-radius:50%;background:var(--ac);color:#fff;display:grid;place-items:center;font-weight:800;flex:none}
+.who b{display:block;font-size:15px;font-weight:800;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.who small{color:var(--muted);font-size:12px}
+.hd-r{display:flex;align-items:center;gap:6px;flex:none}
+.pill{display:flex;align-items:center;gap:5px;padding:5px 12px;border-radius:999px;background:var(--card);border:1px solid var(--line);font-weight:800;font-size:14px;color:var(--text)}
+.pill svg{color:#f59e0b}
+button.pill{cursor:pointer;min-height:40px;color:var(--ac)}
+.ibtn{width:42px;height:42px;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--muted);display:grid;place-items:center;cursor:pointer}
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:30;background:var(--bg);padding:0 0 2px}
+.chips{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding:9px 16px;max-width:480px;margin:0 auto}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;display:flex;align-items:center;gap:8px;min-height:44px;padding:0 14px;border-radius:14px;border:1px solid var(--line);background:var(--card);color:var(--muted);font-weight:700;font-size:14px;cursor:pointer}
+.chip i{width:10px;height:10px;border-radius:50%;background:var(--c)}
+.chip em{font-style:normal;font-size:12px;opacity:.85}
+.chip.dx{border:2px solid color-mix(in srgb,#8b5cf6 60%,var(--line));background:color-mix(in srgb,#8b5cf6 12%,var(--card));color:color-mix(in srgb,#7c3aed 70%,var(--text))}
+.chip.dx.pulse{animation:dxp 1.8s ease-out infinite}
+@keyframes dxp{0%{box-shadow:0 0 0 0 rgba(139,92,246,.55)}100%{box-shadow:0 0 0 8px rgba(139,92,246,0)}}
+.sepv{flex:none;width:1px;background:var(--line);margin:8px 2px}
+.chip.on{background:var(--c);border-color:var(--c);color:#fff}
+.chip.on i{background:#fff}
+.strip{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:16px;background:color-mix(in srgb,#8b5cf6 12%,var(--card));border:1px solid color-mix(in srgb,#8b5cf6 35%,var(--line));margin-bottom:12px;font-weight:700;font-size:14px}
+.strip span{flex:1;line-height:1.4}
+.strip button{min-height:40px;border:0;border-radius:12px;padding:0 16px;background:#8b5cf6;color:#fff;font-weight:800;font-size:14px;cursor:pointer;box-shadow:0 3px 0 #6d28d9}
+.hero{position:relative;overflow:hidden;border-radius:24px;background:linear-gradient(140deg,var(--ac),var(--ac-d));color:#fff;padding:16px;scroll-margin-top:76px}
+.sym{position:absolute;font-weight:900;font-size:64px;line-height:1;opacity:.11;pointer-events:none;user-select:none}
+.hero-top{position:relative;display:flex;justify-content:space-between;align-items:center;gap:12px}
+.hero .k{font-size:13px;font-weight:600;opacity:.9}
+.hero h2{margin:0;font-size:22px;font-weight:900;line-height:1.35}
+.ring{position:relative;width:72px;height:72px;flex:none}
+.rn{position:absolute;inset:0;display:grid;place-items:center;font-size:16px;font-weight:900}
+.stats{position:relative;display:flex;gap:8px;margin-top:12px}
+.stat{flex:1;background:rgba(255,255,255,.16);border-radius:12px;padding:6px;text-align:center}
+.stat b{display:block;font-size:16px;font-weight:800;line-height:1.4}
+.stat span{font-size:11px;opacity:.92}
+#map{position:relative;width:100%;padding:12px 0 8px}
+#lines{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+.row{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;padding:14px 0 8px}
+.row .nw,.row .lab{transform:translateX(var(--o,0px))}
+.nw{position:relative;width:80px;height:80px;flex:none}
+.node{width:80px;height:80px;border-radius:50%;border:0;display:grid;place-items:center;color:#fff;cursor:pointer;position:relative;background:var(--face);box-shadow:0 7px 0 var(--edge),0 14px 22px -10px rgba(0,0,0,.4);transition:transform .08s,box-shadow .08s}
+.node:active{transform:translateY(4px);box-shadow:0 3px 0 var(--edge)}
+.st-excellent{--face:#fbbf24;--edge:#d97706}
+.st-good{--face:#22c55e;--edge:#15803d}
+.st-improve{--face:#f43f5e;--edge:#be123c}
+.st-current{--face:var(--ac);--edge:var(--ac-d)}
+.st-new{--face:color-mix(in srgb,var(--ac) 16%,var(--card));--edge:color-mix(in srgb,var(--ac) 45%,var(--line));color:var(--ac)}
+.st-locked{--face:var(--lock1);--edge:var(--lock2);color:var(--muted)}
+.st-diag{--face:#8b5cf6;--edge:#6d28d9}
+.st-current::after,.node.pulse::after{content:'';position:absolute;inset:-7px;border-radius:50%;border:3px solid var(--ac);opacity:.55;animation:pulse 1.8s ease-out infinite;pointer-events:none}
+.node.pulse::after{border-color:#8b5cf6}
+@keyframes pulse{to{transform:scale(1.28);opacity:0}}
+.flash .node{animation:flash .5s ease-in-out 3}
+@keyframes flash{50%{transform:scale(1.14)}}
+.gb{position:absolute;bottom:-12px;width:36px;height:36px;padding:0;border-radius:50%;border:3px solid var(--bg);background:linear-gradient(145deg,var(--g1),var(--g2));color:#fff;display:grid;place-items:center;cursor:pointer;box-shadow:0 3px 0 var(--g3);z-index:2}
+.gb::before{content:'';position:absolute;inset:-6px;border-radius:50%}
+.gb:active{transform:translateY(2px);box-shadow:0 1px 0 var(--g3)}
+.gb.r{right:-14px}
+.gb.l{left:-14px}
+.gb.lk{background:var(--lock1);color:var(--muted);box-shadow:0 3px 0 var(--lock2)}
+.mb{position:absolute;bottom:-8px;right:-8px;width:36px;height:36px;border-radius:50%;background:var(--card);border:3px solid var(--bg);display:grid;place-items:center;box-shadow:0 3px 0 var(--lock2);z-index:2}
+.ck{position:absolute;top:-6px;right:-6px;width:16px;height:16px;border-radius:50%;background:#22c55e;color:#fff;border:2px solid var(--bg);display:grid;place-items:center}
+.lab{margin-top:20px;width:100%;max-width:196px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:8px 12px;text-align:center;cursor:pointer}
+.lab.cur{border:2px solid var(--ac);padding:7px 11px}
+.lab h4{margin:0;font-size:14px;font-weight:800;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.lab h4 b{color:var(--ac);font-weight:900;margin-inline-end:4px}
+.stars{display:flex;justify-content:center;gap:3px;margin-top:2px}
+.tag{display:block;font-size:12px;font-weight:700;color:var(--muted);margin-top:2px}
+.lab.cur .tag{color:var(--ac)}
+.foot{text-align:center;color:var(--muted);font-size:12px;padding:14px 0 0}
+.foot p{margin:0 0 8px}
+.soc{display:flex;justify-content:center;align-items:center;gap:10px}
+.soc a{display:block}
+.soc svg{width:32px;height:32px}
+.dock{position:fixed;left:0;right:0;bottom:calc(var(--nav) + env(safe-area-inset-bottom,0px));z-index:35;padding:30px 16px 12px;background:linear-gradient(to top,var(--bg) 68%,transparent);pointer-events:none}
+.dock:empty{display:none}
+.dock-in{max-width:448px;margin:0 auto;display:grid;gap:9px}
+.dock button{pointer-events:auto}
+.dmsg{display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:800;color:var(--muted);padding:0 4px}
+.dmsg svg{color:var(--ac)}
+.dsec{margin-inline-start:auto;border:0;background:none;color:var(--ac);font-weight:800;font-size:12.5px;cursor:pointer;min-height:32px;text-decoration:underline;pointer-events:auto}
+.games{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.gbtn{position:relative;display:flex;align-items:center;gap:9px;min-height:58px;padding:6px 9px;border-radius:18px;background:var(--card);border:2px solid color-mix(in srgb,var(--g1) 55%,var(--line));box-shadow:0 4px 0 color-mix(in srgb,var(--g2) 55%,transparent);cursor:pointer;text-align:right;min-width:0;color:var(--text);transition:transform .08s,box-shadow .08s}
+.gbtn:active{transform:translateY(3px);box-shadow:0 1px 0 color-mix(in srgb,var(--g2) 55%,transparent)}
+.gbtn.hl{animation:hl 1.8s ease-out infinite}
+@keyframes hl{0%{box-shadow:0 4px 0 color-mix(in srgb,var(--g2) 55%,transparent),0 0 0 0 color-mix(in srgb,var(--g1) 60%,transparent)}100%{box-shadow:0 4px 0 color-mix(in srgb,var(--g2) 55%,transparent),0 0 0 12px transparent}}
+.here{position:absolute;top:-10px;left:8px;background:#ef4444;color:#fff;font-size:11px;font-weight:800;padding:1px 9px;border-radius:999px}
+.gt{position:relative;width:42px;height:42px;border-radius:13px;background:linear-gradient(145deg,var(--g1),var(--g2));color:#fff;display:grid;place-items:center;flex:none;box-shadow:0 3px 0 var(--g3)}
+.gt.lk{background:var(--lock1);color:var(--muted);box-shadow:0 3px 0 var(--lock2)}
+.gtx{min-width:0;flex:1}
+.gtx small{display:block;font-size:11px;font-weight:700;color:var(--muted);line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gtx b{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:13.5px;font-weight:800;line-height:1.3}
+.cta{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:52px;border:0;border-radius:18px;background:var(--ac);color:#fff;font-weight:800;font-size:17px;cursor:pointer;box-shadow:0 5px 0 var(--ac-d),0 14px 24px -12px rgba(0,0,0,.45);transition:transform .08s,box-shadow .08s}
+.cta:active{transform:translateY(3px);box-shadow:0 2px 0 var(--ac-d)}
+.cta.dx{background:#8b5cf6;box-shadow:0 5px 0 #6d28d9,0 14px 24px -12px rgba(0,0,0,.45)}
+.alldone{display:flex;align-items:center;gap:10px;width:100%;min-height:54px;padding:0 16px;border-radius:18px;background:var(--card);border:2px solid #f59e0b;color:var(--text);font-weight:800;font-size:15px;cursor:pointer;box-shadow:0 4px 0 #d97706;text-align:right}
+.alldone svg:first-child{color:#f59e0b}
+.alldone span{flex:1}
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:52px;border:0;border-radius:16px;background:var(--ac);color:#fff;font-weight:800;font-size:17px;cursor:pointer;box-shadow:0 5px 0 var(--ac-d);transition:transform .08s,box-shadow .08s}
+.btn:active{transform:translateY(3px);box-shadow:0 2px 0 var(--ac-d)}
+.btn.lock{background:var(--lock1);color:var(--muted);box-shadow:0 5px 0 var(--lock2)}
+.btn.dx{background:#8b5cf6;box-shadow:0 5px 0 #6d28d9}
+.btn.ghost{background:var(--card);color:var(--text);border:1px solid var(--line);box-shadow:0 4px 0 var(--line)}
+.ov{position:fixed;inset:0;background:rgba(8,12,24,.55);display:none;align-items:flex-end;justify-content:center;z-index:70}
+.ov.on{display:flex}
+.sheet{width:100%;max-width:520px;max-height:88vh;overflow-y:auto;background:var(--card);border-radius:26px 26px 0 0;padding:14px 18px calc(18px + env(safe-area-inset-bottom,0px));animation:up .22s ease-out}
+@keyframes up{from{transform:translateY(40px);opacity:0}}
+.grab{width:44px;height:5px;border-radius:3px;background:var(--line);margin:0 auto 14px}
+.sh-head{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.mini{width:52px;height:52px;border-radius:50%;background:var(--face);color:#fff;display:grid;place-items:center;flex:none;box-shadow:0 4px 0 var(--edge)}
+.sh-head h3{margin:0;font-size:17px;font-weight:800;line-height:1.5}
+.sh-head small{color:var(--muted);font-weight:700;font-size:13px}
+.note{margin:0 0 6px;padding:10px 12px;border-radius:14px;background:var(--bg);color:var(--muted);font-size:14px;font-weight:700;line-height:1.6}
+.lrow{display:flex;justify-content:space-between;align-items:center;padding:8px 2px;font-weight:700;font-size:15px}
+.lrow span:last-child{color:var(--muted)}
+.gr{display:flex;align-items:center;gap:12px;min-height:66px;border-top:1px solid var(--line);font-weight:700;font-size:15px}
+.gr .nm{flex:1;min-width:0;line-height:1.35}
+.gr .nm small{display:block;color:var(--muted);font-size:12px;font-weight:600}
+.gplay{min-height:44px;border:0;border-radius:12px;padding:0 20px;background:var(--g2);color:#fff;font-weight:800;font-size:14px;cursor:pointer;box-shadow:0 3px 0 var(--g3)}
+.gplay.lk{background:var(--lock1);color:var(--muted);box-shadow:0 3px 0 var(--lock2)}
+.sh-btn{margin-top:14px}
+.nav{position:fixed;bottom:0;left:0;right:0;display:flex;justify-content:center;gap:6px;padding:6px 12px calc(6px + env(safe-area-inset-bottom,0px));background:var(--card);border-top:1px solid var(--line);z-index:40}
+.nav button{flex:1;max-width:160px;min-height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;border:0;background:none;color:var(--muted);font-weight:700;font-size:12px;cursor:pointer;border-radius:14px}
+.nav button.on{color:var(--ac);background:color-mix(in srgb,var(--ac) 12%,transparent)}
+.toast{position:fixed;bottom:calc(var(--nav) + 24px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:14px;font-weight:700;opacity:0;pointer-events:none;transition:opacity .2s;z-index:90;max-width:90%;text-align:center}
+body.has-dock .toast{bottom:calc(var(--nav) + 200px + env(safe-area-inset-bottom,0px))}
+.toast.on{opacity:1}
+.gm{position:fixed;inset:0;z-index:80;background:var(--bg);display:flex;flex-direction:column}
+.gm-h{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:calc(8px + env(safe-area-inset-top,0px)) 14px 8px;background:var(--card);border-bottom:1px solid var(--line)}
+.gm-h b{font-size:15px;font-weight:800;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gm iframe{flex:1;width:100%;border:0;background:#fff}
+.pc{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:16px;margin-bottom:12px}
+.pc h3{margin:0 0 12px;font-size:16px;font-weight:800;display:flex;align-items:center;gap:8px}
+.pc h3 svg{color:var(--ac)}
+.prof{display:flex;align-items:center;gap:12px}
+.prof .av{width:54px;height:54px;font-size:22px}
+.prof b{display:block;font-size:17px;font-weight:800;line-height:1.4}
+.prof small{color:var(--muted);font-weight:700;font-size:13px}
+.pr{display:flex;align-items:center;gap:16px}
+.legend{display:grid;gap:8px;font-size:13.5px;font-weight:700;flex:1}
+.legend div{display:flex;align-items:center;gap:8px}
+.legend i{width:12px;height:12px;border-radius:50%;flex:none}
+.medals{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.mt{display:flex;flex-direction:column;align-items:center;gap:2px;padding:12px 4px;border-radius:16px;background:var(--bg);text-align:center;min-width:0}
+.mt b{font-size:14px;font-weight:800}
+.mt small{font-size:12px;font-weight:700;color:var(--muted)}
+.mt small.bad{color:#dc2626}
+.mt .msc{margin-top:4px;padding:1px 8px;border-radius:8px;border:1px solid var(--ac);font-size:12px;font-weight:800;color:var(--ac);background:var(--card)}
+.mt.on{background:color-mix(in srgb,#f59e0b 10%,var(--bg))}
+.mlock{width:44px;height:44px;display:grid;place-items:center;color:var(--muted)}
+.cbar{position:relative;height:16px;border-radius:8px;background:var(--line);margin:22px 4px 14px}
+.cfill{height:100%;border-radius:8px;background:var(--ac);min-width:4px}
+.ctick{position:absolute;top:-5px;width:3px;height:26px;border-radius:2px;background:var(--muted);opacity:.6}
+.cchips{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.cc{padding:10px 4px;border-radius:14px;background:var(--bg);text-align:center;font-weight:800;font-size:13px;line-height:1.4;color:var(--muted);border:2px solid transparent}
+.cc small{display:block;font-size:11.5px;font-weight:700}
+.cc.on{color:var(--ok);border-color:color-mix(in srgb,#22c55e 50%,transparent);background:color-mix(in srgb,#22c55e 10%,var(--card))}
+.cc.on.gold{color:#a16207;border-color:color-mix(in srgb,#f59e0b 55%,transparent);background:color-mix(in srgb,#f59e0b 12%,var(--card))}
+.cc.on.star{color:#7e22ce;border-color:color-mix(in srgb,#a855f7 55%,transparent);background:color-mix(in srgb,#a855f7 12%,var(--card))}
+.dgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.dg{padding:12px;border-radius:16px;background:color-mix(in srgb,#8b5cf6 10%,var(--bg));text-align:center}
+.dg small{display:block;font-size:12.5px;font-weight:700;color:var(--muted)}
+.dg b{font-size:26px;font-weight:900;line-height:1.3;color:#6d28d9}
+.rem{display:flex;gap:8px}
+.rem div{flex:1;text-align:center;padding:12px;border-radius:16px;background:var(--bg)}
+.rem b{display:block;font-size:24px;font-weight:900;line-height:1.3}
+.rem small{color:var(--muted);font-weight:700;font-size:12.5px}
+.seg{display:flex;gap:6px;padding:4px;background:var(--card);border:1px solid var(--line);border-radius:16px;margin:calc(env(safe-area-inset-top,0px) + 14px) 0 12px}
+.seg button{flex:1;min-height:44px;border:0;border-radius:12px;background:none;color:var(--muted);font-weight:800;font-size:13.5px;cursor:pointer}
+.seg button.on{background:var(--ac);color:#fff}
+.lbh{display:flex;justify-content:space-between;align-items:baseline;margin:0 4px 8px;font-weight:800}
+.lbh small{color:var(--muted);font-size:12.5px;font-weight:700}
+.lbr{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:16px;background:var(--card);border:1px solid var(--line);margin-bottom:8px}
+.lbr.me{border:2px solid var(--ac);background:color-mix(in srgb,var(--ac) 8%,var(--card));padding:9px 11px}
+.rk{width:40px;height:40px;flex:none;position:relative;display:grid;place-items:center;font-weight:900;color:var(--muted);font-size:15px}
+.rk svg{position:absolute;inset:0;width:40px;height:40px}
+.rk i{position:relative;font-style:normal;font-size:13px;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.45)}
+.lbr .nm{flex:1;min-width:0;font-weight:800;font-size:14.5px;line-height:1.35}
+.lbr .nm small{display:block;color:var(--muted);font-size:12px;font-weight:600}
+.lbr .sc{text-align:left;font-weight:900;font-size:16px;line-height:1.3}
+.lbr .sc small{display:block;color:var(--muted);font-size:11.5px;font-weight:600}
+.myrank{margin:4px 0 10px;padding:12px;border-radius:16px;background:color-mix(in srgb,var(--ac) 14%,var(--card));text-align:center;font-weight:800;color:var(--ac)}
+.more{width:100%;min-height:46px;border:1px solid var(--line);border-radius:14px;background:var(--card);color:var(--muted);font-weight:800;font-size:14px;cursor:pointer;margin-bottom:10px}
+.empty{padding:36px 18px;text-align:center;color:var(--muted);font-weight:700}
+.empty .btn{margin-top:16px}
+@media (prefers-reduced-motion:reduce){.chip.dx.pulse,.st-current::after,.node.pulse::after,.gbtn.hl,.flash .node,.spin{animation:none}.sheet{animation:none}}
+</style>
 </head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<linearGradient id="gG" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#FFF5C3"/><stop offset="40%" stop-color="#FFD700"/><stop offset="100%" stop-color="#B8860B"/></linearGradient>
+<linearGradient id="gS" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#F5F5F5"/><stop offset="40%" stop-color="#C0C0C0"/><stop offset="100%" stop-color="#505050"/></linearGradient>
+<linearGradient id="gB" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#F4A460"/><stop offset="40%" stop-color="#CD7F32"/><stop offset="100%" stop-color="#603000"/></linearGradient>
+</defs></svg>
 
-<body class="bg-gray-100">
-    <svg width="0" height="0" style="position: absolute;">
-        <defs>
-            <linearGradient id="grad-gold-3d" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#FFF5C3;stop-opacity:1" /><stop offset="40%" style="stop-color:#FFD700;stop-opacity:1" /><stop offset="100%" style="stop-color:#B8860B;stop-opacity:1" /></linearGradient>
-            <linearGradient id="grad-silver-3d" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#F5F5F5;stop-opacity:1" /><stop offset="40%" style="stop-color:#C0C0C0;stop-opacity:1" /><stop offset="100%" style="stop-color:#505050;stop-opacity:1" /></linearGradient>
-            <linearGradient id="grad-bronze-3d" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#F4A460;stop-opacity:1" /><stop offset="40%" style="stop-color:#CD7F32;stop-opacity:1" /><stop offset="100%" style="stop-color:#603000;stop-opacity:1" /></linearGradient>
-            <filter id="inset-shadow-3d"><feOffset dx="0" dy="0"/><feGaussianBlur stdDeviation="1" result="offset-blur"/><feComposite operator="out" in="SourceGraphic" in2="offset-blur" result="inverse"/><feFlood flood-color="black" flood-opacity="0.5" result="color"/><feComposite operator="in" in="color" in2="inverse" result="shadow"/><feComposite operator="over" in="shadow" in2="SourceGraphic"/></filter>
-        </defs>
-    </svg>
+<div class="pre" id="pre"><div class="spin"></div></div>
 
-    <div id="preloader" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: #f0f4f8; z-index: 9999; display: flex; align-items: center; justify-content: center;">
-        <div class="loader" style="width: 50px; height: 50px; border-top-color: #3b82f6;"></div>
-    </div>
+<div class="login" id="login" hidden>
+  <div class="lcard">
+    <div class="logo" id="logo"></div>
+    <h1>منصة الرياضيات التفاعلية</h1>
+    <p>للمعلم: عبدالعزيز خالد العبلان</p>
+    <hr>
+    <p style="font-size:20px;font-weight:900;color:var(--text);margin:0">أهلاً بك</p>
+    <p style="margin:2px 0 16px">أدخل رقم هويتك للدخول كطالب مسجل</p>
+    <form id="login-form" autocomplete="off">
+      <input class="inp" id="login-id" type="text" inputmode="numeric" placeholder="رقم الهوية / الإقامة" required>
+      <button class="btn" id="login-btn" type="submit" style="margin-top:14px"><span id="login-txt">دخول</span></button>
+    </form>
+    <div class="err" id="login-err" hidden></div>
+    <button class="link" id="visitor-btn" type="button">أو المتابعة كزائر</button>
+  </div>
+</div>
 
-    <div id="login-view" style="display: none;">
-        <main class="container mx-auto px-6 py-8">
-            <div class="max-w-md mx-auto">
-                <div class="bg-white p-8 rounded-xl shadow-lg text-center">
-                    <h1 class="text-3xl font-bold text-blue-800 mb-4">منصة الرياضيات التفاعلية</h1>
-                    <p class="text-lg text-gray-600 mb-2">للمعلم: عبدالعزيز خالد العبلان</p>
-                    <hr class="my-6">
-                    <h2 class="text-2xl font-bold mb-2">أهلاً بك</h2>
-                    <p class="text-gray-600 mb-6">أدخل رقم هويتك للدخول كطالب مسجل</p>
-                    <form id="login-form">
-                        <div class="mb-4">
-                            <input type="text" id="login-id" placeholder="رقم الهوية / الإقامة" class="w-full text-center text-lg px-3 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
-                        </div>
-                        <button type="submit" id="login-submit-btn" class="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 text-lg flex justify-center items-center transition-all duration-300 transform hover:scale-105">
-                            <span id="login-submit-text">دخول</span>
-                            <div id="login-loader" class="loader hidden"></div>
-                        </button>
-                    </form>
-                    <div id="login-error" class="hidden mt-4 bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg"></div>
-                    <div class="mt-8">
-                        <p class="text-gray-600 mb-2">أو</p>
-                        <button id="visitor-btn" class="font-bold text-gray-700 hover:underline">المتابعة كزائر</button>
-                    </div>
-                </div>
-            </div>
-        </main>
-    </div>
+<div id="app" hidden>
+  <header class="col top">
+    <div class="who" id="who"></div>
+    <div class="hd-r" id="hd-r"></div>
+  </header>
+  <div id="v-home">
+    <div class="bar"><nav class="chips" id="chips" aria-label="الفصول"></nav></div>
+    <main class="col">
+      <div id="strip"></div>
+      <section class="hero" id="hero"></section>
+      <section id="map" aria-label="خريطة دروس الفصل">
+        <svg id="lines" aria-hidden="true"></svg>
+        <div id="rows"></div>
+      </section>
+      <footer class="foot" id="foot-h"></footer>
+    </main>
+  </div>
+  <main class="col" id="v-lb" hidden></main>
+  <main class="col" id="v-me" hidden></main>
+  <div class="dock" id="dock"></div>
+  <nav class="nav" aria-label="التنقل">
+    <button data-tab="home" class="on"></button>
+    <button data-tab="lb"></button>
+    <button data-tab="me"></button>
+  </nav>
+</div>
 
-    <div id="app-container" style="display: none;">
-        <header id="main-header" class="bg-white shadow-md sticky top-0 z-50"></header>
-        <main class="container mx-auto px-4 sm:px-6 py-8">
-            <div id="dashboard-container" class="tabbed-card-container">
-                <div class="card-tabs">
-                    <button id="student-data-tab" class="tab-button active"><i class="fas fa-user-chart mr-2"></i>ملخص الأداء</button>
-                    <button id="leaderboard-tab" class="tab-button"><i class="fas fa-trophy mr-2"></i>لوحة الأوائل</button>
-                </div>
-                <div class="card-content">
-                    <div id="student-data-view" class="content-view">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            <div class="card space-y-4 border border-gray-200">
-                                <div id="student-info-card"></div>
-                                <div id="diagnostic-card"></div>
-                            </div>
-                            <div class="card flex flex-col items-center justify-center border border-gray-200">
-                                <h3 class="text-2xl font-bold text-blue-800 mb-4">مستوى التقدم والإتقان</h3>
-                                <div id="overall-progress-circle" class="progress-circle bg-gray-200">
-                                    <div class="progress-circle-inner">
-                                        <span id="mastery-percentage-text" class="text-3xl font-black text-green-600">0%</span>
-                                        <span class="text-sm text-black font-bold mt-1">الاتقان للمتاح</span>
-                                    </div>
-                                </div>
-                                <div class="w-full mt-4 text-center">
-                                    <div id="progress-legend" class="flex flex-wrap justify-center items-center gap-x-4 gap-y-2 w-full">
-                                        <div class="flex items-center gap-2">
-                                            <span class="w-3 h-3 rounded-full bg-red-500"></span>
-                                            <span id="needs-improvement-legend-text" class="text-sm font-semibold text-gray-600">تحتاج تحسين 0%</span>
-                                        </div>
-                                        <div class="flex items-center gap-2">
-                                            <span class="w-3 h-3 rounded-full bg-indigo-300"></span>
-                                            <span id="pending-legend-text" class="text-sm font-semibold text-gray-600">بانتظارك 0%</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div id="certificate-progress-container" class="w-full"></div>
-                            </div>
-                        </div>
-                    </div>
-                    <div id="leaderboard-view" class="content-view hidden">
-                        <div class="text-center p-8" id="leaderboard-loader">
-                             <div class="loader inline-block"></div>
-                             <p class="mt-2 font-semibold text-gray-600">جاري تحميل بيانات الأوائل...</p>
-                        </div>
-                        <div id="leaderboard-grid" class="leaderboard-grid hidden"></div>
-                    </div>
-                </div>
-            </div>
-            <div id="learning-path-section" class="space-y-4 mt-8"></div>
-        </main>
-    </div>
-    <footer id="main-footer" class="bg-gray-200 py-4 mt-auto"></footer>
+<div class="ov" id="ov"><div class="sheet" id="sheet" role="dialog" aria-modal="true"></div></div>
+<div class="gm" id="gm" hidden>
+  <div class="gm-h"><b id="gm-t"></b><button class="ibtn" data-act="closegame" aria-label="إغلاق اللعبة" id="gm-x"></button></div>
+  <iframe id="gm-f" title="اللعبة"></iframe>
+</div>
+<div class="toast" id="toast"></div>
 
-    <div id="game-modal" class="modal-overlay hidden"><div class="modal-content"><div class="modal-header"><button id="modal-close-btn" class="modal-close-btn">&times;</button></div><div class="modal-body"><iframe id="game-iframe"></iframe></div></div></div>
-    
-    <div id="diagnostic-modal" class="modal-overlay hidden"><div class="diagnostic-modal-content"><button id="close-diagnostic-modal" title="إغلاق">&times;</button><i class="fas fa-rocket text-5xl text-blue-600 mb-4"></i><h2 class="text-2xl font-bold mb-2">ابدأ رحلتك في الرياضيات!</h2><p class="mb-6">سيساعدنا هذا الاختبار في فهم نقاط قوتك وتحديد المهارات التي تحتاج إلى تركيز أكبر.</p><a id="start-diagnostic-btn" href="#" class="inline-block bg-green-500 text-white font-bold py-3 px-6 rounded-full hover:bg-green-600 transition-transform hover:scale-105"><i class="fas fa-play-circle mr-2"></i>ابدأ الاختبار التشخيصي</a></div></div>
-    
-    <div id="musaid-modal" class="modal-overlay hidden">
-        <div class="musaid-modal-content">
-            <div id="musaid-modal-header" class="musaid-modal-header">
-                <span class="emoji-icon">👋</span>
-                <h2 class="musaid-modal-title">المساعد الشخصي</h2>
-            </div>
-            <div id="musaid-modal-body" class="musaid-modal-body"></div>
-            <div id="musaid-modal-footer" class="musaid-modal-footer"></div>
-        </div>
-    </div>
+<script>
+(function(){
+'use strict';
+var SCRIPT_URL="https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
+var VISITOR_MAX_ATTEMPTS=3;
 
-    <script>
-    (function() {
-        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
-        const VISITOR_MAX_ATTEMPTS = 3;
-
-        const curriculumIndex = {
+const curriculumIndex = {
             'c1': { 
                 title: "الفصل ١: المعادلات الخطية",
                 lessons: [
@@ -330,1101 +348,419 @@
             }
         };
 
-        let totalPlatformMaxScore = 0;
-        Object.values(curriculumIndex).forEach(chapter => {
-            chapter.lessons.forEach(lesson => {
-                totalPlatformMaxScore += (lesson.maxScore || 10);
-                (lesson.games || []).forEach(game => {
-                    totalPlatformMaxScore += (game.maxScore || 5);
-                });
-            });
-        });
-
-        const preloader = document.getElementById('preloader');
-        const loginView = document.getElementById('login-view');
-        const appContainer = document.getElementById('app-container');
-        const gameModal = document.getElementById('game-modal');
-        const gameIframe = document.getElementById('game-iframe');
-        const modalCloseBtn = document.getElementById('modal-close-btn');
-        const diagnosticModal = document.getElementById('diagnostic-modal');
-        const startDiagnosticBtn = document.getElementById('start-diagnostic-btn');
-        const closeDiagnosticModalBtn = document.getElementById('close-diagnostic-modal');
-        const studentDataTab = document.getElementById('student-data-tab');
-        const leaderboardTab = document.getElementById('leaderboard-tab');
-        const studentDataView = document.getElementById('student-data-view');
-        const leaderboardView = document.getElementById('leaderboard-view');
-        const musaidModal = document.getElementById('musaid-modal');
-
-        function getClassIdentifier(fullClassName) {
-            if (!fullClassName) return null;
-            // مسح جميع المسافات لضمان عدم حدوث خطأ بسبب مسافات الإكسل
-            const normalized = String(fullClassName).trim().replace(/\s+/g, '');
-            const classMap = {
-                "ثالث/أول": "3-1",
-                "ثالث/ثاني": "3-2",
-                "ثالث/ثالث": "3-3",
-                "ثالث/رابع": "3-4",
-                "ثالت/رابع": "3-4" // تم إضافة هذه تحوطاً في حال كتابتها بالتاء عن طريق الخطأ
-            };
-            return classMap[normalized] || null;
-        }
-
-        function robustParseFloat(value) { 
-            if (value === null || value === undefined || value === "") return null; 
-            const stringValue = String(value); 
-            const sanitizedValue = stringValue.replace(',', '.').trim(); 
-            const parsed = parseFloat(sanitizedValue); 
-            return isNaN(parsed) ? null : parsed; 
-        }
-        
-        function formatDecimal(val) {
-            if (val === null || val === undefined || val === '') return null;
-            const num = parseFloat(val);
-            return isNaN(num) ? val : Math.round(num * 10) / 10;
-        }
-
-        function parseDateAsLocal(dateString) {
-            if (!dateString || !/^\d{4}-\d{2}-\d{2}$/.test(dateString)) return new Date('9999-12-31');
-            const parts = dateString.split('-');
-            return new Date(parts[0], parts[1] - 1, parts[2]);
-        }
-        
-        function switchView(viewName) {
-            loginView.style.display = viewName === 'login' ? 'flex' : 'none';
-            appContainer.style.display = viewName === 'app' ? 'block' : 'none';
-        }
-        
-        function switchDashboardTab(tabName) {
-            studentDataTab.classList.toggle('active', tabName === 'student');
-            leaderboardTab.classList.toggle('active', tabName === 'leaderboard');
-            studentDataView.classList.toggle('hidden', tabName !== 'student');
-            leaderboardView.classList.toggle('hidden', tabName !== 'leaderboard');
-        }
-
-        function renderAppContent(studentData) {
-            buildHeader(studentData);
-            buildFooter();
-            if (studentData) {
-                showStudentDashboard(studentData);
-                fetchAndRenderLeaderboards(studentData);
-            } else { 
-                document.getElementById('dashboard-container').classList.add('hidden');
-                buildLearningPath({ lessons: {}, games: {} });
-            }
-        }
-        
-        function getStudentFromStorage() { 
-            const s = localStorage.getItem('currentStudent'); 
-            return s ? JSON.parse(s) : null; 
-        }
-
-        function handleLogin(studentId) {
-            const loader = document.getElementById('login-loader');
-            const errorDiv = document.getElementById('login-error');
-            const submitBtn = document.getElementById('login-submit-btn');
-            loader.classList.remove('hidden');
-            submitBtn.disabled = true;
-            errorDiv.classList.add('hidden');
-
-            fetch(`${SCRIPT_URL}?action=findStudentById&studentId=${studentId}`, { redirect: 'follow' })
-                .then(res => res.json())
-                .then(result => {
-                    if (result.status === 'success' && result.data) {
-                        result.data.classIdentifier = getClassIdentifier(result.data.class);
-                        if (!result.data.classIdentifier && result.data.role !== 'teacher') {
-                                errorDiv.textContent = 'خطأ: لم يتم التعرف على صيغة الفصل للطالب.';
-                                errorDiv.classList.remove('hidden');
-                                return;
-                        }
-                        localStorage.setItem('currentStudent', JSON.stringify(result.data));
-                        renderAppContent(result.data);
-                        switchView('app');
-                    } else {
-                        errorDiv.textContent = result.message || 'رقم الهوية غير مسجل في أي فصل.';
-                        errorDiv.classList.remove('hidden');
-                    }
-                })
-                .catch(err => {
-                    console.error("Login Error:", err);
-                    errorDiv.textContent = 'خطأ في الاتصال بالخادم. يرجى المحاولة مرة أخرى.';
-                    errorDiv.classList.remove('hidden');
-                })
-                .finally(() => {
-                    loader.classList.add('hidden');
-                    submitBtn.disabled = false;
-                });
-        }
-        
-        function refreshStudentData(studentId, classIdentifier) {
-            if (!studentId || !classIdentifier) {
-                if(preloader) preloader.style.display = 'none';
-                switchView('login');
-                buildFooter();
-                return;
-            }
-
-            fetch(`${SCRIPT_URL}?action=getStudentData&studentId=${studentId}&classId=${classIdentifier}`, { redirect: 'follow' })
-                .then(res => res.json())
-                .then(result => {
-                    if (result.status === 'success' && result.data) {
-                        result.data.classIdentifier = getClassIdentifier(result.data.class);
-                        const currentData = getStudentFromStorage();
-                        if(currentData && currentData.role) {
-                            result.data.role = currentData.role;
-                        }
-                        localStorage.setItem('currentStudent', JSON.stringify(result.data));
-                        renderAppContent(result.data);
-                        if(preloader) preloader.style.display = 'none';
-                        switchView('app');
-                    } else {
-                        throw new Error(result.message || "Failed to refresh student data.");
-                    }
-                })
-                .catch(err => {
-                    console.error("Data refresh error:", err);
-                    localStorage.removeItem('currentStudent');
-                    if(preloader) preloader.style.display = 'none';
-                    switchView('login');
-                    buildFooter();
-                });
-        }
-
-        function buildHeader(studentData) {
-            const headerContainer = document.getElementById('main-header');
-            if (!headerContainer) return;
-            let userInfoHtml = studentData ? `<div class="flex items-center gap-4"><span class="font-semibold">أهلاً، ${studentData.name} ${studentData.role === 'teacher' ? '(معلم)' : ''}</span><button id="logout-btn" class="bg-red-500 text-white py-1 px-3 rounded-lg hover:bg-red-600 transition-colors">خروج</button></div>` : `<div class="flex items-center gap-4"><p class="text-lg text-gray-600">زائر</p><button id="visitor-login-btn" class="bg-blue-600 text-white py-1 px-3 rounded-lg hover:bg-blue-700 transition-colors">تسجيل الدخول</button></div>`;
-            headerContainer.innerHTML = `<div class="container mx-auto px-6 py-4 flex justify-between items-center"><a href="#" onclick="window.location.reload()" class="text-2xl font-bold text-blue-800">منصة الرياضيات التفاعلية</a>${userInfoHtml}</div>`;
-            const logoutBtn = document.getElementById('logout-btn');
-            if (logoutBtn) logoutBtn.addEventListener('click', () => { localStorage.removeItem('currentStudent'); window.location.reload(); });
-            const visitorLoginBtn = document.getElementById('visitor-login-btn');
-            if (visitorLoginBtn) visitorLoginBtn.addEventListener('click', () => switchView('login'));
-        }
-
-        function buildFooter() {
-            const footerContainer = document.getElementById('main-footer');
-            if (!footerContainer) return;
-            const shareText = encodeURIComponent('أدعوك للاستفادة من منصة الرياضيات التفاعلية للمعلم عبدالعزيز العبلان:');
-            const pageUrl = encodeURIComponent(window.location.href);
-            footerContainer.innerHTML = `<div class="container mx-auto px-6 flex flex-col sm:flex-row justify-between items-center space-y-4 sm:space-y-0"><p class="text-gray-600 text-sm">© 2024 جميع الحقوق محفوظة | تطوير: أ. عبدالعزيز خالد العبلان</p><div class="flex items-center space-x-4" dir="ltr">
-                <a href="https://www.snapchat.com/share?url=${pageUrl}" target="_blank" aria-label="Share on Snapchat" class="social-icon"><svg class="w-8 h-8" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="24" height="24" rx="6" fill="#FFFC00"/><path d="M12.0118 6.66667C8.68183 6.66667 6 9.3485 6 12.6785C6 14.8385 7.15233 16.7385 8.88233 17.8485C8.96233 17.9085 9.05233 17.9485 9.14233 17.9485C9.28233 17.9485 9.42233 17.8785 9.51233 17.7485C9.66233 17.5385 9.60233 17.2385 9.39233 17.0885C7.98233 16.1485 7 14.5085 7 12.6785C7 9.8985 9.22183 7.66667 12.0118 7.66667C14.7918 7.66667 17.0218 9.8985 17.0218 12.6785C17.0218 14.5085 16.0318 16.1485 14.6218 17.0885C14.4118 17.2385 14.3518 17.5385 14.5018 17.7485C14.5918 17.8785 14.7318 17.9485 14.8718 17.9485C14.9618 17.9485 15.0518 17.9085 15.1418 17.8485C16.8618 16.7385 18.0218 14.8385 18.0218 12.6785C18.0218 9.3485 15.3418 6.66667 12.0118 6.66667Z" fill="white"/></svg></a>
-                <a href="https://t.me/share/url?url=${pageUrl}&text=${shareText}" target="_blank" aria-label="Share on Telegram" class="social-icon"><svg class="w-8 h-8" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="12" fill="#2AABEE"/><path d="m9.417 15.181-.397 5.584c.568 0 .814-.244 1.109-.537l2.663-2.545 5.518 4.041c1.012.564 1.725.267 1.998-.931L22.43 5.218c.347-1.61-1.2-2.127-2.299-1.594L4.543 11.177c-1.636.682-1.66 1.32.285 1.721l4.252 1.325 9.46-5.924c.448-.277.855-.136.524.162z" fill="#fff"/></svg></a>
-                <a href="https://twitter.com/intent/tweet?text=${shareText}&url=${pageUrl}" target="_blank" aria-label="Share on Twitter" class="social-icon"><svg class="w-8 h-8" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><rect width="24" height="24" rx="6" fill="#000"/><path d="m10.215 13.584-6.328 7.163h1.416l5.59-6.328 4.35 6.328h6.92l-6.7-9.74 6.13-6.95h-1.416l-5.18 5.86-4.01-5.86h-6.92l7.07 10.28zm-.76-1.13-1.42-2.02-5.1-7.25h2.15l4.2 5.97 1.42 2.02 5.43 7.72h-2.15l-4.58-6.5z" fill="#fff"/></svg></a>
-                <a href="https://api.whatsapp.com/send?text=${shareText}%20${pageUrl}" target="_blank" aria-label="Share on WhatsApp" class="social-icon"><svg class="w-8 h-8" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path fill="#25D366" d="M12 2C6.477 2 2 6.477 2 12c0 1.742.448 3.385 1.253 4.814L2 22l5.186-1.253A9.93 9.93 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2z"/><path fill="#FFF" d="M17.23 14.25c-.21-.12-.83-.41-1-.47-.16-.07-.3-.07-.42.12-.12.2-.4.48-.48.57-.08.1-.16.1-.28 0-.12-.07-.5-.18-1.03-.63-.8-.7-1.33-1.56-1.48-1.82-.15-.26-.02-.4.07-.53.08-.12.18-.3.27-.4.1-.1.12-.18.18-.3.06-.12.03-.23 0-.33-.03-.1-.28-.68-.38-1-.1-.31-.2-.26-.28-.26-.08 0-.18 0-.28 0-.1 0-.26.04-.4.2-.13.16-.52.5-.52 1.22 0 .72.53 1.42.6 1.52.08.1.92 1.47 2.4 2.1.37.16.66.25.88.32.22.07.42.06.58.02.18-.04.58-.24.7-.47.12-.24.12-.44.08-.48-.03-.05-.1-.07-.2-.1z"/></svg></a>
-                <span class="text-gray-600 text-sm">:شاركنا</span>
-            </div></div>`;
-        }
-
-        function showStudentDashboard(studentData) {
-            document.getElementById('dashboard-container').classList.remove('hidden');
-            const studentInfoCard = document.getElementById('student-info-card');
-            
-            studentInfoCard.innerHTML = `
-                <h4 class="text-xl font-bold text-blue-800 mb-4">بيانات الطالب</h4>
-                <div class="flex items-center gap-2 text-gray-800 text-lg">
-                    <p><strong>الاسم:</strong> <span id="display-name">${studentData.name || '-'}</span></p>
-                    <span class="text-gray-400">|</span>
-                    <p><strong>الصف:</strong> <span id="display-class">${studentData.class || '-'}</span></p>
-                </div>
-            `;
-
-            renderTestCard(studentData);
-
-            const studentLessons = studentData.lessons || {};
-            const studentGames = studentData.games || {};
-            const lessonRules = studentData.lessonRules || {};
-
-            let sheetInteractionScore = studentData['نسبة التفاعل %'] ? robustParseFloat(studentData['نسبة التفاعل %']) : 0;
-            
-            if (!sheetInteractionScore || sheetInteractionScore === 0) { 
-                 let totalLessonsScore = 0; 
-                 let totalLessonsPossible = 0; 
-                 let totalGamesScore = 0; 
-                 let totalGamesPossible = 0; 
-                 const today = new Date(); 
-                 today.setHours(0, 0, 0, 0);
-
-                 Object.values(curriculumIndex).forEach(chapter => {
-                    chapter.lessons.forEach(lesson => {
-                        const rule = lessonRules[lesson.id];
-                        let isLocked = true;
-                        
-                        if (rule) {
-                            if (rule.method === 'يدوي' && rule.value === 'مفتوح') { isLocked = false; }
-                            else if (rule.method === 'تاريخ') {
-                                const d = parseDateAsLocal(rule.value);
-                                if (today >= d) { isLocked = false; }
-                            }
-                        } else { isLocked = false; }
-                        
-                        if (!isLocked) {
-                            const lMax = lesson.maxScore || 10;
-                            totalLessonsPossible += lMax;
-                            const lGrade = robustParseFloat(studentLessons[lesson.id]?.grade);
-                            if (lGrade !== null) totalLessonsScore += lGrade;
-
-                            (lesson.games || []).forEach(game => {
-                                const gMax = game.maxScore || 5;
-                                totalGamesPossible += gMax;
-                                const gGrade = robustParseFloat(studentGames[game.id]?.grade);
-                                if (gGrade !== null) totalGamesScore += gGrade;
-                            });
-                        }
-                    });
-                });
-                const lessonPct = totalLessonsPossible > 0 ? (totalLessonsScore / totalLessonsPossible) * 100 : 0;
-                const gamePct = totalGamesPossible > 0 ? (totalGamesScore / totalGamesPossible) * 100 : 0;
-                sheetInteractionScore = (lessonPct + gamePct) / 2;
-            }
-
-            function getStarSVG(type) {
-                const sizeClass = "w-10 h-10"; 
-                let fillUrl = "";
-                if (type === 'gold') fillUrl = "url(#grad-gold-3d)";
-                else if (type === 'silver') fillUrl = "url(#grad-silver-3d)";
-                else if (type === 'bronze') fillUrl = "url(#grad-bronze-3d)";
-                else return ""; 
-                return `
-                <div class="${sizeClass} star-animate relative z-10">
-                    <svg viewBox="0 0 24 24" class="w-full h-full drop-shadow-2xl" fill="${fillUrl}">
-                        <path d="M12 2L15 9L22 9L17 14L19 21L12 17L5 21L7 14L2 9L9 9L12 2Z" filter="url(#inset-shadow-3d)"/>
-                        <path d="M12 17V9L15 9" fill="black" fill-opacity="0.1"/>
-                    </svg>
-                </div>`;
-            }
-
-            function getMedalStatus(score, thresholds) {
-                if (score >= thresholds.gold) return { type: 'gold', label: 'ذهبية' }; 
-                if (score >= thresholds.silver) return { type: 'silver', label: 'فضية' }; 
-                if (score >= thresholds.bronze) return { type: 'bronze', label: 'برونزية' }; 
-                return null; 
-            }
-
-            // --- STAR 1: DIAGNOSTIC ---
-            const diagnostics = studentData.diagnostics || {};
-            const diagnosticScore = diagnostics.d_best_weighted 
-                ? robustParseFloat(diagnostics.d_best_weighted.grade) 
-                : (studentData['الدرجة التشخيصية الموزونة'] ? robustParseFloat(studentData['الدرجة التشخيصية الموزونة']) : 0);
-            
-            const diagMedal = getMedalStatus(diagnosticScore, { gold: 95, silver: 75, bronze: 50 });
-            
-            let star1Html = '';
-            if (diagMedal) {
-                star1Html = `
-                <div class="star-badge active" title="درجة التشخيصي: ${formatDecimal(diagnosticScore)}%">
-                    ${getStarSVG(diagMedal.type)}
-                    <span class="star-label">التشخيصي</span>
-                    <span class="star-sublabel">${diagMedal.label}</span>
-                    <div class="star-score-box" dir="ltr">${formatDecimal(diagnosticScore)}%</div>
-                </div>`;
-            } else {
-                star1Html = `
-                <div class="star-badge" title="درجة التشخيصي منخفضة">
-                    <i class="fas fa-star text-gray-300" style="font-size: 2.5rem;"></i>
-                    <span class="star-label text-gray-400">التشخيصي</span>
-                    <span class="star-sublabel text-red-500 font-bold">لم يستحق</span>
-                    <div class="star-score-box" dir="ltr">${formatDecimal(diagnosticScore)}%</div>
-                </div>`;
-            }
-
-            // --- STAR 2: MASTERY ---
-            let star2Html = '';
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-
-            const masteryDateStr = (studentData.lessonRules && studentData.lessonRules['star_mastery']) ? studentData.lessonRules['star_mastery'].value : null;
-            let isMasteryLocked = true;
-
-            if (masteryDateStr) {
-                const masteryDate = parseDateAsLocal(masteryDateStr);
-                if (today < masteryDate) { isMasteryLocked = true; } else { isMasteryLocked = false; }
-            } else {
-                isMasteryLocked = true;
-            }
-
-            if (isMasteryLocked) {
-                const displayDate = masteryDateStr || "";
-                star2Html = `
-                <div class="star-badge" title="لم يحن الموعد بعد: ${displayDate}">
-                    <i class="fas fa-lock" style="font-size: 2.5rem;"></i>
-                    <span class="star-label text-gray-400">الإتقان</span>
-                    <span class="star-sublabel text-gray-400" style="font-size:0.65rem; direction: ltr;">${displayDate}</span>
-                </div>`;
-            } else {
-                const masteryFrozenRaw = studentData.masteryFrozen;
-                const hasMasteryFrozen = (masteryFrozenRaw !== null && masteryFrozenRaw !== undefined && masteryFrozenRaw !== "");
-                let finalMasteryScore = 0;
-                
-                if (hasMasteryFrozen) { finalMasteryScore = parseFloat(masteryFrozenRaw) * 100; } 
-                else { finalMasteryScore = sheetInteractionScore; }
-
-                const masteryMedal = getMedalStatus(finalMasteryScore, { gold: 85, silver: 55, bronze: 999 });
-
-                if (masteryMedal) { 
-                     star2Html = `
-                        <div class="star-badge active" title="${hasMasteryFrozen ? 'نسبة مثبتة' : 'نسبة تفاعل'}: ${formatDecimal(finalMasteryScore)}%">
-                            ${getStarSVG(masteryMedal.type)}
-                            <span class="star-label">الإتقان</span>
-                            <span class="star-sublabel">${masteryMedal.label}</span>
-                            <div class="star-score-box" dir="ltr">${formatDecimal(finalMasteryScore)}%</div>
-                        </div>`;
-                } else { 
-                     star2Html = `
-                      <div class="star-badge" style="opacity:0.8">
-                         <i class="fas fa-star text-gray-300" style="font-size: 2.5rem;"></i>
-                         <span class="star-label">الإتقان</span>
-                         <span class="star-sublabel text-red-600 font-bold">لم يستحق</span>
-                         <div class="star-score-box" dir="ltr">${formatDecimal(finalMasteryScore)}%</div>
-                      </div>`;
-                }
-            }
-
-            // --- STAR 3: FINAL STAR ---
-            let star3Html = '';
-            const rules = studentData.lessonRules || {};
-            const finalRule = rules['star_final'] || rules['star_completion'];
-            const finalDateStr = finalRule ? finalRule.value : null;
-            let isFinalLocked = true;
-
-            if (finalDateStr) {
-                if (finalRule.method === 'يدوي' && finalRule.value === 'مفتوح') { 
-                     isFinalLocked = false;
-                } else {
-                    const finalDate = parseDateAsLocal(finalDateStr);
-                    if (today < finalDate) { isFinalLocked = true; } else { isFinalLocked = false; }
-                }
-            } else {
-                isFinalLocked = true;
-            }
-            
-            if (studentData.role === 'teacher') isFinalLocked = false;
-
-            if (isFinalLocked) {
-                const displayDate = finalDateStr || "";
-                star3Html = `
-                <div class="star-badge" title="لم يحن الموعد بعد: ${displayDate}">
-                    <i class="fas fa-lock" style="font-size: 2.5rem;"></i>
-                    <span class="star-label text-gray-400">الختام</span>
-                    <span class="star-sublabel text-gray-400" style="font-size:0.65rem; direction: ltr;">${displayDate}</span>
-                </div>`;
-            } else {
-                const finalFrozenRaw = studentData.finalFrozen || studentData.completionFrozen; 
-                const hasFinalFrozen = (finalFrozenRaw !== null && finalFrozenRaw !== undefined && finalFrozenRaw !== "");
-                let finalScore = 0;
-
-                if (hasFinalFrozen) { finalScore = parseFloat(finalFrozenRaw) * 100; } 
-                else { finalScore = sheetInteractionScore; }
-
-                const finalMedal = getMedalStatus(finalScore, { gold: 95, silver: 80, bronze: 999 });
-
-                if (finalMedal) { 
-                     star3Html = `
-                        <div class="star-badge active" title="${hasFinalFrozen ? 'نسبة مثبتة' : 'نسبة تفاعل'}: ${formatDecimal(finalScore)}%">
-                            ${getStarSVG(finalMedal.type)}
-                            <span class="star-label">الختام</span>
-                            <span class="star-sublabel">${finalMedal.label}</span>
-                            <div class="star-score-box" dir="ltr">${formatDecimal(finalScore)}%</div>
-                        </div>`;
-                } else { 
-                     star3Html = `
-                        <div class="star-badge" style="opacity:0.8">
-                            <i class="fas fa-star text-gray-300" style="font-size: 2.5rem;"></i>
-                            <span class="star-label">الختام</span>
-                            <span class="star-sublabel text-red-600 font-bold">لم يستحق</span>
-                             <div class="star-score-box" dir="ltr">${formatDecimal(finalScore)}%</div>
-                        </div>`;
-                }
-            }
-
-            const starsContainer = document.createElement('div');
-            starsContainer.className = "flex justify-around mt-6 pt-4 border-t border-gray-200";
-            starsContainer.innerHTML = star1Html + star2Html + star3Html;
-            
-            const diagnosticCard = document.getElementById('diagnostic-card');
-            const existingStars = diagnosticCard.querySelector('.flex.justify-around.mt-6');
-            if(existingStars) existingStars.remove();
-            diagnosticCard.appendChild(starsContainer);
-
-            // --- STREAMING_CHUNK: دائرة التقدم العام ---
-            let totalUnlockedPossibleScoreCircle = 0;
-            let totalUnlockedGainedScoreCircle = 0;
-            let totalUnlockedLostScoreCircle = 0;
-            let totalUnlockedAttemptedPossibleScoreCircle = 0;
-
-            Object.values(curriculumIndex).forEach(chapter => {
-                chapter.lessons.forEach(lesson => {
-                    const rule = lessonRules[lesson.id];
-                    let isLocked = true;
-                    if (rule) {
-                        if (rule.method === 'يدوي' && rule.value === 'مفتوح') { isLocked = false; }
-                        else if (rule.method === 'تاريخ') {
-                            const d = parseDateAsLocal(rule.value);
-                            const t = new Date(); t.setHours(0,0,0,0);
-                            if (t >= d) { isLocked = false; }
-                        }
-                    } else { isLocked = false; }
-                    if (studentData && studentData.role === 'teacher') { isLocked = false; }
-
-                    if (!isLocked) {
-                        const lessonMaxScore = lesson.maxScore || 10;
-                        totalUnlockedPossibleScoreCircle += lessonMaxScore;
-                        const lessonGrade = robustParseFloat(studentLessons[lesson.id]?.grade);
-                        if (lessonGrade !== null) {
-                            totalUnlockedGainedScoreCircle += lessonGrade;
-                            totalUnlockedAttemptedPossibleScoreCircle += lessonMaxScore;
-                        }
-                        (lesson.games || []).forEach(game => {
-                            const gameMaxScore = game.maxScore || 5;
-                            totalUnlockedPossibleScoreCircle += gameMaxScore;
-                            const gameGrade = robustParseFloat(studentGames[game.id]?.grade);
-                            if (gameGrade !== null) {
-                                totalUnlockedGainedScoreCircle += gameGrade;
-                                totalUnlockedAttemptedPossibleScoreCircle += gameMaxScore;
-                            }
-                        });
-                    }
-                });
-            });
-            
-            totalUnlockedLostScoreCircle = totalUnlockedAttemptedPossibleScoreCircle - totalUnlockedGainedScoreCircle;
-            const masteryPercentageCircle = totalUnlockedPossibleScoreCircle > 0 ? Math.round(totalUnlockedGainedScoreCircle / totalUnlockedPossibleScoreCircle * 100) : 0;
-            const needsImprovementPercent = totalUnlockedPossibleScoreCircle > 0 ? Math.round(totalUnlockedLostScoreCircle / totalUnlockedPossibleScoreCircle * 100) : 0;
-            const pendingPercent = 100 - masteryPercentageCircle - needsImprovementPercent;
-
-            const progressCircle = document.getElementById('overall-progress-circle');
-            const masteryText = document.getElementById('mastery-percentage-text');
-            const needsImprovementLegendText = document.getElementById('needs-improvement-legend-text');
-            const pendingLegendText = document.getElementById('pending-legend-text');
-
-            masteryText.textContent = `${masteryPercentageCircle}%`;
-            needsImprovementLegendText.textContent = `تحتاج تحسين ${needsImprovementPercent}%`;
-            pendingLegendText.textContent = `بانتظارك ${Math.max(0, pendingPercent)}%`;
-
-            const gainedDegrees = totalUnlockedPossibleScoreCircle > 0 ? (totalUnlockedGainedScoreCircle / totalUnlockedPossibleScoreCircle) * 360 : 0;
-            const needsImprovementDegrees = totalUnlockedPossibleScoreCircle > 0 ? (totalUnlockedLostScoreCircle / totalUnlockedPossibleScoreCircle) * 360 : 0;
-            
-            progressCircle.style.background = `conic-gradient(#22c55e 0deg ${gainedDegrees}deg, #ef4444 ${gainedDegrees}deg ${gainedDegrees + needsImprovementDegrees}deg, #a5b4fc ${gainedDegrees + needsImprovementDegrees}deg 360deg)`;
-
-            const achievementContainer = document.getElementById('certificate-progress-container');
-            if (achievementContainer) {
-                const isParticipant = masteryPercentageCircle >= 55;
-                const isExcellent = masteryPercentageCircle >= 85;
-                const isPlatformStar = masteryPercentageCircle >= 95;
-
-                achievementContainer.innerHTML = `
-                <div class="w-full mt-6 pt-6 border-t border-gray-200 px-2">
-                    <div class="relative h-4 bg-gray-200 rounded-full w-full mt-12 mb-12">
-                        <div class="absolute top-0 right-0 h-full bg-gradient-to-l from-blue-400 to-blue-600 rounded-full transition-all duration-1000 shadow-sm flex items-center justify-center overflow-hidden" style="width: ${masteryPercentageCircle}%">
-                             <span class="text-[10px] font-bold text-white px-1 truncate">${masteryPercentageCircle}%</span>
-                        </div>
-                        
-                        <div class="absolute top-[-4px] right-[55%] w-0.5 h-6 bg-gray-400 z-10"></div>
-                        <div class="absolute bottom-full mb-2 right-[55%] transform translate-x-1/2 flex flex-col items-center w-24">
-                            <span class="text-[10px] font-bold bg-gray-100 border border-gray-200 px-1 py-0.5 rounded shadow-sm ${isParticipant ? 'text-green-600' : 'text-gray-500'}">شهادة مشارك</span>
-                        </div>
-                        <div class="absolute top-6 right-[55%] transform translate-x-1/2 flex flex-col items-center w-24">
-                            <span class="text-[10px] font-bold text-gray-500">55% فأكثر</span>
-                        </div>
-
-                        <div class="absolute top-[-4px] right-[85%] w-0.5 h-6 bg-yellow-400 z-10"></div>
-                        <div class="absolute bottom-full mb-2 right-[85%] transform translate-x-1/2 flex flex-col items-center w-24">
-                            <span class="text-[10px] font-bold bg-yellow-50 border border-yellow-200 px-1 py-0.5 rounded shadow-sm ${isExcellent ? 'text-yellow-700' : 'text-gray-500'}">شهادة تميز</span>
-                        </div>
-                        <div class="absolute top-6 right-[85%] transform translate-x-1/2 flex flex-col items-center w-24">
-                            <span class="text-[10px] font-bold text-gray-500">85% فأكثر</span>
-                        </div>
-
-                        <div class="absolute top-[-4px] right-[95%] w-0.5 h-6 bg-purple-500 z-10"></div>
-                        <div class="absolute bottom-full mb-8 right-[95%] transform translate-x-1/2 flex flex-col items-center w-28">
-                            <span class="text-xs font-black bg-purple-100 border border-purple-300 px-2 py-1 rounded-full shadow-md ${isPlatformStar ? 'text-purple-800' : 'text-gray-400'}">🌟 نجم المنصة</span>
-                        </div>
-                        <div class="absolute top-6 right-[95%] transform translate-x-1/2 flex flex-col items-center w-28">
-                            <span class="text-[10px] font-bold text-purple-600">95% فأكثر</span>
-                        </div>
-                    </div>
-                </div>
-                `;
-            }
-            
-            const nextTaskForSpotlight = determineMusaidTasks(studentData).primaryTask;
-            buildLearningPath(studentData, nextTaskForSpotlight);
-            
-            const dismissUntil = localStorage.getItem('dismissMusaidUntil');
-            const musaidIsDismissed = dismissUntil && new Date().getTime() < parseInt(dismissUntil);
-
-            if (determineMusaidTasks(studentData).primaryTask && !musaidIsDismissed) {
-                showMusaidModal(determineMusaidTasks(studentData), calculateRemainingTasks(studentData));
-            }
-        }
-
-        function fetchAndRenderLeaderboards(currentStudent) {
-            const loader = document.getElementById('leaderboard-loader');
-            const grid = document.getElementById('leaderboard-grid');
-            loader.classList.remove('hidden');
-            grid.classList.add('hidden');
-
-            fetch(`${SCRIPT_URL}?action=getLeaderboardData&studentId=${currentStudent.id}&classId=${currentStudent.classIdentifier}`)
-                .then(res => res.json())
-                .then(response => {
-                    if (response.status === 'success' && response.data) {
-                        const data = response.data;
-                        grid.innerHTML = ''; 
-                        grid.appendChild(createLeaderboardCard('نجوم المنصة', 'مجموع النقاط', data.overallTop10, currentStudent.id, data.ranks.overall));
-                        grid.appendChild(createLeaderboardCard(`أوائل فصل ${currentStudent.class}`, 'مجموع النقاط', data.classTop10, currentStudent.id, data.ranks.class));
-                        grid.appendChild(createLeaderboardCard('أوائل الاختبار التشخيصي', 'المعدل', data.diagnosticTop10, currentStudent.id, data.ranks.diagnostic, true));
-                        loader.classList.add('hidden');
-                        grid.classList.remove('hidden');
-                    } else {
-                        throw new Error(response.message || "Failed to load leaderboard data.");
-                    }
-                })
-                .catch(err => {
-                    console.error("Leaderboard Error:", err);
-                    loader.innerHTML = `<p class="text-red-500 font-semibold">حدث خطأ أثناء تحميل لوحة الأوائل.</p>`;
-                });
-        }
-
-        function createLeaderboardCard(title, scoreLabel, data, currentStudentId, rank, isDiagnostic = false) {
-            const card = document.createElement('div');
-            card.className = 'leaderboard-card';
-            const uniqueId = `leaderboard-${title.replace(/[\s/]/g, '-')}`;
-
-            const getPercentage = (score) => {
-                if (isDiagnostic) return score;
-                if (totalPlatformMaxScore > 0) return (score / totalPlatformMaxScore) * 100;
-                return 0;
-            };
-
-            let currentRank = 1;
-            let previousScore = -1;
-            let displayRankData = [];
-
-            data.forEach((student, index) => {
-                let studentScore = isDiagnostic ? student.diagnosticGrade : student.totalScore;
-                if (index === 0) { currentRank = 1; } 
-                else {
-                    let prevStudentScore = isDiagnostic ? data[index-1].diagnosticGrade : data[index-1].totalScore;
-                    if (studentScore < prevStudentScore) { currentRank = index + 1; }
-                }
-                displayRankData.push({ ...student, rank: currentRank });
-            });
-
-            let tableRows = displayRankData.map((student) => {
-                const isCurrentUser = student.id.toString() === currentStudentId.toString();
-                let scoreDisplay;
-                let scoreVal;
-                
-                if (isDiagnostic) {
-                    scoreVal = student.diagnosticGrade;
-                    scoreDisplay = `<div><span class="font-bold">${formatDecimal(student.diagnosticGrade)}%</span><span class="block text-xs text-gray-500 font-normal">${student.diagnosticPoints} نقطة</span></div>`;
-                } else {
-                    scoreVal = getPercentage(student.totalScore);
-                    scoreDisplay = `<span class="font-bold">${formatDecimal(student.totalScore)}</span>`;
-                }
-
-                let rankDisplay = `<span class="rank-simple-number">#${student.rank}</span>`;
-                
-                if (!isDiagnostic) {
-                    if (scoreVal >= 95) {
-                        rankDisplay = `<div class="rank-star-container" title="نجم منصة ذهبي"><i class="fas fa-star rank-star-icon rank-star-gold"></i><span class="rank-star-number text-yellow-900">${student.rank}</span></div>`;
-                    } else if (scoreVal >= 80) {
-                        rankDisplay = `<div class="rank-star-container" title="نجم منصة فضي"><i class="fas fa-star rank-star-icon rank-star-silver"></i><span class="rank-star-number text-gray-800">${student.rank}</span></div>`;
-                    }
-                } else {
-                    if (scoreVal >= 95) {
-                        rankDisplay = `<div class="rank-star-container"><i class="fas fa-star rank-star-icon rank-star-gold"></i><span class="rank-star-number text-yellow-900">${student.rank}</span></div>`;
-                    } else if (scoreVal >= 80) {
-                        rankDisplay = `<div class="rank-star-container"><i class="fas fa-star rank-star-icon rank-star-silver"></i><span class="rank-star-number text-gray-800">${student.rank}</span></div>`;
-                    }
-                }
-
-                const hiddenClass = displayRankData.indexOf(student) >= 5 ? 'expandable-row hidden' : '';
-                
-                return `<tr class="${isCurrentUser ? 'current-student' : ''} ${hiddenClass}" data-table-id="${uniqueId}">
-                            <td class="rank">${rankDisplay}</td>
-                            <td>${student.name} <span class="text-sm text-gray-500">(${student.class})</span></td>
-                            <td class="score">${scoreDisplay}</td>
-                        </tr>`;
-            }).join('');
-
-            const rankCard = rank > 0 ? `<div class="current-student-rank-card">مركزك الحالي: ${rank}</div>` : '';
-            const expandButton = data.length > 5 ? `<button onclick="toggleLeaderboard(this, '${uniqueId}')" class="expand-leaderboard-btn">توسيع الجدول <i class="fas fa-chevron-down ml-1"></i></button>` : '';
-
-            card.innerHTML = `<h3 class="leaderboard-title">${title}</h3><table class="leaderboard-table"><thead><tr><th>الترتيب</th><th>الاسم</th><th class="score">${scoreLabel}</th></tr></thead><tbody>${tableRows}</tbody></table>${expandButton}${rankCard}`;
-            return card;
-        }
-
-        window.toggleLeaderboard = (button, tableId) => {
-            const rows = document.querySelectorAll(`.expandable-row[data-table-id="${tableId}"]`);
-            if (!rows.length) return;
-            const isHidden = rows[0].classList.contains('hidden');
-            rows.forEach(row => row.classList.toggle('hidden'));
-            button.innerHTML = isHidden ? 'إخفاء <i class="fas fa-chevron-up ml-1"></i>' : 'توسيع الجدول <i class="fas fa-chevron-down ml-1"></i>';
-        };
-
-        function buildLearningPath(studentData, nextTask = null) {
-            const learningPathContainer = document.getElementById('learning-path-section');
-            const studentLessons = studentData.lessons || {};
-            const studentGames = studentData.games || {};
-            const lessonRules = studentData.lessonRules || {};
-
-            learningPathContainer.innerHTML = `<div class="flex flex-col sm:flex-row justify-between items-center mb-6">
-                <div class="flex items-center gap-4">
-                    <h2 class="text-3xl font-bold text-blue-800">مسار الإنجاز والتعلم</h2>
-                    <button id="recall-musaid-btn" class="recall-musaid-btn" title="إظهار المساعد الشخصي">💡</button>
-                </div>
-                <div class="flex flex-wrap gap-x-4 gap-y-2 mt-4 sm:mt-0 text-sm text-gray-600 font-semibold bg-gray-200 px-3 py-2 rounded-lg">
-                    <span><i class="fas fa-trophy text-yellow-500"></i> إتقان</span>
-                    <span><i class="fas fa-check text-green-500"></i> جيد</span>
-                    <span><i class="fas fa-sync-alt text-red-500"></i> تحسين</span>
-                    <span><i class="fas fa-circle-notch text-gray-500"></i> لم يبدأ</span>
-                    <span><i class="fas fa-lock text-gray-500"></i> مغلق</span>
-                </div>
-            </div>`;
-            
-            document.getElementById('recall-musaid-btn').addEventListener('click', () => {
-                localStorage.removeItem('dismissMusaidUntil');
-                updateMusaidIconState(); 
-                const student = getStudentFromStorage();
-                const musaidTasks = determineMusaidTasks(student);
-                const stats = calculateRemainingTasks(student);
-                if (musaidTasks.primaryTask) { showMusaidModal(musaidTasks, stats); }
-            });
-            
-            updateMusaidIconState();
-
-            Object.keys(curriculumIndex).forEach((chapterKey) => {
-                const chapter = curriculumIndex[chapterKey];
-                let lessonSummariesHtml = '';
-                const lessonsHtml = chapter.lessons.map((lesson, index) => {
-                    const lessonData = studentLessons[lesson.id];
-                    const lessonGrade = robustParseFloat(lessonData?.grade);
-                    const rule = lessonRules[lesson.id];
-                    let isLocked = true;
-                    let unlockDate = null;
-
-                    if (rule) {
-                        if (rule.method === 'يدوي' && rule.value === 'مفتوح') { isLocked = false; }
-                        else if (rule.method === 'تاريخ') {
-                            const today = new Date();
-                            const openDate = parseDateAsLocal(rule.value);
-                            today.setHours(0, 0, 0, 0);
-                            if (today >= openDate) { isLocked = false; } else { unlockDate = rule.value; }
-                        }
-                    } else { isLocked = false; }
-                    
-                    if (studentData && studentData.role === 'teacher') { isLocked = false; unlockDate = null; }
-
-                    const game1 = lesson.games && lesson.games[0] ? lesson.games[0] : null;
-                    const game1Data = game1 ? studentGames[game1.id] : null;
-                    const game1Grade = robustParseFloat(game1Data?.grade);
-                    const game2 = lesson.games && lesson.games[1] ? lesson.games[1] : null;
-                    const game2Data = game2 ? studentGames[game2.id] : null;
-                    const game2Grade = robustParseFloat(game2Data?.grade);
-
-                    lessonSummariesHtml += buildSummaryBox(lesson, index, { lessonGrade, game1Grade, game2Grade }, studentData, isLocked);
-
-                    const allGrades = [{ grade: lessonGrade, maxScore: lesson.maxScore }];
-                    if(game1) allGrades.push({ grade: game1Grade, maxScore: game1.maxScore });
-                    if(game2) allGrades.push({ grade: game2Grade, maxScore: game2.maxScore });
-
-                    const { state, icon } = isLocked ? { state: 'locked', icon: 'fa-lock' } : getCheckpointPerformance(allGrades);
-
-                    let gradeHtml = `<span class="lesson-grade">${lessonGrade !== null ? `${formatDecimal(lessonGrade)}/${lesson.maxScore}`: 'لم يتم'}</span>`;
-                    const lessonLink = studentData.id ? `lessons/${lesson.id}.html?studentId=${studentData.id}&classId=${studentData.classIdentifier}` : `lessons/${lesson.id}.html`;
-                    
-                    const isLessonSpotlight = nextTask && nextTask.type === 'lesson' && nextTask.details.id === lesson.id;
-                    const lessonSpotlightText = isLessonSpotlight ? "ابدأ هنا" : "";
-                    
-                    const lessonTestHtml = `<a id="lesson-card-${lesson.id}" href="${lessonLink}" target="_top" class="lesson-test-card ${isLessonSpotlight ? 'spotlight' : ''}">
-                        ${isLessonSpotlight ? `<div class="start-here-badge">${lessonSpotlightText}</div>` : ''}
-                        <span class="text-3xl ml-4">📖</span>
-                        <span class="lesson-title flex-grow">${lesson.title}</span>
-                        ${gradeHtml}
-                    </a>`;
-
-                    const gamesHtml = (lesson.games || []).map(game => {
-                        const gameGrade = robustParseFloat(studentGames[game.id]?.grade);
-                        const isGameSpotlight = nextTask && nextTask.type === 'game' && nextTask.details.id === game.id;
-                        const gameSpotlightText = isGameSpotlight ? "ابدأ هنا" : "";
-                        const gameStartBadge = isGameSpotlight ? `<div class="start-here-badge" style="font-size: 0.7rem; top: -10px; right: -10px; left: auto;">${gameSpotlightText}</div>` : '';
-
-                        return `<div id="game-${game.id}" onclick="openGameModal('${game.id}')" class="game-card ${isGameSpotlight ? 'spotlight' : ''}">
-                                    ${gameStartBadge}
-                                    <div class="game-icon-badge">🎮</div>
-                                    <div class="game-title">${game.title}</div>
-                                    <div class="game-grade">${gameGrade !== null ? `${formatDecimal(gameGrade)} / ${game.maxScore}` : '- / -'} ${gameGrade === game.maxScore ? '<i class="fas fa-star text-yellow-400 ml-1"></i>' : ''}</div>
-                                </div>`;
-                    }).join('');
-
-                    const unlockDateHtml = unlockDate ? `<div class="unlock-date">${unlockDate} :يفتح بتاريخ</div>` : '';
-
-                    return `<div id="lesson-${lesson.id}" class="lesson-checkpoint ${state}">
-                                <div class="checkpoint-icon"><i class="fas ${icon}"></i></div>
-                                <div class="checkpoint-content">
-                                    <div class="lesson-card">
-                                        ${lessonTestHtml}
-                                        ${gamesHtml ? `<div class="games-grid">${gamesHtml}</div>` : ''}
-                                        ${unlockDateHtml}
-                                    </div>
-                                </div>
-                            </div>`;
-                }).join('');
-
-                const chapterCard = document.createElement('div');
-                chapterCard.className = 'chapter-card mb-4';
-                chapterCard.innerHTML = `<div class="chapter-card-header"><div class="flex justify-between items-center"><h3 class="text-2xl font-bold text-blue-800">${chapter.title}</h3><i class="fas fa-chevron-down text-2xl text-gray-400 expand-icon"></i></div><div class="lesson-summary-grid">${lessonSummariesHtml}</div></div><div class="chapter-lessons-container"><div class="lessons-path">${lessonsHtml}</div></div>`;
-                learningPathContainer.appendChild(chapterCard);
-                
-                chapterCard.querySelector('.chapter-card-header').addEventListener('click', (e) => {
-                    if (!e.target.closest('.lesson-summary-box')) { chapterCard.classList.toggle('expanded'); }
-                });
-                
-                if(nextTask && chapter.lessons.some(l => (nextTask.type === 'lesson' && l.id === nextTask.details.id) || (nextTask.type === 'game' && l.id === nextTask.parentLessonId))){
-                    chapterCard.classList.add('expanded');
-                }
-            });
-        }
-
-        function getCheckpointPerformance(grades) {
-            if (grades.some(g => g.grade === null)) { return { state: 'not-started', icon: 'fa-book-open' }; }
-            let totalGrade = 0;
-            let totalMaxScore = 0;
-            grades.forEach(g => { totalGrade += g.grade; totalMaxScore += g.maxScore; });
-            if (totalGrade === totalMaxScore) { return { state: 'excellent', icon: 'fa-trophy' }; }
-            if (grades.some(g => g.grade < g.maxScore / 2)) { return { state: 'improve', icon: 'fa-sync-alt' }; }
-            return { state: 'good', icon: 'fa-check' };
-        }
-
-        function updateMusaidIconState() {
-            const recallBtn = document.getElementById('recall-musaid-btn');
-            if (!recallBtn) return;
-            const dismissUntil = localStorage.getItem('dismissMusaidUntil');
-            const isDismissed = dismissUntil && new Date().getTime() < parseInt(dismissUntil);
-            if (isDismissed) {
-                recallBtn.classList.add('musaid-dismissed');
-                recallBtn.title = "المساعد الشخصي (متوقف مؤقتاً)";
-            } else {
-                recallBtn.classList.remove('musaid-dismissed');
-                recallBtn.title = "إظهار المساعد الشخصي";
-            }
-        }
-
-        function isTaskSetComplete(lesson, studentData) {
-            if (!lesson) return true;
-            const { lessons = {}, games = {} } = studentData;
-            if (robustParseFloat(lessons[lesson.id]?.grade) === null) { return false; }
-            for (const game of (lesson.games || [])) {
-                if (robustParseFloat(games[game.id]?.grade) === null) { return false; }
-            }
-            return true;
-        }
-
-        function findFirstIncompleteInSet(lesson, studentData) {
-             if (!lesson) return null;
-             const { lessons = {}, games = {} } = studentData;
-             if (robustParseFloat(lessons[lesson.id]?.grade) === null) { return { type: 'lesson', details: lesson }; }
-             for (const game of (lesson.games || [])) {
-                 if (robustParseFloat(games[game.id]?.grade) === null) { return { type: 'game', details: game, parentLessonId: lesson.id }; }
-             }
-             return null;
-        }
-
-        function findOldestUncompletedTask(studentData) {
-            const { lessons: studentLessons = {}, games: studentGames = {}, lessonRules = {} } = studentData;
-            for (const chapterKey of Object.keys(curriculumIndex)) {
-                for (const lesson of curriculumIndex[chapterKey].lessons) {
-                    const rule = lessonRules[lesson.id];
-                    let isLocked = true;
-                    if (rule) {
-                        if (rule.method === 'يدوي' && rule.value === 'مفتوح') { isLocked = false; }
-                        else if (rule.method === 'تاريخ') {
-                            const today = new Date(); 
-                            const openDate = parseDateAsLocal(rule.value);
-                            today.setHours(0, 0, 0, 0);
-                            if (today >= openDate) { isLocked = false; }
-                        }
-                    } else { isLocked = false; }
-                    if (studentData && studentData.role === 'teacher') { isLocked = false; }
-
-                    if (!isLocked) {
-                        if (robustParseFloat(studentLessons[lesson.id]?.grade) === null) { return { type: 'lesson', details: lesson }; }
-                        for (const game of (lesson.games || [])) {
-                            if (robustParseFloat(studentGames[game.id]?.grade) === null) { return { type: 'game', details: game, parentLessonId: lesson.id }; }
-                        }
-                    }
-                }
-            }
-            return null;
-        }
-
-        function determineMusaidTasks(studentData) {
-            if (!studentData) return { primaryTask: null, secondaryTask: null, messageType: 'none' };
-            const { diagnostics = {}, lessonRules = {}, role } = studentData;
-            
-            if (!diagnostics.d_best_weighted && !diagnostics.d_test_overall) {
-                return { primaryTask: { type: 'diagnostic', details: { title: 'الاختبار التشخيصي', id: 'diagnostic' } }, secondaryTask: null, messageType: 'diagnostic' };
-            }
-
-            const oldestUncompletedTask = findOldestUncompletedTask(studentData);
-            const unlockedLessons = [];
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-
-            Object.values(curriculumIndex).forEach(chapter => {
-                chapter.lessons.forEach(lesson => {
-                    const rule = lessonRules[lesson.id];
-                    let isLocked = true;
-                    if (rule) {
-                        if (rule.method === 'يدوي' && rule.value === 'مفتوح') { isLocked = false; }
-                        else if (rule.method === 'تاريخ') {
-                            const openDate = parseDateAsLocal(rule.value);
-                            if (today >= openDate) { isLocked = false; }
-                        }
-                    } else { isLocked = false; }
-                    if (role === 'teacher') { isLocked = false; }
-                    if (!isLocked) { unlockedLessons.push(lesson); }
-                });
-            });
-
-            const newestLesson = unlockedLessons.length > 0 ? unlockedLessons[unlockedLessons.length - 1] : null;
-            const previousLesson = unlockedLessons.length > 1 ? unlockedLessons[unlockedLessons.length - 2] : null;
-            const isPreviousComplete = isTaskSetComplete(previousLesson, studentData);
-            const isNewestComplete = isTaskSetComplete(newestLesson, studentData);
-
-            if (previousLesson && !isPreviousComplete) {
-                return { primaryTask: findFirstIncompleteInSet(previousLesson, studentData), secondaryTask: oldestUncompletedTask, messageType: 'complete-previous' };
-            }
-            if (newestLesson && !isNewestComplete) {
-                return { primaryTask: findFirstIncompleteInSet(newestLesson, studentData), secondaryTask: oldestUncompletedTask, messageType: 'do-new' };
-            }
-            if (oldestUncompletedTask) {
-                return { primaryTask: oldestUncompletedTask, secondaryTask: null, messageType: 'complete-oldest' };
-            }
-            return { primaryTask: null, secondaryTask: null, messageType: 'all-done' };
-        }
-
-        function calculateRemainingTasks(studentData) {
-            let remainingLessons = 0;
-            let remainingGames = 0;
-            const studentLessons = studentData.lessons || {};
-            const studentGames = studentData.games || {};
-            const lessonRules = studentData.lessonRules || {};
-
-             for (const chapterKey of Object.keys(curriculumIndex)) {
-                 for (const lesson of curriculumIndex[chapterKey].lessons) {
-                    const rule = lessonRules[lesson.id];
-                    let isLocked = true;
-                    if (rule) {
-                        if (rule.method === 'يدوي' && rule.value === 'مفتوح') { isLocked = false; }
-                        else if (rule.method === 'تاريخ') {
-                            const today = new Date(); 
-                            const openDate = parseDateAsLocal(rule.value);
-                            today.setHours(0, 0, 0, 0);
-                            if (today >= openDate) { isLocked = false; }
-                        }
-                    } else { isLocked = false; }
-                    if (studentData && studentData.role === 'teacher') { isLocked = false; }
-
-                    if(!isLocked) {
-                        if (robustParseFloat(studentLessons[lesson.id]?.grade) === null) { remainingLessons++; }
-                        for (const game of (lesson.games || [])) { 
-                             if (robustParseFloat(studentGames[game.id]?.grade) === null) { remainingGames++; }
-                        }
-                    }
-                 }
-             }
-            return { remainingLessons, remainingGames };
-        }
-
-        function showMusaidModal(musaidTasks, stats) {
-            const { primaryTask, secondaryTask, messageType } = musaidTasks;
-            if (!primaryTask) return;
-
-            let taskTitle = primaryTask.details.title;
-            let icon = '🎯';
-            let taskTypeMessage = '';
-            let actionButtonText = '🚀 لنبدأ الآن';
-
-            switch (messageType) {
-                case 'diagnostic': taskTypeMessage = 'مرحباً بك! مهمتك الأولى هي إكمال الاختبار التشخيصي:'; icon = '🚀'; actionButtonText = '🚀 ابدأ الاختبار الآن'; break;
-                case 'complete-previous': taskTypeMessage = 'انتبه! لديك مهام سابقة لم تكتملها. مهمتك ذات الأولوية الآن هي:'; icon = '⚠️'; break;
-                case 'do-new': taskTypeMessage = 'أحسنت! مهمتك التالية بانتظارك:'; icon = '✨'; break;
-                case 'complete-oldest': taskTypeMessage = 'رائع! أنت متقدم في الدروس الأخيرة. لاحظنا أن لديك مهمة قديمة لم تنهها:'; icon = '🧐'; break;
-                default: taskTypeMessage = 'مهمتك التالية هي:';
-            }
-
-            const musaidBody = musaidModal.querySelector('#musaid-modal-body');
-            const musaidFooter = musaidModal.querySelector('#musaid-modal-footer');
-            const musaidHeader = musaidModal.querySelector('#musaid-modal-header');
-
-            musaidHeader.querySelector('.emoji-icon').textContent = icon;
-            musaidBody.innerHTML = `<p>${taskTypeMessage}</p>
-                <p class="task-name">${taskTitle}</p>
-                <div class="stats-grid">
-                    <div class="stat-item"><div class="stat-value">${stats.remainingLessons}</div><div class="stat-label">دروس متبقية</div></div>
-                    <div class="stat-item"><div class="stat-value">${stats.remainingGames}</div><div class="stat-label">لعبة متبقية</div></div>
-                </div>`;
-                
-            let secondaryTaskHtml = '';
-            if (secondaryTask && secondaryTask.details.id !== primaryTask.details.id) {
-                secondaryTaskHtml = `<button id="musaid-secondary-btn" class="secondary-action-btn">لديك مهام قديمة.. اذهب لأولها</button>`;
-            }
-                
-            musaidFooter.innerHTML = `
-                <button id="musaid-action-btn" class="action-btn">${actionButtonText}</button>
-                <div class="mt-3">${secondaryTaskHtml}</div>
-                <button id="musaid-dismiss-btn" class="dismiss-btn">👍 حسنًا، لا تظهر اليوم</button>`;
-                
-            document.getElementById('musaid-action-btn').onclick = () => goToTaskAndCloseModal(primaryTask, "ابدأ هنا");
-            if (secondaryTaskHtml) { document.getElementById('musaid-secondary-btn').onclick = () => goToTaskAndCloseModal(secondaryTask, "أكمل هنا"); }
-            document.getElementById('musaid-dismiss-btn').onclick = dismissMusaidForToday;
-            musaidModal.classList.remove('hidden');
-        }
-
-        function goToTaskAndCloseModal(task, badgeText) {
-            musaidModal.classList.add('hidden');
-            let url;
-            if (task.type === 'diagnostic') {
-                const student = getStudentFromStorage();
-                if (student) {
-                    url = `diagnostic.html?studentId=${student.id}&classId=${student.classIdentifier}`;
-                    window.open(url, '_top');
-                }
-                return;
-            }
-
-            document.querySelectorAll('.spotlight').forEach(el => el.classList.remove('spotlight'));
-            document.querySelectorAll('.start-here-badge').forEach(badge => badge.remove());
-
-            let elementId = task.type === 'lesson' ? `lesson-card-${task.details.id}` : `game-${task.details.id}`;
-            const element = document.getElementById(elementId);
-
-            if (element) {
-                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                element.classList.add('spotlight');
-                const badge = document.createElement('div');
-                badge.className = 'start-here-badge';
-                badge.textContent = badgeText;
-                if (task.type === 'game') { badge.style.cssText = 'font-size: 0.7rem; top: -10px; right: -10px; left: auto;'; }
-                element.appendChild(badge);
-                const chapterCard = element.closest('.chapter-card');
-                if (chapterCard && !chapterCard.classList.contains('expanded')) { chapterCard.classList.add('expanded'); }
-            }
-        }
-
-        function dismissMusaidForToday() {
-            const now = new Date();
-            const expiry = now.getTime() + 24 * 60 * 60 * 1000;
-            localStorage.setItem('dismissMusaidUntil', expiry);
-            musaidModal.classList.add('hidden');
-            updateMusaidIconState();
-        }
-        
-        function buildSummaryBox(lesson, index, grades, studentData, isLocked) {
-            const { lessonGrade, game1Grade, game2Grade } = grades;
-            const lessonIcon = isLocked ? 'fa-lock' : getPerformanceIcon(lessonGrade, lesson.maxScore);
-            const game1 = lesson.games && lesson.games[0];
-            const game2 = lesson.games && lesson.games[1];
-            const game1Icon = isLocked ? 'fa-lock' : (game1 ? getPerformanceIcon(game1Grade, game1.maxScore) : 'fa-times');
-            const game2Icon = isLocked ? 'fa-lock' : (game2 ? getPerformanceIcon(game2Grade, game2.maxScore) : 'fa-times');
-            const lessonLink = studentData.id ? `lessons/${lesson.id}.html?studentId=${studentData.id}&classId=${studentData.classIdentifier}` : `lessons/${lesson.id}.html`;
-            let content = `<a href="${lessonLink}" target="_top" class="top-part" title="اختبار الدرس"><span class="lesson-number">${index + 1}</span><i class="fas ${lessonIcon} summary-icon"></i></a><div class="bottom-part"><a href="#" onclick="openGameModal('${game1 ? game1.id : ''}'); return false;" title="${game1 ? game1.title : ''}"><i class="fas ${game1Icon} summary-icon"></i></a><a href="#" onclick="openGameModal('${game2 ? game2.id : ''}'); return false;" title="${game2 ? game2.title : ''}"><i class="fas ${game2Icon} summary-icon"></i></a></div>`;
-            return `<div class="lesson-summary-box ${isLocked ? 'locked' : ''}" title="${isLocked ? 'الدرس مغلق' : lesson.title}">${content}</div>`;
-        }
-
-        function getPerformanceIcon(grade, maxScore) {
-             if (grade === null) return 'fa-circle-notch';
-             const numericGrade = parseFloat(grade);
-             if (numericGrade === maxScore) return 'fa-trophy';
-             if (numericGrade >= maxScore / 2) return 'fa-check';
-             return 'fa-sync-alt';
-         }
-
-        function renderTestCard(studentData) {
-            const card = document.getElementById('diagnostic-card');
-            const diagnostics = studentData.diagnostics || {};
-            const diagnosticLink = `diagnostic.html?studentId=${studentData.id}&classId=${studentData.classIdentifier}`;
-            if (diagnostics.d_best_weighted !== undefined) {
-                const scoreData = diagnostics.d_best_weighted;
-                const score = robustParseFloat(scoreData?.grade) ?? 0;
-                const scoreColor = score >= 80 ? 'text-green-600' : (score >= 50 ? 'text-yellow-600' : 'text-red-600');
-                const totalPoints = scoreData?.metricValue ?? 'N/A';
-                card.innerHTML = `<h4 class="text-xl font-bold text-purple-700 mb-3">الاختبار التشخيصي</h4><div class="flex justify-around items-center text-center p-3 bg-purple-50 rounded-lg"><div><p class="text-sm font-bold text-gray-500 mb-1">المعدل</p><span class="text-3xl font-extrabold ${scoreColor}">${formatDecimal(score)}%</span></div><div class="border-r border-purple-200 h-10 mx-2"></div><div><p class="text-sm font-bold text-gray-500 mb-1">النقاط</p><span class="text-3xl font-extrabold text-purple-800">${totalPoints}</span></div></div><a href="${diagnosticLink}" target="_top" class="mt-4 w-full text-center block bg-purple-100 text-purple-800 font-bold py-2 rounded-lg hover:bg-purple-200 transition-colors">إعادة الاختبار</a>`;
-            } else {
-                card.innerHTML = `<h4 class="text-xl font-bold text-purple-700 mb-2">الاختبار التشخيصي</h4><p class="text-gray-600 my-4 text-center font-semibold">لم يتم أداء الاختبار بعد.</p><a href="${diagnosticLink}" target="_top" class="w-full text-center block bg-green-500 text-white font-bold py-2 rounded-lg hover:bg-green-600 transition-colors shadow-md hover:shadow-lg">ابدأ الاختبار الآن</a>`;
-            }
-        }
-        
-        window.openGameModal = (gameId) => {
-            if (!gameId || gameId === 'null') return;
-            const student = getStudentFromStorage();
-            if (!student) {
-                const attempts = JSON.parse(localStorage.getItem('visitorGameAttempts') || '{}');
-                const gameAttempts = attempts[gameId] || 0;
-                if (gameAttempts >= VISITOR_MAX_ATTEMPTS) {
-                    const body = document.querySelector('body');
-                    const msgBox = document.createElement('div');
-                    msgBox.textContent = `لقد استنفدت محاولاتك المجانية (${VISITOR_MAX_ATTEMPTS}). يرجى تسجيل الدخول.`;
-                    msgBox.style.cssText = 'position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background-color: #ef4444; color: white; padding: 1rem; border-radius: 0.5rem; z-index: 2000; box-shadow: 0 4px 6px rgba(0,0,0,0.1);';
-                    body.appendChild(msgBox);
-                    setTimeout(() => body.removeChild(msgBox), 4000);
-                    return;
-                }
-            }
-            const gameSrc = student ? `games/${gameId}.html?studentId=${student.id}&classId=${student.classIdentifier}` : `games/${gameId}.html`;
-            gameIframe.src = gameSrc;
-            gameModal.classList.remove('hidden');
-        };
-        
-        function closeGameModal() {
-            gameModal.classList.add('hidden');
-            gameIframe.src = 'about:blank';
-            const student = getStudentFromStorage();
-            if (student) { refreshStudentData(student.id, student.classIdentifier); }
-        }
-
-        document.addEventListener('DOMContentLoaded', () => {
-            const student = getStudentFromStorage();
-
-            if (student && student.id && student.classIdentifier) {
-                refreshStudentData(student.id, student.classIdentifier);
-            } else {
-                if (preloader) preloader.style.display = 'none';
-                switchView('login');
-                buildFooter();
-            }
-            
-            document.getElementById('login-form').addEventListener('submit', (e) => {
-                e.preventDefault();
-                const studentId = document.getElementById('login-id').value.trim();
-                if (studentId) { handleLogin(studentId); }
-            });
-
-            document.getElementById('visitor-btn').addEventListener('click', () => {
-                localStorage.removeItem('currentStudent');
-                renderAppContent(null);
-                switchView('app');
-            });
-
-            studentDataTab.addEventListener('click', () => switchDashboardTab('student'));
-            leaderboardTab.addEventListener('click', () => switchDashboardTab('leaderboard'));
-
-            modalCloseBtn.addEventListener('click', closeGameModal);
-            closeDiagnosticModalBtn.addEventListener('click', () => diagnosticModal.classList.add('hidden'));
-
-            window.addEventListener('message', (event) => {
-                if (event.data && event.data.event === 'gameFinished') {
-                    const student = getStudentFromStorage();
-                    if (!student && event.data.gameId) {
-                        const attempts = JSON.parse(localStorage.getItem('visitorGameAttempts') || '{}');
-                        attempts[event.data.gameId] = (attempts[event.data.gameId] || 0) + 1;
-                        localStorage.setItem('visitorGameAttempts', JSON.stringify(attempts));
-                    }
-                    closeGameModal();
-                }
-            });
-        });
-    })();
-    </script>
+var KEYS=Object.keys(curriculumIndex);
+var THEMES=[['#2563eb','#1e40af'],['#9333ea','#6b21a8'],['#059669','#065f46'],['#d97706','#92400e'],['#e11d48','#881337'],['#0891b2','#155e75']];
+var LESSONS={};
+KEYS.forEach(function(k,ci){curriculumIndex[k].lessons.forEach(function(l,li){LESSONS[l.id]={ci:ci,li:li,lesson:l}})});
+var totalPlatformMaxScore=0;
+KEYS.forEach(function(k){curriculumIndex[k].lessons.forEach(function(l){totalPlatformMaxScore+=(l.maxScore||10);(l.games||[]).forEach(function(g){totalPlatformMaxScore+=(g.maxScore||5)})})});
+
+var $=function(id){return document.getElementById(id)};
+var AR=function(n){return String(n).replace(/\d/g,function(d){return '٠١٢٣٤٥٦٧٨٩'[+d]})};
+var esc=function(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})};
+var cleanTitle=function(t){return String(t).replace(/^الدرس\s*[\d٠-٩]+\s*[-–]\s*[\d٠-٩]+\s*[:：]\s*/,'').trim()};
+var chapName=function(k){var t=curriculumIndex[k].title;var i=t.indexOf(':');return (i>-1?t.slice(i+1):t).trim()};
+function num(v){if(v===null||v===undefined||v==='')return null;var p=parseFloat(String(v).replace(',','.').trim());return isNaN(p)?null:p}
+function fmt(v){if(v===null||v===undefined||v==='')return null;var n=parseFloat(v);return isNaN(n)?v:Math.round(n*10)/10}
+function parseDateAsLocal(s){if(!s||!/^\d{4}-\d{2}-\d{2}$/.test(s))return new Date('9999-12-31');var p=s.split('-');return new Date(p[0],p[1]-1,p[2])}
+function dateAR(s){return AR(String(s).replace(/-/g,'/'))}
+function getClassIdentifier(c){if(!c)return null;var n=String(c).trim().replace(/\s+/g,'');var m={'ثالث/أول':'3-1','ثالث/ثاني':'3-2','ثالث/ثالث':'3-3','ثالث/رابع':'3-4','ثالت/رابع':'3-4'};return m[n]||null}
+
+var IC={
+check:'<polyline points="20 6 9 17 4 12"/>',
+play:'<polygon points="7 4 20 12 7 20 7 4"/>',
+lock:'<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+game:'<rect x="2" y="7" width="20" height="11" rx="5"/><path d="M7 12.5h4M9 10.5v4"/><circle cx="16" cy="11.5" r=".8"/><circle cx="18" cy="14" r=".8"/>',
+trophy:'<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/>',
+star:'<polygon points="12 2 15.1 8.6 22 9.3 17 14.1 18.2 21 12 17.7 5.8 21 7 14.1 2 9.3 8.9 8.6 12 2"/>',
+home:'<path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1v-9z"/>',
+bars:'<path d="M5 20V11M12 20V4M19 20v-6"/>',
+user:'<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+logout:'<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>',
+refresh:'<path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/>',
+book:'<path d="M2 4h7a3 3 0 0 1 3 3v14a2 2 0 0 0-2-2H2z"/><path d="M22 4h-7a3 3 0 0 0-3 3v14a2 2 0 0 1 2-2h8z"/>',
+chev:'<polyline points="15 18 9 12 15 6"/>',
+alert:'<path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18h.01"/>',
+clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+x:'<path d="M6 6l12 12M18 6L6 18"/>',
+target:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2"/>',
+atom:'<circle cx="12" cy="12" r="1.5"/><ellipse cx="12" cy="12" rx="10" ry="4"/><ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(60 12 12)"/><ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(120 12 12)"/>',
+factory:'<path d="M3 21V11l6 4v-4l6 4V6h3v15z"/>',
+key:'<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M16 7l3 3"/>',
+bot:'<rect x="4" y="8" width="16" height="12" rx="3"/><path d="M12 8V4M9 13h.01M15 13h.01M9 17h6"/>',
+mountain:'<path d="M3 20l6-11 4 6 3-4 5 9z"/>',
+bridge:'<path d="M2 19h20M4 19c0-6 4-9 8-9s8 3 8 9M8 19v-7M16 19v-7M12 19v-9"/>',
+shield:'<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/>',
+ship:'<path d="M3 15h18l-2 5H5z"/><path d="M12 3v12M12 4l6 8h-6"/>',
+fish:'<path d="M3 12c4-6 10-6 14 0-4 6-10 6-14 0z"/><path d="M17 12l4-4v8z"/><circle cx="8" cy="11" r=".8"/>',
+search:'<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>',
+plane:'<path d="M22 3L2 11l7 3 3 7z"/>',
+building:'<path d="M4 21V5l8-2v18M12 9h8v12M7 9h2M7 13h2M7 17h2M15 13h2M15 17h2"/>',
+cart:'<circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2 3h3l3 12h11l2-8H6"/>',
+chart:'<path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/>',
+plus:'<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M12 8v8M8 12h8"/>',
+map:'<path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z"/><path d="M9 4v14M15 6v14"/>',
+rocket:'<path d="M5 15c-1 2-1 5-1 5s3 0 5-1"/><path d="M14 4c4 0 6 2 6 6-3 4-6 6-9 7l-4-4c1-3 3-6 7-9z"/><circle cx="15" cy="9" r="1.5"/>',
+sword:'<path d="M14 4l6-1-1 6-9 9-3-3z"/><path d="M7 14l-3 3M6 18l-2 2"/>',
+flask:'<path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/>',
+bulb:'<path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10c1 1 1 2 1 3h6c0-1 0-2 1-3a6 6 0 0 0-4-10z"/>',
+blocks:'<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><path d="M14 16.5h6M17 13.5v6"/>',
+radar:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><path d="M12 12L18 6"/>',
+bug:'<circle cx="12" cy="13" r="5"/><path d="M12 8V5M7 13H4M20 13h-3M8 9L6 7M16 9l2-2M8 17l-2 2M16 17l2 2"/>',
+dice:'<rect x="4" y="4" width="16" height="16" rx="3"/><circle cx="9" cy="9" r="1"/><circle cx="15" cy="15" r="1"/><circle cx="12" cy="12" r="1"/>',
+scale:'<path d="M12 3v18M7 21h10M5 7h14"/><path d="M5 7l-3 7a3.5 3.5 0 0 0 6 0zM19 7l-3 7a3.5 3.5 0 0 0 6 0z"/>',
+car:'<path d="M4 17v-5l2-5h12l2 5v5z"/><path d="M4 12h16"/><circle cx="8" cy="17" r="1.5"/><circle cx="16" cy="17" r="1.5"/>',
+tree:'<path d="M12 21v-6M12 15c-4 0-6-3-6-6a6 6 0 0 1 12 0c0 3-2 6-6 6z"/>',
+pencil:'<path d="M4 20l1-4L16 5l3 3L8 19z"/>',
+ball:'<circle cx="12" cy="12" r="9"/><path d="M3 12h6M15 12h6"/><circle cx="12" cy="12" r="3"/>',
+tent:'<path d="M3 20L12 4l9 16zM12 20v-6"/>',
+wave:'<path d="M3 12c3-8 5-8 9 0s6 8 9 0"/>',
+slope:'<path d="M3 20L20 5M14 5h6v6"/>',
+parallel:'<path d="M6 20L12 4M14 20l6-16"/>',
+swap:'<path d="M4 8h14l-3-3M20 16H6l3 3"/>',
+cross:'<path d="M6 6l12 12M18 6L6 18"/>'
+};
+var GK=[
+[['السهام','هداف','رامي','مقذوف','الدقة'],'target'],[['الذرة'],'atom'],[['روبوت'],'bot'],[['مصنع'],'factory'],[['شفرة','اختراق','أقفال'],'key'],
+[['جبل','قمة'],'mountain'],[['جسر'],'bridge'],[['سفينة','باخرة','البحرية','الغواصات'],'ship'],[['الأسماك'],'fish'],[['طائرة','طيار'],'plane'],
+[['متجر','مشتريات'],'cart'],[['الطبيعة'],'tree'],[['أسهم','البورصة','بيانات','المالي','الاستراتيجي','الرسم','البياني'],'chart'],[['طوارئ'],'plus'],
+[['محقق','صائد','قراءة','الاستنتاج'],'search'],[['المعماري','المهندس','مهندس'],'building'],[['حارس','الدفاع','حصن','الأمن','الحماية'],'shield'],
+[['الكنز','مخطوط','خريطة'],'map'],[['الفضاء'],'rocket'],[['مبارزة','نينجا','ساموراي','الوحوش'],'sword'],[['مختبر','الكريستال','تطبيقات'],'flask'],
+[['لغز','المربع','تجميع','التوائم','تحويلات','ثلاثيات'],'blocks'],[['فيروسات','الأخطاء'],'bug'],[['عجلة','الحظ','مستقلة','العينات','متحيزة'],'dice'],
+[['ترجم','المسائل'],'pencil'],[['بوكيمون'],'ball'],[['مخيم'],'tent'],[['أنظمة','التوازي'],'parallel'],[['التعويض'],'swap'],[['الحذف'],'cross'],
+[['أفضل'],'trophy'],[['الميل','الخطية'],'slope'],[['المتباينات','متباينة','متباينات'],'scale'],[['الدوال'],'wave'],[['عباقرة','العبقري','الذكي','الخبير'],'bulb'],
+[['رادار','المميز'],'radar'],[['رحلة','العائلة'],'car']
+];
+function gk(n){for(var i=0;i<GK.length;i++)for(var j=0;j<GK[i][0].length;j++)if(n.indexOf(GK[i][0][j])>-1)return GK[i][1];return 'game'}
+function ic(n,s,w){return '<svg width="'+s+'" height="'+s+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="'+(w||2.4)+'" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+IC[n]+'</svg>'}
+function gic(n,s){return ic(gk(n),s,2.1)}
+function star(f){return '<svg width="18" height="18" viewBox="0 0 24 24" fill="'+(f?'#f59e0b':'none')+'" stroke="'+(f?'#d97706':'var(--lock2)')+'" stroke-width="2" stroke-linejoin="round" aria-hidden="true">'+IC.star+'</svg>'}
+function medalStar(type,size){var f={gold:'url(#gG)',silver:'url(#gS)',bronze:'url(#gB)'}[type];
+if(!f)return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 24 24" fill="none" stroke="var(--lock2)" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="M12 2L15 9L22 9L17 14L19 21L12 17L5 21L7 14L2 9L9 9L12 2Z"/></svg>';
+return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 24 24" fill="'+f+'" stroke="rgba(0,0,0,.25)" stroke-width=".6" stroke-linejoin="round" aria-hidden="true" style="filter:drop-shadow(0 2px 3px rgba(0,0,0,.25))"><path d="M12 2L15 9L22 9L17 14L19 21L12 17L5 21L7 14L2 9L9 9L12 2Z"/></svg>'}
+
+var student=null,curCh=0,view='home',chapterChosen=false;
+var lbData=null,lbStale=true,lbLoading=false,lbErr=false,lbTab=0,lbAll=false,sheetLesson=null;
+var WAVE=[0,52,0,-52],GC=['g1','g2'];
+var ST={excellent:3,good:2,improve:1};
+
+function getStored(){var s=localStorage.getItem('currentStudent');try{return s?JSON.parse(s):null}catch(e){return null}}
+function toast(t){var e=$('toast');e.textContent=t;e.classList.add('on');clearTimeout(toast.t);toast.t=setTimeout(function(){e.classList.remove('on')},2200)}
+function grade(kind,id){var o=student&&student[kind];return o&&o[id]?num(o[id].grade):null}
+
+function lockInfo(id,ignoreTeacher){
+if(!student)return {locked:false};
+if(student.role==='teacher'&&!ignoreTeacher)return {locked:false};
+var rule=(student.lessonRules||{})[id];
+if(!rule)return {locked:false};
+if(rule.method==='يدوي'&&rule.value==='مفتوح')return {locked:false};
+if(rule.method==='تاريخ'){var t=new Date();t.setHours(0,0,0,0);if(t>=parseDateAsLocal(rule.value))return {locked:false};return {locked:true,date:rule.value}}
+return {locked:true}}
+function perf(g){if(g.some(function(x){return x.grade===null}))return 'new';var t=0,m=0;g.forEach(function(x){t+=x.grade;m+=x.max});if(t===m)return 'excellent';if(g.some(function(x){return x.grade<x.max/2}))return 'improve';return 'good'}
+function lessonInfo(lesson){
+var lk=lockInfo(lesson.id),lg=grade('lessons',lesson.id);
+var gs=(lesson.games||[]).map(function(g){return {id:g.id,title:String(g.title).trim(),max:g.maxScore||5,grade:grade('games',g.id)}});
+var gr=[{grade:lg,max:lesson.maxScore||10}].concat(gs.map(function(g){return {grade:g.grade,max:g.max}}));
+return {lesson:lesson,lk:lk,lg:lg,gs:gs,state:lk.locked?'locked':perf(gr),done:gr.filter(function(x){return x.grade!==null}).length,total:gr.length,title:cleanTitle(lesson.title)}}
+function numLabel(id){var L=LESSONS[id];return AR(L.ci+1)+'-'+AR(L.li+1)}
+
+function totalPoints(){var p=0;KEYS.forEach(function(k){curriculumIndex[k].lessons.forEach(function(l){p+=grade('lessons',l.id)||0;(l.games||[]).forEach(function(g){p+=grade('games',g.id)||0})})});return p}
+function chapStats(ci){var poss=0,gain=0,pts=0,done=0,stars=0,ch=curriculumIndex[KEYS[ci]];
+ch.lessons.forEach(function(l){var inf=lessonInfo(l);
+if(!inf.lk.locked){poss+=(l.maxScore||10);if(inf.lg!==null)gain+=inf.lg;inf.gs.forEach(function(g){poss+=g.max;if(g.grade!==null)gain+=g.grade})}
+pts+=(inf.lg||0);inf.gs.forEach(function(g){pts+=g.grade||0});
+if(ST[inf.state]){done++;stars+=ST[inf.state]}});
+return {poss:poss,gain:gain,pts:pts,done:done,stars:stars,n:ch.lessons.length,pct:poss>0?Math.round(gain/poss*100):0}}
+function overall(){var poss=0,gain=0,att=0;
+KEYS.forEach(function(k){curriculumIndex[k].lessons.forEach(function(l){if(lockInfo(l.id).locked)return;var lm=l.maxScore||10;poss+=lm;var lg=grade('lessons',l.id);if(lg!==null){gain+=lg;att+=lm}
+(l.games||[]).forEach(function(g){var gm=g.maxScore||5;poss+=gm;var gg=grade('games',g.id);if(gg!==null){gain+=gg;att+=gm}})})});
+var lost=att-gain,mastery=poss>0?Math.round(gain/poss*100):0,needs=poss>0?Math.round(lost/poss*100):0;
+return {poss:poss,gain:gain,lost:lost,mastery:mastery,needs:needs,pending:Math.max(0,100-mastery-needs)}}
+function interaction(){
+var s=student['نسبة التفاعل %']?num(student['نسبة التفاعل %']):0;
+if(s)return s;
+var lp=0,lg=0,gp=0,gg=0;
+KEYS.forEach(function(k){curriculumIndex[k].lessons.forEach(function(l){if(lockInfo(l.id,true).locked)return;lp+=(l.maxScore||10);var a=grade('lessons',l.id);if(a!==null)lg+=a;(l.games||[]).forEach(function(g){gp+=(g.maxScore||5);var b=grade('games',g.id);if(b!==null)gg+=b})})});
+return ((lp>0?lg/lp*100:0)+(gp>0?gg/gp*100:0))/2}
+function medalOf(score,t){if(score>=t.gold)return {type:'gold',label:'ذهبية'};if(score>=t.silver)return {type:'silver',label:'فضية'};if(score>=t.bronze)return {type:'bronze',label:'برونزية'};return null}
+function diagInfo(){
+var d=(student&&student.diagnostics)||{},has=!!(d.d_best_weighted||d.d_test_overall);
+var sc=d.d_best_weighted?num(d.d_best_weighted.grade):(student&&student['الدرجة التشخيصية الموزونة']?num(student['الدرجة التشخيصية الموزونة']):0);
+sc=sc||0;
+return {has:has,score:sc,pts:d.d_best_weighted?d.d_best_weighted.metricValue:null,medal:medalOf(sc,{gold:95,silver:75,bronze:50})}}
+function starsInfo(){
+var today=new Date();today.setHours(0,0,0,0);var rules=student.lessonRules||{},inter=interaction(),dg=diagInfo(),out=[];
+out.push({name:'التشخيصي',locked:false,score:dg.score,medal:dg.medal});
+var md=rules['star_mastery']?rules['star_mastery'].value:null;
+if(!md||today<parseDateAsLocal(md)){out.push({name:'الإتقان',locked:true,date:md||''})}
+else{var fr=student.masteryFrozen,has=(fr!==null&&fr!==undefined&&fr!==''),sc=has?parseFloat(fr)*100:inter;out.push({name:'الإتقان',locked:false,score:sc,medal:medalOf(sc,{gold:85,silver:55,bronze:999})})}
+var rule=rules['star_final']||rules['star_completion'],fd=rule?rule.value:null,fl=true;
+if(fd){if(rule.method==='يدوي'&&rule.value==='مفتوح')fl=false;else fl=today<parseDateAsLocal(fd)}
+if(student.role==='teacher')fl=false;
+if(fl){out.push({name:'الختام',locked:true,date:fd||''})}
+else{var f2=student.finalFrozen||student.completionFrozen,h2=(f2!==null&&f2!==undefined&&f2!==''),s2=h2?parseFloat(f2)*100:inter;out.push({name:'الختام',locked:false,score:s2,medal:medalOf(s2,{gold:95,silver:80,bronze:999})})}
+return out}
+
+function isSetComplete(l){if(!l)return true;if(grade('lessons',l.id)===null)return false;var g=l.games||[];for(var i=0;i<g.length;i++)if(grade('games',g[i].id)===null)return false;return true}
+function firstIncomplete(l){if(!l)return null;if(grade('lessons',l.id)===null)return {type:'lesson',details:l};var g=l.games||[];for(var i=0;i<g.length;i++)if(grade('games',g[i].id)===null)return {type:'game',details:g[i],parentLessonId:l.id};return null}
+function oldestUncompleted(){for(var a=0;a<KEYS.length;a++){var ls=curriculumIndex[KEYS[a]].lessons;for(var b=0;b<ls.length;b++){var l=ls[b];if(lockInfo(l.id).locked)continue;var t=firstIncomplete(l);if(t)return t}}return null}
+function musaid(){
+if(!student)return {primaryTask:null,secondaryTask:null,messageType:'none'};
+var d=student.diagnostics||{};
+if(!d.d_best_weighted&&!d.d_test_overall)return {primaryTask:{type:'diagnostic',details:{title:'الاختبار التشخيصي',id:'diagnostic'}},secondaryTask:null,messageType:'diagnostic'};
+var oldest=oldestUncompleted(),un=[];
+KEYS.forEach(function(k){curriculumIndex[k].lessons.forEach(function(l){if(!lockInfo(l.id).locked)un.push(l)})});
+var newest=un.length?un[un.length-1]:null,prev=un.length>1?un[un.length-2]:null;
+if(prev&&!isSetComplete(prev))return {primaryTask:firstIncomplete(prev),secondaryTask:oldest,messageType:'complete-previous'};
+if(newest&&!isSetComplete(newest))return {primaryTask:firstIncomplete(newest),secondaryTask:oldest,messageType:'do-new'};
+if(oldest)return {primaryTask:oldest,secondaryTask:null,messageType:'complete-oldest'};
+return {primaryTask:null,secondaryTask:null,messageType:'all-done'}}
+function remaining(){var rl=0,rg=0;KEYS.forEach(function(k){curriculumIndex[k].lessons.forEach(function(l){if(lockInfo(l.id).locked)return;if(grade('lessons',l.id)===null)rl++;(l.games||[]).forEach(function(g){if(grade('games',g.id)===null)rg++})})});return {rl:rl,rg:rg}}
+function taskLesson(t){return t.type==='lesson'?t.details:LESSONS[t.parentLessonId].lesson}
+
+function qs(){return student?('?studentId='+encodeURIComponent(student.id)+'&classId='+encodeURIComponent(student.classIdentifier)):''}
+function openLesson(id){var inf=lessonInfo(LESSONS[id].lesson);if(inf.lk.locked){toast('الدرس مغلق'+(inf.lk.date?'، يفتح بتاريخ '+dateAR(inf.lk.date):''));return}window.location.href='lessons/'+id+'.html'+qs()}
+function openDiag(){window.location.href='diagnostic.html'+qs()}
+function playGame(lessonId,k){
+var L=LESSONS[lessonId].lesson,g=(L.games||[])[k];if(!g)return;
+if(lockInfo(lessonId).locked){toast('اللعبة مقفلة');return}
+if(!student){var at=JSON.parse(localStorage.getItem('visitorGameAttempts')||'{}');if((at[g.id]||0)>=VISITOR_MAX_ATTEMPTS){toast('انتهت محاولاتك المجانية ('+AR(VISITOR_MAX_ATTEMPTS)+')، سجّل دخولك');return}}
+closeSheet();
+$('gm-t').textContent=String(g.title).trim();$('gm-f').setAttribute('allow','fullscreen; autoplay');$('gm-f').src='games/'+g.id+'.html'+qs();$('gm').hidden=false;document.body.style.overflow='hidden'}
+function closeGame(){$('gm').hidden=true;$('gm-f').src='about:blank';document.body.style.overflow='';if(student)refresh(true)}
+
+function themeApply(){var t=THEMES[curCh%THEMES.length],r=document.documentElement.style;r.setProperty('--ac',t[0]);r.setProperty('--ac-d',t[1]);var m=document.querySelector('meta[name=theme-color]');if(m)m.setAttribute('content',t[0])}
+
+function renderHeader(){
+var name=student?student.name:'زائر';
+$('who').innerHTML='<div class="av">'+esc(String(name||'؟').trim().charAt(0))+'</div><div><b>أهلاً، '+esc(name)+(student&&student.role==='teacher'?' (معلم)':'')+'</b><small>منصة الرياضيات التفاعلية</small></div>';
+$('hd-r').innerHTML=student?'<div class="pill">'+ic('star',18,2.2)+AR(fmt(totalPoints()))+'</div><button class="ibtn" data-act="logout" aria-label="تسجيل الخروج">'+ic('logout',20)+'</button>':'<button class="pill" data-act="login">دخول</button>';
+var N=document.querySelectorAll('.nav button');
+N[0].innerHTML=ic('home',22)+'الرئيسية';N[1].innerHTML=ic('bars',22)+'الأوائل';N[2].innerHTML=ic('user',22)+'إنجازاتي'}
+function renderChips(){
+var dx='';
+if(student){var d=diagInfo();
+dx='<button class="chip dx'+(d.has?'':' pulse')+'" data-act="diagsheet">'+(d.has&&d.medal?medalStar(d.medal.type,20):ic('rocket',18,2.4))+'التشخيصي<em>'+(d.has?AR(fmt(d.score))+'٪':'ابدأ')+'</em></button><i class="sepv"></i>'}
+$('chips').innerHTML=dx+KEYS.map(function(k,i){var t=THEMES[i%THEMES.length];return '<button class="chip'+(i===curCh?' on':'')+'" style="--c:'+t[0]+'" data-c="'+i+'"><i></i>الفصل '+AR(i+1)+'<em>'+AR(chapStats(i).pct)+'٪</em></button>'}).join('')}
+function renderStrip(){
+var h='';
+if(!student)h='<div class="strip"><span>تتصفح كزائر. سجّل دخولك لتُحفظ درجاتك وتظهر في لوحة الأوائل.</span><button data-act="login">دخول</button></div>';
+$('strip').innerHTML=h}
+function renderHero(){
+var ch=curriculumIndex[KEYS[curCh]],s=chapStats(curCh),C=2*Math.PI*30;
+$('hero').innerHTML='<span class="sym" style="left:8px;bottom:-10px">√</span><span class="sym" style="left:84px;top:-12px">÷</span>'+
+'<div class="hero-top"><div><div class="k">الفصل '+AR(curCh+1)+'</div><h2>'+esc(chapName(KEYS[curCh]))+'</h2></div>'+
+'<div class="ring"><svg width="72" height="72" viewBox="0 0 72 72" style="transform:rotate(-90deg)"><circle cx="36" cy="36" r="30" fill="none" stroke="rgba(255,255,255,.25)" stroke-width="8"/><circle cx="36" cy="36" r="30" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round" stroke-dasharray="'+C.toFixed(1)+'" stroke-dashoffset="'+(C*(1-s.pct/100)).toFixed(1)+'"/></svg><div class="rn">'+AR(s.pct)+'٪</div></div></div>'+
+'<div class="stats"><div class="stat"><b>'+AR(s.done)+'/'+AR(s.n)+'</b><span>دروس مكتملة</span></div><div class="stat"><b>'+AR(s.stars)+'/'+AR(s.n*3)+'</b><span>نجوم</span></div><div class="stat"><b>'+AR(fmt(s.pts))+'</b><span>نقاط</span></div></div>'}
+function nodeIcon(st){return st==='locked'?ic('lock',32):st==='current'?ic('play',34):st==='new'?ic('book',32):st==='improve'?ic('refresh',34,2.8):st==='good'?ic('check',36,3):ic('trophy',34)}
+function lessonRow(inf,i,off,curId){
+var l=inf.lesson,isCur=l.id===curId&&inf.state==='new',st=isCur?'current':inf.state,lab;
+if(ST[inf.state])lab='<div class="stars">'+[0,1,2].map(function(k){return star(k<ST[inf.state])}).join('')+'</div>';
+else if(inf.state==='locked')lab='<span class="tag">'+(inf.lk.date?'يفتح '+dateAR(inf.lk.date):'مقفل')+'</span>';
+else if(isCur)lab='<span class="tag">'+(inf.done>0?'أكمل من هنا':'ابدأ من هنا')+'</span>';
+else lab='<span class="tag">'+(inf.done>0?'أنجزت '+AR(inf.done)+' من '+AR(inf.total):'لم يبدأ')+'</span>';
+var pips=inf.gs.slice(0,2).map(function(g,k){return '<button class="gb '+(k?'l':'r')+' '+GC[k]+(inf.state==='locked'?' lk':'')+'" data-g="'+k+'" data-l="'+l.id+'" aria-label="لعبة '+esc(g.title)+'">'+gic(g.title,18)+(g.grade!==null?'<i class="ck">'+ic('check',9,4)+'</i>':'')+'</button>'}).join('');
+return '<div class="row" data-l="'+l.id+'" data-s="'+(ST[inf.state]?1:0)+'" style="--o:'+off+'px"><div class="nw"><button class="node st-'+st+'" data-l="'+l.id+'" aria-label="'+esc(inf.title)+'">'+nodeIcon(st)+'</button>'+pips+'</div>'+
+'<div class="lab'+(isCur?' cur':'')+'" data-l="'+l.id+'"><h4><b>'+numLabel(l.id)+'</b>'+esc(inf.title)+'</h4>'+lab+'</div></div>'}
+function diagRow(off){
+var d=diagInfo(),tag,badge='';
+if(d.has&&d.medal)badge='<i class="mb">'+medalStar(d.medal.type,24)+'</i>';
+tag=d.has?'<span class="tag">'+AR(fmt(d.score))+'٪'+(d.medal?' · '+d.medal.label:' · حاول مجدداً')+'</span>':'<span class="tag" style="color:#7c3aed">ابدأ رحلتك هنا</span>';
+return '<div class="row" data-k="diag" data-s="'+(d.has?1:0)+'" style="--o:'+off+'px"><div class="nw"><button class="node st-diag'+(d.has?'':' pulse')+'" data-k="diag" aria-label="الاختبار التشخيصي">'+ic('rocket',36,2.4)+'</button>'+badge+'</div><div class="lab" data-k="diag" style="'+(d.has?'':'border:2px solid #8b5cf6')+'"><h4>الاختبار التشخيصي</h4>'+tag+'</div></div>'}
+function endRow(off){
+if(curCh<KEYS.length-1){var t=THEMES[(curCh+1)%THEMES.length];
+return '<div class="row" data-k="next" data-s="0" style="--o:'+off+'px"><div class="nw"><button class="node" style="--face:'+t[0]+';--edge:'+t[1]+'" data-k="next" aria-label="الفصل التالي">'+ic('chev',38,3)+'</button></div><div class="lab" data-k="next"><h4>الفصل التالي</h4><span class="tag">'+esc(chapName(KEYS[curCh+1]))+'</span></div></div>'}
+return '<div class="row" data-k="me" data-s="0" style="--o:'+off+'px"><div class="nw"><button class="node st-excellent" data-k="me" aria-label="أوسمتك">'+ic('trophy',36,2.4)+'</button></div><div class="lab" data-k="me"><h4>أوسمتك وشهاداتك</h4><span class="tag">اعرض إنجازاتك</span></div></div>'}
+function renderMap(){
+var ch=curriculumIndex[KEYS[curCh]],infos=ch.lessons.map(lessonInfo),mu=student?musaid():null,p=mu&&mu.primaryTask,curId=(p&&p.type!=='diagnostic')?taskLesson(p).id:null,h='',ri=0;
+var w=function(){return WAVE[ri++%4]};
+infos.forEach(function(inf,i){h+=lessonRow(inf,i,w(),curId)});
+if(student||curCh<KEYS.length-1)h+=endRow(w());
+$('rows').innerHTML=h;requestAnimationFrame(draw)}
+function draw(){
+var m=$('map');if(!m)return;var r=m.getBoundingClientRect(),svg=$('lines');
+var rows=[].slice.call(m.querySelectorAll('.row')),pt=rows.map(function(row){var n=row.querySelector('.node'),b=n.getBoundingClientRect();return [b.left-r.left+b.width/2,b.top-r.top+b.height/2]});
+var t='',g='';
+for(var i=0;i<pt.length-1;i++){var a=pt[i],b=pt[i+1],k=(b[1]-a[1])*.45,d='M'+a[0]+' '+a[1]+' C'+a[0]+' '+(a[1]+k)+' '+b[0]+' '+(b[1]-k)+' '+b[0]+' '+b[1];
+t+='<path d="'+d+'" fill="none" style="stroke:var(--line)" stroke-width="14" stroke-linecap="round"/>';
+if(rows[i].getAttribute('data-s')==='1')g+='<path d="'+d+'" fill="none" style="stroke:var(--ac)" stroke-width="14" stroke-linecap="round"/>'}
+svg.setAttribute('viewBox','0 0 '+r.width+' '+r.height);svg.innerHTML=t+g}
+function footHTML(){
+var shareText=encodeURIComponent('أدعوك للاستفادة من منصة الرياضيات التفاعلية للمعلم عبدالعزيز العبلان:');
+var pageUrl=encodeURIComponent(window.location.href);
+return '<p>© 2024 جميع الحقوق محفوظة | تطوير: أ. عبدالعزيز خالد العبلان</p>'+`<div class="soc" dir="ltr"><a href="https://www.snapchat.com/share?url=${pageUrl}" target="_blank" aria-label="Share on Snapchat" class="social-icon"><svg class="w-8 h-8" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="24" height="24" rx="6" fill="#FFFC00"/><path d="M12.0118 6.66667C8.68183 6.66667 6 9.3485 6 12.6785C6 14.8385 7.15233 16.7385 8.88233 17.8485C8.96233 17.9085 9.05233 17.9485 9.14233 17.9485C9.28233 17.9485 9.42233 17.8785 9.51233 17.7485C9.66233 17.5385 9.60233 17.2385 9.39233 17.0885C7.98233 16.1485 7 14.5085 7 12.6785C7 9.8985 9.22183 7.66667 12.0118 7.66667C14.7918 7.66667 17.0218 9.8985 17.0218 12.6785C17.0218 14.5085 16.0318 16.1485 14.6218 17.0885C14.4118 17.2385 14.3518 17.5385 14.5018 17.7485C14.5918 17.8785 14.7318 17.9485 14.8718 17.9485C14.9618 17.9485 15.0518 17.9085 15.1418 17.8485C16.8618 16.7385 18.0218 14.8385 18.0218 12.6785C18.0218 9.3485 15.3418 6.66667 12.0118 6.66667Z" fill="white"/></svg></a>
+<a href="https://t.me/share/url?url=${pageUrl}&text=${shareText}" target="_blank" aria-label="Share on Telegram" class="social-icon"><svg class="w-8 h-8" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="12" fill="#2AABEE"/><path d="m9.417 15.181-.397 5.584c.568 0 .814-.244 1.109-.537l2.663-2.545 5.518 4.041c1.012.564 1.725.267 1.998-.931L22.43 5.218c.347-1.61-1.2-2.127-2.299-1.594L4.543 11.177c-1.636.682-1.66 1.32.285 1.721l4.252 1.325 9.46-5.924c.448-.277.855-.136.524.162z" fill="#fff"/></svg></a>
+<a href="https://twitter.com/intent/tweet?text=${shareText}&url=${pageUrl}" target="_blank" aria-label="Share on Twitter" class="social-icon"><svg class="w-8 h-8" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><rect width="24" height="24" rx="6" fill="#000"/><path d="m10.215 13.584-6.328 7.163h1.416l5.59-6.328 4.35 6.328h6.92l-6.7-9.74 6.13-6.95h-1.416l-5.18 5.86-4.01-5.86h-6.92l7.07 10.28zm-.76-1.13-1.42-2.02-5.1-7.25h2.15l4.2 5.97 1.42 2.02 5.43 7.72h-2.15l-4.58-6.5z" fill="#fff"/></svg></a>
+<a href="https://api.whatsapp.com/send?text=${shareText}%20${pageUrl}" target="_blank" aria-label="Share on WhatsApp" class="social-icon"><svg class="w-8 h-8" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path fill="#25D366" d="M12 2C6.477 2 2 6.477 2 12c0 1.742.448 3.385 1.253 4.814L2 22l5.186-1.253A9.93 9.93 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2z"/><path fill="#FFF" d="M17.23 14.25c-.21-.12-.83-.41-1-.47-.16-.07-.3-.07-.42.12-.12.2-.4.48-.48.57-.08.1-.16.1-.28 0-.12-.07-.5-.18-1.03-.63-.8-.7-1.33-1.56-1.48-1.82-.15-.26-.02-.4.07-.53.08-.12.18-.3.27-.4.1-.1.12-.18.18-.3.06-.12.03-.23 0-.33-.03-.1-.28-.68-.38-1-.1-.31-.2-.26-.28-.26-.08 0-.18 0-.28 0-.1 0-.26.04-.4.2-.13.16-.52.5-.52 1.22 0 .72.53 1.42.6 1.52.08.1.92 1.47 2.4 2.1.37.16.66.25.88.32.22.07.42.06.58.02.18-.04.58-.24.7-.47.12-.24.12-.44.08-.48-.03-.05-.1-.07-.2-.1z"/></svg></a><span>:شاركنا</span></div>`}
+function renderDock(){
+var el=$('dock');document.body.classList.remove('has-dock');
+if(!student||view!=='home'){el.innerHTML='';return}
+var mu=musaid(),p=mu.primaryTask,h='';
+if(!p){h='<div class="dock-in"><button class="alldone" data-tab="me">'+ic('trophy',26)+'<span>أحسنت! أنهيت كل المهام المتاحة</span>'+ic('chev',18)+'</button></div>'}
+else if(p.type==='diagnostic'){h='<div class="dock-in"><div class="dmsg">'+ic('rocket',16)+'مهمتك الأولى</div><button class="cta dx" data-act="diag">'+ic('rocket',22)+'ابدأ الاختبار التشخيصي</button></div>'}
+else{
+var lesson=taskLesson(p),inf=lessonInfo(lesson),M={'complete-previous':['alert','لديك مهمة سابقة لم تكتمل'],'do-new':['star','مهمتك التالية'],'complete-oldest':['clock','لديك مهمة قديمة لم تنهها']}[mu.messageType]||['star','مهمتك التالية'];
+var sec=(mu.secondaryTask&&mu.secondaryTask.details.id!==p.details.id)?'<button class="dsec" data-act="oldest">اذهب لأقدم مهمة</button>':'';
+var games=inf.gs.slice(0,2).map(function(g,k){var pl=g.grade!==null,hl=p.type==='game'&&p.details.id===g.id;
+return '<button class="gbtn '+GC[k]+(hl?' hl':'')+'" data-pg="'+k+'" data-l="'+lesson.id+'">'+(hl?'<span class="here">ابدأ هنا</span>':'')+'<span class="gt">'+gic(g.title,24)+(pl?'<i class="ck">'+ic('check',9,4)+'</i>':'')+'</span><span class="gtx"><small>'+(k?'اللعبة الثانية':'اللعبة الأولى')+(pl?' · '+AR(fmt(g.grade))+'/'+AR(g.max):'')+'</small><b>'+esc(g.title)+'</b></span></button>'}).join('');
+h='<div class="dock-in"><div class="dmsg">'+ic(M[0],16)+M[1]+sec+'</div><div class="games">'+games+'</div><button class="cta" data-go="'+lesson.id+'">'+ic(inf.lg!==null?'refresh':'play',22)+(inf.lg!==null?'راجع الدرس ':'ابدأ الدرس ')+numLabel(lesson.id)+'</button></div>'}
+el.innerHTML=h;document.body.classList.add('has-dock')}
+
+function gameRows(inf,lk){return inf.gs.slice(0,2).map(function(g,k){var pl=g.grade!==null;
+return '<div class="gr '+GC[k]+'"><span class="gt'+(lk?' lk':'')+'">'+gic(g.title,24)+(pl?'<i class="ck">'+ic('check',9,4)+'</i>':'')+'</span><span class="nm"><small>'+(k?'اللعبة الثانية':'اللعبة الأولى')+' · '+(lk?'مقفلة':(pl?AR(fmt(g.grade))+'/'+AR(g.max):'لم تُلعب بعد'))+'</small>'+esc(g.title)+'</span><button class="gplay'+(lk?' lk':'')+'" data-play="'+k+'">العب</button></div>'}).join('')}
+function openLessonSheet(id){
+var inf=lessonInfo(LESSONS[id].lesson),lk=inf.state==='locked';sheetLesson=id;
+var st=inf.state==='new'?'st-new':'st-'+inf.state;
+var label=lk?'الدرس مغلق':inf.state==='improve'?'حسّن درجتك':(inf.lg!==null?'راجع الدرس':'ابدأ الدرس');
+var badge={locked:'مقفل',new:(inf.done>0?'قيد الإنجاز':'لم يبدأ'),improve:'تحتاج تحسين',good:'جيد',excellent:'ممتاز'}[inf.state];
+$('sheet').innerHTML='<div class="grab"></div><div class="sh-head"><div class="mini '+st+'">'+nodeIcon(inf.state)+'</div><div><small>الدرس '+numLabel(id)+' · '+badge+'</small><h3>'+esc(inf.title)+'</h3></div></div>'+
+(lk?'<p class="note">'+(inf.lk.date?'يفتح هذا الدرس بتاريخ '+dateAR(inf.lk.date):'هذا الدرس مغلق حالياً.')+'</p>':'<div class="lrow"><span>درجة الدرس</span><span>'+(inf.lg!==null?AR(fmt(inf.lg))+'/'+AR(inf.lesson.maxScore||10):'لم يتم بعد')+'</span></div>')+
+gameRows(inf,lk)+'<button class="btn sh-btn'+(lk?' lock':'')+'" data-start="'+id+'">'+label+'</button>';
+$('ov').classList.add('on')}
+function openDiagSheet(){
+var d=diagInfo();
+$('sheet').innerHTML='<div class="grab"></div><div class="sh-head"><div class="mini st-diag">'+ic('rocket',26)+'</div><div><small>'+(d.has?'اختبار مكتمل':'مهمتك الأولى')+'</small><h3>الاختبار التشخيصي</h3></div></div>'+
+'<p class="note">'+(d.has?'درجتك هي أفضل محاولاتك، ويمكنك إعادة الاختبار لتحسينها.':'اختبار قصير يحدد مستواك ونقاط قوتك قبل أن تبدأ الدروس.')+'</p>'+
+(d.has?'<div class="dgrid"><div class="dg"><small>المعدل</small><b>'+AR(fmt(d.score))+'٪</b></div><div class="dg"><small>الوسام</small><b style="font-size:20px">'+(d.medal?d.medal.label:'لم يستحق')+'</b></div></div>':'')+
+'<button class="btn dx sh-btn" data-act="diag">'+(d.has?'إعادة الاختبار':'ابدأ الاختبار الآن')+'</button>';
+$('ov').classList.add('on')}
+function closeSheet(){$('ov').classList.remove('on')}
+
+function guest(title,icn){return '<div class="empty">'+ic(icn,44,1.8)+'<p style="font-size:17px;color:var(--text);margin:10px 0 2px">'+title+'</p><p style="margin:0">سجّل دخولك لعرض هذا القسم.</p><button class="btn" data-act="login">دخول</button></div>'}
+function rankBadge(rank,pct){
+var c=pct>=95?'#f59e0b':pct>=80?'#94a3b8':null;
+if(!c)return '<div class="rk">#'+AR(rank)+'</div>';
+return '<div class="rk"><svg viewBox="0 0 24 24" fill="'+c+'" aria-hidden="true"><path d="M12 2L15 9L22 9L17 14L19 21L12 17L5 21L7 14L2 9L9 9L12 2Z"/></svg><i>'+AR(rank)+'</i></div>'}
+function renderLB(){
+var el=$('v-lb');
+if(!student){el.innerHTML=guest('لوحة الأوائل','bars');return}
+if(lbErr&&!lbData){el.innerHTML='<div class="empty"><p style="color:#dc2626">تعذّر تحميل لوحة الأوائل.</p><button class="btn" data-act="lbretry">إعادة المحاولة</button></div>';return}
+if(!lbData){el.innerHTML='<div class="empty"><div class="spin" style="margin:0 auto 12px"></div>جاري تحميل بيانات الأوائل...</div>';if(!lbLoading)fetchLB();return}
+if(lbStale&&!lbLoading)fetchLB();
+var D=lbData,R=D.ranks||{};
+var B=[{n:'نجوم المنصة',t:'نجوم المنصة',l:'مجموع النقاط',d:D.overallTop10||[],r:R.overall,dg:false},{n:'فصلي',t:'أوائل فصل '+(student.class||''),l:'مجموع النقاط',d:D.classTop10||[],r:R.class,dg:false},{n:'التشخيصي',t:'أوائل الاختبار التشخيصي',l:'المعدل',d:D.diagnosticTop10||[],r:R.diagnostic,dg:true}][lbTab];
+var rk=[],cr=1;B.d.forEach(function(s,i){var sc=B.dg?s.diagnosticGrade:s.totalScore;if(i>0){var pv=B.dg?B.d[i-1].diagnosticGrade:B.d[i-1].totalScore;if(sc<pv)cr=i+1}rk.push(cr)});
+var rows=B.d.map(function(s,i){
+var me=String(s.id)===String(student.id),pct=B.dg?s.diagnosticGrade:(totalPlatformMaxScore>0?s.totalScore/totalPlatformMaxScore*100:0);
+var sc=B.dg?'<div class="sc">'+AR(fmt(s.diagnosticGrade))+'٪<small>'+AR(s.diagnosticPoints)+' نقطة</small></div>':'<div class="sc">'+AR(fmt(s.totalScore))+'</div>';
+return (i>=5&&!lbAll?'':'<div class="lbr'+(me?' me':'')+'">'+rankBadge(rk[i],pct)+'<div class="nm">'+esc(s.name)+'<small>'+esc(s.class)+'</small></div>'+sc+'</div>')}).join('');
+el.innerHTML='<div class="seg">'+['نجوم المنصة','فصلي','التشخيصي'].map(function(n,i){return '<button data-lbt="'+i+'" class="'+(i===lbTab?'on':'')+'">'+n+'</button>'}).join('')+'</div>'+
+'<div class="lbh"><span>'+esc(B.t)+'</span><small>'+B.l+'</small></div>'+rows+
+(B.d.length>5?'<button class="more" data-act="lbmore">'+(lbAll?'إخفاء':'عرض الكل')+'</button>':'')+
+(B.r>0?'<div class="myrank">مركزك الحالي: '+AR(B.r)+'</div>':'')+(B.d.length?'':'<div class="empty">لا توجد بيانات بعد.</div>')}
+function fetchLB(){
+if(!student||lbLoading)return;lbLoading=true;lbErr=false;
+fetch(SCRIPT_URL+'?action=getLeaderboardData&studentId='+encodeURIComponent(student.id)+'&classId='+encodeURIComponent(student.classIdentifier)+'&t='+Date.now())
+.then(function(r){return r.json()}).then(function(res){lbLoading=false;if(res.status==='success'&&res.data){lbData=res.data;lbStale=false}else lbErr=true;if(view==='lb')renderLB()})
+.catch(function(){lbLoading=false;lbErr=true;if(view==='lb')renderLB()})}
+
+function medalTile(s){
+var ic1,sub,sc='';
+if(s.locked){ic1='<div class="mlock">'+ic('lock',30)+'</div>';sub='<small dir="ltr">'+esc(s.date||'')+'</small>'}
+else if(s.medal){ic1=medalStar(s.medal.type,44);sub='<small>'+s.medal.label+'</small>';sc='<div class="msc" dir="ltr">'+fmt(s.score)+'%</div>'}
+else{ic1=medalStar('none',44);sub='<small class="bad">لم يستحق</small>';sc='<div class="msc" dir="ltr">'+fmt(s.score)+'%</div>'}
+return '<div class="mt'+(s.medal?' on':'')+'">'+ic1+'<b>'+s.name+'</b>'+sub+sc+'</div>'}
+function arc(len,off,color,C){return len>0?'<circle cx="60" cy="60" r="52" fill="none" stroke="'+color+'" stroke-width="14" stroke-dasharray="'+len.toFixed(1)+' '+(C-len).toFixed(1)+'" stroke-dashoffset="'+(-off).toFixed(1)+'"/>':''}
+function renderMe(){
+var el=$('v-me');
+if(!student){el.innerHTML=guest('إنجازاتي','user');return}
+var o=overall(),C=2*Math.PI*52,gl=o.poss>0?o.gain/o.poss*C:0,ll=o.poss>0?o.lost/o.poss*C:0,pl=Math.max(0,C-gl-ll),d=diagInfo(),rm=remaining(),dl=(diagInfo().has);
+var m=o.mastery;
+el.innerHTML='<div style="height:calc(env(safe-area-inset-top,0px) + 14px)"></div>'+
+'<div class="pc"><div class="prof"><div class="av">'+esc(String(student.name||'؟').trim().charAt(0))+'</div><div><b>'+esc(student.name)+(student.role==='teacher'?' (معلم)':'')+'</b><small>الصف: '+esc(student.class||'-')+'</small></div></div></div>'+
+'<div class="pc"><h3>'+ic('chart',20)+'مستوى التقدم والإتقان</h3><div class="pr"><div class="ring" style="width:120px;height:120px"><svg width="120" height="120" viewBox="0 0 120 120" style="transform:rotate(-90deg)"><circle cx="60" cy="60" r="52" fill="none" stroke="var(--line)" stroke-width="14"/>'+arc(gl,0,'#22c55e',C)+arc(ll,gl,'#ef4444',C)+arc(pl,gl+ll,'#a5b4fc',C)+'</svg><div class="rn" style="font-size:24px"><span>'+AR(m)+'٪</span></div></div>'+
+'<div class="legend"><div><i style="background:#22c55e"></i>إتقان '+AR(m)+'٪</div><div><i style="background:#ef4444"></i>تحتاج تحسين '+AR(o.needs)+'٪</div><div><i style="background:#a5b4fc"></i>بانتظارك '+AR(o.pending)+'٪</div></div></div></div>'+
+'<div class="pc"><h3>'+ic('star',20)+'أوسمتك</h3><div class="medals">'+starsInfo().map(medalTile).join('')+'</div></div>'+
+'<div class="pc"><h3>'+ic('trophy',20)+'الشهادات</h3><div class="cbar"><div class="cfill" style="width:'+Math.min(100,m)+'%"></div><i class="ctick" style="right:55%"></i><i class="ctick" style="right:85%"></i><i class="ctick" style="right:95%"></i></div>'+
+'<div class="cchips"><div class="cc'+(m>=55?' on':'')+'">شهادة مشارك<small>٥٥٪ فأكثر</small></div><div class="cc'+(m>=85?' on gold':'')+'">شهادة تميز<small>٨٥٪ فأكثر</small></div><div class="cc'+(m>=95?' on star':'')+'">نجم المنصة<small>٩٥٪ فأكثر</small></div></div></div>'+
+'<div class="pc"><h3>'+ic('rocket',20)+'الاختبار التشخيصي</h3>'+(dl?'<div class="dgrid"><div class="dg"><small>المعدل</small><b>'+AR(fmt(d.score))+'٪</b></div><div class="dg"><small>النقاط</small><b>'+(d.pts!==null&&d.pts!==undefined?AR(d.pts):'—')+'</b></div></div><button class="btn ghost" data-act="diag">إعادة الاختبار</button>':'<p class="note">لم يتم أداء الاختبار بعد.</p><button class="btn dx" data-act="diag">ابدأ الاختبار الآن</button>')+'</div>'+
+'<div class="pc"><h3>'+ic('clock',20)+'المتبقي لك</h3><div class="rem"><div><b>'+AR(rm.rl)+'</b><small>دروس متبقية</small></div><div><b>'+AR(rm.rg)+'</b><small>لعبة متبقية</small></div></div></div>'+
+'<button class="btn ghost" data-act="logout" style="margin-bottom:12px">'+ic('logout',20)+'تسجيل الخروج</button><footer class="foot">'+footHTML()+'</footer>'}
+
+function renderHome(){themeApply();renderChips();renderStrip();renderHero();renderMap();$('foot-h').innerHTML=footHTML()}
+function renderAll(){renderHeader();if(view==='home')renderHome();else if(view==='lb'){themeApply();renderLB()}else{themeApply();renderMe()}renderDock()}
+function setView(v,keepScroll){
+view=v;$('v-home').hidden=v!=='home';$('v-lb').hidden=v!=='lb';$('v-me').hidden=v!=='me';
+document.querySelectorAll('.nav button').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-tab')===v)});
+renderAll();if(!keepScroll)window.scrollTo(0,0)}
+function goTo(task){
+var l=taskLesson(task);curCh=LESSONS[l.id].ci;view='home';setView('home',true);
+setTimeout(function(){var row=document.querySelector('.row[data-l="'+l.id+'"]');if(row){row.scrollIntoView({behavior:'smooth',block:'center'});row.classList.add('flash');setTimeout(function(){row.classList.remove('flash')},1800)}},80)}
+
+function showLogin(){$('pre').hidden=true;$('app').hidden=true;$('login').hidden=false;document.body.classList.remove('has-dock')}
+function showApp(){$('pre').hidden=true;$('login').hidden=true;$('app').hidden=false}
+function pickChapter(){if(chapterChosen)return;chapterChosen=true;var mu=student?musaid():null;var p=mu&&mu.primaryTask;curCh=(p&&p.type!=='diagnostic')?LESSONS[taskLesson(p).id].ci:0}
+function enter(){pickChapter();lbData=null;lbStale=true;lbErr=false;showApp();setView('home')}
+function refresh(silent){
+if(!student)return;
+fetch(SCRIPT_URL+'?action=getStudentData&studentId='+encodeURIComponent(student.id)+'&classId='+encodeURIComponent(student.classIdentifier)+'&t='+Date.now(),{redirect:'follow'})
+.then(function(r){return r.json()}).then(function(res){
+if(res.status==='success'&&res.data){res.data.classIdentifier=getClassIdentifier(res.data.class)||student.classIdentifier;if(student.role)res.data.role=student.role;student=res.data;localStorage.setItem('currentStudent',JSON.stringify(student));lbStale=true;if(!$('app').hidden)renderAll()}
+else throw new Error(res.message||'refresh failed')})
+.catch(function(e){console.error('Data refresh error:',e)})}
+function initialRefresh(s){
+fetch(SCRIPT_URL+'?action=getStudentData&studentId='+encodeURIComponent(s.id)+'&classId='+encodeURIComponent(s.classIdentifier)+'&t='+Date.now(),{redirect:'follow'})
+.then(function(r){return r.json()}).then(function(res){
+if(res.status==='success'&&res.data){res.data.classIdentifier=getClassIdentifier(res.data.class);if(s.role)res.data.role=s.role;student=res.data;localStorage.setItem('currentStudent',JSON.stringify(student));enter()}
+else throw new Error(res.message||'Failed to refresh student data.')})
+.catch(function(e){console.error('Data refresh error:',e);localStorage.removeItem('currentStudent');student=null;showLogin()})}
+function handleLogin(id){
+var err=$('login-err'),btn=$('login-btn'),txt=$('login-txt');
+btn.disabled=true;txt.textContent='جاري الدخول...';err.hidden=true;
+fetch(SCRIPT_URL+'?action=findStudentById&studentId='+encodeURIComponent(id),{redirect:'follow'})
+.then(function(r){return r.json()}).then(function(res){
+if(res.status==='success'&&res.data){
+res.data.classIdentifier=getClassIdentifier(res.data.class);
+if(!res.data.classIdentifier&&res.data.role!=='teacher'){err.textContent='خطأ: لم يتم التعرف على صيغة الفصل للطالب.';err.hidden=false;return}
+student=res.data;localStorage.setItem('currentStudent',JSON.stringify(student));chapterChosen=false;enter();if(student.classIdentifier)refresh(true)}
+else{err.textContent=res.message||'رقم الهوية غير مسجل في أي فصل.';err.hidden=false}})
+.catch(function(e){console.error('Login Error:',e);err.textContent='خطأ في الاتصال بالخادم. يرجى المحاولة مرة أخرى.';err.hidden=false})
+.then(function(){btn.disabled=false;txt.textContent='دخول'})}
+function logout(){localStorage.removeItem('currentStudent');window.location.reload()}
+
+document.addEventListener('click',function(e){
+var t=e.target;
+var c=t.closest('[data-c]');if(c){curCh=+c.getAttribute('data-c');renderHome();renderDock();var h=$('hero');if(h)h.scrollIntoView({behavior:'smooth',block:'start'});return}
+var a=t.closest('[data-act]');
+if(a){var act=a.getAttribute('data-act');
+if(act==='logout'){logout();return}
+if(act==='login'){closeSheet();localStorage.removeItem('currentStudent');student=null;$('login-err').hidden=true;showLogin();return}
+if(act==='diag'){openDiag();return}
+if(act==='diagsheet'){openDiagSheet();return}
+if(act==='oldest'){var mu=musaid();if(mu.secondaryTask)goTo(mu.secondaryTask);return}
+if(act==='lbretry'){lbErr=false;renderLB();return}
+if(act==='lbmore'){lbAll=!lbAll;renderLB();return}
+if(act==='closegame'){closeGame();return}}
+var tab=t.closest('[data-tab]');if(tab){setView(tab.getAttribute('data-tab'));return}
+var lt=t.closest('[data-lbt]');if(lt){lbTab=+lt.getAttribute('data-lbt');lbAll=false;renderLB();return}
+var pg=t.closest('[data-pg]');if(pg){playGame(pg.getAttribute('data-l'),+pg.getAttribute('data-pg'));return}
+var go=t.closest('[data-go]');if(go){openLesson(go.getAttribute('data-go'));return}
+var st=t.closest('[data-start]');if(st){closeSheet();openLesson(st.getAttribute('data-start'));return}
+var pl=t.closest('[data-play]');if(pl){playGame(sheetLesson,+pl.getAttribute('data-play'));return}
+var g=t.closest('.gb[data-g]');if(g){playGame(g.getAttribute('data-l'),+g.getAttribute('data-g'));return}
+var k=t.closest('#rows [data-k]');if(k){var kk=k.getAttribute('data-k');
+if(kk==='diag')openDiagSheet();
+else if(kk==='next'){curCh=Math.min(KEYS.length-1,curCh+1);renderHome();renderDock();window.scrollTo({top:0,behavior:'smooth'})}
+else if(kk==='me')setView('me');
+return}
+var l=t.closest('#rows [data-l]');if(l){openLessonSheet(l.getAttribute('data-l'));return}
+if(t.id==='ov')closeSheet()});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'){if(!$('gm').hidden)closeGame();else closeSheet()}});
+window.addEventListener('resize',draw);
+window.addEventListener('message',function(ev){
+if(ev.data&&ev.data.event==='gameFinished'){
+if(!student&&ev.data.gameId){var at=JSON.parse(localStorage.getItem('visitorGameAttempts')||'{}');at[ev.data.gameId]=(at[ev.data.gameId]||0)+1;localStorage.setItem('visitorGameAttempts',JSON.stringify(at))}
+closeGame()}});
+$('login-form').addEventListener('submit',function(e){e.preventDefault();var v=$('login-id').value.trim();if(v)handleLogin(v)});
+$('visitor-btn').addEventListener('click',function(){localStorage.removeItem('currentStudent');student=null;chapterChosen=false;enter()});
+$('logo').innerHTML=ic('game',40,2);
+$('gm-x').innerHTML=ic('x',22);
+(function init(){
+var s=getStored();
+if(s&&s.id&&s.classIdentifier)initialRefresh(s);
+else showLogin();
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(draw)})();
+})();
+</script>
 </body>
 </html>

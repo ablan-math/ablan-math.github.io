@@ -1,5 +1,3 @@
-
-Lesson core · JS
 /* =====================================================================
    lesson-core.js  —  الكود المشترك لجميع صفحات الدروس
    تعديل هذا الملف يغيّر كل الدروس دفعة واحدة.
@@ -342,4 +340,3 @@ Lesson core · JS
     if (closeBtn) closeBtn.addEventListener('click', closeModal);
   });
 })();
- 

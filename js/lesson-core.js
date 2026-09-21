@@ -69,11 +69,32 @@
   function closeModal() { var m = $('explanationModal'); if (m) m.classList.add('hidden'); }
  
   // ---------------------------------------------------------------- الخادم
-  function api(action, params) {
+  // طلب واحد. أخطاء الاتصال أو الرد غير JSON تُعلَّم transport=true لتُعاد، وأخطاء الخادم المفهومة server=true فلا تُعاد.
+  function apiOnce(action, params) {
     var q = new URLSearchParams(Object.assign({ action: action }, params, { t: Date.now() }));
-    return fetch(SCRIPT_URL + '?' + q.toString())
-      .then(function (r) { return r.json(); })
-      .then(function (j) { if (j.status !== 'success') throw new Error(j.message || 'خطأ غير معروف'); return j.data; });
+    return fetch(SCRIPT_URL + '?' + q.toString()).then(function (r) { return r.text(); }, function (e) { e.transport = true; throw e; })
+      .then(function (text) {
+        var j;
+        try { j = JSON.parse(text); }
+        catch (e) {
+          console.warn('lesson-core: ردّ غير JSON من الخادم:', String(text).slice(0, 300));
+          var err = new Error('استجابة غير متوقعة من الخادم'); err.transport = true; throw err;
+        }
+        if (j.status !== 'success') { var se = new Error(j.message || 'خطأ غير معروف'); se.server = true; throw se; }
+        return j.data;
+      });
+  }
+  function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+  // إعادة تلقائية عند انقطاع الاتصال. آمنة لأن الخادم يتعرف على الطلب المكرر (nonce عند البدء، ورمز المحاولة عند الحفظ).
+  function api(action, params) {
+    var delays = [1200, 2500];
+    function run(i) {
+      return apiOnce(action, params).catch(function (err) {
+        if (err.transport && i < delays.length) return sleep(delays[i]).then(function () { return run(i + 1); });
+        throw err;
+      });
+    }
+    return run(0);
   }
  
   function saveGrade(lessonId, grade, studentId, classId, attemptId) {
@@ -93,13 +114,12 @@
       })
       .catch(function (err) {
         console.error('Save Grade Error:', err);
-        var fromServer = err && err.message && !/Failed to fetch|NetworkError|Load failed|JSON/i.test(err.message);
-        if (fromServer) {
-          saveStatus.textContent = '❌ ' + err.message;
-        } else {
+        if (err && err.transport) {
           saveStatus.innerHTML = '❌ تعذّر الاتصال أثناء حفظ الدرجة. <button type="button" id="retry-save-btn" class="mr-2 underline text-blue-700">إعادة محاولة الحفظ</button>';
           var b = $('retry-save-btn');
           if (b) b.addEventListener('click', function () { saveGrade(lessonId, grade, studentId, classId, attemptId); });
+        } else {
+          saveStatus.textContent = '❌ ' + (err && err.message ? err.message : 'تعذّر حفظ الدرجة');
         }
       });
   }
@@ -240,11 +260,15 @@
         .catch(function (err) { showError('تعذّر التحقق من محاولاتك: ' + (err && err.message ? err.message : 'تحقق من الاتصال')); });
     }
  
+    var pendingNonce = null;   // يبقى نفسه عند إعادة المحاولة بعد انقطاع، فلا تُستهلك محاولة ثانية
+ 
     function startQuiz() {
       var btn = $('start-quiz-btn');
       btn.disabled = true; btn.textContent = 'جارٍ البدء...';
-      api('startAttempt', { studentId: studentId, classId: classId, itemId: lessonId })
+      if (!pendingNonce) pendingNonce = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+      api('startAttempt', { studentId: studentId, classId: classId, itemId: lessonId, nonce: pendingNonce })
         .then(function (d) {
+          pendingNonce = null;
           if (!d.started) { showStatus(d); return; }   // استُنفدت في تبويب آخر مثلاً
           activeAttemptId = d.attemptId;
           serverOffsetMs = Date.parse(d.serverNow) - Date.now();
@@ -255,8 +279,12 @@
           quizForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
         })
         .catch(function (err) {
+          if (!err.transport) pendingNonce = null;   // رفض واضح من الخادم: ضغطة جديدة تبدأ من الصفر
           btn.disabled = false; btn.textContent = 'ابدأ الاختبار';
-          var e = $('start-error'); if (e) e.textContent = 'تعذّر بدء الاختبار: ' + (err && err.message ? err.message : 'تحقق من الاتصال');
+          var e = $('start-error');
+          if (e) e.textContent = err.transport
+            ? 'تعذّر الاتصال بالخادم. اضغط «ابدأ الاختبار» مرة أخرى، ولن تُحتسب عليك محاولة إضافية.'
+            : 'تعذّر بدء الاختبار: ' + (err && err.message ? err.message : 'تحقق من الاتصال');
         });
     }
  
@@ -340,3 +368,4 @@
     if (closeBtn) closeBtn.addEventListener('click', closeModal);
   });
 })();
+ 

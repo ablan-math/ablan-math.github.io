@@ -11,6 +11,7 @@
     --bg:#f4f6fb; --card:#ffffff; --ink:#1c2333; --muted:#6b7488;
     --line:#e4e8f1; --accent:#4f6df5; --accent2:#7c5cff;
     --gray:#c9ccd6; --blue:#4f8ef7; --green:#38b06b; --gold:#e8ab1f; --purple:#8b5cf6;
+    --neg1:#f2884b; --neg2:#e5484d;
     --shadow:0 10px 30px -12px rgba(30,40,70,.18);
     --radius:18px;
   }
@@ -95,6 +96,11 @@
     font-size:13px; white-space:nowrap;
   }
   #loadBtn:disabled{opacity:.6;}
+  #overviewBtn{
+    border:1.5px solid var(--accent); padding:10px 18px; border-radius:10px; cursor:pointer;
+    background:transparent; color:var(--accent); font-weight:800; font-family:'Cairo',sans-serif;
+    font-size:13px; white-space:nowrap;
+  }
 
   .legend{
     display:flex; gap:14px; flex-wrap:wrap; margin-bottom:14px; font-size:12px;
@@ -115,7 +121,7 @@
     background:var(--card); border-radius:14px; box-shadow:var(--shadow);
     padding:10px 6px 12px; text-align:center; cursor:pointer; user-select:none;
     -webkit-tap-highlight-color:transparent; transition:transform .1s;
-    border:2px solid transparent;
+    border:2px solid transparent; position:relative;
   }
   .stu:active{transform:scale(.94);}
   .circle{
@@ -125,16 +131,48 @@
     font-weight:800; color:#fff; font-size:15px;
     transition:background .15s;
     box-shadow:inset 0 -3px 8px rgba(0,0,0,.12);
+    position:relative;
   }
   .stu .nm{
     font-size:11.5px; font-weight:700; line-height:1.25; color:var(--ink);
     overflow-wrap:anywhere;
   }
-  .stu[data-g="0"] .circle{background:var(--gray);}
-  .stu[data-g="1"] .circle{background:var(--blue);}
-  .stu[data-g="2"] .circle{background:var(--green);}
-  .stu[data-g="3"] .circle{background:var(--gold);}
-  .stu[data-g="4"] .circle{background:var(--purple);}
+  /* تلوين الدائرة حسب المستوى المحسوب (data-tier)، وليس القيمة الرقمية الخام،
+     كي تبقى القيمة الفعلية (مثلاً بعد إضافة جماعية تتجاوز 4) ظاهرة بنفس اللون الأعلى. */
+  .stu[data-tier="0"] .circle{background:var(--gray);}
+  .stu[data-tier="1"] .circle{background:var(--blue);}
+  .stu[data-tier="2"] .circle{background:var(--green);}
+  .stu[data-tier="3"] .circle{background:var(--gold);}
+  .stu[data-tier="4"] .circle{background:var(--purple);}
+  .stu[data-tier="-1"] .circle{background:var(--neg1);}
+  .stu[data-tier="-2"] .circle{background:var(--neg2);}
+
+  /* زر الملاحظة السالبة: زر صغير سالب في زاوية الدائرة */
+  .negbtn{
+    position:absolute; top:-4px; inset-inline-start:-4px;
+    width:22px; height:22px; border-radius:50%;
+    background:var(--card); border:2px solid var(--line);
+    color:var(--muted); font-weight:800; font-size:15px; line-height:1;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer; z-index:2; -webkit-tap-highlight-color:transparent;
+    transition:background .15s, border-color .15s, color .15s;
+  }
+  .negbtn:active{transform:scale(.9);}
+  .stu[data-tier="-1"] .negbtn{background:var(--neg1); border-color:var(--neg1); color:#fff;}
+  .stu[data-tier="-2"] .negbtn{background:var(--neg2); border-color:var(--neg2); color:#fff;}
+
+  #bulkBar{
+    display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+    background:var(--card); border-radius:14px; box-shadow:var(--shadow);
+    padding:10px 12px; margin-bottom:14px;
+  }
+  #bulkBar .lbl{font-size:12px; color:var(--muted); font-weight:700; margin-inline-end:2px;}
+  #bulkBar button{
+    border:1.5px solid var(--line); background:var(--bg); color:var(--ink);
+    padding:8px 16px; border-radius:10px; font-family:'Cairo',sans-serif;
+    font-weight:800; font-size:13px; cursor:pointer;
+  }
+  #bulkBar button:active{transform:scale(.95);}
 
   #sendBar{
     position:sticky; bottom:14px; margin-top:20px; display:flex; justify-content:center;
@@ -153,6 +191,62 @@
     .circle{max-width:46px;}
     .stu .nm{font-size:10.5px;}
   }
+
+  /* ===== Overview modal (نظرة شاملة على درجات الفصل كاملاً) ===== */
+  #overviewModal{
+    position:fixed; inset:0; z-index:900; background:rgba(15,18,30,.55);
+    display:none; align-items:center; justify-content:center; padding:14px;
+  }
+  #overviewModal.open{display:flex;}
+  .ov-box{
+    background:var(--card); border-radius:20px; box-shadow:var(--shadow);
+    width:100%; max-width:1300px; max-height:92vh; display:flex; flex-direction:column;
+    overflow:hidden;
+  }
+  .ov-head{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding:16px 18px; border-bottom:1px solid var(--line);
+  }
+  .ov-head h3{margin:0; font-size:16px; font-weight:800;}
+  #closeOverviewBtn{
+    border:none; background:var(--bg); color:var(--muted); width:32px; height:32px;
+    border-radius:50%; font-size:16px; cursor:pointer; font-weight:700;
+  }
+  .ov-legend{
+    display:flex; gap:10px; flex-wrap:wrap; padding:8px 18px; font-size:11px; color:var(--muted);
+    border-bottom:1px solid var(--line);
+  }
+  .ov-legend .dot{width:11px; height:11px; border-radius:50%; display:inline-block; vertical-align:middle; margin-inline-end:4px;}
+  #overviewStatus{padding:10px 18px; font-size:13px; color:var(--muted);}
+  #overviewStatus.err{color:#e0446b; font-weight:700;}
+  #overviewTableWrap{overflow:auto; padding:0 0 14px;}
+  #overviewTable{border-collapse:collapse; font-size:12px; white-space:nowrap;}
+  #overviewTable th, #overviewTable td{
+    padding:5px 7px; text-align:center; border-bottom:1px solid var(--line);
+  }
+  #overviewTable thead th{
+    background:var(--card); position:sticky; top:0; z-index:3;
+    font-weight:800; color:var(--ink); font-size:11px;
+  }
+  #overviewTable thead tr.ov-week-row th{ top:0; }
+  #overviewTable thead tr.ov-day-row th{ top:29px; font-weight:700; color:var(--muted); }
+  #overviewTable th.ov-name-col, #overviewTable td.ov-name-col{
+    position:sticky; inset-inline-start:0; background:var(--card); z-index:4;
+    text-align:start; font-weight:700; padding-inline-start:12px; box-shadow:2px 0 6px -3px rgba(0,0,0,.15);
+    max-width:150px; overflow:hidden; text-overflow:ellipsis;
+  }
+  #overviewTable thead th.ov-name-col{z-index:5;}
+  .ov-badge{
+    display:inline-flex; align-items:center; justify-content:center;
+    width:24px; height:24px; border-radius:50%; font-weight:800; font-size:11px; color:#fff;
+    background:var(--gray); color:#8a8f9e;
+  }
+  .ov-badge.t1{background:var(--blue); color:#fff;}
+  .ov-badge.t2{background:var(--green); color:#fff;}
+  .ov-badge.t3{background:var(--gold); color:#fff;}
+  .ov-badge.t4{background:var(--purple); color:#fff;}
+  .ov-badge.tn1{background:var(--neg1); color:#fff;}
+  .ov-badge.tn2{background:var(--neg2); color:#fff;}
 </style>
 </head>
 <body>
@@ -191,13 +285,7 @@
     </div>
     <div class="field">
       <label>الأسبوع</label>
-      <select id="weekSel">
-        <option value="1">الأسبوع 1</option>
-        <option value="2">الأسبوع 2</option>
-        <option value="3">الأسبوع 3</option>
-        <option value="4">الأسبوع 4</option>
-        <option value="5">الأسبوع 5</option>
-      </select>
+      <select id="weekSel"></select>
     </div>
     <div class="field">
       <label>اليوم</label>
@@ -210,6 +298,7 @@
       </select>
     </div>
     <button id="loadBtn">تحميل</button>
+    <button id="overviewBtn" type="button">عرض جدول شامل للفصل</button>
   </div>
 
   <div class="legend">
@@ -218,7 +307,16 @@
     <span><span class="dot" style="background:var(--green)"></span>2</span>
     <span><span class="dot" style="background:var(--gold)"></span>3</span>
     <span><span class="dot" style="background:var(--purple)"></span>4</span>
-    <span style="color:var(--muted)">اضغط على الدائرة لتغيير الدرجة</span>
+    <span><span class="dot" style="background:var(--neg1)"></span>ملاحظة -1</span>
+    <span><span class="dot" style="background:var(--neg2)"></span>ملاحظة -2</span>
+    <span style="color:var(--muted)">اضغط الدائرة للدرجة، والزر الصغير − للملاحظة</span>
+  </div>
+
+  <div id="bulkBar" style="display:none;">
+    <span class="lbl">إضافة للجميع (تُضاف لأي درجة موجودة، لا تمسحها):</span>
+    <button type="button" data-add="1">+1 للجميع</button>
+    <button type="button" data-add="2">+2 للجميع</button>
+    <button type="button" data-add="3">+3 للجميع</button>
   </div>
 
   <div id="status"></div>
@@ -227,6 +325,29 @@
 
   <div id="sendBar" style="display:none;">
     <button id="sendBtn">إرسال الدرجات</button>
+  </div>
+</div>
+
+<div id="overviewModal">
+  <div class="ov-box">
+    <div class="ov-head">
+      <h3 id="overviewTitle">جدول شامل</h3>
+      <button id="closeOverviewBtn" type="button">✕</button>
+    </div>
+    <div class="ov-legend">
+      <span><span class="dot" style="background:var(--gray)"></span>بلا درجة</span>
+      <span><span class="dot" style="background:var(--blue)"></span>1</span>
+      <span><span class="dot" style="background:var(--green)"></span>2</span>
+      <span><span class="dot" style="background:var(--gold)"></span>3</span>
+      <span><span class="dot" style="background:var(--purple)"></span>4</span>
+      <span><span class="dot" style="background:var(--neg1)"></span>ملاحظة -1</span>
+      <span><span class="dot" style="background:var(--neg2)"></span>ملاحظة -2</span>
+      <span>(للعرض فقط — التعديل من شاشة اليوم الواحد)</span>
+    </div>
+    <div id="overviewStatus"></div>
+    <div id="overviewTableWrap">
+      <table id="overviewTable"></table>
+    </div>
   </div>
 </div>
 
@@ -310,21 +431,57 @@
   }
 
   // ===== Grid state =====
+  var NUM_WEEKS = 17; // عدد أسابيع الفصل الدراسي — إن تغيّر عدد الأسابيع في السكريبت، غيّره هنا أيضاً
   var classSel = document.getElementById('classSel');
   var weekSel = document.getElementById('weekSel');
   var daySel = document.getElementById('daySel');
+  (function populateWeeks(){
+    for (var w = 1; w <= NUM_WEEKS; w++){
+      var opt = document.createElement('option');
+      opt.value = String(w);
+      opt.textContent = 'الأسبوع ' + w;
+      weekSel.appendChild(opt);
+    }
+  })();
   var loadBtn = document.getElementById('loadBtn');
   var sendBtn = document.getElementById('sendBtn');
   var sendBar = document.getElementById('sendBar');
+  var bulkBar = document.getElementById('bulkBar');
   var gridEl = document.getElementById('grid');
   var emptyEl = document.getElementById('empty');
   var statusEl = document.getElementById('status');
 
-  var students = []; // [{id, name, grade}]
+  var students = []; // [{id, name, grade}] — grade يمكن أن تكون: 0 (بلا درجة)،
+                      // 1..4 (درجة إيجابية، قد تتجاوز 4 بعد إضافة جماعية)، أو -1/-2 (ملاحظة سالبة)
 
   function setStatus(msg, kind){
     statusEl.textContent = msg || '';
     statusEl.className = kind ? kind : '';
+  }
+
+  // المستوى البصري (اللون) المقابل لقيمة الدرجة الفعلية:
+  // أي قيمة >=4 تبقى بنفسجي (المستوى 4) والرقم الحقيقي يظهر داخل الدائرة،
+  // وأي قيمة <=-2 تبقى بأحمر (المستوى -2).
+  function tierOf(grade){
+    if (grade <= -2) return -2;
+    if (grade === -1) return -1;
+    if (grade <= 0) return 0;
+    if (grade >= 4) return 4;
+    return grade; // 1, 2, 3
+  }
+
+  // نقرة الدائرة الرئيسية: دورة الدرجات الإيجابية 0→1→2→3→4→0.
+  // أي قيمة خارج هذا المدى (سالبة، أو أعلى من 4 بسبب إضافة جماعية) تُعتبر نقطة بداية جديدة فتُصبح 1.
+  function positiveTap(stu){
+    if (stu.grade < 0 || stu.grade > 4) stu.grade = 1;
+    else stu.grade = (stu.grade + 1) % 5;
+  }
+
+  // نقرة الزر الصغير (−): دورة الملاحظات السالبة 0→-1→-2→0، مستقلة عن الدورة الإيجابية.
+  function negativeTap(stu){
+    if (stu.grade >= 0) stu.grade = -1;
+    else if (stu.grade === -1) stu.grade = -2;
+    else stu.grade = 0;
   }
 
   function renderGrid(){
@@ -333,31 +490,66 @@
       emptyEl.style.display = 'block';
       emptyEl.textContent = 'لا يوجد طلاب في هذا الفصل';
       sendBar.style.display = 'none';
+      bulkBar.style.display = 'none';
       return;
     }
     emptyEl.style.display = 'none';
     sendBar.style.display = 'flex';
+    bulkBar.style.display = 'flex';
     students.forEach(function(stu, idx){
       var card = document.createElement('div');
       card.className = 'stu';
-      card.setAttribute('data-g', String(stu.grade));
       card.setAttribute('data-idx', String(idx));
+
+      var negBtn = document.createElement('div');
+      negBtn.className = 'negbtn';
+      negBtn.textContent = '−';
+      negBtn.setAttribute('role', 'button');
+      negBtn.setAttribute('aria-label', 'تسجيل ملاحظة سالبة');
+
       var circ = document.createElement('div');
       circ.className = 'circle';
-      circ.textContent = stu.grade > 0 ? String(stu.grade) : '';
+
       var nm = document.createElement('div');
       nm.className = 'nm';
       nm.textContent = displayName(stu.name);
+
+      function updateUI(){
+        card.setAttribute('data-g', String(stu.grade));
+        card.setAttribute('data-tier', String(tierOf(stu.grade)));
+        circ.textContent = stu.grade !== 0 ? String(stu.grade) : '';
+      }
+      updateUI();
+
+      card.addEventListener('click', function(e){
+        if (e.target.closest('.negbtn')) return; // يُعالَج بشكل منفصل أدناه
+        positiveTap(stu);
+        updateUI();
+      });
+      negBtn.addEventListener('click', function(e){
+        e.stopPropagation();
+        negativeTap(stu);
+        updateUI();
+      });
+
+      card.appendChild(negBtn);
       card.appendChild(circ);
       card.appendChild(nm);
-      card.addEventListener('click', function(){
-        stu.grade = (stu.grade + 1) % 5; // 0..4 ثم رجوع لـ0
-        card.setAttribute('data-g', String(stu.grade));
-        circ.textContent = stu.grade > 0 ? String(stu.grade) : '';
-      });
       gridEl.appendChild(card);
     });
   }
+
+  function bulkAdd(n){
+    if (!students.length) return;
+    students.forEach(function(stu){ stu.grade = stu.grade + n; });
+    renderGrid();
+  }
+
+  bulkBar.querySelectorAll('button[data-add]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      bulkAdd(parseInt(btn.getAttribute('data-add'), 10));
+    });
+  });
 
   function loadGrid(){
     var classId = classSel.value;
@@ -434,6 +626,125 @@
 
   loadBtn.addEventListener('click', loadGrid);
   sendBtn.addEventListener('click', sendGrid);
+
+  // ===== Overview modal: جدول شامل بكل درجات الفصل لكل الأسابيع (عرض فقط) =====
+  var overviewModal = document.getElementById('overviewModal');
+  var overviewBtn = document.getElementById('overviewBtn');
+  var closeOverviewBtn = document.getElementById('closeOverviewBtn');
+  var overviewTitle = document.getElementById('overviewTitle');
+  var overviewStatus = document.getElementById('overviewStatus');
+  var overviewTable = document.getElementById('overviewTable');
+  var DAY_LABELS = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس'];
+
+  function tierClass(tier){
+    if (tier === 0) return '';
+    if (tier > 0) return 't' + tier;
+    return 'tn' + Math.abs(tier);
+  }
+
+  function closeOverview(){
+    overviewModal.classList.remove('open');
+  }
+
+  function openOverview(){
+    overviewModal.classList.add('open');
+    var opt = classSel.options[classSel.selectedIndex];
+    overviewTitle.textContent = 'جدول شامل — ' + (opt ? opt.textContent : classSel.value);
+    loadOverview(classSel.value);
+  }
+
+  function loadOverview(classId){
+    overviewTable.innerHTML = '';
+    overviewStatus.textContent = 'جاري التحميل...';
+    overviewStatus.className = '';
+
+    var url = SCRIPT_URL + '?action=getParticipationOverview&classId=' + encodeURIComponent(classId);
+    fetch(url)
+      .then(function(r){ return r.json(); })
+      .then(function(res){
+        if (res && res.status === 'error'){
+          overviewStatus.textContent = 'خطأ: ' + res.message;
+          overviewStatus.className = 'err';
+          return;
+        }
+        var data = (res && res.data) ? res.data : res;
+        renderOverviewTable(data);
+        overviewStatus.textContent = 'عدد الطلاب: ' + (data.students ? data.students.length : 0);
+        overviewStatus.className = '';
+      })
+      .catch(function(err){
+        overviewStatus.textContent = 'تعذّر الاتصال بالخادم: ' + err.message;
+        overviewStatus.className = 'err';
+      });
+  }
+
+  function renderOverviewTable(data){
+    var weeks = data.weeks || NUM_WEEKS;
+    var days = data.days || 5;
+    var students = data.students || [];
+
+    var thead = document.createElement('thead');
+    var weekRow = document.createElement('tr');
+    weekRow.className = 'ov-week-row';
+    var nameHeadTop = document.createElement('th');
+    nameHeadTop.className = 'ov-name-col';
+    nameHeadTop.rowSpan = 2;
+    nameHeadTop.textContent = 'الطالب';
+    weekRow.appendChild(nameHeadTop);
+    for (var w = 1; w <= weeks; w++){
+      var wth = document.createElement('th');
+      wth.colSpan = days;
+      wth.textContent = 'الأسبوع ' + w;
+      weekRow.appendChild(wth);
+    }
+    var dayRow = document.createElement('tr');
+    dayRow.className = 'ov-day-row';
+    for (var w2 = 1; w2 <= weeks; w2++){
+      for (var d = 1; d <= days; d++){
+        var dth = document.createElement('th');
+        dth.textContent = String(d);
+        dth.title = DAY_LABELS[d - 1] || '';
+        dayRow.appendChild(dth);
+      }
+    }
+    thead.appendChild(weekRow);
+    thead.appendChild(dayRow);
+
+    var tbody = document.createElement('tbody');
+    students.forEach(function(stu){
+      var tr = document.createElement('tr');
+      var nameTd = document.createElement('td');
+      nameTd.className = 'ov-name-col';
+      nameTd.textContent = displayName(stu.name);
+      nameTd.title = stu.name;
+      tr.appendChild(nameTd);
+      (stu.grades || []).forEach(function(g){
+        var td = document.createElement('td');
+        if (g !== 0){
+          var badge = document.createElement('span');
+          badge.className = 'ov-badge ' + tierClass(tierOf(g));
+          badge.textContent = String(g);
+          td.appendChild(badge);
+        }
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+
+    overviewTable.innerHTML = '';
+    overviewTable.appendChild(thead);
+    overviewTable.appendChild(tbody);
+
+    // ضبط دقيق لموضع صف "الأيام" اللاصق أسفل صف "الأسابيع" اللاصق، مهما كان ارتفاع الخط فعلياً.
+    var weekRowHeight = weekRow.getBoundingClientRect().height;
+    dayRow.querySelectorAll('th').forEach(function(th){ th.style.top = weekRowHeight + 'px'; });
+  }
+
+  overviewBtn.addEventListener('click', openOverview);
+  closeOverviewBtn.addEventListener('click', closeOverview);
+  overviewModal.addEventListener('click', function(e){
+    if (e.target === overviewModal) closeOverview();
+  });
 })();
 </script>
 </body>

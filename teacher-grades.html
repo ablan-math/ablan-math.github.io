@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>درجات المشاركة اليومية</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f4f6fb; --card:#ffffff; --ink:#1c2333; --muted:#6b7488;
+    --line:#e4e8f1; --accent:#4f6df5; --accent2:#7c5cff;
+    --gray:#c9ccd6; --blue:#4f8ef7; --green:#38b06b; --gold:#e8ab1f; --purple:#8b5cf6;
+    --shadow:0 10px 30px -12px rgba(30,40,70,.18);
+    --radius:18px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0f1220; --card:#171b2c; --ink:#eef0f8; --muted:#9298b3;
+      --line:#262c44; --shadow:0 10px 30px -12px rgba(0,0,0,.5);
+      --gray:#3a3f52;
+    }
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:'Cairo',sans-serif;
+    min-height:100vh;
+  }
+  /* ===== Password gate ===== */
+  #gate{
+    position:fixed; inset:0; z-index:999;
+    display:flex; align-items:center; justify-content:center;
+    background:linear-gradient(160deg,var(--accent),var(--accent2));
+    padding:20px;
+  }
+  #gate.hidden{display:none;}
+  .gate-card{
+    background:var(--card); border-radius:24px; box-shadow:var(--shadow);
+    padding:34px 28px; width:100%; max-width:340px; text-align:center;
+  }
+  .gate-card .lock{
+    width:56px; height:56px; margin:0 auto 14px; border-radius:50%;
+    background:linear-gradient(135deg,var(--accent),var(--accent2));
+    display:flex; align-items:center; justify-content:center;
+  }
+  .gate-card .lock svg{width:26px; height:26px; fill:#fff;}
+  .gate-card h1{font-size:18px; margin:0 0 6px; font-weight:800;}
+  .gate-card p{font-size:13px; color:var(--muted); margin:0 0 18px;}
+  #gate input{
+    width:100%; padding:14px; border-radius:14px; border:2px solid var(--line);
+    background:var(--bg); color:var(--ink); font-size:22px; text-align:center;
+    letter-spacing:8px; font-weight:700; font-family:'Cairo',sans-serif;
+    outline:none; transition:border-color .15s;
+  }
+  #gate input:focus{border-color:var(--accent);}
+  #gate button{
+    width:100%; margin-top:12px; padding:13px; border:none; border-radius:14px;
+    background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#fff;
+    font-weight:700; font-size:15px; font-family:'Cairo',sans-serif; cursor:pointer;
+  }
+  #gate button:active{transform:scale(.98);}
+  #gateErr{color:#e0446b; font-size:13px; margin-top:10px; min-height:16px; font-weight:600;}
+
+  /* ===== Main app ===== */
+  #app{display:none; padding:16px; max-width:1400px; margin:0 auto;}
+  #app.visible{display:block;}
+  header.top{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    margin-bottom:14px; flex-wrap:wrap;
+  }
+  header.top h2{font-size:17px; margin:0; font-weight:800;}
+  header.top .sub{font-size:12px; color:var(--muted);}
+  #logoutBtn{
+    border:none; background:var(--card); color:var(--muted); border:1px solid var(--line);
+    padding:8px 14px; border-radius:12px; font-family:'Cairo',sans-serif; font-size:12px;
+    cursor:pointer; font-weight:700;
+  }
+
+  .controls{
+    background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow);
+    padding:14px; display:flex; gap:10px; flex-wrap:wrap; align-items:end; margin-bottom:16px;
+  }
+  .field{display:flex; flex-direction:column; gap:5px; min-width:110px; flex:1;}
+  .field label{font-size:11px; color:var(--muted); font-weight:700;}
+  .field select{
+    padding:10px; border-radius:10px; border:1.5px solid var(--line);
+    background:var(--bg); color:var(--ink); font-family:'Cairo',sans-serif; font-weight:700;
+    font-size:14px;
+  }
+  #loadBtn{
+    border:none; padding:11px 20px; border-radius:10px; cursor:pointer;
+    background:var(--accent); color:#fff; font-weight:800; font-family:'Cairo',sans-serif;
+    font-size:13px; white-space:nowrap;
+  }
+  #loadBtn:disabled{opacity:.6;}
+
+  .legend{
+    display:flex; gap:14px; flex-wrap:wrap; margin-bottom:14px; font-size:12px;
+    color:var(--muted); align-items:center;
+  }
+  .legend .dot{width:14px; height:14px; border-radius:50%; display:inline-block; vertical-align:middle; margin-inline-end:5px;}
+
+  #status{font-size:13px; color:var(--muted); margin-bottom:10px; min-height:18px;}
+  #status.err{color:#e0446b; font-weight:700;}
+  #status.ok{color:#1fa363; font-weight:700;}
+
+  #grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(84px,1fr));
+    gap:10px;
+  }
+  .stu{
+    background:var(--card); border-radius:14px; box-shadow:var(--shadow);
+    padding:10px 6px 12px; text-align:center; cursor:pointer; user-select:none;
+    -webkit-tap-highlight-color:transparent; transition:transform .1s;
+    border:2px solid transparent;
+  }
+  .stu:active{transform:scale(.94);}
+  .circle{
+    width:100%; aspect-ratio:1/1; max-width:56px; margin:0 auto 6px;
+    border-radius:50%; background:var(--gray);
+    display:flex; align-items:center; justify-content:center;
+    font-weight:800; color:#fff; font-size:15px;
+    transition:background .15s;
+    box-shadow:inset 0 -3px 8px rgba(0,0,0,.12);
+  }
+  .stu .nm{
+    font-size:11.5px; font-weight:700; line-height:1.25; color:var(--ink);
+    overflow-wrap:anywhere;
+  }
+  .stu[data-g="0"] .circle{background:var(--gray);}
+  .stu[data-g="1"] .circle{background:var(--blue);}
+  .stu[data-g="2"] .circle{background:var(--green);}
+  .stu[data-g="3"] .circle{background:var(--gold);}
+  .stu[data-g="4"] .circle{background:var(--purple);}
+
+  #sendBar{
+    position:sticky; bottom:14px; margin-top:20px; display:flex; justify-content:center;
+  }
+  #sendBtn{
+    border:none; padding:15px 46px; border-radius:16px; cursor:pointer;
+    background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#fff;
+    font-weight:800; font-size:15px; font-family:'Cairo',sans-serif;
+    box-shadow:0 12px 26px -8px rgba(79,109,245,.55);
+  }
+  #sendBtn:disabled{opacity:.6; cursor:default;}
+  #empty{text-align:center; color:var(--muted); padding:40px 10px; font-size:14px;}
+
+  @media (max-width:480px){
+    #grid{grid-template-columns:repeat(auto-fill,minmax(70px,1fr)); gap:8px;}
+    .circle{max-width:46px;}
+    .stu .nm{font-size:10.5px;}
+  }
+</style>
+</head>
+<body>
+
+<div id="gate">
+  <div class="gate-card">
+    <div class="lock">
+      <svg viewBox="0 0 24 24"><path d="M12 1a5 5 0 0 0-5 5v3H6a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2h-1V6a5 5 0 0 0-5-5zm0 2a3 3 0 0 1 3 3v3H9V6a3 3 0 0 1 3-3z"/></svg>
+    </div>
+    <h1>صفحة المعلم</h1>
+    <p>أدخل الرمز السري للدخول إلى صفحة درجات المشاركة</p>
+    <input id="pinInput" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="10" placeholder="••••" autocomplete="off">
+    <button id="pinBtn">دخول</button>
+    <div id="gateErr"></div>
+  </div>
+</div>
+
+<div id="app">
+  <header class="top">
+    <div>
+      <h2>درجات المشاركة اليومية</h2>
+      <div class="sub">مستقلة تماماً عن درجات الدروس والألعاب</div>
+    </div>
+    <button id="logoutBtn">تسجيل الخروج</button>
+  </header>
+
+  <div class="controls">
+    <div class="field">
+      <label>الفصل</label>
+      <select id="classSel">
+        <option value="3-1">ثالث / أول</option>
+        <option value="3-2">ثالث / ثاني</option>
+        <option value="3-3">ثالث / ثالث</option>
+        <option value="3-4">ثالث / رابع</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>الأسبوع</label>
+      <select id="weekSel">
+        <option value="1">الأسبوع 1</option>
+        <option value="2">الأسبوع 2</option>
+        <option value="3">الأسبوع 3</option>
+        <option value="4">الأسبوع 4</option>
+        <option value="5">الأسبوع 5</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>اليوم</label>
+      <select id="daySel">
+        <option value="1">الأحد</option>
+        <option value="2">الاثنين</option>
+        <option value="3">الثلاثاء</option>
+        <option value="4">الأربعاء</option>
+        <option value="5">الخميس</option>
+      </select>
+    </div>
+    <button id="loadBtn">تحميل</button>
+  </div>
+
+  <div class="legend">
+    <span><span class="dot" style="background:var(--gray)"></span>بلا درجة</span>
+    <span><span class="dot" style="background:var(--blue)"></span>1</span>
+    <span><span class="dot" style="background:var(--green)"></span>2</span>
+    <span><span class="dot" style="background:var(--gold)"></span>3</span>
+    <span><span class="dot" style="background:var(--purple)"></span>4</span>
+    <span style="color:var(--muted)">اضغط على الدائرة لتغيير الدرجة</span>
+  </div>
+
+  <div id="status"></div>
+  <div id="grid"></div>
+  <div id="empty" style="display:none;">اختر الفصل والأسبوع واليوم ثم اضغط "تحميل"</div>
+
+  <div id="sendBar" style="display:none;">
+    <button id="sendBtn">إرسال الدرجات</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
+  var AUTH_KEY = "tg_auth_ok_v1";
+  var PASS_HASH = 1537248; // ليس النص الصريح للرمز — قيمة تجزئة بسيطة فقط للتشويش
+
+  function hashCode(str){
+    var h = 0;
+    for (var i = 0; i < str.length; i++){
+      h = (h << 5) - h + str.charCodeAt(i);
+      h |= 0;
+    }
+    return h;
+  }
+
+  // ===== Password gate =====
+  var gate = document.getElementById('gate');
+  var app = document.getElementById('app');
+  var pinInput = document.getElementById('pinInput');
+  var pinBtn = document.getElementById('pinBtn');
+  var gateErr = document.getElementById('gateErr');
+
+  function showApp(){
+    gate.classList.add('hidden');
+    app.classList.add('visible');
+  }
+
+  function tryUnlock(val){
+    if (hashCode(String(val)) === PASS_HASH){
+      try { localStorage.setItem(AUTH_KEY, '1'); } catch(e){}
+      gateErr.textContent = '';
+      showApp();
+      return true;
+    }
+    gateErr.textContent = 'الرمز غير صحيح، حاول مرة أخرى';
+    pinInput.value = '';
+    pinInput.focus();
+    return false;
+  }
+
+  pinBtn.addEventListener('click', function(){ tryUnlock(pinInput.value); });
+  pinInput.addEventListener('keydown', function(e){
+    if (e.key === 'Enter') tryUnlock(pinInput.value);
+  });
+
+  document.getElementById('logoutBtn').addEventListener('click', function(){
+    try { localStorage.removeItem(AUTH_KEY); } catch(e){}
+    location.reload();
+  });
+
+  var already = false;
+  try { already = localStorage.getItem(AUTH_KEY) === '1'; } catch(e){}
+  if (already){
+    showApp();
+  }
+  // إن لم يتم التحقق، تبقى #app بحالتها الافتراضية (display:none) ولا يُعرض أي محتوى.
+
+  // ===== Name display logic =====
+  // الاسم الأول + الاسم الأخير، مع دمج "عبد" مع الكلمة التالية لها إن وُجدت
+  // (مثل "عبد الله" أو "عبد الرحمن") بحيث لا تظهر "عبد" منفردة بلا معنى.
+  function displayName(fullName){
+    var words = String(fullName || '').trim().split(/\s+/).filter(Boolean);
+    if (words.length === 0) return '';
+    if (words.length === 1) return words[0];
+    var first = words[0];
+    var firstEndIdx = 0;
+    if (words[0] === 'عبد' && words.length > 1){
+      first = words[0] + ' ' + words[1];
+      firstEndIdx = 1;
+    }
+    if (firstEndIdx >= words.length - 1){
+      // لا توجد كلمة أخيرة مستقلة بعد الاسم الأول المدمج
+      return first;
+    }
+    var last = words[words.length - 1];
+    return first + ' ' + last;
+  }
+
+  // ===== Grid state =====
+  var classSel = document.getElementById('classSel');
+  var weekSel = document.getElementById('weekSel');
+  var daySel = document.getElementById('daySel');
+  var loadBtn = document.getElementById('loadBtn');
+  var sendBtn = document.getElementById('sendBtn');
+  var sendBar = document.getElementById('sendBar');
+  var gridEl = document.getElementById('grid');
+  var emptyEl = document.getElementById('empty');
+  var statusEl = document.getElementById('status');
+
+  var students = []; // [{id, name, grade}]
+
+  function setStatus(msg, kind){
+    statusEl.textContent = msg || '';
+    statusEl.className = kind ? kind : '';
+  }
+
+  function renderGrid(){
+    gridEl.innerHTML = '';
+    if (!students.length){
+      emptyEl.style.display = 'block';
+      emptyEl.textContent = 'لا يوجد طلاب في هذا الفصل';
+      sendBar.style.display = 'none';
+      return;
+    }
+    emptyEl.style.display = 'none';
+    sendBar.style.display = 'flex';
+    students.forEach(function(stu, idx){
+      var card = document.createElement('div');
+      card.className = 'stu';
+      card.setAttribute('data-g', String(stu.grade));
+      card.setAttribute('data-idx', String(idx));
+      var circ = document.createElement('div');
+      circ.className = 'circle';
+      circ.textContent = stu.grade > 0 ? String(stu.grade) : '';
+      var nm = document.createElement('div');
+      nm.className = 'nm';
+      nm.textContent = displayName(stu.name);
+      card.appendChild(circ);
+      card.appendChild(nm);
+      card.addEventListener('click', function(){
+        stu.grade = (stu.grade + 1) % 5; // 0..4 ثم رجوع لـ0
+        card.setAttribute('data-g', String(stu.grade));
+        circ.textContent = stu.grade > 0 ? String(stu.grade) : '';
+      });
+      gridEl.appendChild(card);
+    });
+  }
+
+  function loadGrid(){
+    var classId = classSel.value;
+    var week = weekSel.value;
+    var day = daySel.value;
+    loadBtn.disabled = true;
+    setStatus('جاري التحميل...', '');
+    students = [];
+    renderGrid();
+
+    var url = SCRIPT_URL + '?action=getParticipationGrid'
+      + '&classId=' + encodeURIComponent(classId)
+      + '&week=' + encodeURIComponent(week)
+      + '&day=' + encodeURIComponent(day);
+
+    fetch(url)
+      .then(function(r){ return r.json(); })
+      .then(function(res){
+        loadBtn.disabled = false;
+        var payload = (res && res.data) ? res.data : res;
+        if (res && res.status === 'error'){
+          setStatus('خطأ: ' + res.message, 'err');
+          return;
+        }
+        students = (payload && payload.students) ? payload.students.map(function(s){
+          return { id: s.id, name: s.name, grade: parseInt(s.grade, 10) || 0 };
+        }) : [];
+        renderGrid();
+        setStatus('تم التحميل — ' + students.length + ' طالب', 'ok');
+      })
+      .catch(function(err){
+        loadBtn.disabled = false;
+        setStatus('تعذّر الاتصال بالخادم: ' + err.message, 'err');
+      });
+  }
+
+  function sendGrid(){
+    if (!students.length) return;
+    sendBtn.disabled = true;
+    sendBtn.textContent = 'جاري الإرسال...';
+    setStatus('جاري إرسال الدرجات...', '');
+
+    var payload = {
+      action: 'saveParticipationGrid',
+      classId: classSel.value,
+      week: weekSel.value,
+      day: daySel.value,
+      entries: students.map(function(s){ return { id: s.id, grade: s.grade }; })
+    };
+
+    fetch(SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload)
+    })
+      .then(function(r){ return r.json(); })
+      .then(function(res){
+        sendBtn.disabled = false;
+        sendBtn.textContent = 'إرسال الدرجات';
+        if (res && res.status === 'error'){
+          setStatus('خطأ أثناء الحفظ: ' + res.message, 'err');
+          return;
+        }
+        var d = (res && res.data) ? res.data : {};
+        setStatus('تم الحفظ بنجاح ✓ (' + (d.updated || students.length) + ' طالب)', 'ok');
+      })
+      .catch(function(err){
+        sendBtn.disabled = false;
+        sendBtn.textContent = 'إرسال الدرجات';
+        setStatus('تعذّر الاتصال بالخادم، لم يتم الحفظ. حاول مرة أخرى: ' + err.message, 'err');
+        // نحافظ على الحالة المحلية (الدرجات المختارة) للسماح بإعادة المحاولة دون فقدان العمل.
+      });
+  }
+
+  loadBtn.addEventListener('click', loadGrid);
+  sendBtn.addEventListener('click', sendGrid);
+})();
+</script>
+</body>
+</html>

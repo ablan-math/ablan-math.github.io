@@ -269,30 +269,12 @@
             <div id="explanationText" class="text-gray-700 max-h-[60vh] overflow-y-auto"></div>
         </div>
     </div>
+    <script src="../js/lesson-core.js"></script>
     <script>
-    // ===================================================================================
-    // الدوال المشتركة (لا تقم بتعديل هذا الجزء)
-    // ===================================================================================
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
-    const MAX_ATTEMPTS = 3;
-    let currentQuestions = []; 
-    function getStudentFromStorage() { const studentDataString = localStorage.getItem('currentStudent'); if (studentDataString) { try { return JSON.parse(studentDataString); } catch (e) { return null; } } return null; }
-    function buildHeader(studentData, studentId, classId) { const headerContainer = document.getElementById('main-header'); if (!headerContainer) return; let titleHtml = `<div><h2 class="text-sm text-gray-500 leading-tight">منصة الرياضيات التفاعلية</h2><h1 class="text-xl font-bold text-indigo-700 leading-tight">${document.getElementById('lesson-title').textContent}</h1></div>`; let userInfoHtml = ''; if (studentData) { userInfoHtml = `<div class="text-left"><div class="flex items-center gap-4"><span class="font-semibold">أهلاً، ${studentData.name}</span><a href="../index.html" target="_top" id="logout-link" class="bg-red-500 text-white py-1 px-3 rounded-lg hover:bg-red-600 text-sm">خروج</a></div><a href="../index.html" target="_top" class="text-xs text-blue-600 hover:underline mt-1 block">&larr; العودة إلى الفهرس</a></div>`; } else if (studentId) { userInfoHtml = `<div class="text-left"><span class="font-semibold">أهلاً، طالب ${studentId}</span><a href="../index.html" target="_top" class="text-xs text-blue-600 hover:underline mt-1 block">&larr; العودة إلى الفهرس</a></div>`; } else { userInfoHtml = `<div class="text-left"><p class="font-semibold">زائر</p><a href="../index.html" target="_top" class="text-xs text-blue-600 hover:underline mt-1 block">&larr; العودة إلى الفهرس</a></div>`; } headerContainer.innerHTML = `<div class="container mx-auto px-6 py-4 flex justify-between items-center">${titleHtml}${userInfoHtml}</div>`; const logoutLink = headerContainer.querySelector('#logout-link'); if(logoutLink) { logoutLink.addEventListener('click', () => { localStorage.removeItem('currentStudent'); }); } }
-    function buildFooter() { const footerContainer = document.getElementById('main-footer'); if (!footerContainer) return; footerContainer.innerHTML = `<div class="container mx-auto px-6"><p class="text-center text-gray-600 text-sm">© 2024 جميع الحقوق محفوظة | تصميم وتطوير: أ. عبدالعزيز خالد العبلان</p></div>`; }
-    function initializeQuiz(lessonId, questions, studentId, classId, studentData) { currentQuestions = questions; const quizForm = document.getElementById('quizForm'); if (!quizForm) return; if (questions.length === 0) { quizForm.innerHTML = `<p class="text-center text-gray-600">لا توجد أسئلة متاحة لهذا الدرس حالياً.</p>`; return; } let attemptsLeft = 1; if (studentData) { const studentLessonData = studentData.lessons?.[lessonId] || { attempts: 0 }; attemptsLeft = MAX_ATTEMPTS - studentLessonData.attempts; } const attemptsCounter = document.getElementById('attempts-counter'); if (attemptsCounter) { attemptsCounter.innerHTML = `المحاولات المتبقية: <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded-full">${attemptsLeft}</span>`; } const quizHtml = questions.map((q, index) => { const optionsHTML = q.options.map((opt, optIndex) => `<div><input type="radio" name="q${index}" value="${opt.value}" id="q${index}_opt${optIndex}" class="hidden"><label for="q${index}_opt${optIndex}" class="option-label">${opt.display}</label></div>`).join(''); return `<div class="p-4 border-2 border-gray-200 rounded-lg"><p class="font-bold">${index + 1}. <span class="text-yellow-500">${q.level}</span> ${q.text}</p><div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">${optionsHTML}</div><div id="feedback-q${index}" class="mt-2 text-sm font-bold"></div><div id="explanation-buttons-${index}" class="hidden mt-2 space-x-4 rtl:space-x-reverse"><button type="button" id="explain-btn-${index}" class="text-xs text-blue-600 hover:underline">اعرف لماذا؟</button><button type="button" id="smart-explain-btn-${index}" class="text-xs text-purple-600 hover:underline">🧠 حل ذكي</button></div></div>`; }).join(''); quizForm.innerHTML = quizHtml + `<button type="submit" id="submit-quiz-btn" class="w-full text-white bg-green-600 hover:bg-green-700 font-medium rounded-lg text-lg px-5 py-3 mt-8">تحقق من إجاباتي</button>`; questions.forEach((q, index) => { const explainBtn = document.getElementById(`explain-btn-${index}`); if(explainBtn) explainBtn.addEventListener('click', () => showExplanation(index)); const smartExplainBtn = document.getElementById(`smart-explain-btn-${index}`); if(smartExplainBtn) { if (q.smartExplanation) { smartExplainBtn.addEventListener('click', () => showSmartExplanation(index)); } else { smartExplainBtn.style.display = 'none'; } } }); if (attemptsLeft <= 0) { const submitBtn = quizForm.querySelector('#submit-quiz-btn'); submitBtn.disabled = true; submitBtn.textContent = 'لا توجد محاولات متبقية'; submitBtn.classList.add('bg-gray-400', 'hover:bg-gray-400'); } quizForm.onsubmit = (e) => { e.preventDefault(); let score = 0; questions.forEach((q, index) => { const userAnswer = e.target.elements[`q${index}`]?.value; const feedbackEl = document.getElementById(`feedback-q${index}`); if (userAnswer === q.correct) { score++; feedbackEl.textContent = '✔ إجابة صحيحة!'; feedbackEl.className = 'mt-2 text-sm font-bold text-green-600'; } else { feedbackEl.textContent = `❌ إجابة خاطئة.`; feedbackEl.className = 'mt-2 text-sm font-bold text-red-600'; } document.getElementById(`explanation-buttons-${index}`).classList.remove('hidden');}); const finalGrade = Math.round((score / questions.length) * 10); const resultsDiv = document.getElementById('quiz-results'); resultsDiv.classList.remove('hidden'); document.getElementById('quiz-score').textContent = `${finalGrade} / 10`; if (studentId && classId) { saveGrade(lessonId, finalGrade, studentId, classId); if (studentData && (attemptsLeft - 1 > 0)) { document.getElementById('retake-quiz-btn').classList.remove('hidden'); } } else { document.getElementById('save-status').textContent = 'تم عرض نتيجتك. سجل الدخول لحفظ تقدمك.'; } e.target.querySelector('#submit-quiz-btn').disabled = true; }; }
-    function saveGrade(lessonId, grade, studentId, classId) { if (!studentId || !classId) { const saveStatus = document.getElementById('save-status'); saveStatus.textContent = '❌ خطأ: لم يتم العثور على معرّف الطالب أو الفصل في الرابط.'; console.error("Student ID or Class ID is missing from the URL."); return; } const saveStatus = document.getElementById('save-status'); saveStatus.textContent = 'جارٍ حفظ نتيجتك...'; const url = `${SCRIPT_URL}?action=saveGrade&studentId=${studentId}&classId=${classId}&lessonId=${lessonId}&grade=${grade}`; fetch(url) .then(res => res.json()) .then(result => { if (result.status === 'success') { saveStatus.textContent = '✔ تم حفظ نتيجتك بنجاح!'; const studentData = getStudentFromStorage(); if(studentData) { if (!studentData.lessons) studentData.lessons = {}; if (!studentData.lessons[lessonId] || studentData.lessons[lessonId].grade < grade) { studentData.lessons[lessonId] = { grade: grade, attempts: (studentData.lessons[lessonId]?.attempts || 0) + 1 }; } else { studentData.lessons[lessonId].attempts++; } localStorage.setItem('currentStudent', JSON.stringify(studentData)); } } else { throw new Error(result.message); } }) .catch(error => { saveStatus.textContent = '❌ حدث خطأ أثناء حفظ الدرجة.'; console.error("Save Grade Error:", error); }); }
-    function showExplanation(questionIndex) { const modal = document.getElementById('explanationModal'); const explanationText = document.getElementById('explanationText'); if(modal && explanationText && currentQuestions[questionIndex] && currentQuestions[questionIndex].explanation) { explanationText.innerHTML = currentQuestions[questionIndex].explanation; modal.classList.remove('hidden'); } }
-    function showSmartExplanation(questionIndex) { const modal = document.getElementById('explanationModal'); const explanationText = document.getElementById('explanationText'); if(modal && explanationText && currentQuestions[questionIndex] && currentQuestions[questionIndex].smartExplanation) { explanationText.innerHTML = `<div class="p-3 bg-sky-50 border-r-4 border-sky-500 rounded-r-lg"><h4 class="font-bold text-sky-800">⚡️ حل ذكي وسريع</h4><p class="text-sm text-sky-700 mt-1">${currentQuestions[questionIndex].smartExplanation}</p></div>`; modal.classList.remove('hidden'); } }
-    function closeModal() { const modal = document.getElementById('explanationModal'); if(modal) modal.classList.add('hidden'); }
-    
-    // ===================================================================================
-    // مشغل الكود (هنا تضع محتوى الدرس)
-    // ===================================================================================
-    
-    // 1. تحديد معرّف فريد للدرس
+    // =================================================================================
+    // محتوى الدرس المحدد (هذا القسم يتم تعديله لكل درس)
+    // =================================================================================
     const LESSON_ID = 'c1_l2'; 
-
-    // 2. بنك الأسئلة الخاص بالدرس
     function generateQuiz() {
         const questionBank = [
             { type: 'mcq', level: '⭐', topic: 'addition', text: 'حل المعادلة: <span class="math-eq">س + ١٠ = ٣٥</span>', options: [ { display: '<span class="math-eq">٤٥</span>', value: '٤٥' }, { display: '<span class="math-eq">٢٥</span>', value: '٢٥' }, { display: '<span class="math-eq">٣.٥</span>', value: '٣.٥' }, { display: '<span class="math-eq">-٢٥</span>', value: '-٢٥' } ], correct: '٢٥', explanation: `<p class='mb-2'>لحل المعادلة، نطرح <span class="math-eq">١٠</span> من كلا الطرفين.</p><div class='text-right space-y-2'><p>أولاً: <span class='math-eq'>س + ١٠ <span class='highlight-change'>- <span class="highlight-action">١٠</span></span> = ٣٥ <span class='highlight-change'>- <span class="highlight-action">١٠</span></span></span></p><p>ثانياً: <span class='math-eq'>س = ٢٥</span></p></div>`, smartExplanation: `حل ذهني: ما هو العدد الذي إذا أضفنا له ١٠ يصبح ٣٥؟ إنه ٢٥.` },
@@ -313,90 +295,6 @@
         const questionCount = Math.min(shuffled.length, 5);
         return shuffled.slice(0, questionCount);
     }
-
-    // 3. تشغيل الكود عند تحميل الصفحة
-    document.addEventListener('DOMContentLoaded', () => {
-        const urlParams = new URLSearchParams(window.location.search);
-        const studentId = urlParams.get('studentId');
-        const classId = urlParams.get('classId');
-
-        const exampleContainers = document.querySelectorAll('[id^="interactive-container-"]');
-        const state = {};
-        exampleContainers.forEach(container => {
-            const exampleId = container.id.split('-')[2];
-            state[exampleId] = {
-                currentIndex: -1,
-                steps: container.querySelectorAll('.step-interactive'),
-                placeholder: container.querySelector('.interactive-placeholder'),
-                prevBtn: container.querySelector('.prev-btn'),
-                nextBtn: container.querySelector('.next-btn'),
-                resetBtn: container.querySelector('.reset-btn')
-            };
-            const resetExample = () => {
-                state[exampleId].steps.forEach(step => step.classList.remove('active'));
-                state[exampleId].currentIndex = -1;
-                if (state[exampleId].placeholder) {
-                    state[exampleId].placeholder.classList.remove('hidden');
-                }
-                updateButtons();
-            };
-            const updateButtons = () => {
-                const isFirstStep = state[exampleId].currentIndex <= -1;
-                const isLastStep = state[exampleId].currentIndex >= state[exampleId].steps.length - 1;
-                state[exampleId].prevBtn.disabled = isFirstStep;
-                if (isLastStep) {
-                    state[exampleId].nextBtn.classList.add('hidden');
-                    state[exampleId].resetBtn.classList.remove('hidden');
-                } else {
-                    state[exampleId].nextBtn.classList.remove('hidden');
-                    state[exampleId].resetBtn.classList.add('hidden');
-                }
-            };
-            state[exampleId].nextBtn.addEventListener('click', () => {
-                if (state[exampleId].currentIndex < state[exampleId].steps.length - 1) {
-                    if (state[exampleId].currentIndex === -1 && state[exampleId].placeholder) {
-                        state[exampleId].placeholder.classList.add('hidden');
-                    }
-                    state[exampleId].currentIndex++;
-                    state[exampleId].steps[state[exampleId].currentIndex].classList.add('active');
-                    updateButtons();
-                }
-            });
-            state[exampleId].prevBtn.addEventListener('click', () => {
-                if (state[exampleId].currentIndex > 0) {
-                    state[exampleId].steps[state[exampleId].currentIndex].classList.remove('active');
-                    state[exampleId].currentIndex--;
-                    updateButtons();
-                } else if (state[exampleId].currentIndex === 0) {
-                     state[exampleId].steps[state[exampleId].currentIndex].classList.remove('active');
-                     state[exampleId].currentIndex--;
-                     if (state[exampleId].placeholder) {
-                        state[exampleId].placeholder.classList.remove('hidden');
-                    }
-                    updateButtons();
-                }
-            });
-            if(state[exampleId].resetBtn) {
-                state[exampleId].resetBtn.addEventListener('click', resetExample);
-            }
-            updateButtons();
-        });
-        const student = getStudentFromStorage();
-        buildHeader(student, studentId, classId);
-        buildFooter();
-        const questions = generateQuiz();
-        initializeQuiz(LESSON_ID, questions, studentId, classId, student);
-        const retakeBtn = document.getElementById('retake-quiz-btn');
-        if(retakeBtn) {
-            retakeBtn.addEventListener('click', () => {
-                window.location.reload();
-            });
-        }
-        const closeModalBtn = document.getElementById('closeModalBtn');
-        if(closeModalBtn) {
-            closeModalBtn.addEventListener('click', closeModal);
-        }
-    });
     </script>
 </body>
 </html>

@@ -272,106 +272,11 @@
             <div id="explanationText" class="text-gray-700 max-h-[60vh] overflow-y-auto"></div>
         </div>
     </div>
+    <script src="../js/lesson-core.js"></script>
     <script>
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
-    const MAX_ATTEMPTS = 3;
-    let currentQuestions = []; 
-
-    // --- تعديل جديد: قراءة المعرفات من الرابط ---
-    const urlParams = new URLSearchParams(window.location.search);
-    const studentId = urlParams.get('studentId');
-    const classId = urlParams.get('classId');
-
-    function getStudentFromStorage() { const studentDataString = localStorage.getItem('currentStudent'); if (studentDataString) { try { return JSON.parse(studentDataString); } catch (e) { return null; } } return null; }
-    
-    // --- تعديل جديد: تحديث بناء رأس الصفحة ---
-    function buildHeader(studentData, lessonTitle = null) {
-        const headerContainer = document.getElementById('main-header');
-        if (!headerContainer) return;
-        
-        let titleHtml;
-        if (lessonTitle) {
-            titleHtml = `
-                <div class="text-right">
-                    <h2 class="text-sm text-gray-500 leading-tight">منصة الرياضيات التفاعلية</h2>
-                    <h1 class="text-xl font-bold text-indigo-700 leading-tight">${lessonTitle}</h1>
-                </div>`;
-        } else {
-            titleHtml = `<a href="../index.html" target="_top"><h1 class="text-2xl font-bold text-blue-800">منصة الرياضيات التفاعلية</h1></a>`;
-        }
-        
-        let userInfoHtml = '';
-        if (studentData) {
-            userInfoHtml = `
-                <div class="text-left">
-                    <div class="flex items-center justify-end gap-4">
-                        <span class="font-semibold text-lg">${studentData.name}</span>
-                        <a href="../index.html" target="_top" id="logout-link" class="bg-red-500 text-white py-1 px-3 rounded-lg hover:bg-red-600 text-sm">خروج</a>
-                    </div>
-                    <a href="../index.html" target="_top" class="text-sm text-blue-600 hover:underline block text-left mt-1">العودة إلى الفهرس &larr;</a>
-                </div>`;
-        } else {
-            userInfoHtml = `
-                <div class="text-left">
-                    <p class="text-lg font-semibold text-gray-700">زائر</p>
-                    <a href="../index.html" target="_top" class="text-sm text-blue-600 hover:underline block mt-1">العودة إلى الفهرس &larr;</a>
-                </div>`;
-        }
-        
-        headerContainer.innerHTML = `<div class="container mx-auto px-6 py-4 flex justify-between items-start">${titleHtml}${userInfoHtml}</div>`;
-        
-        const logoutLink = headerContainer.querySelector('#logout-link');
-        if(logoutLink) {
-            logoutLink.addEventListener('click', () => {
-                localStorage.removeItem('currentStudent');
-            });
-        }
-    }
-
-    function buildFooter() { const footerContainer = document.getElementById('main-footer'); if (!footerContainer) return; footerContainer.innerHTML = `<div class="container mx-auto px-6"><p class="text-center text-gray-600 text-sm">© 2024 جميع الحقوق محفوظة | تصميم وتطوير: أ. عبدالعزيز خالد العبلان</p></div>`; }
-    function initializeQuiz(lessonId, questions, studentData) { currentQuestions = questions; const quizForm = document.getElementById('quizForm'); if (!quizForm) return; if (questions.length === 0) { quizForm.innerHTML = `<p class="text-center text-gray-600">لا توجد أسئلة متاحة لهذا الدرس حالياً.</p>`; return; } let attemptsLeft; if (studentData) { const studentLessonData = studentData.lessons?.[lessonId] || { attempts: 0 }; attemptsLeft = MAX_ATTEMPTS - studentLessonData.attempts; } else { attemptsLeft = 1; } const attemptsCounter = document.getElementById('attempts-counter'); if (attemptsCounter) { attemptsCounter.innerHTML = `المحاولات المتبقية: <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded-full">${attemptsLeft}</span>`; } const quizHtml = questions.map((q, index) => { const optionsHTML = q.options.map((opt, optIndex) => `<div><input type="radio" name="q${index}" value="${opt.value}" id="q${index}_opt${optIndex}" class="hidden"><label for="q${index}_opt${optIndex}" class="option-label">${opt.display}</label></div>`).join(''); return `<div class="p-4 border-2 border-gray-200 rounded-lg"><p class="font-bold">${index + 1}. <span class="text-yellow-500">${q.level}</span> ${q.text}</p><div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">${optionsHTML}</div><div id="feedback-q${index}" class="mt-2 text-sm font-bold"></div><div id="explanation-buttons-${index}" class="hidden mt-2 space-x-4"></div></div>`; }).join(''); quizForm.innerHTML = quizHtml + `<button type="submit" id="submit-quiz-btn" class="w-full text-white bg-green-600 hover:bg-green-700 font-medium rounded-lg text-lg px-5 py-3 mt-8">تحقق من إجاباتي</button>`; if (attemptsLeft <= 0) { const submitBtn = quizForm.querySelector('#submit-quiz-btn'); submitBtn.disabled = true; submitBtn.textContent = 'لا توجد محاولات متبقية'; submitBtn.classList.add('bg-gray-400', 'hover:bg-gray-400'); } quizForm.onsubmit = (e) => { e.preventDefault(); let score = 0; questions.forEach((q, index) => { const userAnswer = e.target.elements[`q${index}`]?.value; const feedbackEl = document.getElementById(`feedback-q${index}`); if (userAnswer === q.correct) { score++; feedbackEl.textContent = '✔ إجابة صحيحة!'; feedbackEl.className = 'mt-2 text-sm font-bold text-green-600'; } else { feedbackEl.textContent = `❌ إجابة خاطئة.`; feedbackEl.className = 'mt-2 text-sm font-bold text-red-600'; } const explanationBtnsContainer = document.getElementById(`explanation-buttons-${index}`); explanationBtnsContainer.classList.remove('hidden'); explanationBtnsContainer.innerHTML = `<button type="button" class="text-xs text-blue-600 hover:underline" onclick="showExplanation(${index}, 'explanation')">اعرف لماذا؟</button>`; if (q.smartExplanation) { explanationBtnsContainer.innerHTML += `<button type="button" class="text-xs text-purple-600 hover:underline" onclick="showExplanation(${index}, 'smartExplanation')">الحل الذكي 🧠</button>`; } }); const finalGrade = Math.round((score / questions.length) * 10); const resultsDiv = document.getElementById('quiz-results'); resultsDiv.classList.remove('hidden'); document.getElementById('quiz-score').textContent = `${finalGrade} / 10`; if (studentData) { saveGrade(lessonId, finalGrade, studentData.id); if (attemptsLeft - 1 > 0) { document.getElementById('retake-quiz-btn').classList.remove('hidden'); } } else { document.getElementById('save-status').textContent = 'تم عرض نتيجتك. سجل الدخول لحفظ تقدمك.'; } e.target.querySelector('#submit-quiz-btn').disabled = true; }; }
-    
-    // --- تعديل جديد: تحديث دالة حفظ الدرجة ---
-    function saveGrade(lessonId, grade, studentIdFromStorage) {
-        const saveStatus = document.getElementById('save-status');
-        if (!studentId || !classId) {
-            console.error("Student ID or Class ID is missing from the URL.");
-            saveStatus.textContent = '❌ خطأ: لا يمكن حفظ نتيجتك. بيانات الطالب أو الفصل غير موجودة في الرابط.';
-            return;
-        }
-        
-        saveStatus.textContent = 'جارٍ حفظ نتيجتك...';
-        const url = `${SCRIPT_URL}?action=saveGrade&studentId=${studentId}&classId=${classId}&lessonId=${lessonId}&grade=${grade}`;
-        
-        fetch(url)
-            .then(res => res.json())
-            .then(result => {
-                if (result.status === 'success') {
-                    saveStatus.textContent = '✔ تم حفظ نتيجتك بنجاح! ستظهر في لوحة التحكم عند العودة.';
-                    const studentData = getStudentFromStorage();
-                    if (studentData) {
-                        if (!studentData.lessons) studentData.lessons = {};
-                        if (!studentData.lessons[lessonId] || studentData.lessons[lessonId].grade < grade) {
-                            studentData.lessons[lessonId] = { grade: grade, attempts: (studentData.lessons[lessonId]?.attempts || 0) + 1 };
-                        } else {
-                            studentData.lessons[lessonId].attempts++;
-                        }
-                        localStorage.setItem('currentStudent', JSON.stringify(studentData));
-                    }
-                } else {
-                    throw new Error(result.message);
-                }
-            })
-            .catch(error => {
-                saveStatus.textContent = '❌ حدث خطأ أثناء حفظ الدرجة.';
-                console.error("Save Grade Error:", error);
-            });
-    }
-
-    window.showExplanation = function(questionIndex, type) { const modal = document.getElementById('explanationModal'); const explanationText = document.getElementById('explanationText'); const question = currentQuestions[questionIndex]; if(modal && explanationText && question) { const explanationContent = question[type]; if (explanationContent) { explanationText.innerHTML = explanationContent; modal.classList.remove('hidden'); } } }
-    function closeModal() { const modal = document.getElementById('explanationModal'); if(modal) modal.classList.add('hidden'); }
-    
-    // === محتوى الدرس المحدد ===
+    // =================================================================================
+    // محتوى الدرس المحدد (هذا القسم يتم تعديله لكل درس)
+    // =================================================================================
     const LESSON_ID = 'c1_l4'; 
     function generateQuiz() { 
         const questionBank = [
@@ -485,53 +390,6 @@
         const questionCount = Math.min(shuffled.length, 5); 
         return shuffled.slice(0, questionCount); 
     }
-
-    document.addEventListener('DOMContentLoaded', () => {
-        const exampleContainers = document.querySelectorAll('[id^="interactive-container-"]');
-        const state = {};
-        exampleContainers.forEach(container => {
-            const exampleId = container.id.split('-')[2];
-            state[exampleId] = { currentIndex: -1, steps: container.querySelectorAll('.step-interactive'), placeholder: container.querySelector('.interactive-placeholder'), prevBtn: container.querySelector('.prev-btn'), nextBtn: container.querySelector('.next-btn'), resetBtn: container.querySelector('.reset-btn') };
-            const resetExample = () => { state[exampleId].steps.forEach(step => step.classList.remove('active')); state[exampleId].currentIndex = -1; if (state[exampleId].placeholder) { state[exampleId].placeholder.classList.remove('hidden'); } updateButtons(); };
-            const updateButtons = () => { const isFirstStep = state[exampleId].currentIndex <= -1; const isLastStep = state[exampleId].currentIndex >= state[exampleId].steps.length - 1; state[exampleId].prevBtn.disabled = isFirstStep; if (isLastStep) { state[exampleId].nextBtn.classList.add('hidden'); state[exampleId].resetBtn.classList.remove('hidden'); } else { state[exampleId].nextBtn.classList.remove('hidden'); state[exampleId].resetBtn.classList.add('hidden'); } };
-            
-            state[exampleId].nextBtn.addEventListener('click', () => {
-                if (state[exampleId].currentIndex < state[exampleId].steps.length - 1) {
-                    if (state[exampleId].currentIndex === -1 && state[exampleId].placeholder) {
-                        state[exampleId].placeholder.classList.add('hidden');
-                    }
-                    state[exampleId].currentIndex++;
-                    state[exampleId].steps[state[exampleId].currentIndex].classList.add('active');
-                    updateButtons();
-                }
-            });
-            state[exampleId].prevBtn.addEventListener('click', () => {
-                if (state[exampleId].currentIndex > -1) {
-                    state[exampleId].steps[state[exampleId].currentIndex].classList.remove('active');
-                    state[exampleId].currentIndex--;
-                     if (state[exampleId].currentIndex === -1 && state[exampleId].placeholder) {
-                        state[exampleId].placeholder.classList.remove('hidden');
-                    }
-                    updateButtons();
-                }
-            });
-
-            if(state[exampleId].resetBtn) { state[exampleId].resetBtn.addEventListener('click', resetExample); }
-            updateButtons();
-        });
-
-        const student = getStudentFromStorage();
-        const lessonTitleElement = document.getElementById('lesson-title');
-        const lessonTitle = lessonTitleElement ? lessonTitleElement.textContent : null;
-        buildHeader(student, lessonTitle);
-        buildFooter();
-        const questions = generateQuiz();
-        initializeQuiz(LESSON_ID, questions, student);
-        const retakeBtn = document.getElementById('retake-quiz-btn');
-        if(retakeBtn) { retakeBtn.addEventListener('click', () => { window.location.reload(); }); }
-        const closeModalBtn = document.getElementById('closeModalBtn');
-        if(closeModalBtn) { closeModalBtn.addEventListener('click', closeModal); }
-    });
     </script>
 </body>
 </html>

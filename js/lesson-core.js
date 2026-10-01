@@ -5,26 +5,26 @@
    ===================================================================== */
 (function () {
   'use strict';
- 
+
   // الفصل الدراسي الأول. صفحات الفصل الثاني تعرّف window.PLATFORM_SCRIPT_URL قبل تحميل هذا الملف.
   var SCRIPT_URL = window.PLATFORM_SCRIPT_URL || "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
- 
+
   var currentQuestions = [];
   var activeAttemptId = null;   // رمز المحاولة الجارية (يأتي من الخادم عند بدء الاختبار)
   var serverOffsetMs = 0;       // فرق ساعة الخادم عن ساعة الجهاز، حتى لا يتلاعب الطالب بساعة جهازه
   var countdownTimer = null;
- 
+
   function $(id) { return document.getElementById(id); }
   function toAr(n) { return String(n).replace(/\d/g, function (d) { return '٠١٢٣٤٥٦٧٨٩'[+d]; }); }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
- 
+
   // ---------------------------------------------------------------- عام
   function getStudentFromStorage() {
     var s = localStorage.getItem('currentStudent');
     if (s) { try { return JSON.parse(s); } catch (e) { return null; } }
     return null;
   }
- 
+
   function buildHeader(studentData, lessonTitle) {
     var headerContainer = $('main-header');
     if (!headerContainer) return;
@@ -45,13 +45,13 @@
     var logoutLink = headerContainer.querySelector('#logout-link');
     if (logoutLink) logoutLink.addEventListener('click', function () { localStorage.removeItem('currentStudent'); });
   }
- 
+
   function buildFooter() {
     var footerContainer = $('main-footer');
     if (!footerContainer) return;
     footerContainer.innerHTML = '<div class="container mx-auto px-6"><p class="text-center text-gray-600 text-sm">© 2024 جميع الحقوق محفوظة | تصميم وتطوير: أ. عبدالعزيز خالد العبلان</p></div>';
   }
- 
+
   function showExplanation(questionIndex, isSmart) {
     var modal = $('explanationModal'), explanationText = $('explanationText'), modalTitle = $('modal-title');
     var question = currentQuestions[questionIndex];
@@ -67,7 +67,7 @@
     }
   }
   function closeModal() { var m = $('explanationModal'); if (m) m.classList.add('hidden'); }
- 
+
   // ---------------------------------------------------------------- الخادم
   // طلب واحد. أخطاء الاتصال أو الرد غير JSON تُعلَّم transport=true لتُعاد، وأخطاء الخادم المفهومة server=true فلا تُعاد.
   function apiOnce(action, params) {
@@ -96,7 +96,7 @@
     }
     return run(0);
   }
- 
+
   function saveGrade(lessonId, grade, studentId, classId, attemptId) {
     var saveStatus = $('save-status');
     saveStatus.textContent = 'جارٍ حفظ نتيجتك...';
@@ -123,24 +123,24 @@
         }
       });
   }
- 
+
   // ---------------------------------------------------------------- الاختبار والمحاولات
   function setCounter(html) { var c = $('attempts-counter'); if (c) c.innerHTML = html; }
   function badge(text) { return '<span class="bg-blue-100 text-blue-800 px-2 py-1 rounded-full">' + text + '</span>'; }
- 
+
   function counterFor(d) {
     if (d.remainingInitial > 0) return 'المحاولات المتبقية: ' + badge(toAr(d.remainingInitial));
     if (d.canStart) return 'محاولة إضافية متاحة: ' + badge('١');
     return 'المحاولات المتبقية: ' + badge('٠');
   }
- 
+
   function formatCountdown(ms) {
     var s = Math.max(0, Math.ceil(ms / 1000));
     var h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
     var p = function (n) { return (n < 10 ? '0' : '') + n; };
     return toAr(p(h) + ':' + p(m) + ':' + p(sec));
   }
- 
+
   function renderQuiz(questions, isVisitor, studentId, classId, lessonId) {
     currentQuestions = questions;
     var quizForm = $('quizForm');
@@ -158,7 +158,7 @@
       var eb = $('explain-btn-' + index); if (eb) eb.addEventListener('click', function () { showExplanation(index, false); });
       var sb = $('smart-explain-btn-' + index); if (sb) sb.addEventListener('click', function () { showExplanation(index, true); });
     });
- 
+
     quizForm.onsubmit = function (e) {
       e.preventDefault();
       var score = 0;
@@ -185,19 +185,19 @@
       }
     };
   }
- 
+
   function initQuizFlow(lessonId, makeQuestions, studentId, classId) {
     var quizForm = $('quizForm');
     if (!quizForm) return;
     var isVisitor = !(studentId && classId);
- 
+
     // الزائر: كما كان سابقاً (محاولة واحدة بلا حفظ)
     if (isVisitor) {
       setCounter('المحاولات المتبقية: ' + badge('١'));
       renderQuiz(makeQuestions(), true, null, null, lessonId);
       return;
     }
- 
+
     // الطالب: لوحة المحاولات تُنشأ فوق الاختبار
     var panel = $('attempts-panel');
     if (!panel) {
@@ -207,16 +207,16 @@
       quizForm.parentNode.insertBefore(panel, quizForm);
     }
     quizForm.style.display = 'none';
- 
+
     function stopTimer() { if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; } }
- 
+
     function showError(msg) {
       stopTimer();
       panel.style.display = '';
       panel.innerHTML = '<div class="p-5 rounded-lg bg-red-50 border border-red-200 text-center"><p class="font-bold text-red-800 mb-2">' + esc(msg) + '</p><button type="button" id="attempts-retry-btn" class="bg-blue-600 text-white font-medium py-2 px-6 rounded-lg hover:bg-blue-700">إعادة المحاولة</button></div>';
       $('attempts-retry-btn').addEventListener('click', loadStatus);
     }
- 
+
     function showStatus(d) {
       stopTimer();
       serverOffsetMs = Date.parse(d.serverNow) - Date.now();
@@ -250,7 +250,7 @@
         countdownTimer = setInterval(tick, 1000);
       }
     }
- 
+
     function loadStatus() {
       stopTimer();
       panel.style.display = '';
@@ -259,9 +259,9 @@
         .then(showStatus)
         .catch(function (err) { showError('تعذّر التحقق من محاولاتك: ' + (err && err.message ? err.message : 'تحقق من الاتصال')); });
     }
- 
+
     var pendingNonce = null;   // يبقى نفسه عند إعادة المحاولة بعد انقطاع، فلا تُستهلك محاولة ثانية
- 
+
     function startQuiz() {
       var btn = $('start-quiz-btn');
       btn.disabled = true; btn.textContent = 'جارٍ البدء...';
@@ -287,7 +287,7 @@
             : 'تعذّر بدء الاختبار: ' + (err && err.message ? err.message : 'تحقق من الاتصال');
         });
     }
- 
+
     var retake = $('retake-quiz-btn');
     if (retake) retake.addEventListener('click', function () {
       activeAttemptId = null;
@@ -297,10 +297,10 @@
       loadStatus();
       panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
- 
+
     loadStatus();
   }
- 
+
   // ---------------------------------------------------------------- الأمثلة التفاعلية (خطوة بخطوة)
   function initInteractiveExamples() {
     var exampleContainers = document.querySelectorAll('[id^="interactive-container-"]');
@@ -316,7 +316,7 @@
         resetBtn: container.querySelector('.reset-btn')
       };
       var st = state[exampleId], steps = st.steps, totalSteps = steps.length;
- 
+
       function updateButtons() {
         var isFirst = st.currentIndex <= -1, isLast = st.currentIndex >= totalSteps - 1;
         st.prevBtn.disabled = isFirst;
@@ -345,20 +345,25 @@
       updateButtons();
     });
   }
- 
+
   // ---------------------------------------------------------------- التشغيل
   document.addEventListener('DOMContentLoaded', function () {
     var urlParams = new URLSearchParams(window.location.search);
     var studentId = urlParams.get('studentId');
     var classId = urlParams.get('classId');
- 
-    initInteractiveExamples();
- 
+
+    // بعض الصفحات (فيها رسوم/أمثلة تفاعلية مخصّصة بمنطقها الخاص على نفس عناصر
+    // interactive-container-) تضع window.SKIP_SHARED_INTERACTIVE = true; قبل هذا
+    // الملف لتعطيل الربط العام هنا وتفادي ازدواج ربط الأزرار (كل ضغطة تُفعِّل معالجَين).
+    if (!window.SKIP_SHARED_INTERACTIVE) {
+      initInteractiveExamples();
+    }
+
     var student = getStudentFromStorage();
     var titleEl = $('lesson-title');
     buildHeader(student, titleEl ? titleEl.textContent : null);
     buildFooter();
- 
+
     if (typeof LESSON_ID === 'undefined' || typeof generateQuiz !== 'function') {
       console.error('lesson-core: الصفحة لا تعرّف LESSON_ID أو generateQuiz');
     } else {
@@ -368,4 +373,3 @@
     if (closeBtn) closeBtn.addEventListener('click', closeModal);
   });
 })();
- 

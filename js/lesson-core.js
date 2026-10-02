@@ -70,9 +70,10 @@
 
   // ---------------------------------------------------------------- الخادم
   // طلب واحد. أخطاء الاتصال أو الرد غير JSON تُعلَّم transport=true لتُعاد، وأخطاء الخادم المفهومة server=true فلا تُعاد.
-  function apiOnce(action, params) {
+  // signal: لإلغاء الطلب إن تأخر (خادم Apps Script يترك بعض الطلبات معلّقة بلا ردّ أو يردّ 404 عابراً).
+  function apiOnce(action, params, signal) {
     var q = new URLSearchParams(Object.assign({ action: action }, params, { t: Date.now() }));
-    return fetch(SCRIPT_URL + '?' + q.toString()).then(function (r) { return r.text(); }, function (e) { e.transport = true; throw e; })
+    return fetch(SCRIPT_URL + '?' + q.toString(), signal ? { signal: signal } : undefined).then(function (r) { return r.text(); }, function (e) { e.transport = true; throw e; })
       .then(function (text) {
         var j;
         try { j = JSON.parse(text); }
@@ -84,17 +85,39 @@
         return j.data;
       });
   }
-  function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
-  // إعادة تلقائية عند انقطاع الاتصال. آمنة لأن الخادم يتعرف على الطلب المكرر (nonce عند البدء، ورمز المحاولة عند الحفظ).
+  // طلب مع مهلة وتحوّط: إن لم يصل ردّ خلال 5 ثوانٍ يُرسَل طلب مطابق ثانٍ (ثم ثالث بعد 9.5 ثانية ورابع بعد 14) ويفوز أول ردّ سليم.
+  // طلب معلّق لا يوقف الصفحة بعد الآن (قبل ذلك كان الانتظار 20-30 ثانية). آمن لأن الخادم يتعرف على الطلب المكرر:
+  // nonce عند البدء، ورمز المحاولة عند الحفظ، والقراءة بلا أثر (اختُبر بطلبين متزامنين: عُدّت محاولة واحدة ودرجة واحدة).
+  var HEDGE_AT = [5000, 9500, 14000], MAX_SENDS = 4, REQUEST_TIMEOUT = 20000, TOTAL_TIMEOUT = 60000;
   function api(action, params) {
-    var delays = [1200, 2500];
-    function run(i) {
-      return apiOnce(action, params).catch(function (err) {
-        if (err.transport && i < delays.length) return sleep(delays[i]).then(function () { return run(i + 1); });
-        throw err;
-      });
-    }
-    return run(0);
+    return new Promise(function (resolve, reject) {
+      var done = false, sent = 0, pending = 0, ctrls = [], timers = [];
+      function finish(fn, v) {
+        if (done) return;
+        done = true;
+        ctrls.forEach(function (c) { try { c.abort(); } catch (e) {} });
+        timers.forEach(clearTimeout);
+        fn(v);
+      }
+      function launch() {
+        if (done || sent >= MAX_SENDS) return;
+        sent++; pending++;
+        var ac = typeof AbortController === 'function' ? new AbortController() : null;
+        if (ac) { ctrls.push(ac); timers.push(setTimeout(function () { try { ac.abort(); } catch (e) {} }, REQUEST_TIMEOUT)); }
+        apiOnce(action, params, ac ? ac.signal : undefined).then(function (data) { finish(resolve, data); }, function (err) {
+          if (done) return;
+          pending--;
+          if (err && err.server) { finish(reject, err); return; }
+          if (pending === 0) {
+            if (sent >= MAX_SENDS) finish(reject, err);
+            else timers.push(setTimeout(launch, 800));
+          }
+        });
+      }
+      launch();
+      HEDGE_AT.forEach(function (ms) { timers.push(setTimeout(launch, ms)); });
+      timers.push(setTimeout(function () { var e = new Error('انتهت مهلة الاتصال بالخادم'); e.transport = true; finish(reject, e); }, TOTAL_TIMEOUT));
+    });
   }
 
   function saveGrade(lessonId, grade, studentId, classId, attemptId) {

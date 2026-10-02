@@ -55,6 +55,12 @@
   function showExplanation(questionIndex, isSmart) {
     var modal = $('explanationModal'), explanationText = $('explanationText'), modalTitle = $('modal-title');
     var question = currentQuestions[questionIndex];
+    // خطّاف اختياري: صفحة فيها شرح بمنطق خاص (مثل شرح تفاعلي بكائن) تعرّف window.LESSON_CUSTOM_EXPLANATION(q, isSmart, index)
+    // وتعيد true إن عرضت الشرح بنفسها، فلا يُنفَّذ العرض العادي. الصفحات التي لا تعرّفه لا تتأثر.
+    if (question && typeof window.LESSON_CUSTOM_EXPLANATION === 'function') {
+      try { if (window.LESSON_CUSTOM_EXPLANATION(question, !!isSmart, questionIndex) === true) return; }
+      catch (err) { console.error('lesson-core: LESSON_CUSTOM_EXPLANATION', err); }
+    }
     if (modal && explanationText && modalTitle && question) {
       if (isSmart && question.smartExplanation) {
         modalTitle.innerHTML = '💡 الحل الذكي';

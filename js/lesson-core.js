@@ -150,7 +150,9 @@
         return '<div><input type="radio" name="q' + index + '" value="' + opt.value + '" id="q' + index + '_opt' + optIndex + '" class="hidden"><label for="q' + index + '_opt' + optIndex + '" class="option-label">' + opt.display + '</label></div>';
       }).join('');
       var smartButton = q.smartExplanation ? '<button type="button" id="smart-explain-btn-' + index + '" class="hidden mt-2 ml-4 text-xs text-purple-600 hover:underline">💡 حل ذكي</button>' : '';
-      return '<div class="p-4 border-2 border-gray-200 rounded-lg"><p class="font-bold">' + (index + 1) + '. <span class="text-yellow-500">' + q.level + '</span> ' + q.text + '</p><div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">' + optionsHTML + '</div><div id="feedback-q' + index + '" class="mt-2 text-sm font-bold"></div><div class="flex items-center"><button type="button" id="explain-btn-' + index + '" class="hidden mt-2 text-xs text-blue-600 hover:underline">اعرف لماذا؟</button>' + smartButton + '</div></div>';
+      // بعض الدروس تضع رسماً بيانياً (SVG) في حقل q.graph منفصل عن q.text (بدل تضمينه مباشرة
+      // داخل q.text كما تفعل أغلب الدروس). نعرضه هنا إن وُجد حتى لا يُفقد عند التحويل.
+      return '<div class="p-4 border-2 border-gray-200 rounded-lg"><p class="font-bold">' + (index + 1) + '. <span class="text-yellow-500">' + q.level + '</span> ' + q.text + '</p>' + (q.graph || '') + '<div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">' + optionsHTML + '</div><div id="feedback-q' + index + '" class="mt-2 text-sm font-bold"></div><div class="flex items-center"><button type="button" id="explain-btn-' + index + '" class="hidden mt-2 text-xs text-blue-600 hover:underline">اعرف لماذا؟</button>' + smartButton + '</div></div>';
     }).join('');
     quizForm.innerHTML = quizHtml + '<button type="submit" id="submit-quiz-btn" class="w-full text-white bg-green-600 hover:bg-green-700 font-medium rounded-lg text-lg px-5 py-3 mt-8">تحقق من إجاباتي</button>';
     quizForm.style.display = '';

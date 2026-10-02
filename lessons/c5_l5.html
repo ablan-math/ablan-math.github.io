@@ -32,7 +32,7 @@
         <main class="container mx-auto max-w-4xl my-8 px-4 flex-grow">
             <div class="p-6 bg-white rounded-xl shadow-lg">
                 <header class="flex justify-between items-center mb-8 border-b pb-4 border-gray-200">
-                    <h1 class="text-3xl font-bold text-blue-800">الدرس ٥-٥: تطبيقات على النظام المكون من معادلتين خطيتين</h1>
+                    <h1 id="lesson-title" class="text-3xl font-bold text-blue-800">الدرس ٥-٥: تطبيقات على النظام المكون من معادلتين خطيتين</h1>
                 </header>
                 
                 <!-- القسم الأول: المفهوم -->
@@ -77,15 +77,16 @@
                 <section class="mt-12 bg-gray-50 p-6 rounded-xl border border-gray-200">
                     <div class="flex justify-between items-center mb-6">
                         <h2 class="text-2xl font-bold text-gray-800">✍️ رابعاً: اختبر فهمك (٥ أسئلة عشوائية)</h2>
+                        <div id="attempts-counter" class="text-sm font-bold text-gray-600"></div>
                     </div>
                     <form id="quizForm" class="space-y-8"></form>
                     
-                    <div id="results-area" class="hidden mt-8 p-8 bg-white border-2 border-blue-200 rounded-2xl text-center shadow-inner">
+                    <div id="quiz-results" class="hidden mt-8 p-8 bg-white border-2 border-blue-200 rounded-2xl text-center shadow-inner">
                         <h3 class="text-xl font-bold text-blue-900 mb-2">النتيجة النهائية</h3>
-                        <p id="score-display" class="text-6xl font-black text-blue-600 my-4" dir="ltr"></p>
+                        <p id="quiz-score" class="text-6xl font-black text-blue-600 my-4" dir="ltr"></p>
                         <div id="save-status" class="py-2 px-4 rounded-lg inline-block text-sm font-bold mt-2"></div>
                         <div class="mt-6">
-                            <button onclick="window.location.reload()" class="bg-blue-600 text-white px-8 py-3 rounded-lg font-bold hover:bg-blue-700 transition">إعادة الاختبار (أسئلة جديدة)</button>
+                            <button id="retake-quiz-btn" class="hidden bg-blue-600 text-white px-8 py-3 rounded-lg font-bold hover:bg-blue-700 transition">محاولة أخرى</button>
                         </div>
                     </div>
                 </section>
@@ -95,21 +96,20 @@
     </div>
 
     <!-- Modals -->
-    <div id="modal" class="fixed inset-0 bg-black/50 hidden flex items-center justify-center p-4 z-[100]">
+    <div id="explanationModal" class="fixed inset-0 bg-black/50 hidden flex items-center justify-center p-4 z-[100]">
         <div class="bg-white rounded-xl max-w-lg w-full p-6 shadow-2xl">
             <div class="flex justify-between mb-4 border-b pb-2">
                 <h3 id="modal-title" class="text-xl font-bold text-blue-800"></h3>
-                <button onclick="closeModal()" class="text-2xl font-bold">&times;</button>
+                <button id="closeModalBtn" class="text-2xl font-bold">&times;</button>
             </div>
-            <div id="modal-body" class="text-gray-700 leading-relaxed max-h-[60vh] overflow-y-auto"></div>
+            <div id="explanationText" class="text-gray-700 leading-relaxed max-h-[60vh] overflow-y-auto"></div>
         </div>
     </div>
-
+    <script src="../js/lesson-core.js"></script>
     <script>
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
-    let studentData = null;
+    const LESSON_ID = 'c5_l5';
 
-    // بنك الأسئلة (١٥ سؤالاً)
+    // بنك الأسئلة (١٥ سؤالاً) بتنسيقه الأصلي: خيارات نصية والإجابة الصحيحة نص الخيار نفسه
     const QUESTION_BANK = [
         { level: '⭐', text: 'ما أفضل طريقة لحل النظام؟<br><span class="math-eq">س = ٢ص + ٥</span><br><span class="math-eq">٣س + ٤ص = ١٥</span>', options: ['التمثيل البياني', 'التعويض', 'الحذف بالجمع', 'الحذف بالطرح'], correct: 'التعويض', explanation: 'المعادلة الأولى تبدأ بـ س=، وهذا مفتاح استخدام التعويض.' },
         { level: '⭐', text: 'أفضل طريقة لحل النظام:<br><span class="math-eq">٥س + ٢ص = ٧</span><br><span class="math-eq">٣س - ٢ص = ١</span>', options: ['التعويض', 'الحذف بالجمع', 'الحذف بالطرح', 'الحذف بالضرب'], correct: 'الحذف بالجمع', explanation: 'انظر لـ ص، معاملاتها متعاكسة (+٢ و -٢)، لذا نستخدم الحذف بالجمع.' },
@@ -128,53 +128,25 @@
         { level: '⭐⭐⭐', text: 'نظام مكون من معادلتين لهما نفس الميل ونفس المقطع الصادي:', options: ['متسق ومستقل', 'متسق وغير مستقل', 'غير متسق', 'لا يمكن تحديد ذلك'], correct: 'متسق وغير مستقل', explanation: 'لأن لهما عدد لا نهائي من الحلول وينطبقان على بعضهما.' }
     ];
 
+    // يحوّل البنك إلى التنسيق الذي يقرؤه js/lesson-core.js (دون تعديل الأسئلة نفسها)
+    function generateQuiz() {
+        const questionBank = QUESTION_BANK.map(q => ({
+            type: 'mcq',
+            level: q.level,
+            text: q.text,
+            options: q.options.map(opt => ({ display: opt, value: opt })),
+            correct: q.correct,
+            explanation: q.explanation
+        }));
+        const shuffled = [...questionBank].sort(() => 0.5 - Math.random());
+        const questionCount = Math.min(shuffled.length, 5);
+        return shuffled.slice(0, questionCount);
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
-        studentData = getStudentData();
-        buildHeader();
         renderInteractiveChoices();
         renderRealLifeExamples();
-        startQuiz();
     });
-
-    function getStudentData() {
-        const params = new URLSearchParams(window.location.search);
-        
-        // محاولة جلب البيانات من الرابط أولاً
-        let sId = params.get('studentId');
-        let cId = params.get('classId');
-        let name = params.get('name');
-
-        // إذا لم تكن في الرابط، ابحث في التخزين المحلي
-        if (!sId) sId = localStorage.getItem('sId');
-        if (!cId) cId = localStorage.getItem('cId');
-        if (!name) name = localStorage.getItem('sName');
-
-        if(sId) {
-            localStorage.setItem('sId', sId);
-            localStorage.setItem('cId', cId || "");
-            if(name) localStorage.setItem('sName', name);
-            return { id: sId, classId: cId, name: name || "طالب" };
-        }
-        return null;
-    }
-
-    function buildHeader() {
-        const header = document.getElementById('main-header');
-        const name = studentData ? studentData.name : "زائر";
-        header.innerHTML = `
-            <div class="container mx-auto px-6 py-4 flex justify-between items-center">
-                <div>
-                    <h1 class="text-xl font-bold text-blue-800">منصة الرياضيات التفاعلية</h1>
-                    <p class="text-xs text-gray-500">الدرس ٥-٥: تطبيقات الأنظمة</p>
-                </div>
-                <div class="text-left">
-                    <p class="font-bold text-gray-700">${name}</p>
-                    <a href="javascript:void(0)" onclick="window.history.back()" class="text-sm text-blue-600 hover:underline font-bold flex items-center justify-end">
-                        رجوع &rarr;
-                    </a>
-                </div>
-            </div>`;
-    }
 
     function renderInteractiveChoices() {
         const challenges = [
@@ -230,74 +202,6 @@
         }
         if(stepIdx[id] >= steps.length) document.getElementById(`btn-${id}`).classList.add('hidden');
     }
-
-    let activeQuestions = [];
-    function startQuiz() {
-        activeQuestions = [...QUESTION_BANK].sort(() => 0.5 - Math.random()).slice(0, 5);
-        const form = document.getElementById('quizForm');
-        form.innerHTML = activeQuestions.map((q, i) => `
-            <div class="p-5 bg-white border border-gray-200 rounded-xl shadow-sm">
-                <p class="font-bold mb-4">${i+1}. <span class="text-blue-600">${q.level}</span> ${q.text}</p>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    ${q.options.map((opt, oi) => `
-                        <div>
-                            <input type="radio" name="q${i}" value="${opt}" id="q${i}_o${oi}">
-                            <label for="q${i}_o${oi}" class="option-label text-sm font-semibold">${opt}</label>
-                        </div>
-                    `).join('')}
-                </div>
-                <div id="fb-${i}" class="hidden mt-3 p-2 rounded-lg text-xs font-bold"></div>
-                <button type="button" onclick="showHint(${i})" id="hint-${i}" class="hidden mt-2 text-blue-500 text-xs underline">شرح الحل</button>
-            </div>
-        `).join('') + `<button type="submit" id="submit-quiz" class="w-full bg-green-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-green-700 shadow-lg">إرسال الإجابات النهائية</button>`;
-        form.onsubmit = handleQuizSubmit;
-    }
-
-    function handleQuizSubmit(e) {
-        e.preventDefault();
-        let score = 0;
-        activeQuestions.forEach((q, i) => {
-            const selected = e.target.elements[`q${i}`]?.value;
-            const fb = document.getElementById(`fb-${i}`);
-            fb.classList.remove('hidden');
-            if (selected === q.correct) {
-                score++;
-                fb.innerHTML = "✅ إجابة صحيحة"; fb.className = "mt-3 p-2 rounded-lg bg-green-50 text-green-700 text-xs font-bold";
-            } else {
-                fb.innerHTML = `❌ خطأ. الصحيح: ${q.correct}`; fb.className = "mt-3 p-2 rounded-lg bg-red-50 text-red-700 text-xs font-bold";
-            }
-            document.getElementById(`hint-${i}`).classList.remove('hidden');
-        });
-        const grade = (score / 5) * 10;
-        document.getElementById('results-area').classList.remove('hidden');
-        const scoreDisp = document.getElementById('score-display');
-        scoreDisp.textContent = `${grade} / 10`;
-        scoreDisp.setAttribute('dir', 'ltr');
-        if (studentData) saveResult(grade);
-        document.getElementById('submit-quiz').disabled = true;
-        document.getElementById('submit-quiz').classList.add('opacity-50');
-    }
-
-    function saveResult(grade) {
-        const status = document.getElementById('save-status');
-        status.innerHTML = "⏳ جارٍ حفظ الدرجة...";
-        status.className = "py-2 px-4 bg-blue-100 text-blue-700 rounded-lg";
-        const url = `${SCRIPT_URL}?action=saveGrade&studentId=${studentData.id}&classId=${studentData.classId}&lessonId=c5_l5&grade=${grade}`;
-        fetch(url).then(() => {
-            status.innerHTML = "✅ تم حفظ نتيجتك في المنصة بنجاح";
-            status.className = "py-2 px-4 bg-green-100 text-green-700 rounded-lg";
-        }).catch(() => {
-            status.innerHTML = "⚠️ فشل الحفظ التلقائي، صوّر الشاشة للمعلم";
-            status.className = "py-2 px-4 bg-red-100 text-red-700 rounded-lg";
-        });
-    }
-
-    function showHint(i) {
-        document.getElementById('modal-title').innerHTML = "شرح السؤال " + (i+1);
-        document.getElementById('modal-body').innerHTML = activeQuestions[i].explanation;
-        document.getElementById('modal').classList.remove('hidden');
-    }
-    function closeModal() { document.getElementById('modal').classList.add('hidden'); }
     </script>
 </body>
 </html>

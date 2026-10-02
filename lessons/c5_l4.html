@@ -257,7 +257,7 @@
     <div id="explanationModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden z-50">
         <div class="bg-white rounded-lg shadow-2xl p-6 max-w-lg w-full">
             <div class="flex justify-between items-center mb-4">
-                <h3 class="text-xl font-bold">💡 شرح الإجابة</h3>
+                <h3 id="modal-title" class="text-xl font-bold">💡 شرح الإجابة</h3>
                 <button id="closeModalBtn" class="p-2 -m-2 rounded-full hover:bg-gray-200">
                     <svg class="h-6 w-6 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
@@ -277,181 +277,254 @@
         </div>
     </div>
     
+    <script src="../js/lesson-core.js"></script>
     <script>
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
-    const MAX_ATTEMPTS = 3;
-    let currentQuestions = []; 
-    // --- SCRIPT GENERAL ---
-    function getStudentFromStorage() { const studentDataString = localStorage.getItem('currentStudent'); if (studentDataString) { try { return JSON.parse(studentDataString); } catch (e) { return null; } } return null; }
-    function buildHeader(studentData, lessonTitle = null) {
-        const headerContainer = document.getElementById('main-header');
-        if (!headerContainer) return;
-        let titleHtml = `<div><h2 class="text-sm text-gray-500 leading-tight">منصة الرياضيات التفاعلية</h2><h1 class="text-xl font-bold text-purple-700 leading-tight">${lessonTitle}</h1></div>`;
-        let userInfoHtml = '';
-        if (studentData && studentData.name) {
-            userInfoHtml = `
-                <div class="text-left">
-                    <div class="flex items-center gap-4">
-                        <span class="font-semibold text-lg">أهلاً، ${studentData.name}</span>
-                        <a href="../index.html" id="logout-link" class="text-sm bg-red-500 text-white py-1 px-3 rounded-lg hover:bg-red-600">خروج</a>
+    const LESSON_ID = 'c5_l4';
+    function generateQuiz() {
+        const questionBank = [
+            {
+                type: 'mcq',
+                level: '⭐',
+                topic: 'elimination_multiplication',
+                text: 'لحذف المتغير (ص) في النظام التالي، في أي عدد يجب ضرب المعادلة الأولى؟ <br><span class="math-eq eq-1-bg eq-1-color">س + ص = ٥</span><br><span class="math-eq eq-2-bg eq-2-color">٢س - ٣ص = ٠</span>',
+                options: [
+                    { display: '<span class="highlight-number">-٢</span>', value: 'a' },
+                    { display: '<span class="highlight-number">٢</span>', value: 'b' },
+                    { display: '<span class="highlight-number">٣</span>', value: 'c' },
+                    { display: '<span class="highlight-number">-٣</span>', value: 'd' }
+                ],
+                correct: 'c',
+                explanation: 'لجعل معامل (ص) في المعادلة الأولى معكوساً جمعياً لمعامل (ص) في المعادلة الثانية (<span class="highlight-number">-٣</span>)، يجب أن نجعله <span class="highlight-number">+٣</span>. لذلك، نضرب المعادلة الأولى كلها في <span class="highlight-number">٣</span>.'
+            },
+            {
+                type: 'mcq',
+                level: '⭐⭐',
+                topic: 'elimination_multiplication',
+                text: 'ما هو حل النظام التالي؟<br><span class="math-eq">٥س + ٢ص = ٦</span><br><span class="math-eq">-٢س + ص = ٣</span>',
+                options: [
+                    { display: '<span class="math-eq">(٠, ٣)</span>', value: 'a' },
+                    { display: '<span class="math-eq">(٢, -٢)</span>', value: 'b' },
+                    { display: '<span class="math-eq">(٣, ٠)</span>', value: 'c' },
+                    { display: '<span class="math-eq">(٤, -٧)</span>', value: 'd' }
+                ],
+                correct: 'a',
+                explanation: `<div class='space-y-3 text-center'>
+                    <p>لحل هذا النظام، سنستخدم الحذف بالضرب. هدفنا هو جعل معاملات 'ص' متعاكسة.</p>
+                    <div class='p-2 bg-gray-50 rounded-lg'>
+                        <h4 class='font-bold text-purple-700'>الخطوة ١: تحديد عملية الضرب</h4>
+                        <p>المعادلتان هما:</p>
+                        <div class="inline-block text-left">
+                            <p class="math-eq eq-1-bg eq-1-color">٥س + ٢ص = ٦</p><br>
+                            <p class="math-eq eq-2-bg eq-2-color">-٢س + <span class='target-term'>ص</span> = ٣</p>
+                        </div>
+                        <p class='mt-2'>لجعل معامل 'ص' في المعادلة الثانية (<span class='highlight-number'>١</span>) معكوساً لمعامل 'ص' في الأولى (<span class='highlight-number'>٢</span>)، نضرب المعادلة الثانية في <span class='highlight-number'>-٢</span>.</p>
                     </div>
-                    <a href="../index.html" class="text-sm text-blue-600 hover:underline">&larr; العودة إلى الفهرس</a>
-                </div>`;
-        } else {
-            userInfoHtml = `
-                <div class="text-left">
-                    <p class="text-lg text-gray-600 font-semibold">زائر</p>
-                    <a href="../index.html" class="text-sm text-blue-600 hover:underline">&larr; العودة إلى الفهرس</a>
-                </div>`;
-        }
-        headerContainer.innerHTML = `<div class="container mx-auto px-6 py-4 flex justify-between items-center">${titleHtml}${userInfoHtml}</div>`;
-        const logoutLink = headerContainer.querySelector('#logout-link');
-        if (logoutLink) {
-            logoutLink.addEventListener('click', () => {
-                localStorage.removeItem('currentStudent');
-            });
-        }
+                    <div class='p-2 bg-gray-50 rounded-lg'>
+                        <h4 class='font-bold text-purple-700'>الخطوة ٢: تنفيذ الضرب</h4>
+                        <p><span class='font-bold text-red-500 text-lg'>× (-٢)</span> <span class="math-eq eq-2-bg eq-2-color">-٢س + ص = ٣</span></p>
+                        <p class='text-2xl'>⇩</p>
+                        <p class="math-eq eq-3-bg eq-3-color">٤س - ٢ص = -٦</p>
+                    </div>
+                    <div class='p-2 bg-gray-50 rounded-lg'>
+                        <h4 class='font-bold text-purple-700'>الخطوة ٣: الحذف بالجمع</h4>
+                        <div class='inline-flex flex-col items-center'>
+                            <p class="math-eq eq-1-bg eq-1-color">٥س + ٢ص = ٦</p>
+                            <p class="math-eq eq-3-bg eq-3-color">٤س - ٢ص = -٦</p>
+                            <div class='border-t-2 border-black w-full my-1'></div>
+                            <p class="math-eq">٩س + ٠ = ٠</p>
+                            <p class='text-2xl'>⇩</p>
+                            <p class="math-eq bg-green-200">س = ٠</p>
+                        </div>
+                    </div>
+                    <div class='p-2 bg-gray-50 rounded-lg'>
+                        <h4 class='font-bold text-purple-700'>الخطوة ٤: إيجاد 'ص'</h4>
+                        <p>نعوض <span class='math-eq'>س = ٠</span> في المعادلة الثانية الأصلية:</p>
+                        <p class="math-eq eq-2-bg eq-2-color">-٢(٠) + ص = ٣</p>
+                        <p class="math-eq">ص = ٣</p>
+                        <p class='mt-2 font-bold'>إذن، الحل هو <span class="math-eq bg-green-200">(٠, ٣)</span>.</p>
+                    </div>
+                </div>`,
+                smartExplanation: 'جرب الخيارات. لنختبر الخيار (أ) <span class="math-eq">(٠, ٣)</span>:<br><strong>المعادلة ١:</strong> <span class="math-eq">٥(٠) + ٢(٣) = ٦</span> ⟸ <span class="math-eq">٦ = ٦</span> (صحيح).<br><strong>المعادلة ٢:</strong> <span class="math-eq">-٢(٠) + ٣ = ٣</span> ⟸ <span class="math-eq">٣ = ٣</span> (صحيح).<br>بما أن الخيار (أ) يحقق المعادلتين، فهو الحل الصحيح.'
+            },
+            {
+                type: 'mcq',
+                level: '⭐⭐⭐',
+                topic: 'elimination_multiplication',
+                text: 'حل النظام:<br><span class="math-eq">٣س + ٤ص = -٢٥</span><br><span class="math-eq">٢س - ٣ص = ٦</span>',
+                options: [
+                    { display: '<span class="math-eq">(-٣, -٤)</span>', value: 'a' },
+                    { display: '<span class="math-eq">(-٧, -١)</span>', value: 'b' },
+                    { display: '<span class="math-eq">(٣, -١)</span>', value: 'c' },
+                    { display: '<span class="math-eq">(١, -٧)</span>', value: 'd' }
+                ],
+                correct: 'a',
+                explanation: `<div class='space-y-3 text-center'>
+                    <p>لحل هذا النظام، سنستخدم الحذف بالضرب. هدفنا هو جعل معاملات 'ص' متعاكسة.</p>
+                    <div class='p-2 bg-gray-50 rounded-lg'>
+                        <h4 class='font-bold text-purple-700'>الخطوة ١: تحديد عملية الضرب</h4>
+                        <p>لجعل معاملي 'ص' (<span class='highlight-number'>٤</span> و <span class='highlight-number'>-٣</span>) متعاكسين، نضرب المعادلة الأولى في <span class='highlight-number'>٣</span> والثانية في <span class='highlight-number'>٤</span>.</p>
+                    </div>
+                    <div class='p-2 bg-gray-50 rounded-lg'>
+                        <h4 class='font-bold text-purple-700'>الخطوة ٢: تنفيذ الضرب</h4>
+                        <p><span class='font-bold text-red-500 text-lg'>× (٣)</span> <span class="math-eq eq-1-bg eq-1-color">٣س + ٤ص = -٢٥</span> ⇩ <span class="math-eq eq-4-bg eq-4-color">٩س + ١٢ص = -٧٥</span></p>
+                        <p><span class='font-bold text-red-500 text-lg'>× (٤)</span> <span class="math-eq eq-2-bg eq-2-color">٢س - ٣ص = ٦</span> ⇩ <span class="math-eq eq-5-bg eq-5-color">٨س - ١٢ص = ٢٤</span></p>
+                    </div>
+                    <div class='p-2 bg-gray-50 rounded-lg'>
+                        <h4 class='font-bold text-purple-700'>الخطوة ٣: الحذف بالجمع</h4>
+                        <div class='inline-flex flex-col items-center'>
+                            <p class="math-eq eq-4-bg eq-4-color">٩س + ١٢ص = -٧٥</p>
+                            <p class="math-eq eq-5-bg eq-5-color">٨س - ١٢ص = ٢٤</p>
+                            <div class='border-t-2 border-black w-full my-1'></div>
+                            <p class="math-eq">١٧س = -٥١</p>
+                            <p class='text-2xl'>⇩</p>
+                            <p class="math-eq bg-green-200">س = -٣</p>
+                        </div>
+                    </div>
+                    <div class='p-2 bg-gray-50 rounded-lg'>
+                        <h4 class='font-bold text-purple-700'>الخطوة ٤: إيجاد 'ص'</h4>
+                        <p>نعوض <span class='math-eq'>س = -٣</span> في المعادلة الثانية الأصلية:</p>
+                        <p class="math-eq eq-2-bg eq-2-color">٢(-٣) - ٣ص = ٦</p>
+                        <p class="math-eq">-٦ - ٣ص = ٦</p>
+                        <p class="math-eq">-٣ص = ١٢</p>
+                        <p class="math-eq">ص = -٤</p>
+                        <p class='mt-2 font-bold'>إذن، الحل هو <span class="math-eq bg-green-200">(-٣, -٤)</span>.</p>
+                    </div>
+                </div>`
+            },
+            {
+                type: 'mcq',
+                level: '⭐⭐⭐',
+                topic: 'word_problem',
+                text: 'سعر <span class="highlight-number">٣</span> تذاكر للكبار وتذكرتين للصغار لحضور مباراة هو <span class="highlight-number">٣٨٠</span> ريالاً. وسعر تذكرتين للكبار و<span class="highlight-number">٣</span> للصغار هو <span class="highlight-number">٣٢٠</span> ريالاً. ما سعر تذكرة الكبار؟',
+                options: [
+                    { display: '٦٠ ريال', value: 'a' },
+                    { display: '٨٠ ريال', value: 'b' },
+                    { display: '٤٠ ريال', value: 'c' },
+                    { display: '١٠٠ ريال', value: 'd' }
+                ],
+                correct: 'd',
+                explanation: 'نفرض سعر تذكرة الكبار (ك) وسعر تذكرة الصغار (ص).<br><strong>المعادلة ١:</strong> <span class="math-eq">٣ك + ٢ص = ٣٨٠</span><br><strong>المعادلة ٢:</strong> <span class="math-eq">٢ك + ٣ص = ٣٢٠</span><br>لحذف (ص)، نضرب الأولى في <span class="highlight-number">٣</span> والثانية في <span class="highlight-number">-٢</span>.<br><span class="math-eq">٩ك + ٦ص = ١١٤٠</span><br><span class="math-eq">-٤ك - ٦ص = -٦٤٠</span><br>نجمع المعادلتين: <span class="math-eq">٥ك = ٥٠٠</span> ⟸ <span class="math-eq">ك = ١٠٠</span>. إذن سعر تذكرة الكبار ١٠٠ ريال.'
+            },
+            {
+                type: 'mcq',
+                level: '⭐⭐',
+                topic: 'special_case_infinite',
+                text: 'عند حل النظام: <span class="math-eq">٢س - ص = ٤</span> و <span class="math-eq">٦س - ٣ص = ١٢</span> بالحذف، ماذا تكون النتيجة؟',
+                options: [
+                    { display: 'الحل هو <span class="math-eq">(٠, ٠)</span>', value: 'a' },
+                    { display: 'لا يوجد حل', value: 'b' },
+                    { display: 'يوجد عدد لا نهائي من الحلول', value: 'c' },
+                    { display: 'الحل هو <span class="math-eq">(٢, ٠)</span>', value: 'd' }
+                ],
+                correct: 'c',
+                explanation: 'نضرب المعادلة الأولى في <span class="highlight-number">-٣</span> لحذف (س):<br><span class="math-eq">-٣(٢س - ص = ٤)</span> ⟸ <span class="math-eq">-٦س + ٣ص = -١٢</span>.<br>الآن نجمعها مع المعادلة الثانية <span class="math-eq">٦س - ٣ص = ١٢</span>.<br>النتيجة هي <span class="math-eq">٠ = ٠</span>. هذه عبارة صحيحة دائماً، مما يعني أن المعادلتين متكافئتين (نفس الخط) ويوجد عدد لا نهائي من الحلول.',
+                smartExplanation: 'لاحظ أن المعادلة الثانية (<span class="math-eq">٦س - ٣ص = ١٢</span>) هي نفسها المعادلة الأولى (<span class="math-eq">٢س - ص = ٤</span>) ولكن مضروبة في <span class="highlight-number">٣</span>. إذا كانت إحدى المعادلات من مضاعفات الأخرى، فهما يمثلان نفس الخط، وبالتالي هناك عدد لا نهائي من الحلول.'
+            },
+            {
+                type: 'mcq',
+                level: '⭐',
+                topic: 'elimination_multiplication',
+                text: 'حل النظام:<br><span class="math-eq">٤س - ص = ٩</span><br><span class="math-eq">٢س + ٣ص = -١</span>',
+                options: [
+                    { display: '<span class="math-eq">(٢, -١)</span>', value: 'a' },
+                    { display: '<span class="math-eq">(-١, ٢)</span>', value: 'b' },
+                    { display: '<span class="math-eq">(١, -٥)</span>', value: 'c' },
+                    { display: '<span class="math-eq">(٣, ٣)</span>', value: 'd' }
+                ],
+                correct: 'a',
+                explanation: 'نضرب المعادلة الأولى في ٣ لحذف ص. <br> ١٢س - ٣ص = ٢٧ <br> ٢س + ٣ص = -١ <br> بالجمع: ١٤س = ٢٦ ⟸ س = ٢. بالتعويض: ٤(٢) - ص = ٩ ⟸ ٨ - ص = ٩ ⟸ ص = -١. الحل هو (٢, -١).'
+            },
+            {
+                type: 'mcq',
+                level: '⭐',
+                topic: 'elimination_multiplication',
+                text: 'حل النظام:<br><span class="math-eq">س + ٢ص = ٨</span><br><span class="math-eq">٣س + ص = ٩</span>',
+                options: [
+                    { display: '<span class="math-eq">(٤, ٢)</span>', value: 'a' },
+                    { display: '<span class="math-eq">(٢, ٣)</span>', value: 'b' },
+                    { display: '<span class="math-eq">(٠, ٤)</span>', value: 'c' },
+                    { display: '<span class="math-eq">(٣, ٢.٥)</span>', value: 'd' }
+                ],
+                correct: 'b',
+                explanation: 'نضرب المعادلة الثانية في -٢ لحذف ص. <br> س + ٢ص = ٨ <br> -٦س - ٢ص = -١٨ <br> بالجمع: -٥س = -١٠ ⟸ س = ٢. بالتعويض: ٢ + ٢ص = ٨ ⟸ ٢ص = ٦ ⟸ ص = ٣. الحل هو (٢, ٣).'
+            },
+            {
+                type: 'mcq',
+                level: '⭐⭐',
+                topic: 'elimination_multiplication',
+                text: 'حل النظام:<br><span class="math-eq">٢س + ٣ص = ١</span><br><span class="math-eq">٣س + ٥ص = ٢</span>',
+                options: [
+                    { display: '<span class="math-eq">(-١, ١)</span>', value: 'a' },
+                    { display: '<span class="math-eq">(٢, -١)</span>', value: 'b' },
+                    { display: '<span class="math-eq">(١, -<span class="fraction"><span>١</span><span class="frac-bar"></span><span>٣</span></span>)</span>', value: 'c' },
+                    { display: '<span class="math-eq">(٤, -٣)</span>', value: 'd' }
+                ],
+                correct: 'a',
+                explanation: 'نضرب الأولى في ٣ والثانية في -٢ لحذف س. <br> ٦س + ٩ص = ٣ <br> -٦س - ١٠ص = -٤ <br> بالجمع: -ص = -١ ⟸ ص = ١. بالتعويض: ٢س + ٣(١) = ١ ⟸ ٢س = -٢ ⟸ س = -١. الحل هو (-١, ١).'
+            },
+            {
+                type: 'mcq',
+                level: '⭐⭐',
+                topic: 'word_problem',
+                text: 'مجموع عمر أب وابنه ٦٠ عاماً. وقبل ٥ سنوات، كان عمر الأب أربعة أضعاف عمر ابنه. كم عمر كل منهما الآن؟',
+                options: [
+                    { display: 'الأب ٥٠، الابن ١٠', value: 'a' },
+                    { display: 'الأب ٤٥، الابن ١٥', value: 'b' },
+                    { display: 'الأب ٤٠، الابن ٢٠', value: 'c' },
+                    { display: 'الأب ٥٥، الابن ٥', value: 'd' }
+                ],
+                correct: 'b',
+                explanation: 'نفرض عمر الأب (أ) وعمر الابن (ب). <br> أ + ب = ٦٠ <br> أ - ٥ = ٤(ب - ٥) ⟸ أ - ٤ب = -١٥. <br> بطرح المعادلتين: ٥ب = ٧٥ ⟸ ب = ١٥. بالتعويض: أ + ١٥ = ٦٠ ⟸ أ = ٤٥. عمر الأب ٤٥ والابن ١٥.'
+            },
+            {
+                type: 'mcq',
+                level: '⭐⭐',
+                topic: 'special_case_no_solution',
+                text: 'ماذا يحدث عند حل النظام:<br><span class="math-eq">س - ٢ص = ٥</span><br><span class="math-eq">٣س - ٦ص = ١٠</span>',
+                options: [
+                    { display: 'حل وحيد', value: 'a' },
+                    { display: 'لا يوجد حل', value: 'b' },
+                    { display: 'عدد لا نهائي من الحلول', value: 'c' },
+                    { display: 'الحل هو (١, -٢)', value: 'd' }
+                ],
+                correct: 'b',
+                explanation: 'نضرب المعادلة الأولى في -٣. <br> -٣س + ٦ص = -١٥ <br> ٣س - ٦ص = ١٠ <br> بالجمع نحصل على: ٠ = -٥. هذه عبارة خاطئة، لذا لا يوجد حل للنظام.'
+            },
+            {
+                type: 'mcq',
+                level: '⭐⭐⭐',
+                topic: 'elimination_multiplication',
+                text: 'حل النظام:<br><span class="math-eq">٥س - ٢ص = -١٩</span><br><span class="math-eq">٢س + ٣ص = ٠</span>',
+                options: [
+                    { display: '<span class="math-eq">(١, ١٢)</span>', value: 'a' },
+                    { display: '<span class="math-eq">(-٥, -٣)</span>', value: 'b' },
+                    { display: '<span class="math-eq">(٣, -٢)</span>', value: 'c' },
+                    { display: '<span class="math-eq">(-٣, ٢)</span>', value: 'd' }
+                ],
+                correct: 'd',
+                explanation: 'نضرب الأولى في ٣ والثانية في ٢ لحذف ص. <br> ١٥س - ٦ص = -٥٧ <br> ٤س + ٦ص = ٠ <br> بالجمع: ١٩س = -٥٧ ⟸ س = -٣. بالتعويض: ٢(-٣) + ٣ص = ٠ ⟸ -٦ + ٣ص = ٠ ⟸ ٣ص = ٦ ⟸ ص = ٢. الحل هو (-٣, ٢).'
+            },
+            {
+                type: 'mcq',
+                level: '⭐⭐⭐',
+                topic: 'word_problem',
+                text: 'في محل للحيوانات الأليفة، يوجد طيور وقطط فقط. إذا كان مجموع الرؤوس هو ٢٠ ومجموع الأرجل هو ٥٤، فكم عدد الطيور والقطط؟',
+                options: [
+                    { display: '١٠ طيور و ١٠ قطط', value: 'a' },
+                    { display: '١٥ طير و ٥ قطط', value: 'b' },
+                    { display: '٧ طيور و ١٣ قطة', value: 'c' },
+                    { display: '١٣ طير و ٧ قطط', value: 'd' }
+                ],
+                correct: 'd',
+                explanation: 'نفرض عدد الطيور (ط) وعدد القطط (ق). <br> ط + ق = ٢٠ (معادلة الرؤوس) <br> ٢ط + ٤ق = ٥٤ (معادلة الأرجل). <br> نضرب الأولى في -٢: -٢ط - ٢ق = -٤٠. <br> بالجمع مع المعادلة الثانية: ٢ق = ١٤ ⟸ ق = ٧. بالتعويض: ط + ٧ = ٢٠ ⟸ ط = ١٣. الحل: ١٣ طير و ٧ قطط.'
+            }
+        ];
+        const shuffled = [...questionBank].sort(() => 0.5 - Math.random());
+        const questionCount = Math.min(shuffled.length, 5);
+        return shuffled.slice(0, questionCount);
     }
-    function buildFooter() {
-        const footerContainer = document.getElementById('main-footer');
-        if (!footerContainer) return;
-        footerContainer.innerHTML = `<div class="container mx-auto px-6"><p class="text-center text-gray-600 text-sm">© 2024 جميع الحقوق محفوظة | تصميم وتطوير: أ. عبدالعزيز خالد العبلان</p></div>`;
-    }
-    function initializeQuiz(lessonId, questions, studentData, classId) { 
-        currentQuestions = questions; 
-        const quizForm = document.getElementById('quizForm'); 
-        if (!quizForm) return; 
-        if (questions.length === 0) { 
-            quizForm.innerHTML = `<p class="text-center text-gray-600">لا توجد أسئلة متاحة لهذا الدرس حالياً.</p>`; 
-            return; 
-        } 
-        let attemptsLeft; 
-        if (studentData) { 
-            const studentLessonData = studentData.lessons?.[lessonId] || { attempts: 0 }; 
-            attemptsLeft = MAX_ATTEMPTS - studentLessonData.attempts; 
-        } else { 
-            attemptsLeft = 1; 
-        } 
-        const attemptsCounter = document.getElementById('attempts-counter'); 
-        if (attemptsCounter) { 
-            attemptsCounter.innerHTML = `المحاولات المتبقية: <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded-full">${attemptsLeft}</span>`; 
-        } 
-        const quizHtml = questions.map((q, index) => { const optionsHTML = q.options.map((opt, optIndex) => `<div><input type="radio" name="q${index}" value="${opt.value}" id="q${index}_opt${optIndex}" class="hidden"><label for="q${index}_opt${optIndex}" class="option-label">${opt.display}</label></div>`).join(''); const smartButtonHTML = q.smartExplanation ? `<button type="button" id="smart-explain-btn-${index}" class="hidden mt-2 text-xs text-purple-600 hover:underline font-semibold">🧠 الحل الذكي</button>` : ''; return `<div class="p-4 border-2 border-gray-200 rounded-lg"><p class="font-bold">${index + 1}. <span class="text-yellow-500">${q.level}</span> ${q.text}</p><div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">${optionsHTML}</div><div id="feedback-q${index}" class="mt-2 text-sm font-bold"></div><div class="flex items-center space-x-4 space-x-reverse">${smartButtonHTML}<button type="button" id="explain-btn-${index}" class="hidden mt-2 text-xs text-blue-600 hover:underline">اعرف لماذا؟</button></div></div>`; }).join(''); 
-        quizForm.innerHTML = quizHtml + `<button type="submit" id="submit-quiz-btn" class="w-full text-white bg-green-600 hover:bg-green-700 font-medium rounded-lg text-lg px-5 py-3 mt-8">تحقق من إجاباتي</button>`; 
-        questions.forEach((q, index) => { 
-            const explainBtn = document.getElementById(`explain-btn-${index}`); 
-            if(explainBtn) explainBtn.addEventListener('click', () => showExplanation(index)); 
-            if (q.smartExplanation) { 
-                const smartExplainBtn = document.getElementById(`smart-explain-btn-${index}`); 
-                if(smartExplainBtn) smartExplainBtn.addEventListener('click', () => showSmartExplanation(index)); 
-            } 
-        }); 
-        if (attemptsLeft <= 0) { 
-            const submitBtn = quizForm.querySelector('#submit-quiz-btn'); 
-            submitBtn.disabled = true; 
-            submitBtn.textContent = 'لا توجد محاولات متبقية'; 
-            submitBtn.classList.add('bg-gray-400', 'hover:bg-gray-400'); 
-        } 
-        quizForm.onsubmit = (e) => { 
-            e.preventDefault(); 
-            let score = 0; 
-            questions.forEach((q, index) => { 
-                const userAnswer = e.target.elements[`q${index}`]?.value; 
-                const feedbackEl = document.getElementById(`feedback-q${index}`); 
-                if (userAnswer === q.correct) { 
-                    score++; 
-                    feedbackEl.textContent = '✔ إجابة صحيحة!'; 
-                    feedbackEl.className = 'mt-2 text-sm font-bold text-green-600'; 
-                } else { 
-                    feedbackEl.textContent = `❌ إجابة خاطئة.`; 
-                    feedbackEl.className = 'mt-2 text-sm font-bold text-red-600'; 
-                } 
-                document.getElementById(`explain-btn-${index}`).classList.remove('hidden'); 
-                if (q.smartExplanation) { 
-                    document.getElementById(`smart-explain-btn-${index}`).classList.remove('hidden'); 
-                } 
-            }); 
-            const finalGrade = Math.round((score / questions.length) * 10); 
-            const resultsDiv = document.getElementById('quiz-results'); 
-            resultsDiv.classList.remove('hidden'); 
-            document.getElementById('quiz-score').textContent = `${finalGrade} / 10`; 
-            if (studentData) { 
-                saveGrade(lessonId, finalGrade, studentData.id, classId); 
-                if (attemptsLeft - 1 > 0) { 
-                    document.getElementById('retake-quiz-btn').classList.remove('hidden'); 
-                } 
-            } else { 
-                document.getElementById('save-status').textContent = 'تم عرض نتيجتك. سجل الدخول لحفظ تقدمك.'; 
-            } 
-            e.target.querySelector('#submit-quiz-btn').disabled = true; 
-        }; 
-    }
-    function saveGrade(lessonId, grade, studentId, classId) { 
-        const saveStatus = document.getElementById('save-status');
-        if (!studentId || !classId) {
-            console.error("Student ID or Class ID is missing from the URL.");
-            saveStatus.textContent = 'خطأ: لا يمكن حفظ نتيجتك. بيانات الطالب غير مكتملة.';
-            return;
-        }
-        saveStatus.textContent = 'جارٍ حفظ نتيجتك...'; 
-        const url = `${SCRIPT_URL}?action=saveGrade&studentId=${studentId}&classId=${classId}&lessonId=${lessonId}&grade=${grade}`; 
-        fetch(url) 
-            .then(res => res.json()) 
-            .then(result => { 
-                if (result.status === 'success') { 
-                    saveStatus.textContent = '✔ تم حفظ نتيجتك بنجاح! ستظهر في لوحة التحكم عند العودة.'; 
-                    const studentData = JSON.parse(localStorage.getItem('currentStudent')); 
-                    if (studentData) {
-                        if (!studentData.lessons) studentData.lessons = {}; 
-                        if (!studentData.lessons[lessonId] || studentData.lessons[lessonId].grade < grade) { 
-                            studentData.lessons[lessonId] = { grade: grade, attempts: (studentData.lessons[lessonId]?.attempts || 0) + 1 }; 
-                        } else { 
-                            studentData.lessons[lessonId].attempts++; 
-                        } 
-                        localStorage.setItem('currentStudent', JSON.stringify(studentData)); 
-                    }
-                } else { 
-                    throw new Error(result.message || 'Unknown error from Apps Script'); 
-                } 
-            }) 
-            .catch(error => { 
-                saveStatus.textContent = '❌ حدث خطأ أثناء حفظ الدرجة.'; 
-                console.error("Save Grade Error:", error); 
-            }); 
-    }
-    function showExplanation(questionIndex) { const modal = document.getElementById('explanationModal'); const explanationText = document.getElementById('explanationText'); if(modal && explanationText && currentQuestions[questionIndex] && currentQuestions[questionIndex].explanation) { explanationText.innerHTML = currentQuestions[questionIndex].explanation; modal.classList.remove('hidden'); } }
-    function closeModal() { document.getElementById('explanationModal').classList.add('hidden'); }
-    function showSmartExplanation(questionIndex) { const modal = document.getElementById('smartExplanationModal'); const explanationText = document.getElementById('smartExplanationText'); if(modal && explanationText && currentQuestions[questionIndex] && currentQuestions[questionIndex].smartExplanation) { explanationText.innerHTML = currentQuestions[questionIndex].smartExplanation; modal.classList.remove('hidden'); } }
-    function closeSmartModal() { document.getElementById('smartExplanationModal').classList.add('hidden'); }
-    // --- END SCRIPT GENERAL ---
 
     document.addEventListener('DOMContentLoaded', () => {
-        const urlParams = new URLSearchParams(window.location.search);
-        const studentIdFromUrl = urlParams.get('studentId');
-        const classIdFromUrl = urlParams.get('classId');
-
-        const studentFromStorage = getStudentFromStorage();
-        let student = null;
-
-        // --- THE FIX IS HERE ---
-        // Compare IDs as strings to avoid type mismatch (e.g., "123" === 123 is false)
-        if (studentIdFromUrl && studentFromStorage && String(studentFromStorage.id) === studentIdFromUrl) {
-            student = studentFromStorage;
-        }
-
-        const lessonTitleElement = document.getElementById('lesson-title');
-        const lessonTitle = lessonTitleElement ? lessonTitleElement.textContent : null;
-        buildHeader(student, lessonTitle);
-        
-        const LESSON_ID = 'c5_l4';
-        const quizQuestions = generateQuiz();
-        initializeQuiz(LESSON_ID, quizQuestions, student, classIdFromUrl);
-        
-        const retakeBtn = document.getElementById('retake-quiz-btn');
-        if(retakeBtn) { retakeBtn.addEventListener('click', () => { window.location.reload(); }); }
-        document.getElementById('closeModalBtn').addEventListener('click', closeModal);
-        document.getElementById('closeSmartModalBtn').addEventListener('click', closeSmartModal);
-
         // --- Interactive Examples Setup ---
         const examples = {
             '1': {
@@ -752,251 +825,6 @@
 
             updateButtons(ex);
         }
-        
-        function generateQuiz() {
-            const questionBank = [
-                {
-                    type: 'mcq',
-                    level: '⭐',
-                    topic: 'elimination_multiplication',
-                    text: 'لحذف المتغير (ص) في النظام التالي، في أي عدد يجب ضرب المعادلة الأولى؟ <br><span class="math-eq eq-1-bg eq-1-color">س + ص = ٥</span><br><span class="math-eq eq-2-bg eq-2-color">٢س - ٣ص = ٠</span>',
-                    options: [
-                        { display: '<span class="highlight-number">-٢</span>', value: 'a' },
-                        { display: '<span class="highlight-number">٢</span>', value: 'b' },
-                        { display: '<span class="highlight-number">٣</span>', value: 'c' },
-                        { display: '<span class="highlight-number">-٣</span>', value: 'd' }
-                    ],
-                    correct: 'c',
-                    explanation: 'لجعل معامل (ص) في المعادلة الأولى معكوساً جمعياً لمعامل (ص) في المعادلة الثانية (<span class="highlight-number">-٣</span>)، يجب أن نجعله <span class="highlight-number">+٣</span>. لذلك، نضرب المعادلة الأولى كلها في <span class="highlight-number">٣</span>.'
-                },
-                {
-                    type: 'mcq',
-                    level: '⭐⭐',
-                    topic: 'elimination_multiplication',
-                    text: 'ما هو حل النظام التالي؟<br><span class="math-eq">٥س + ٢ص = ٦</span><br><span class="math-eq">-٢س + ص = ٣</span>',
-                    options: [
-                        { display: '<span class="math-eq">(٠, ٣)</span>', value: 'a' },
-                        { display: '<span class="math-eq">(٢, -٢)</span>', value: 'b' },
-                        { display: '<span class="math-eq">(٣, ٠)</span>', value: 'c' },
-                        { display: '<span class="math-eq">(٤, -٧)</span>', value: 'd' }
-                    ],
-                    correct: 'a',
-                    explanation: `<div class='space-y-3 text-center'>
-                        <p>لحل هذا النظام، سنستخدم الحذف بالضرب. هدفنا هو جعل معاملات 'ص' متعاكسة.</p>
-                        <div class='p-2 bg-gray-50 rounded-lg'>
-                            <h4 class='font-bold text-purple-700'>الخطوة ١: تحديد عملية الضرب</h4>
-                            <p>المعادلتان هما:</p>
-                            <div class="inline-block text-left">
-                                <p class="math-eq eq-1-bg eq-1-color">٥س + ٢ص = ٦</p><br>
-                                <p class="math-eq eq-2-bg eq-2-color">-٢س + <span class='target-term'>ص</span> = ٣</p>
-                            </div>
-                            <p class='mt-2'>لجعل معامل 'ص' في المعادلة الثانية (<span class='highlight-number'>١</span>) معكوساً لمعامل 'ص' في الأولى (<span class='highlight-number'>٢</span>)، نضرب المعادلة الثانية في <span class='highlight-number'>-٢</span>.</p>
-                        </div>
-                        <div class='p-2 bg-gray-50 rounded-lg'>
-                            <h4 class='font-bold text-purple-700'>الخطوة ٢: تنفيذ الضرب</h4>
-                            <p><span class='font-bold text-red-500 text-lg'>× (-٢)</span> <span class="math-eq eq-2-bg eq-2-color">-٢س + ص = ٣</span></p>
-                            <p class='text-2xl'>⇩</p>
-                            <p class="math-eq eq-3-bg eq-3-color">٤س - ٢ص = -٦</p>
-                        </div>
-                        <div class='p-2 bg-gray-50 rounded-lg'>
-                            <h4 class='font-bold text-purple-700'>الخطوة ٣: الحذف بالجمع</h4>
-                            <div class='inline-flex flex-col items-center'>
-                                <p class="math-eq eq-1-bg eq-1-color">٥س + ٢ص = ٦</p>
-                                <p class="math-eq eq-3-bg eq-3-color">٤س - ٢ص = -٦</p>
-                                <div class='border-t-2 border-black w-full my-1'></div>
-                                <p class="math-eq">٩س + ٠ = ٠</p>
-                                <p class='text-2xl'>⇩</p>
-                                <p class="math-eq bg-green-200">س = ٠</p>
-                            </div>
-                        </div>
-                        <div class='p-2 bg-gray-50 rounded-lg'>
-                            <h4 class='font-bold text-purple-700'>الخطوة ٤: إيجاد 'ص'</h4>
-                            <p>نعوض <span class='math-eq'>س = ٠</span> في المعادلة الثانية الأصلية:</p>
-                            <p class="math-eq eq-2-bg eq-2-color">-٢(٠) + ص = ٣</p>
-                            <p class="math-eq">ص = ٣</p>
-                            <p class='mt-2 font-bold'>إذن، الحل هو <span class="math-eq bg-green-200">(٠, ٣)</span>.</p>
-                        </div>
-                    </div>`,
-                    smartExplanation: 'جرب الخيارات. لنختبر الخيار (أ) <span class="math-eq">(٠, ٣)</span>:<br><strong>المعادلة ١:</strong> <span class="math-eq">٥(٠) + ٢(٣) = ٦</span> ⟸ <span class="math-eq">٦ = ٦</span> (صحيح).<br><strong>المعادلة ٢:</strong> <span class="math-eq">-٢(٠) + ٣ = ٣</span> ⟸ <span class="math-eq">٣ = ٣</span> (صحيح).<br>بما أن الخيار (أ) يحقق المعادلتين، فهو الحل الصحيح.'
-                },
-                {
-                    type: 'mcq',
-                    level: '⭐⭐⭐',
-                    topic: 'elimination_multiplication',
-                    text: 'حل النظام:<br><span class="math-eq">٣س + ٤ص = -٢٥</span><br><span class="math-eq">٢س - ٣ص = ٦</span>',
-                    options: [
-                        { display: '<span class="math-eq">(-٣, -٤)</span>', value: 'a' },
-                        { display: '<span class="math-eq">(-٧, -١)</span>', value: 'b' },
-                        { display: '<span class="math-eq">(٣, -١)</span>', value: 'c' },
-                        { display: '<span class="math-eq">(١, -٧)</span>', value: 'd' }
-                    ],
-                    correct: 'a',
-                    explanation: `<div class='space-y-3 text-center'>
-                        <p>لحل هذا النظام، سنستخدم الحذف بالضرب. هدفنا هو جعل معاملات 'ص' متعاكسة.</p>
-                        <div class='p-2 bg-gray-50 rounded-lg'>
-                            <h4 class='font-bold text-purple-700'>الخطوة ١: تحديد عملية الضرب</h4>
-                            <p>لجعل معاملي 'ص' (<span class='highlight-number'>٤</span> و <span class='highlight-number'>-٣</span>) متعاكسين، نضرب المعادلة الأولى في <span class='highlight-number'>٣</span> والثانية في <span class='highlight-number'>٤</span>.</p>
-                        </div>
-                        <div class='p-2 bg-gray-50 rounded-lg'>
-                            <h4 class='font-bold text-purple-700'>الخطوة ٢: تنفيذ الضرب</h4>
-                            <p><span class='font-bold text-red-500 text-lg'>× (٣)</span> <span class="math-eq eq-1-bg eq-1-color">٣س + ٤ص = -٢٥</span> ⇩ <span class="math-eq eq-4-bg eq-4-color">٩س + ١٢ص = -٧٥</span></p>
-                            <p><span class='font-bold text-red-500 text-lg'>× (٤)</span> <span class="math-eq eq-2-bg eq-2-color">٢س - ٣ص = ٦</span> ⇩ <span class="math-eq eq-5-bg eq-5-color">٨س - ١٢ص = ٢٤</span></p>
-                        </div>
-                        <div class='p-2 bg-gray-50 rounded-lg'>
-                            <h4 class='font-bold text-purple-700'>الخطوة ٣: الحذف بالجمع</h4>
-                            <div class='inline-flex flex-col items-center'>
-                                <p class="math-eq eq-4-bg eq-4-color">٩س + ١٢ص = -٧٥</p>
-                                <p class="math-eq eq-5-bg eq-5-color">٨س - ١٢ص = ٢٤</p>
-                                <div class='border-t-2 border-black w-full my-1'></div>
-                                <p class="math-eq">١٧س = -٥١</p>
-                                <p class='text-2xl'>⇩</p>
-                                <p class="math-eq bg-green-200">س = -٣</p>
-                            </div>
-                        </div>
-                        <div class='p-2 bg-gray-50 rounded-lg'>
-                            <h4 class='font-bold text-purple-700'>الخطوة ٤: إيجاد 'ص'</h4>
-                            <p>نعوض <span class='math-eq'>س = -٣</span> في المعادلة الثانية الأصلية:</p>
-                            <p class="math-eq eq-2-bg eq-2-color">٢(-٣) - ٣ص = ٦</p>
-                            <p class="math-eq">-٦ - ٣ص = ٦</p>
-                            <p class="math-eq">-٣ص = ١٢</p>
-                            <p class="math-eq">ص = -٤</p>
-                            <p class='mt-2 font-bold'>إذن، الحل هو <span class="math-eq bg-green-200">(-٣, -٤)</span>.</p>
-                        </div>
-                    </div>`
-                },
-                {
-                    type: 'mcq',
-                    level: '⭐⭐⭐',
-                    topic: 'word_problem',
-                    text: 'سعر <span class="highlight-number">٣</span> تذاكر للكبار وتذكرتين للصغار لحضور مباراة هو <span class="highlight-number">٣٨٠</span> ريالاً. وسعر تذكرتين للكبار و<span class="highlight-number">٣</span> للصغار هو <span class="highlight-number">٣٢٠</span> ريالاً. ما سعر تذكرة الكبار؟',
-                    options: [
-                        { display: '٦٠ ريال', value: 'a' },
-                        { display: '٨٠ ريال', value: 'b' },
-                        { display: '٤٠ ريال', value: 'c' },
-                        { display: '١٠٠ ريال', value: 'd' }
-                    ],
-                    correct: 'd',
-                    explanation: 'نفرض سعر تذكرة الكبار (ك) وسعر تذكرة الصغار (ص).<br><strong>المعادلة ١:</strong> <span class="math-eq">٣ك + ٢ص = ٣٨٠</span><br><strong>المعادلة ٢:</strong> <span class="math-eq">٢ك + ٣ص = ٣٢٠</span><br>لحذف (ص)، نضرب الأولى في <span class="highlight-number">٣</span> والثانية في <span class="highlight-number">-٢</span>.<br><span class="math-eq">٩ك + ٦ص = ١١٤٠</span><br><span class="math-eq">-٤ك - ٦ص = -٦٤٠</span><br>نجمع المعادلتين: <span class="math-eq">٥ك = ٥٠٠</span> ⟸ <span class="math-eq">ك = ١٠٠</span>. إذن سعر تذكرة الكبار ١٠٠ ريال.'
-                },
-                {
-                    type: 'mcq',
-                    level: '⭐⭐',
-                    topic: 'special_case_infinite',
-                    text: 'عند حل النظام: <span class="math-eq">٢س - ص = ٤</span> و <span class="math-eq">٦س - ٣ص = ١٢</span> بالحذف، ماذا تكون النتيجة؟',
-                    options: [
-                        { display: 'الحل هو <span class="math-eq">(٠, ٠)</span>', value: 'a' },
-                        { display: 'لا يوجد حل', value: 'b' },
-                        { display: 'يوجد عدد لا نهائي من الحلول', value: 'c' },
-                        { display: 'الحل هو <span class="math-eq">(٢, ٠)</span>', value: 'd' }
-                    ],
-                    correct: 'c',
-                    explanation: 'نضرب المعادلة الأولى في <span class="highlight-number">-٣</span> لحذف (س):<br><span class="math-eq">-٣(٢س - ص = ٤)</span> ⟸ <span class="math-eq">-٦س + ٣ص = -١٢</span>.<br>الآن نجمعها مع المعادلة الثانية <span class="math-eq">٦س - ٣ص = ١٢</span>.<br>النتيجة هي <span class="math-eq">٠ = ٠</span>. هذه عبارة صحيحة دائماً، مما يعني أن المعادلتين متكافئتين (نفس الخط) ويوجد عدد لا نهائي من الحلول.',
-                    smartExplanation: 'لاحظ أن المعادلة الثانية (<span class="math-eq">٦س - ٣ص = ١٢</span>) هي نفسها المعادلة الأولى (<span class="math-eq">٢س - ص = ٤</span>) ولكن مضروبة في <span class="highlight-number">٣</span>. إذا كانت إحدى المعادلات من مضاعفات الأخرى، فهما يمثلان نفس الخط، وبالتالي هناك عدد لا نهائي من الحلول.'
-                },
-                {
-                    type: 'mcq',
-                    level: '⭐',
-                    topic: 'elimination_multiplication',
-                    text: 'حل النظام:<br><span class="math-eq">٤س - ص = ٩</span><br><span class="math-eq">٢س + ٣ص = -١</span>',
-                    options: [
-                        { display: '<span class="math-eq">(٢, -١)</span>', value: 'a' },
-                        { display: '<span class="math-eq">(-١, ٢)</span>', value: 'b' },
-                        { display: '<span class="math-eq">(١, -٥)</span>', value: 'c' },
-                        { display: '<span class="math-eq">(٣, ٣)</span>', value: 'd' }
-                    ],
-                    correct: 'a',
-                    explanation: 'نضرب المعادلة الأولى في ٣ لحذف ص. <br> ١٢س - ٣ص = ٢٧ <br> ٢س + ٣ص = -١ <br> بالجمع: ١٤س = ٢٦ ⟸ س = ٢. بالتعويض: ٤(٢) - ص = ٩ ⟸ ٨ - ص = ٩ ⟸ ص = -١. الحل هو (٢, -١).'
-                },
-                {
-                    type: 'mcq',
-                    level: '⭐',
-                    topic: 'elimination_multiplication',
-                    text: 'حل النظام:<br><span class="math-eq">س + ٢ص = ٨</span><br><span class="math-eq">٣س + ص = ٩</span>',
-                    options: [
-                        { display: '<span class="math-eq">(٤, ٢)</span>', value: 'a' },
-                        { display: '<span class="math-eq">(٢, ٣)</span>', value: 'b' },
-                        { display: '<span class="math-eq">(٠, ٤)</span>', value: 'c' },
-                        { display: '<span class="math-eq">(٣, ٢.٥)</span>', value: 'd' }
-                    ],
-                    correct: 'b',
-                    explanation: 'نضرب المعادلة الثانية في -٢ لحذف ص. <br> س + ٢ص = ٨ <br> -٦س - ٢ص = -١٨ <br> بالجمع: -٥س = -١٠ ⟸ س = ٢. بالتعويض: ٢ + ٢ص = ٨ ⟸ ٢ص = ٦ ⟸ ص = ٣. الحل هو (٢, ٣).'
-                },
-                {
-                    type: 'mcq',
-                    level: '⭐⭐',
-                    topic: 'elimination_multiplication',
-                    text: 'حل النظام:<br><span class="math-eq">٢س + ٣ص = ١</span><br><span class="math-eq">٣س + ٥ص = ٢</span>',
-                    options: [
-                        { display: '<span class="math-eq">(-١, ١)</span>', value: 'a' },
-                        { display: '<span class="math-eq">(٢, -١)</span>', value: 'b' },
-                        { display: '<span class="math-eq">(١, -<span class="fraction"><span>١</span><span class="frac-bar"></span><span>٣</span></span>)</span>', value: 'c' },
-                        { display: '<span class="math-eq">(٤, -٣)</span>', value: 'd' }
-                    ],
-                    correct: 'a',
-                    explanation: 'نضرب الأولى في ٣ والثانية في -٢ لحذف س. <br> ٦س + ٩ص = ٣ <br> -٦س - ١٠ص = -٤ <br> بالجمع: -ص = -١ ⟸ ص = ١. بالتعويض: ٢س + ٣(١) = ١ ⟸ ٢س = -٢ ⟸ س = -١. الحل هو (-١, ١).'
-                },
-                {
-                    type: 'mcq',
-                    level: '⭐⭐',
-                    topic: 'word_problem',
-                    text: 'مجموع عمر أب وابنه ٦٠ عاماً. وقبل ٥ سنوات، كان عمر الأب أربعة أضعاف عمر ابنه. كم عمر كل منهما الآن؟',
-                    options: [
-                        { display: 'الأب ٥٠، الابن ١٠', value: 'a' },
-                        { display: 'الأب ٤٥، الابن ١٥', value: 'b' },
-                        { display: 'الأب ٤٠، الابن ٢٠', value: 'c' },
-                        { display: 'الأب ٥٥، الابن ٥', value: 'd' }
-                    ],
-                    correct: 'b',
-                    explanation: 'نفرض عمر الأب (أ) وعمر الابن (ب). <br> أ + ب = ٦٠ <br> أ - ٥ = ٤(ب - ٥) ⟸ أ - ٤ب = -١٥. <br> بطرح المعادلتين: ٥ب = ٧٥ ⟸ ب = ١٥. بالتعويض: أ + ١٥ = ٦٠ ⟸ أ = ٤٥. عمر الأب ٤٥ والابن ١٥.'
-                },
-                {
-                    type: 'mcq',
-                    level: '⭐⭐',
-                    topic: 'special_case_no_solution',
-                    text: 'ماذا يحدث عند حل النظام:<br><span class="math-eq">س - ٢ص = ٥</span><br><span class="math-eq">٣س - ٦ص = ١٠</span>',
-                    options: [
-                        { display: 'حل وحيد', value: 'a' },
-                        { display: 'لا يوجد حل', value: 'b' },
-                        { display: 'عدد لا نهائي من الحلول', value: 'c' },
-                        { display: 'الحل هو (١, -٢)', value: 'd' }
-                    ],
-                    correct: 'b',
-                    explanation: 'نضرب المعادلة الأولى في -٣. <br> -٣س + ٦ص = -١٥ <br> ٣س - ٦ص = ١٠ <br> بالجمع نحصل على: ٠ = -٥. هذه عبارة خاطئة، لذا لا يوجد حل للنظام.'
-                },
-                {
-                    type: 'mcq',
-                    level: '⭐⭐⭐',
-                    topic: 'elimination_multiplication',
-                    text: 'حل النظام:<br><span class="math-eq">٥س - ٢ص = -١٩</span><br><span class="math-eq">٢س + ٣ص = ٠</span>',
-                    options: [
-                        { display: '<span class="math-eq">(١, ١٢)</span>', value: 'a' },
-                        { display: '<span class="math-eq">(-٥, -٣)</span>', value: 'b' },
-                        { display: '<span class="math-eq">(٣, -٢)</span>', value: 'c' },
-                        { display: '<span class="math-eq">(-٣, ٢)</span>', value: 'd' }
-                    ],
-                    correct: 'd',
-                    explanation: 'نضرب الأولى في ٣ والثانية في ٢ لحذف ص. <br> ١٥س - ٦ص = -٥٧ <br> ٤س + ٦ص = ٠ <br> بالجمع: ١٩س = -٥٧ ⟸ س = -٣. بالتعويض: ٢(-٣) + ٣ص = ٠ ⟸ -٦ + ٣ص = ٠ ⟸ ٣ص = ٦ ⟸ ص = ٢. الحل هو (-٣, ٢).'
-                },
-                {
-                    type: 'mcq',
-                    level: '⭐⭐⭐',
-                    topic: 'word_problem',
-                    text: 'في محل للحيوانات الأليفة، يوجد طيور وقطط فقط. إذا كان مجموع الرؤوس هو ٢٠ ومجموع الأرجل هو ٥٤، فكم عدد الطيور والقطط؟',
-                    options: [
-                        { display: '١٠ طيور و ١٠ قطط', value: 'a' },
-                        { display: '١٥ طير و ٥ قطط', value: 'b' },
-                        { display: '٧ طيور و ١٣ قطة', value: 'c' },
-                        { display: '١٣ طير و ٧ قطط', value: 'd' }
-                    ],
-                    correct: 'd',
-                    explanation: 'نفرض عدد الطيور (ط) وعدد القطط (ق). <br> ط + ق = ٢٠ (معادلة الرؤوس) <br> ٢ط + ٤ق = ٥٤ (معادلة الأرجل). <br> نضرب الأولى في -٢: -٢ط - ٢ق = -٤٠. <br> بالجمع مع المعادلة الثانية: ٢ق = ١٤ ⟸ ق = ٧. بالتعويض: ط + ٧ = ٢٠ ⟸ ط = ١٣. الحل: ١٣ طير و ٧ قطط.'
-                }
-            ];
-            const shuffled = [...questionBank].sort(() => 0.5 - Math.random());
-            const questionCount = Math.min(shuffled.length, 5);
-            return shuffled.slice(0, questionCount);
-        }
-
     });
     </script>
 </body>

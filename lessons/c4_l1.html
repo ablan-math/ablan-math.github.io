@@ -303,209 +303,115 @@
         </main>
         <footer id="main-footer" class="bg-gray-200 py-4"></footer>
     </div>
-    <div id="explanationModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden z-50"><div class="bg-white rounded-lg shadow-2xl p-6 max-w-lg w-full"><div class="flex justify-between items-center mb-4"><h3 class="text-xl font-bold">💡 شرح الإجابة</h3><button id="closeModalBtn" class="p-2 -m-2 rounded-full hover:bg-gray-200"><svg class="h-6 w-6 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button></div><div id="explanationText" class="text-gray-700 max-h-[60vh] overflow-y-auto"></div></div></div>
+    <div id="explanationModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden z-50"><div class="bg-white rounded-lg shadow-2xl p-6 max-w-lg w-full"><div class="flex justify-between items-center mb-4"><h3 id="modal-title" class="text-xl font-bold">💡 شرح الإجابة</h3><button id="closeModalBtn" class="p-2 -m-2 rounded-full hover:bg-gray-200"><svg class="h-6 w-6 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button></div><div id="explanationText" class="text-gray-700 max-h-[60vh] overflow-y-auto"></div></div></div>
     <div id="smartExplanationModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden z-50"><div class="bg-white rounded-lg shadow-2xl p-6 max-w-lg w-full border-t-4 border-purple-500"><div class="flex justify-between items-center mb-4"><h3 class="text-xl font-bold text-purple-800">🧠 الحل الذكي</h3><button id="closeSmartModalBtn" class="p-2 -m-2 rounded-full hover:bg-gray-200"><svg class="h-6 w-6 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button></div><div id="smartExplanationText" class="text-gray-700 max-h-[60vh] overflow-y-auto"></div></div></div>
+    <script src="../js/lesson-core.js"></script>
     <script>
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
-    const MAX_ATTEMPTS = 3;
-    let currentQuestions = []; 
-    function getStudentFromStorage() { const studentDataString = localStorage.getItem('currentStudent'); if (studentDataString) { try { return JSON.parse(studentDataString); } catch (e) { return null; } } return null; }
-    function buildHeader(studentData, lessonTitle = null) {
-        const headerContainer = document.getElementById('main-header');
-        if (!headerContainer) return;
-        let titleHtml;
-        if (lessonTitle) {
-            titleHtml = `<div><h2 class="text-sm text-gray-500 leading-tight">منصة الرياضيات التفاعلية</h2><h1 class="text-xl font-bold text-indigo-700 leading-tight">${lessonTitle}</h1></div>`;
-        } else {
-            titleHtml = `<a href="../index.html" target="_top"><h1 class="text-2xl font-bold text-blue-800">منصة الرياضيات التفاعلية</h1></a>`;
-        }
-        let userInfoHtml = '';
-        if (studentData) {
-            userInfoHtml = `
-                <div class="text-right">
-                    <div class="flex items-center gap-4">
-                        <span class="font-semibold">أهلاً، ${studentData.name}</span>
-                        <a href="../index.html" target="_top" id="logout-link" class="bg-red-500 text-white text-sm py-1 px-2 rounded-lg hover:bg-red-600">خروج</a>
-                    </div>
-                    <a href="../index.html" target="_top" class="text-sm text-blue-600 hover:underline">العودة إلى الفهرس &larr;</a>
-                </div>`;
-        } else {
-            userInfoHtml = `
-                <div class="text-right">
-                    <p class="text-lg text-gray-600">زائر</p>
-                    <a href="../index.html" target="_top" class="text-sm text-blue-600 hover:underline">العودة إلى الفهرس &larr;</a>
-                </div>`;
-        }
-        headerContainer.innerHTML = `<div class="container mx-auto px-6 py-4 flex justify-between items-center">${titleHtml}${userInfoHtml}</div>`;
-        const logoutLink = headerContainer.querySelector('#logout-link');
-        if (logoutLink) {
-            logoutLink.addEventListener('click', () => {
-                localStorage.removeItem('currentStudent');
-            });
-        }
-    }
-    function buildFooter() { const footerContainer = document.getElementById('main-footer'); if (!footerContainer) return; footerContainer.innerHTML = `<div class="container mx-auto px-6"><p class="text-center text-gray-600 text-sm">© 2024 جميع الحقوق محفوظة | تصميم وتطوير: أ. عبدالعزيز خالد العبلان</p></div>`; }
-    function initializeQuiz(lessonId, questions, studentData) { currentQuestions = questions; const quizForm = document.getElementById('quizForm'); if (!quizForm) return; if (questions.length === 0) { quizForm.innerHTML = `<p class="text-center text-gray-600">لا توجد أسئلة متاحة لهذا الدرس حالياً.</p>`; return; } let attemptsLeft; if (studentData) { const studentLessonData = studentData.lessons?.[lessonId] || { attempts: 0 }; attemptsLeft = MAX_ATTEMPTS - studentLessonData.attempts; } else { attemptsLeft = 1; } const attemptsCounter = document.getElementById('attempts-counter'); if (attemptsCounter) { attemptsCounter.innerHTML = `المحاولات المتبقية: <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded-full">${attemptsLeft}</span>`; } const quizHtml = questions.map((q, index) => { const optionsHTML = q.options.map((opt, optIndex) => `<div><input type="radio" name="q${index}" value="${opt.value}" id="q${index}_opt${optIndex}" class="hidden"><label for="q${index}_opt${optIndex}" class="option-label">${opt.display}</label></div>`).join(''); const smartButtonHTML = q.smartExplanation ? `<button type="button" id="smart-explain-btn-${index}" class="hidden mt-2 text-xs text-purple-600 hover:underline font-semibold">🧠 الحل الذكي</button>` : ''; return `<div class="p-4 border-2 border-gray-200 rounded-lg"><p class="font-bold">${index + 1}. <span class="text-yellow-500">${q.level}</span> ${q.text}</p><div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">${optionsHTML}</div><div id="feedback-q${index}" class="mt-2 text-sm font-bold"></div><div class="flex items-center space-x-4 space-x-reverse">${smartButtonHTML}<button type="button" id="explain-btn-${index}" class="hidden mt-2 text-xs text-blue-600 hover:underline">اعرف لماذا؟</button></div></div>`; }).join(''); quizForm.innerHTML = quizHtml + `<button type="submit" id="submit-quiz-btn" class="w-full text-white bg-green-600 hover:bg-green-700 font-medium rounded-lg text-lg px-5 py-3 mt-8">تحقق من إجاباتي</button>`; questions.forEach((q, index) => { const explainBtn = document.getElementById(`explain-btn-${index}`); if(explainBtn) explainBtn.addEventListener('click', () => showExplanation(index)); if (q.smartExplanation) { const smartExplainBtn = document.getElementById(`smart-explain-btn-${index}`); if(smartExplainBtn) smartExplainBtn.addEventListener('click', () => showSmartExplanation(index)); } }); if (attemptsLeft <= 0) { const submitBtn = quizForm.querySelector('#submit-quiz-btn'); submitBtn.disabled = true; submitBtn.textContent = 'لا توجد محاولات متبقية'; submitBtn.classList.add('bg-gray-400', 'hover:bg-gray-400'); } quizForm.onsubmit = (e) => { e.preventDefault(); let score = 0; questions.forEach((q, index) => { const userAnswer = e.target.elements[`q${index}`]?.value; const feedbackEl = document.getElementById(`feedback-q${index}`); if (userAnswer === q.correct) { score++; feedbackEl.textContent = '✔ إجابة صحيحة!'; feedbackEl.className = 'mt-2 text-sm font-bold text-green-600'; } else { feedbackEl.textContent = `❌ إجابة خاطئة.`; feedbackEl.className = 'mt-2 text-sm font-bold text-red-600'; } document.getElementById(`explain-btn-${index}`).classList.remove('hidden'); if (q.smartExplanation) { document.getElementById(`smart-explain-btn-${index}`).classList.remove('hidden'); } }); const finalGrade = Math.round((score / questions.length) * 10); const resultsDiv = document.getElementById('quiz-results'); resultsDiv.classList.remove('hidden'); document.getElementById('quiz-score').textContent = `${finalGrade} / 10`; if (studentData) { saveGrade(lessonId, finalGrade); if (attemptsLeft - 1 > 0) { document.getElementById('retake-quiz-btn').classList.remove('hidden'); } } else { document.getElementById('save-status').textContent = 'تم عرض نتيجتك. سجل الدخول لحفظ تقدمك.'; } e.target.querySelector('#submit-quiz-btn').disabled = true; }; }
-    function saveGrade(lessonId, grade) {
-        const urlParams = new URLSearchParams(window.location.search);
-        const studentId = urlParams.get('studentId');
-        const classId = urlParams.get('classId');
-        const saveStatus = document.getElementById('save-status');
+window.SKIP_SHARED_INTERACTIVE = true;
 
-        if (!studentId || !classId) {
-            saveStatus.textContent = '❌ خطأ: لا يمكن حفظ نتيجتك. معلومات الطالب أو الفصل مفقودة.';
-            console.error("Student ID or Class ID is missing from the URL.");
-            return;
-        }
-        
-        saveStatus.textContent = 'جارٍ حفظ نتيجتك...';
-        const url = `${SCRIPT_URL}?action=saveGrade&studentId=${studentId}&classId=${classId}&lessonId=${lessonId}&grade=${grade}`;
-        fetch(url)
-            .then(res => res.json())
-            .then(result => {
-                if (result.status === 'success') {
-                    saveStatus.textContent = '✔ تم حفظ نتيجتك بنجاح! ستظهر في لوحة التحكم عند العودة.';
-                    const studentData = getStudentFromStorage();
-                    if(studentData){
-                        if (!studentData.lessons) studentData.lessons = {};
-                        if (!studentData.lessons[lessonId] || studentData.lessons[lessonId].grade < grade) {
-                            studentData.lessons[lessonId] = { grade: grade, attempts: (studentData.lessons[lessonId]?.attempts || 0) + 1 };
-                        } else {
-                            studentData.lessons[lessonId].attempts++;
-                        }
-                        localStorage.setItem('currentStudent', JSON.stringify(studentData));
-                    }
-                } else {
-                    throw new Error(result.message);
+const LESSON_ID = 'c4_l1';
+
+function generateQuiz() { const questionBank = [
+        { type: 'mcq', level: '⭐', text: `حل المتباينة التالية: <span class="math-eq">س + ٤ < ٩</span>`, options: [ { display: 'س > ٥', value: 'A' }, { display: 'س < ٥', value: 'B' }, { display: 'س < ١٣', value: 'C' }, { display: 'س > ١٣', value: 'D' } ], correct: 'B', explanation: `<p>لحل المتباينة <span class="math-eq">س + ٤ < ٩</span>، نطرح ٤ من الطرفين.</p><p><span class="math-eq">س + ٤ - ٤ < ٩ - ٤</span></p><p>إذن، الحل هو <span class="math-eq">س < ٥</span>.</p>`, smartExplanation: `<p><b>حل ذهني:</b> ما هو العدد الذي إذا أضفت له 4 يصبح أقل من 9؟ بالتأكيد هو أي عدد أصغر من 5.</p>` },
+        { type: 'mcq', level: '⭐', text: `حل المتباينة التالية: <span class="math-eq">ص - ٣ ≥ ٧</span>`, options: [ { display: 'ص ≥ ٤', value: 'A' }, { display: 'ص ≤ ٤', value: 'B' }, { display: 'ص ≥ ١٠', value: 'C' }, { display: 'ص ≤ ١٠', value: 'D' } ], correct: 'C', explanation: `<p>لحل المتباينة <span class="math-eq">ص - ٣ ≥ ٧</span>، نضيف ٣ إلى الطرفين.</p><p><span class="math-eq">ص - ٣ + ٣ ≥ ٧ + ٣</span></p><p>إذن، الحل هو <span class="math-eq">ص ≥ ١٠</span>.</p>`, smartExplanation: `<p><b>حل ذهني:</b> ما هو العدد الذي إذا طرحت منه 3 يتبقى 7 أو أكثر؟ بالتأكيد هو 10 أو أي عدد أكبر منه.</p>` },
+        { type: 'mcq', level: '⭐⭐', text: `حل المتباينة التالية: <span class="math-eq">٨ ≤ ف + ١٣</span>`, options: [ { display: 'ف ≥ ٢١', value: 'A' }, { display: 'ف ≤ -٥', value: 'B' }, { display: 'ف ≤ ٢١', value: 'C' }, { display: 'ف ≥ -٥', value: 'D' } ], correct: 'D', explanation: `<p>لحل المتباينة <span class="math-eq">٨ ≤ ف + ١٣</span>، نطرح ١٣ من الطرفين.</p><p><span class="math-eq">٨ - ١٣ ≤ ف + ١٣ - ١٣</span></p><p>نبسط: <span class="math-eq">-٥ ≤ ف</span>، والتي تكافئ <span class="math-eq">ف ≥ -٥</span>.</p>`, smartExplanation: `<p><b>استبعاد الخيارات:</b> المتغير 'ف' مجموع مع عدد موجب والناتج عدد موجب أصغر، لذا يجب أن تكون قيمة 'ف' سالبة. هذا يستبعد الخيارين (أ) و (ج).</p>` },
+        { type: 'mcq', level: '⭐⭐', text: `ما هي المتباينة التي تعبر عن الجملة "ناتج جمع عدد و <span class="num-highlight">٧</span> أكبر من <span class="num-highlight">١٥</span>"؟`, options: [ { display: 'س + ٧ > ١٥', value: 'A' }, { display: 'س + ٧ ≥ ١٥', value: 'B' }, { display: 'س + ٧ < ١٥', value: 'C' }, { display: 'س + ٧ ≤ ١٥', value: 'D' } ], correct: 'A', explanation: `<p>الجملة "ناتج جمع عدد و ٧" تترجم إلى <span class="math-eq">س + ٧</span>.</p><p>علامة "أكبر من" هي <span class="math-eq">></span>.</p><p>إذن، المتباينة الكاملة هي <span class="math-eq">س + ٧ > ١٥</span>.</p>`, smartExplanation: `<p><b>الكلمات المفتاحية:</b> كلمة 'جمع' تعني (+)، وكلمة 'أكبر من' تعني (>). الخيار الوحيد الذي يطابق هو (أ).</p>` },
+        { type: 'mcq', level: '⭐⭐⭐', text: `حل المتباينة التالية: <span class="math-eq">٩ن - ١ > ١٠ن</span>`, options: [ { display: 'ن > -١', value: 'A' }, { display: 'ن < -١', value: 'B' }, { display: 'ن < ١', value: 'C' }, { display: 'ن > ١', value: 'D' } ], correct: 'B', explanation: `<p><b>1. المتباينة الأصلية:</b> <span class="math-eq">٩ن - ١ > ١٠ن</span>.</p><p><b>2. نطرح ٩ن من الطرفين:</b> <span class="math-eq">٩ن - ٩ن - ١ > ١٠ن - ٩ن</span>.</p><p><b>3. نبسط:</b> <span class="math-eq">-١ > ن</span>.</p><p><b>4. إعادة الترتيب:</b> <span class="math-eq">ن < -١</span>.</p>`, smartExplanation: `<p><b>نقل المتغير الأصغر:</b> انقل ٩ن (الأصغر) إلى الطرف الآخر لتجنب القسمة على سالب. تصبح المتباينة <span class="math-eq">-١ > ن</span>، والتي تعني أن <span class="math-eq">ن < -١</span>.</p>` },
+        { type: 'mcq', level: '⭐⭐', text: `أي من الأعداد التالية ينتمي لمجموعة حل المتباينة <span class="math-eq">ك - ٩ ≤ -٤</span>؟`, options: [ { display: '٦', value: 'A' }, { display: '٥', value: 'D' }, { display: '٨', value: 'C' }, { display: '٧', value: 'B' } ], correct: 'D', explanation: `<p><b>1. نحل المتباينة أولاً:</b> <span class="math-eq">ك - ٩ ≤ -٤</span>.</p><p><b>2. نضيف ٩ للطرفين:</b> <span class="math-eq">ك - ٩ + ٩ ≤ -٤ + ٩</span>.</p><p><b>3. نبسط:</b> <span class="math-eq">ك ≤ ٥</span>.</p><p><b>4. نتحقق من الخيارات:</b> العدد الوحيد الذي يحقق الشرط "أصغر من أو يساوي ٥" هو العدد ٥.</p>`, smartExplanation: `<p><b>التعويض السريع:</b> عوض بالخيارات في المتباينة. لنبدأ بالخيار (د): <span class="math-eq">٥ - ٩ = -٤</span>. هل <span class="math-eq">-٤ ≤ -٤</span>؟ نعم. إذن هي الإجابة الصحيحة.</p>` },
+        { type: 'mcq', level: '⭐⭐⭐', text: `حل المتباينة التالية: <span class="math-eq">٥هـ + ٢ ≤ ٤هـ - ١</span>`, options: [ { display: 'هـ ≤ ١', value: 'A' }, { display: 'هـ ≥ -٣', value: 'B' }, { display: 'هـ ≤ -٣', value: 'C' }, { display: 'هـ ≥ ١', value: 'D' } ], correct: 'C', explanation: `<p><b>1. المتباينة الأصلية:</b> <span class="math-eq">٥هـ + ٢ ≤ ٤هـ - ١</span>.</p><p><b>2. نطرح ٤هـ من الطرفين:</b> <span class="math-eq">٥هـ - ٤هـ + ٢ ≤ ٤هـ - ٤هـ - ١</span>.</p><p><b>3. نبسط:</b> <span class="math-eq">هـ + ٢ ≤ -١</span>.</p><p><b>4. نطرح ٢ من الطرفين:</b> <span class="math-eq">هـ + ٢ - ٢ ≤ -١ - ٢</span>.</p><p><b>5. الحل النهائي:</b> <span class="math-eq">هـ ≤ -٣</span>.</p>`, smartExplanation: `<p><b>النقل السريع:</b> انقل ٤هـ إلى اليسار (تصبح -٤هـ) وانقل ٢ إلى اليمين (تصبح -٢). المتباينة تصبح <span class="math-eq">هـ ≤ -٣</span>.</p>` },
+        { type: 'mcq', level: '⭐⭐', text: `ناتج طرح <span class="num-highlight">٥</span> من عدد ما، هو على الأقل <span class="num-highlight">١٢</span>. اكتب المتباينة التي تمثل هذه الجملة.`, options: [ { display: 'س - ٥ ≥ ١٢', value: 'A' }, { display: 'س - ٥ ≤ ١٢', value: 'B' }, { display: '٥ - س ≥ ١٢', value: 'C' }, { display: 'س + ٥ ≥ ١٢', value: 'D' } ], correct: 'A', explanation: `<p>عبارة "ناتج طرح ٥ من عدد ما" تترجم إلى <span class="math-eq">س - ٥</span>.</p><p>عبارة "على الأقل" تعني "أكبر من أو يساوي" (≥).</p><p>إذن، المتباينة هي <span class="math-eq">س - ٥ ≥ ١٢</span>.</p>`, smartExplanation: `<p><b>الكلمات المفتاحية:</b> 'طرح ٥ من عدد' تعني <span class="math-eq">س - ٥</span>. و 'على الأقل' تعني ≥. الخيار الوحيد الذي يطابق هو (أ).</p>` },
+        { type: 'mcq', level: '⭐⭐', text: `أي من المتباينات التالية حلها هو <span class="math-eq">ن ≥ -٢</span>؟`, options: [ { display: 'ن + ٥ ≥ ٨', value: 'A' }, { display: 'ن + ٣ ≥ ١', value: 'B' }, { display: 'ن - ١ ≥ ١', value: 'C' }, { display: 'ن - ٢ ≥ -٣', value: 'D' } ], correct: 'B', explanation: `<p>نحل الخيار الثاني: <span class="math-eq">ن + ٣ ≥ ١</span>.</p><p>نطرح ٣ من الطرفين: <span class="math-eq">ن ≥ ١ - ٣</span>.</p><p>إذن، <span class="math-eq">ن ≥ -٢</span>. وهو الحل المطلوب.</p>`, smartExplanation: `<p><b>الحل العكسي:</b> عوض بـ <span class="math-eq">ن = -٢</span> في الخيارات وابحث عن المتباينة التي تصبح صحيحة (مساواة).<br>الخيار (ب): <span class="math-eq">-٢ + ٣ = ١</span>. هل <span class="math-eq">١ ≥ ١</span>؟ نعم. هذا هو الخيار المحتمل.</p>` },
+        { type: 'mcq', level: '⭐', text: `ما هي الجملة التي تمثل المتباينة <span class="math-eq">س - ٥ > ١٠</span>؟`, options: [ { display: 'عدد مطروح منه ٥ أصغر من ١٠', value: 'A' }, { display: 'مجموع عدد و ٥ أكبر من ١٠', value: 'B' }, { display: '٥ مطروح من عدد أكبر من ١٠', value: 'C' }, { display: 'عدد مطروح منه ٥ أكبر من ١٠', value: 'D' } ], correct: 'D', explanation: `<p>المتباينة <span class="math-eq">س - ٥ > ١٠</span> تقرأ حرفياً: عدد (س) مطروح منه ٥ هو أكبر من (>) ١٠.</p>` },
+        { type: 'mcq', level: '⭐⭐⭐', text: `حل المتباينة التالية: <span class="math-eq">-٢ + ف ≤ -٧ + ٢ف</span>`, options: [ { display: 'ف ≥ ٥', value: 'A' }, { display: 'ف ≤ ٥', value: 'B' }, { display: 'ف ≥ -٩', value: 'C' }, { display: 'ف ≤ -٩', value: 'D' } ], correct: 'A', explanation: `<p><b>1. نطرح ف من الطرفين:</b> <span class="math-eq">-٢ ≤ -٧ + ف</span>.</p><p><b>2. نضيف ٧ للطرفين:</b> <span class="math-eq">-٢ + ٧ ≤ ف</span>.</p><p><b>3. نبسط:</b> <span class="math-eq">٥ ≤ ف</span>، والتي تكافئ <span class="math-eq">ف ≥ ٥</span>.</p>`, smartExplanation: `<p><b>النقل السريع:</b> انقل 'ف' إلى اليمين (لتصبح ف) وانقل -٧ إلى اليسار (لتصبح +٧). المتباينة تصبح <span class="math-eq">٥ ≤ ف</span>، أي <span class="math-eq">ف ≥ ٥</span>.</p>` },
+        { type: 'mcq', level: '⭐⭐', text: `يريد سائق قطع مسافة لا تقل عن <span class="num-highlight">٣٠٠</span> كم. إذا قطع <span class="num-highlight">١٢٠</span> كم بالفعل، فما المتباينة التي تمثل المسافة المتبقية <span class="math-eq">م</span> التي يجب عليه قطعها؟`, options: [ { display: '١٢٠ + م ≤ ٣٠٠', value: 'A' }, { display: '١٢٠ + م ≥ ٣٠٠', value: 'B' }, { display: 'م - ١٢٠ ≥ ٣٠٠', value: 'C' }, { display: '٣٠٠ - م ≤ ١٢٠', value: 'D' } ], correct: 'B', explanation: `<p>المسافة المقطوعة (١٢٠ كم) زائد المسافة المتبقية (<span class="math-eq">م</span>) يجب أن تكون "لا تقل عن" (≥) ٣٠٠ كم.</p><p>إذن، المتباينة هي <span class="math-eq">١٢٠ + م ≥ ٣٠٠</span>.</p>`, smartExplanation: `<p><b>الكلمات المفتاحية:</b> 'لا تقل عن' تعني ≥. المسافة الإجمالية هي 'ما قطعه + المتبقي'، أي <span class="math-eq">١٢٠ + م</span>. إذن المتباينة هي <span class="math-eq">١٢٠ + م ≥ ٣٠٠</span>.</p>` }
+    ];
+    const shuffled = [...questionBank].sort(() => 0.5 - Math.random());
+    const questionCount = Math.min(shuffled.length, 5);
+    return shuffled.slice(0, questionCount);
+}
+function toArabicNumerals(num) {
+    const arabicNumerals = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+    return String(num).replace(/[0-9]/g, (d) => arabicNumerals[parseInt(d)]);
+}
+function generateNumberLine(containerId, value, type) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    const start = value - 5;
+    const end = value + 5;
+    const range = end - start;
+    const svgWidth = container.clientWidth > 0 ? container.clientWidth : 250;
+    const svgHeight = 60;
+    const valueToX = (val) => ((val - start) / range) * (svgWidth - 40) + 20;
+    const isClosed = type === 'gte' || type === 'lte';
+    const isLeft = type === 'lt' || type === 'lte';
+    let ticksHtml = '';
+    for (let i = start; i <= end; i++) {
+        const x = valueToX(i);
+        ticksHtml += `<line x1="${x}" y1="15" x2="${x}" y2="25" stroke="gray" stroke-width="1"></line>`;
+        ticksHtml += `<text x="${x}" y="45" text-anchor="middle" font-size="12" fill="black">${toArabicNumerals(i)}</text>`;
+    }
+    const valueX = valueToX(value);
+    const circleHtml = `<circle cx="${valueX}" cy="20" r="5" stroke="#3b82f6" stroke-width="2" fill="${isClosed ? '#3b82f6' : 'white'}"></circle>`;
+    let rayHtml = '';
+    if (isLeft) {
+        rayHtml = `<line x1="${valueX}" y1="20" x2="0" y2="20" stroke="#3b82f6" stroke-width="3"></line>`;
+        rayHtml += `<polygon points="10,15 0,20 10,25" fill="#3b82f6"></polygon>`;
+    } else {
+        rayHtml = `<line x1="${valueX}" y1="20" x2="${svgWidth}" y2="20" stroke="#3b82f6" stroke-width="3"></line>`;
+        rayHtml += `<polygon points="${svgWidth - 10},15 ${svgWidth},20 ${svgWidth - 10},25" fill="#3b82f6"></polygon>`;
+    }
+    const svg = `<svg width="100%" height="${svgHeight}" class="number-line-svg"><line x1="0" y1="20" x2="${svgWidth}" y2="20" stroke="gray" stroke-width="2"></line>${ticksHtml}${rayHtml}${circleHtml}</svg>`;
+    container.innerHTML = svg;
+}
+document.addEventListener('DOMContentLoaded', () => {
+    const exampleContainers = document.querySelectorAll('[id^="interactive-container-"]');
+    const state = {};
+    exampleContainers.forEach(container => {
+        const exampleId = container.id.split('-')[2];
+        state[exampleId] = { currentIndex: -1, steps: container.querySelectorAll('.step-interactive'), placeholder: container.querySelector('.interactive-placeholder'), prevBtn: container.querySelector('.prev-btn'), nextBtn: container.querySelector('.next-btn'), resetBtn: container.querySelector('.reset-btn') };
+        const resetExample = () => { state[exampleId].steps.forEach(step => step.classList.remove('active')); state[exampleId].currentIndex = -1; if (state[exampleId].placeholder) { state[exampleId].placeholder.classList.remove('hidden'); } updateButtons(); };
+        const updateButtons = () => { const isFirstStep = state[exampleId].currentIndex <= -1; const isLastStep = state[exampleId].currentIndex >= state[exampleId].steps.length - 1; state[exampleId].prevBtn.disabled = isFirstStep; if (isLastStep) { state[exampleId].nextBtn.classList.add('hidden'); state[exampleId].resetBtn.classList.remove('hidden'); } else { state[exampleId].nextBtn.classList.remove('hidden'); state[exampleId].resetBtn.classList.add('hidden'); } };
+
+        state[exampleId].nextBtn.addEventListener('click', () => {
+            if (state[exampleId].currentIndex < state[exampleId].steps.length - 1) {
+                if (state[exampleId].currentIndex === -1 && state[exampleId].placeholder) {
+                    state[exampleId].placeholder.classList.add('hidden');
                 }
-            })
-            .catch(error => {
-                saveStatus.textContent = '❌ حدث خطأ أثناء حفظ الدرجة.';
-                console.error("Save Grade Error:", error);
-            });
-    }
-    function showExplanation(questionIndex) { const modal = document.getElementById('explanationModal'); const explanationText = document.getElementById('explanationText'); if(modal && explanationText && currentQuestions[questionIndex] && currentQuestions[questionIndex].explanation) { explanationText.innerHTML = currentQuestions[questionIndex].explanation; modal.classList.remove('hidden'); } }
-    function closeModal() { const modal = document.getElementById('explanationModal'); if(modal) modal.classList.add('hidden'); }
-    function showSmartExplanation(questionIndex) { const modal = document.getElementById('smartExplanationModal'); const explanationText = document.getElementById('smartExplanationText'); if(modal && explanationText && currentQuestions[questionIndex] && currentQuestions[questionIndex].smartExplanation) { explanationText.innerHTML = currentQuestions[questionIndex].smartExplanation; modal.classList.remove('hidden'); } }
-    function closeSmartModal() { const modal = document.getElementById('smartExplanationModal'); if(modal) modal.classList.add('hidden'); }
-    const LESSON_ID = 'c4_l1'; 
-    function generateQuiz() { const questionBank = [
-            { type: 'mcq', level: '⭐', text: `حل المتباينة التالية: <span class="math-eq">س + ٤ < ٩</span>`, options: [ { display: 'س > ٥', value: 'A' }, { display: 'س < ٥', value: 'B' }, { display: 'س < ١٣', value: 'C' }, { display: 'س > ١٣', value: 'D' } ], correct: 'B', explanation: `<p>لحل المتباينة <span class="math-eq">س + ٤ < ٩</span>، نطرح ٤ من الطرفين.</p><p><span class="math-eq">س + ٤ - ٤ < ٩ - ٤</span></p><p>إذن، الحل هو <span class="math-eq">س < ٥</span>.</p>`, smartExplanation: `<p><b>حل ذهني:</b> ما هو العدد الذي إذا أضفت له 4 يصبح أقل من 9؟ بالتأكيد هو أي عدد أصغر من 5.</p>` },
-            { type: 'mcq', level: '⭐', text: `حل المتباينة التالية: <span class="math-eq">ص - ٣ ≥ ٧</span>`, options: [ { display: 'ص ≥ ٤', value: 'A' }, { display: 'ص ≤ ٤', value: 'B' }, { display: 'ص ≥ ١٠', value: 'C' }, { display: 'ص ≤ ١٠', value: 'D' } ], correct: 'C', explanation: `<p>لحل المتباينة <span class="math-eq">ص - ٣ ≥ ٧</span>، نضيف ٣ إلى الطرفين.</p><p><span class="math-eq">ص - ٣ + ٣ ≥ ٧ + ٣</span></p><p>إذن، الحل هو <span class="math-eq">ص ≥ ١٠</span>.</p>`, smartExplanation: `<p><b>حل ذهني:</b> ما هو العدد الذي إذا طرحت منه 3 يتبقى 7 أو أكثر؟ بالتأكيد هو 10 أو أي عدد أكبر منه.</p>` },
-            { type: 'mcq', level: '⭐⭐', text: `حل المتباينة التالية: <span class="math-eq">٨ ≤ ف + ١٣</span>`, options: [ { display: 'ف ≥ ٢١', value: 'A' }, { display: 'ف ≤ -٥', value: 'B' }, { display: 'ف ≤ ٢١', value: 'C' }, { display: 'ف ≥ -٥', value: 'D' } ], correct: 'D', explanation: `<p>لحل المتباينة <span class="math-eq">٨ ≤ ف + ١٣</span>، نطرح ١٣ من الطرفين.</p><p><span class="math-eq">٨ - ١٣ ≤ ف + ١٣ - ١٣</span></p><p>نبسط: <span class="math-eq">-٥ ≤ ف</span>، والتي تكافئ <span class="math-eq">ف ≥ -٥</span>.</p>`, smartExplanation: `<p><b>استبعاد الخيارات:</b> المتغير 'ف' مجموع مع عدد موجب والناتج عدد موجب أصغر، لذا يجب أن تكون قيمة 'ف' سالبة. هذا يستبعد الخيارين (أ) و (ج).</p>` },
-            { type: 'mcq', level: '⭐⭐', text: `ما هي المتباينة التي تعبر عن الجملة "ناتج جمع عدد و <span class="num-highlight">٧</span> أكبر من <span class="num-highlight">١٥</span>"؟`, options: [ { display: 'س + ٧ > ١٥', value: 'A' }, { display: 'س + ٧ ≥ ١٥', value: 'B' }, { display: 'س + ٧ < ١٥', value: 'C' }, { display: 'س + ٧ ≤ ١٥', value: 'D' } ], correct: 'A', explanation: `<p>الجملة "ناتج جمع عدد و ٧" تترجم إلى <span class="math-eq">س + ٧</span>.</p><p>علامة "أكبر من" هي <span class="math-eq">></span>.</p><p>إذن، المتباينة الكاملة هي <span class="math-eq">س + ٧ > ١٥</span>.</p>`, smartExplanation: `<p><b>الكلمات المفتاحية:</b> كلمة 'جمع' تعني (+)، وكلمة 'أكبر من' تعني (>). الخيار الوحيد الذي يطابق هو (أ).</p>` },
-            { type: 'mcq', level: '⭐⭐⭐', text: `حل المتباينة التالية: <span class="math-eq">٩ن - ١ > ١٠ن</span>`, options: [ { display: 'ن > -١', value: 'A' }, { display: 'ن < -١', value: 'B' }, { display: 'ن < ١', value: 'C' }, { display: 'ن > ١', value: 'D' } ], correct: 'B', explanation: `<p><b>1. المتباينة الأصلية:</b> <span class="math-eq">٩ن - ١ > ١٠ن</span>.</p><p><b>2. نطرح ٩ن من الطرفين:</b> <span class="math-eq">٩ن - ٩ن - ١ > ١٠ن - ٩ن</span>.</p><p><b>3. نبسط:</b> <span class="math-eq">-١ > ن</span>.</p><p><b>4. إعادة الترتيب:</b> <span class="math-eq">ن < -١</span>.</p>`, smartExplanation: `<p><b>نقل المتغير الأصغر:</b> انقل ٩ن (الأصغر) إلى الطرف الآخر لتجنب القسمة على سالب. تصبح المتباينة <span class="math-eq">-١ > ن</span>، والتي تعني أن <span class="math-eq">ن < -١</span>.</p>` },
-            { type: 'mcq', level: '⭐⭐', text: `أي من الأعداد التالية ينتمي لمجموعة حل المتباينة <span class="math-eq">ك - ٩ ≤ -٤</span>؟`, options: [ { display: '٦', value: 'A' }, { display: '٥', value: 'D' }, { display: '٨', value: 'C' }, { display: '٧', value: 'B' } ], correct: 'D', explanation: `<p><b>1. نحل المتباينة أولاً:</b> <span class="math-eq">ك - ٩ ≤ -٤</span>.</p><p><b>2. نضيف ٩ للطرفين:</b> <span class="math-eq">ك - ٩ + ٩ ≤ -٤ + ٩</span>.</p><p><b>3. نبسط:</b> <span class="math-eq">ك ≤ ٥</span>.</p><p><b>4. نتحقق من الخيارات:</b> العدد الوحيد الذي يحقق الشرط "أصغر من أو يساوي ٥" هو العدد ٥.</p>`, smartExplanation: `<p><b>التعويض السريع:</b> عوض بالخيارات في المتباينة. لنبدأ بالخيار (د): <span class="math-eq">٥ - ٩ = -٤</span>. هل <span class="math-eq">-٤ ≤ -٤</span>؟ نعم. إذن هي الإجابة الصحيحة.</p>` },
-            { type: 'mcq', level: '⭐⭐⭐', text: `حل المتباينة التالية: <span class="math-eq">٥هـ + ٢ ≤ ٤هـ - ١</span>`, options: [ { display: 'هـ ≤ ١', value: 'A' }, { display: 'هـ ≥ -٣', value: 'B' }, { display: 'هـ ≤ -٣', value: 'C' }, { display: 'هـ ≥ ١', value: 'D' } ], correct: 'C', explanation: `<p><b>1. المتباينة الأصلية:</b> <span class="math-eq">٥هـ + ٢ ≤ ٤هـ - ١</span>.</p><p><b>2. نطرح ٤هـ من الطرفين:</b> <span class="math-eq">٥هـ - ٤هـ + ٢ ≤ ٤هـ - ٤هـ - ١</span>.</p><p><b>3. نبسط:</b> <span class="math-eq">هـ + ٢ ≤ -١</span>.</p><p><b>4. نطرح ٢ من الطرفين:</b> <span class="math-eq">هـ + ٢ - ٢ ≤ -١ - ٢</span>.</p><p><b>5. الحل النهائي:</b> <span class="math-eq">هـ ≤ -٣</span>.</p>`, smartExplanation: `<p><b>النقل السريع:</b> انقل ٤هـ إلى اليسار (تصبح -٤هـ) وانقل ٢ إلى اليمين (تصبح -٢). المتباينة تصبح <span class="math-eq">هـ ≤ -٣</span>.</p>` },
-            { type: 'mcq', level: '⭐⭐', text: `ناتج طرح <span class="num-highlight">٥</span> من عدد ما، هو على الأقل <span class="num-highlight">١٢</span>. اكتب المتباينة التي تمثل هذه الجملة.`, options: [ { display: 'س - ٥ ≥ ١٢', value: 'A' }, { display: 'س - ٥ ≤ ١٢', value: 'B' }, { display: '٥ - س ≥ ١٢', value: 'C' }, { display: 'س + ٥ ≥ ١٢', value: 'D' } ], correct: 'A', explanation: `<p>عبارة "ناتج طرح ٥ من عدد ما" تترجم إلى <span class="math-eq">س - ٥</span>.</p><p>عبارة "على الأقل" تعني "أكبر من أو يساوي" (≥).</p><p>إذن، المتباينة هي <span class="math-eq">س - ٥ ≥ ١٢</span>.</p>`, smartExplanation: `<p><b>الكلمات المفتاحية:</b> 'طرح ٥ من عدد' تعني <span class="math-eq">س - ٥</span>. و 'على الأقل' تعني ≥. الخيار الوحيد الذي يطابق هو (أ).</p>` },
-            { type: 'mcq', level: '⭐⭐', text: `أي من المتباينات التالية حلها هو <span class="math-eq">ن ≥ -٢</span>؟`, options: [ { display: 'ن + ٥ ≥ ٨', value: 'A' }, { display: 'ن + ٣ ≥ ١', value: 'B' }, { display: 'ن - ١ ≥ ١', value: 'C' }, { display: 'ن - ٢ ≥ -٣', value: 'D' } ], correct: 'B', explanation: `<p>نحل الخيار الثاني: <span class="math-eq">ن + ٣ ≥ ١</span>.</p><p>نطرح ٣ من الطرفين: <span class="math-eq">ن ≥ ١ - ٣</span>.</p><p>إذن، <span class="math-eq">ن ≥ -٢</span>. وهو الحل المطلوب.</p>`, smartExplanation: `<p><b>الحل العكسي:</b> عوض بـ <span class="math-eq">ن = -٢</span> في الخيارات وابحث عن المتباينة التي تصبح صحيحة (مساواة).<br>الخيار (ب): <span class="math-eq">-٢ + ٣ = ١</span>. هل <span class="math-eq">١ ≥ ١</span>؟ نعم. هذا هو الخيار المحتمل.</p>` },
-            { type: 'mcq', level: '⭐', text: `ما هي الجملة التي تمثل المتباينة <span class="math-eq">س - ٥ > ١٠</span>؟`, options: [ { display: 'عدد مطروح منه ٥ أصغر من ١٠', value: 'A' }, { display: 'مجموع عدد و ٥ أكبر من ١٠', value: 'B' }, { display: '٥ مطروح من عدد أكبر من ١٠', value: 'C' }, { display: 'عدد مطروح منه ٥ أكبر من ١٠', value: 'D' } ], correct: 'D', explanation: `<p>المتباينة <span class="math-eq">س - ٥ > ١٠</span> تقرأ حرفياً: عدد (س) مطروح منه ٥ هو أكبر من (>) ١٠.</p>` },
-            { type: 'mcq', level: '⭐⭐⭐', text: `حل المتباينة التالية: <span class="math-eq">-٢ + ف ≤ -٧ + ٢ف</span>`, options: [ { display: 'ف ≥ ٥', value: 'A' }, { display: 'ف ≤ ٥', value: 'B' }, { display: 'ف ≥ -٩', value: 'C' }, { display: 'ف ≤ -٩', value: 'D' } ], correct: 'A', explanation: `<p><b>1. نطرح ف من الطرفين:</b> <span class="math-eq">-٢ ≤ -٧ + ف</span>.</p><p><b>2. نضيف ٧ للطرفين:</b> <span class="math-eq">-٢ + ٧ ≤ ف</span>.</p><p><b>3. نبسط:</b> <span class="math-eq">٥ ≤ ف</span>، والتي تكافئ <span class="math-eq">ف ≥ ٥</span>.</p>`, smartExplanation: `<p><b>النقل السريع:</b> انقل 'ف' إلى اليمين (لتصبح ف) وانقل -٧ إلى اليسار (لتصبح +٧). المتباينة تصبح <span class="math-eq">٥ ≤ ف</span>، أي <span class="math-eq">ف ≥ ٥</span>.</p>` },
-            { type: 'mcq', level: '⭐⭐', text: `يريد سائق قطع مسافة لا تقل عن <span class="num-highlight">٣٠٠</span> كم. إذا قطع <span class="num-highlight">١٢٠</span> كم بالفعل، فما المتباينة التي تمثل المسافة المتبقية <span class="math-eq">م</span> التي يجب عليه قطعها؟`, options: [ { display: '١٢٠ + م ≤ ٣٠٠', value: 'A' }, { display: '١٢٠ + م ≥ ٣٠٠', value: 'B' }, { display: 'م - ١٢٠ ≥ ٣٠٠', value: 'C' }, { display: '٣٠٠ - م ≤ ١٢٠', value: 'D' } ], correct: 'B', explanation: `<p>المسافة المقطوعة (١٢٠ كم) زائد المسافة المتبقية (<span class="math-eq">م</span>) يجب أن تكون "لا تقل عن" (≥) ٣٠٠ كم.</p><p>إذن، المتباينة هي <span class="math-eq">١٢٠ + م ≥ ٣٠٠</span>.</p>`, smartExplanation: `<p><b>الكلمات المفتاحية:</b> 'لا تقل عن' تعني ≥. المسافة الإجمالية هي 'ما قطعه + المتبقي'، أي <span class="math-eq">١٢٠ + م</span>. إذن المتباينة هي <span class="math-eq">١٢٠ + م ≥ ٣٠٠</span>.</p>` }
-        ];
-        const shuffled = [...questionBank].sort(() => 0.5 - Math.random());
-        const questionCount = Math.min(shuffled.length, 5);
-        return shuffled.slice(0, questionCount);
-    }
-    function toArabicNumerals(num) {
-        const arabicNumerals = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
-        return String(num).replace(/[0-9]/g, (d) => arabicNumerals[parseInt(d)]);
-    }
-    function generateNumberLine(containerId, value, type) {
-        const container = document.getElementById(containerId);
-        if (!container) return;
-        const start = value - 5;
-        const end = value + 5;
-        const range = end - start;
-        const svgWidth = container.clientWidth > 0 ? container.clientWidth : 250;
-        const svgHeight = 60;
-        const valueToX = (val) => ((val - start) / range) * (svgWidth - 40) + 20;
-        const isClosed = type === 'gte' || type === 'lte';
-        const isLeft = type === 'lt' || type === 'lte';
-        let ticksHtml = '';
-        for (let i = start; i <= end; i++) {
-            const x = valueToX(i);
-            ticksHtml += `<line x1="${x}" y1="15" x2="${x}" y2="25" stroke="gray" stroke-width="1"></line>`;
-            ticksHtml += `<text x="${x}" y="45" text-anchor="middle" font-size="12" fill="black">${toArabicNumerals(i)}</text>`;
-        }
-        const valueX = valueToX(value);
-        const circleHtml = `<circle cx="${valueX}" cy="20" r="5" stroke="#3b82f6" stroke-width="2" fill="${isClosed ? '#3b82f6' : 'white'}"></circle>`;
-        let rayHtml = '';
-        if (isLeft) {
-            rayHtml = `<line x1="${valueX}" y1="20" x2="0" y2="20" stroke="#3b82f6" stroke-width="3"></line>`;
-            rayHtml += `<polygon points="10,15 0,20 10,25" fill="#3b82f6"></polygon>`;
-        } else {
-            rayHtml = `<line x1="${valueX}" y1="20" x2="${svgWidth}" y2="20" stroke="#3b82f6" stroke-width="3"></line>`;
-            rayHtml += `<polygon points="${svgWidth - 10},15 ${svgWidth},20 ${svgWidth - 10},25" fill="#3b82f6"></polygon>`;
-        }
-        const svg = `<svg width="100%" height="${svgHeight}" class="number-line-svg"><line x1="0" y1="20" x2="${svgWidth}" y2="20" stroke="gray" stroke-width="2"></line>${ticksHtml}${rayHtml}${circleHtml}</svg>`;
-        container.innerHTML = svg;
-    }
-    document.addEventListener('DOMContentLoaded', () => {
-        const exampleContainers = document.querySelectorAll('[id^="interactive-container-"]');
-        const state = {};
-        exampleContainers.forEach(container => {
-            const exampleId = container.id.split('-')[2];
-            state[exampleId] = { currentIndex: -1, steps: container.querySelectorAll('.step-interactive'), placeholder: container.querySelector('.interactive-placeholder'), prevBtn: container.querySelector('.prev-btn'), nextBtn: container.querySelector('.next-btn'), resetBtn: container.querySelector('.reset-btn') };
-            const resetExample = () => { state[exampleId].steps.forEach(step => step.classList.remove('active')); state[exampleId].currentIndex = -1; if (state[exampleId].placeholder) { state[exampleId].placeholder.classList.remove('hidden'); } updateButtons(); };
-            const updateButtons = () => { const isFirstStep = state[exampleId].currentIndex <= -1; const isLastStep = state[exampleId].currentIndex >= state[exampleId].steps.length - 1; state[exampleId].prevBtn.disabled = isFirstStep; if (isLastStep) { state[exampleId].nextBtn.classList.add('hidden'); state[exampleId].resetBtn.classList.remove('hidden'); } else { state[exampleId].nextBtn.classList.remove('hidden'); state[exampleId].resetBtn.classList.add('hidden'); } };
-            
-            state[exampleId].nextBtn.addEventListener('click', () => {
-                if (state[exampleId].currentIndex < state[exampleId].steps.length - 1) {
-                    if (state[exampleId].currentIndex === -1 && state[exampleId].placeholder) {
-                        state[exampleId].placeholder.classList.add('hidden');
-                    }
-                    state[exampleId].currentIndex++;
-                    const activeStep = state[exampleId].steps[state[exampleId].currentIndex];
-                    activeStep.classList.add('active');
-                    const nlContainer = activeStep.querySelector('[data-nldata]');
-                    if (nlContainer) {
-                        const data = JSON.parse(nlContainer.dataset.nldata);
-                        generateNumberLine(nlContainer.id, data.value, data.type);
-                    }
-                    updateButtons();
-                }
-            });
-            state[exampleId].prevBtn.addEventListener('click', () => {
-                if (state[exampleId].currentIndex > -1) {
-                    state[exampleId].steps[state[exampleId].currentIndex].classList.remove('active');
-                    state[exampleId].currentIndex--;
-                     if (state[exampleId].currentIndex === -1 && state[exampleId].placeholder) {
-                        state[exampleId].placeholder.classList.remove('hidden');
-                    }
-                    updateButtons();
-                }
-            });
-
-            if(state[exampleId].resetBtn) { state[exampleId].resetBtn.addEventListener('click', resetExample); }
-            updateButtons();
-        });
-
-        const student = getStudentFromStorage();
-        const lessonTitleElement = document.getElementById('lesson-title');
-        const lessonTitle = lessonTitleElement ? lessonTitleElement.textContent : null;
-        buildHeader(student, lessonTitle);
-        buildFooter();
-        const questions = generateQuiz();
-        initializeQuiz(LESSON_ID, questions, student);
-        const retakeBtn = document.getElementById('retake-quiz-btn');
-        if(retakeBtn) { retakeBtn.addEventListener('click', () => { window.location.reload(); }); }
-        
-        const closeModalBtn = document.getElementById('closeModalBtn');
-        if(closeModalBtn) closeModalBtn.addEventListener('click', closeModal);
-        
-        const closeSmartModalBtn = document.getElementById('closeSmartModalBtn');
-        if(closeSmartModalBtn) closeSmartModalBtn.addEventListener('click', closeSmartModal);
-
-        window.addEventListener('resize', () => {
-            document.querySelectorAll('.number-line-container[data-nldata]').forEach(nlContainer => {
-                if (nlContainer.offsetParent !== null) {
+                state[exampleId].currentIndex++;
+                const activeStep = state[exampleId].steps[state[exampleId].currentIndex];
+                activeStep.classList.add('active');
+                const nlContainer = activeStep.querySelector('[data-nldata]');
+                if (nlContainer) {
                     const data = JSON.parse(nlContainer.dataset.nldata);
                     generateNumberLine(nlContainer.id, data.value, data.type);
                 }
-            });
+                updateButtons();
+            }
+        });
+        state[exampleId].prevBtn.addEventListener('click', () => {
+            if (state[exampleId].currentIndex > -1) {
+                state[exampleId].steps[state[exampleId].currentIndex].classList.remove('active');
+                state[exampleId].currentIndex--;
+                 if (state[exampleId].currentIndex === -1 && state[exampleId].placeholder) {
+                    state[exampleId].placeholder.classList.remove('hidden');
+                }
+                updateButtons();
+            }
+        });
+
+        if(state[exampleId].resetBtn) { state[exampleId].resetBtn.addEventListener('click', resetExample); }
+        updateButtons();
+    });
+
+    window.addEventListener('resize', () => {
+        document.querySelectorAll('.number-line-container[data-nldata]').forEach(nlContainer => {
+            if (nlContainer.offsetParent !== null) {
+                const data = JSON.parse(nlContainer.dataset.nldata);
+                generateNumberLine(nlContainer.id, data.value, data.type);
+            }
         });
     });
+});
     </script>
 </body>
 </html>

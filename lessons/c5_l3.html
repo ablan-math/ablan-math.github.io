@@ -281,7 +281,7 @@
     <div id="explanationModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden z-50">
         <div class="bg-white rounded-lg shadow-2xl p-6 max-w-lg w-full">
             <div class="flex justify-between items-center mb-4">
-                <h3 class="text-xl font-bold">💡 شرح الإجابة</h3>
+                <h3 id="modal-title" class="text-xl font-bold">💡 شرح الإجابة</h3>
                 <button id="closeModalBtn" class="p-2 -m-2 rounded-full hover:bg-gray-200">
                     <svg class="h-6 w-6 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
@@ -300,246 +300,166 @@
             <div id="smartExplanationText" class="text-gray-700 max-h-[60vh] overflow-y-auto"></div>
         </div>
     </div>
+    <script src="../js/lesson-core.js"></script>
     <script>
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
-    const MAX_ATTEMPTS = 3;
-    let currentQuestions = []; 
-    // 1. Read studentId and classId from URL
-    const urlParams = new URLSearchParams(window.location.search);
-    const studentId = urlParams.get('studentId');
-    const classId = urlParams.get('classId');
+window.SKIP_SHARED_INTERACTIVE = true;
+const LESSON_ID = 'c5_l3';
 
-    function getStudentFromStorage() { const studentDataString = localStorage.getItem('currentStudent'); if (studentDataString) { try { return JSON.parse(studentDataString); } catch (e) { return null; } } return null; }
-    function buildHeader(studentData, lessonTitle = null) {
-        const headerContainer = document.getElementById('main-header');
-        if (!headerContainer) return;
-        let titleHtml;
-        if (lessonTitle) {
-            titleHtml = `<div><h2 class="text-sm text-gray-500 leading-tight">منصة الرياضيات التفاعلية</h2><h1 class="text-xl font-bold text-indigo-700 leading-tight">${lessonTitle}</h1></div>`;
-        } else {
-            titleHtml = `<a href="../index.html" target="_top"><h1 class="text-2xl font-bold text-blue-800">منصة الرياضيات التفاعلية</h1></a>`;
-        }
-        let userInfoHtml = '';
-        if (studentData) {
-            userInfoHtml = `<div class="text-left"><p class="font-semibold text-lg">${studentData.name}</p><a href="../index.html" target="_top" class="text-sm text-blue-600 hover:underline">العودة إلى الفهرس &larr;</a></div>`;
-        } else {
-            userInfoHtml = `<div class="text-left"><p class="text-lg text-gray-600">زائر</p><a href="../index.html" target="_top" class="text-sm text-blue-600 hover:underline">العودة إلى الفهرس &larr;</a></div>`;
-        }
-        headerContainer.innerHTML = `<div class="container mx-auto px-6 py-4 flex justify-between items-center">${titleHtml}${userInfoHtml}</div>`;
-    }
-    function buildFooter() { const footerContainer = document.getElementById('main-footer'); if (!footerContainer) return; footerContainer.innerHTML = `<div class="container mx-auto px-6"><p class="text-center text-gray-600 text-sm">© 2024 جميع الحقوق محفوظة | تصميم وتطوير: أ. عبدالعزيز خالد العبلان</p></div>`; }
-    function initializeQuiz(lessonId, questions, studentData) { currentQuestions = questions; const quizForm = document.getElementById('quizForm'); if (!quizForm) return; if (questions.length === 0) { quizForm.innerHTML = `<p class="text-center text-gray-600">لا توجد أسئلة متاحة لهذا الدرس حالياً.</p>`; return; } let attemptsLeft; if (studentData) { const studentLessonData = studentData.lessons?.[lessonId] || { attempts: 0 }; attemptsLeft = MAX_ATTEMPTS - studentLessonData.attempts; } else { attemptsLeft = 1; } const attemptsCounter = document.getElementById('attempts-counter'); if (attemptsCounter) { attemptsCounter.innerHTML = `المحاولات المتبقية: <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded-full">${attemptsLeft}</span>`; } const quizHtml = questions.map((q, index) => { const optionsHTML = q.options.map((opt, optIndex) => `<div><input type="radio" name="q${index}" value="${opt.value}" id="q${index}_opt${optIndex}" class="hidden"><label for="q${index}_opt${optIndex}" class="option-label">${opt.display}</label></div>`).join(''); const smartButtonHTML = q.smartExplanation ? `<button type="button" id="smart-explain-btn-${index}" class="hidden mt-2 text-xs text-purple-600 hover:underline font-semibold">🧠 الحل الذكي</button>` : ''; return `<div class="p-4 border-2 border-gray-200 rounded-lg"><p class="font-bold">${index + 1}. <span class="text-yellow-500">${q.level}</span> ${q.text}</p><div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">${optionsHTML}</div><div id="feedback-q${index}" class="mt-2 text-sm font-bold"></div><div class="flex items-center space-x-4 space-x-reverse">${smartButtonHTML}<button type="button" id="explain-btn-${index}" class="hidden mt-2 text-xs text-blue-600 hover:underline">اعرف لماذا؟</button></div></div>`; }).join(''); quizForm.innerHTML = quizHtml + `<button type="submit" id="submit-quiz-btn" class="w-full text-white bg-green-600 hover:bg-green-700 font-medium rounded-lg text-lg px-5 py-3 mt-8">تحقق من إجاباتي</button>`; questions.forEach((q, index) => { const explainBtn = document.getElementById(`explain-btn-${index}`); if(explainBtn) explainBtn.addEventListener('click', () => showExplanation(index)); if (q.smartExplanation) { const smartExplainBtn = document.getElementById(`smart-explain-btn-${index}`); if(smartExplainBtn) smartExplainBtn.addEventListener('click', () => showSmartExplanation(index)); } }); if (attemptsLeft <= 0) { const submitBtn = quizForm.querySelector('#submit-quiz-btn'); submitBtn.disabled = true; submitBtn.textContent = 'لا توجد محاولات متبقية'; submitBtn.classList.add('bg-gray-400', 'hover:bg-gray-400'); } quizForm.onsubmit = (e) => { e.preventDefault(); let score = 0; questions.forEach((q, index) => { const userAnswer = e.target.elements[`q${index}`]?.value; const feedbackEl = document.getElementById(`feedback-q${index}`); if (userAnswer === q.correct) { score++; feedbackEl.textContent = '✔ إجابة صحيحة!'; feedbackEl.className = 'mt-2 text-sm font-bold text-green-600'; } else { feedbackEl.textContent = `❌ إجابة خاطئة.`; feedbackEl.className = 'mt-2 text-sm font-bold text-red-600'; } document.getElementById(`explain-btn-${index}`).classList.remove('hidden'); if (q.smartExplanation) { document.getElementById(`smart-explain-btn-${index}`).classList.remove('hidden'); } }); const finalGrade = Math.round((score / questions.length) * 10); const resultsDiv = document.getElementById('quiz-results'); resultsDiv.classList.remove('hidden'); document.getElementById('quiz-score').textContent = `${finalGrade} / 10`; if (studentData) { saveGrade(LESSON_ID, finalGrade); if (attemptsLeft - 1 > 0) { document.getElementById('retake-quiz-btn').classList.remove('hidden'); } } else { document.getElementById('save-status').textContent = 'تم عرض نتيجتك. سجل الدخول لحفظ تقدمك.'; } e.target.querySelector('#submit-quiz-btn').disabled = true; }; }
-    function saveGrade(lessonId, grade) {
-        if (!studentId || !classId) {
-            console.error("Student ID or Class ID is missing from the URL.");
-            const saveStatus = document.getElementById('save-status');
-            saveStatus.textContent = '❌ خطأ: لا يمكن حفظ نتيجتك. الرجاء العودة للمنصة الرئيسية والمحاولة مرة أخرى.';
-            return;
-        }
-        const saveStatus = document.getElementById('save-status');
-        saveStatus.textContent = 'جارٍ حفظ نتيجتك...';
-        const url = `${SCRIPT_URL}?action=saveGrade&studentId=${studentId}&classId=${classId}&lessonId=${lessonId}&grade=${grade}`;
-        fetch(url)
-            .then(res => res.json())
-            .then(result => {
-                if (result.status === 'success') {
-                    saveStatus.textContent = '✔ تم حفظ نتيجتك بنجاح!';
-                    // Note: Local storage update is removed as the central sheet is the source of truth.
-                } else {
-                    throw new Error(result.message);
-                }
-            })
-            .catch(error => {
-                saveStatus.textContent = '❌ حدث خطأ أثناء حفظ الدرجة.';
-                console.error("Save Grade Error:", error);
-            });
-    }
-    function showExplanation(questionIndex) { const modal = document.getElementById('explanationModal'); const explanationText = document.getElementById('explanationText'); if(modal && explanationText && currentQuestions[questionIndex] && currentQuestions[questionIndex].explanation) { explanationText.innerHTML = currentQuestions[questionIndex].explanation; modal.classList.remove('hidden'); } }
-    function closeModal() { const modal = document.getElementById('explanationModal'); if(modal) modal.classList.add('hidden'); }
-    function showSmartExplanation(questionIndex) { const modal = document.getElementById('smartExplanationModal'); const explanationText = document.getElementById('smartExplanationText'); if(modal && explanationText && currentQuestions[questionIndex] && currentQuestions[questionIndex].smartExplanation) { explanationText.innerHTML = currentQuestions[questionIndex].smartExplanation; modal.classList.remove('hidden'); } }
-    function closeSmartModal() { const modal = document.getElementById('smartExplanationModal'); if(modal) modal.classList.add('hidden'); }
-    
-    // =======================================================
-    // ======== المحتوى المخصص للدرس يبدأ من هنا ========
-    // =======================================================
+function generateQuiz() {
+    const questionBank = [
+        { type: 'mcq', level: '⭐', topic: 'elimination_addition', text: 'حل النظام: <br><span class="math-eq">س + ص = ٨</span><br><span class="math-eq">س - ص = ٤</span>', options: [ { display: '<span class="math-eq">(٢, ٦)</span>', value: 'b' }, { display: '<span class="math-eq">(٥, ٣)</span>', value: 'c' }, { display: '<span class="math-eq">(٦, ٢)</span>', value: 'a' }, { display: '<span class="math-eq">(٧, ١)</span>', value: 'd' } ], correct: 'a', explanation: '<p><strong>الخطوة ١:</strong> نلاحظ أن معاملي (ص) متعاكسان (+١ و -١)، لذا نجمع المعادلتين.</p><p><span class="math-eq">(س + س) + (ص - ص) = ٨ + ٤</span></p><p><span class="math-eq">٢س = ١٢</span> &larr; <span class="math-eq">س = ٦</span></p><p><strong>الخطوة ٢:</strong> نعوض قيمة س في المعادلة الأولى.</p><p><span class="math-eq">٦ + ص = ٨</span> &larr; <span class="math-eq">ص = ٢</span></p><p><strong>الحل:</strong> <span class="math-eq">(٦, ٢)</span></p>' },
+        { type: 'mcq', level: '⭐', topic: 'elimination_subtraction', text: 'حل النظام: <br><span class="math-eq">٣س + ص = ٧</span><br><span class="math-eq">٢س + ص = ٥</span>', options: [ { display: '<span class="math-eq">(١, ٤)</span>', value: 'b' }, { display: '<span class="math-eq">(٣, -٢)</span>', value: 'c' }, { display: '<span class="math-eq">(٤, -٥)</span>', value: 'd' }, { display: '<span class="math-eq">(٢, ١)</span>', value: 'a' } ], correct: 'a', explanation: '<p><strong>الخطوة ١:</strong> نلاحظ أن معاملي (ص) متساويان، لذا نطرح المعادلة الثانية من الأولى.</p><p><span class="math-eq">(٣س - ٢س) + (ص - ص) = ٧ - ٥</span></p><p><span class="math-eq">س = ٢</span></p><p><strong>الخطوة ٢:</strong> نعوض قيمة س في المعادلة الثانية.</p><p><span class="math-eq">٢(٢) + ص = ٥</span> &larr; <span class="math-eq">٤ + ص = ٥</span> &larr; <span class="math-eq">ص = ١</span></p><p><strong>الحل:</strong> <span class="math-eq">(٢, ١)</span></p>' },
+        { type: 'mcq', level: '⭐⭐', topic: 'word_problem', text: 'ما العددان اللذان مجموعهما <span class="highlight-number">٢٢</span> والفرق بينهما <span class="highlight-number">١٢</span>؟', options: [ { display: '١٦ و ٦', value: 'b' }, { display: '١٧ و ٥', value: 'a' }, { display: '١٨ و ٤', value: 'c' }, { display: '١٥ و ٧', value: 'd' } ], correct: 'a', explanation: '<p><strong>الخطوة ١:</strong> نترجم المسألة إلى نظام معادلات:<br><span class="math-eq">س + ص = ٢٢</span><br><span class="math-eq">س - ص = ١٢</span></p><p><strong>الخطوة ٢:</strong> نجمع المعادلتين للتخلص من (ص).</p><p><span class="math-eq">٢س = ٣٤</span> &larr; <span class="math-eq">س = ١٧</span></p><p><strong>الخطوة ٣:</strong> نعوض قيمة س في المعادلة الأولى.</p><p><span class="math-eq">١٧ + ص = ٢٢</span> &larr; <span class="math-eq">ص = ٥</span></p><p><strong>الحل:</strong> العددان هما ١٧ و ٥.</p>' },
+        { type: 'mcq', level: '⭐⭐', topic: 'word_problem_addition', text: 'ما العددان اللذان مجموعهما <span class="highlight-number">١١</span>، وثلاثة أمثال أحدهما ناقص الآخر يساوي <span class="highlight-number">-٢٣</span>؟', options: [ { display: '-٤ و ١٥', value: 'b' }, { display: '-٣ و ١٤', value: 'a' }, { display: '-٢ و ١٣', value: 'c' }, { display: '-٥ و ١٦', value: 'd' } ], correct: 'a', explanation: '<p><strong>الخطوة ١:</strong> نترجم المسألة إلى نظام معادلات:<br><span class="math-eq">س + ص = ١١</span><br><span class="math-eq">٣س - ص = -٢٣</span></p><p><strong>الخطوة ٢:</strong> نجمع المعادلتين للتخلص من (ص).</p><p><span class="math-eq">٤س = -١٢</span> &larr; <span class="math-eq">س = -٣</span></p><p><strong>الخطوة ٣:</strong> نعوض قيمة س في المعادلة الأولى.</p><p><span class="math-eq">-٣ + ص = ١١</span> &larr; <span class="math-eq">ص = ١٤</span></p><p><strong>الحل:</strong> العددان هما -٣ و ١٤.</p>' },
+        { type: 'mcq', level: '⭐', topic: 'elimination_subtraction', text: 'لحل النظام: <span class="math-eq">٥س + ٢ص = ١٠</span> و <span class="math-eq">٣س + ٢ص = ٦</span>، ما هي أفضل خطوة؟', options: [ { display: 'جمع المعادلتين', value: 'a' }, { display: 'ضرب المعادلة الأولى في ٣', value: 'c' }, { display: 'التعويض', value: 'd' }, { display: 'طرح المعادلة الثانية من الأولى', value: 'b' } ], correct: 'b', explanation: 'أفضل خطوة هي ملاحظة أن معاملي المتغير (ص) متساويان (<span class="highlight-number">٢</span>). لذلك، نطرح إحدى المعادلتين من الأخرى للتخلص من (ص) مباشرة.', smartExplanation: 'الجمع سيؤدي إلى <span class="math-eq">٨س + ٤ص = ١٦</span>، وهذا لا يحذف أي متغير. الضرب غير ضروري. الطرح هو أسرع طريقة لأن معاملي (ص) متطابقان.' },
+        { type: 'mcq', level: '⭐', topic: 'elimination_addition', text: 'حل النظام: <br><span class="math-eq">س - ٥ص = ١٠</span><br><span class="math-eq">-س + ٣ص = -٨</span>', options: [ { display: '<span class="math-eq">(-١, ٥)</span>', value: 'b' }, { display: '<span class="math-eq">(١٠, ٠)</span>', value: 'c' }, { display: '<span class="math-eq">(٥, -١)</span>', value: 'a' }, { display: '<span class="math-eq">(٠, -٢)</span>', value: 'd' } ], correct: 'a', explanation: '<p><strong>الخطوة ١:</strong> نجمع المعادلتين للتخلص من (س).</p><p><span class="math-eq">-٢ص = ٢</span> &larr; <span class="math-eq">ص = -١</span></p><p><strong>الخطوة ٢:</strong> نعوض قيمة ص في المعادلة الأولى.</p><p><span class="math-eq">س - ٥(-١) = ١٠</span> &larr; <span class="math-eq">س + ٥ = ١٠</span> &larr; <span class="math-eq">س = ٥</span></p><p><strong>الحل:</strong> <span class="math-eq">(٥, -١)</span></p>' },
+        { type: 'mcq', level: '⭐', topic: 'elimination_addition', text: 'حل النظام: <br><span class="math-eq">٢أ - ٣ب = -٨</span><br><span class="math-eq">-٢أ + ٥ب = ٢٠</span>', options: [ { display: '<span class="math-eq">(١, ٣)</span>', value: 'a' }, { display: '<span class="math-eq">(٧, ٦)</span>', value: 'b' }, { display: '<span class="math-eq">(٥, ٦)</span>', value: 'c' }, { display: '<span class="math-eq">(٤, ٢)</span>', value: 'd' } ], correct: 'c', explanation: '<p><strong>الخطوة ١:</strong> نجمع المعادلتين للتخلص من (أ).</p><p><span class="math-eq">٢ب = ١٢</span> &larr; <span class="math-eq">ب = ٦</span></p><p><strong>الخطوة ٢:</strong> نعوض قيمة ب في المعادلة الأولى.</p><p><span class="math-eq">٢أ - ٣(٦) = -٨</span> &larr; <span class="math-eq">٢أ - ١٨ = -٨</span> &larr; <span class="math-eq">٢أ = ١٠</span> &larr; <span class="math-eq">أ = ٥</span></p><p><strong>الحل:</strong> <span class="math-eq">(٥, ٦)</span></p>' },
+        { type: 'mcq', level: '⭐⭐', topic: 'elimination_subtraction', text: 'حل النظام: <br><span class="math-eq">٤س + ٣ص = ١</span><br><span class="math-eq">٢س + ٣ص = -١</span>', options: [ { display: '<span class="math-eq">(-١, ١)</span>', value: 'b' }, { display: '<span class="math-eq">(١, -١)</span>', value: 'a' }, { display: '<span class="math-eq">(٢, -٣)</span>', value: 'c' }, { display: '<span class="math-eq">(-٢, ٣)</span>', value: 'd' } ], correct: 'a', explanation: '<p><strong>الخطوة ١:</strong> نطرح المعادلة الثانية من الأولى للتخلص من (ص).</p><p><span class="math-eq">٢س = ٢</span> &larr; <span class="math-eq">س = ١</span></p><p><strong>الخطوة ٢:</strong> نعوض قيمة س في المعادلة الثانية.</p><p><span class="math-eq">٢(١) + ٣ص = -١</span> &larr; <span class="math-eq">٢ + ٣ص = -١</span> &larr; <span class="math-eq">٣ص = -٣</span> &larr; <span class="math-eq">ص = -١</span></p><p><strong>الحل:</strong> <span class="math-eq">(١, -١)</span></p>' },
+        { type: 'mcq', level: '⭐⭐', topic: 'word_problem', text: 'عددان مجموعهما ٣٠ والفرق بينهما ٦. ما هما العددان؟', options: [ { display: '٢٠ و ١٠', value: 'b' }, { display: '١٥ و ١٥', value: 'c' }, { display: '١٨ و ١٢', value: 'a' }, { display: '٢٤ و ٦', value: 'd' } ], correct: 'a', explanation: '<p><strong>الخطوة ١:</strong> النظام هو <span class="math-eq">س + ص = ٣٠</span> و <span class="math-eq">س - ص = ٦</span>.</p><p><strong>الخطوة ٢:</strong> بجمع المعادلتين، نحصل على <span class="math-eq">٢س = ٣٦</span>، إذن <span class="math-eq">س = ١٨</span>.</p><p><strong>الخطوة ٣:</strong> بالتعويض، نجد أن <span class="math-eq">١٨ + ص = ٣٠</span> &larr; <span class="math-eq">ص = ١٢</span>.</p><p><strong>الحل:</strong> العددان هما ١٨ و ١٢.</p>' },
+        { type: 'mcq', level: '⭐', topic: 'elimination_addition', text: 'حل النظام: <br><span class="math-eq">٥س + ٢ص = ٦</span><br><span class="math-eq">-٥س + ٣ص = -١</span>', options: [ { display: '<span class="math-eq">(١, ٠.٥)</span>', value: 'b' }, { display: '<span class="math-eq">(٠, ٣)</span>', value: 'c' }, { display: '<span class="math-eq">(١.٥, -٠.٧٥)</span>', value: 'd' }, { display: '<span class="math-eq">(٠.٨, ١)</span>', value: 'a' } ], correct: 'a', explanation: '<p><strong>الخطوة ١:</strong> نجمع المعادلتين للتخلص من (س).</p><p><span class="math-eq">٥ص = ٥</span> &larr; <span class="math-eq">ص = ١</span></p><p><strong>الخطوة ٢:</strong> نعوض قيمة ص في المعادلة الأولى.</p><p><span class="math-eq">٥س + ٢(١) = ٦</span> &larr; <span class="math-eq">٥س = ٤</span> &larr; <span class="math-eq">س = ٠.٨</span></p><p><strong>الحل:</strong> <span class="math-eq">(٠.٨, ١)</span></p>' },
+        { type: 'mcq', level: '⭐⭐', topic: 'elimination_subtraction', text: 'حل النظام: <br><span class="math-eq">أ + ب = ١٥</span><br><span class="math-eq">أ - ب = ٥</span>', options: [ { display: '<span class="math-eq">(١٢, ٣)</span>', value: 'b' }, { display: '<span class="math-eq">(٨, ٧)</span>', value: 'c' }, { display: '<span class="math-eq">(٩, ٦)</span>', value: 'd' }, { display: '<span class="math-eq">(١٠, ٥)</span>', value: 'a' } ], correct: 'a', explanation: '<p><strong>الخطوة ١:</strong> نجمع المعادلتين للتخلص من (ب).</p><p><span class="math-eq">٢أ = ٢٠</span> &larr; <span class="math-eq">أ = ١٠</span></p><p><strong>الخطوة ٢:</strong> نعوض قيمة أ في المعادلة الأولى.</p><p><span class="math-eq">١٠ + ب = ١٥</span> &larr; <span class="math-eq">ب = ٥</span></p><p><strong>الحل:</strong> <span class="math-eq">(١٠, ٥)</span></p>' },
+        { type: 'mcq', level: '⭐⭐⭐', topic: 'word_problem', text: 'اشترى أحمد قلمين ودفترين بمبلغ ٢٠ ريال. واشترى صديقه قلمين ودفتر واحد بمبلغ ١٥ ريال. فما ثمن الدفتر الواحد؟', options: [ { display: '١٠ ريالات', value: 'b' }, { display: '٧.٥ ريال', value: 'c' }, { display: '٥ ريالات', value: 'a' }, { display: '٢.٥ ريال', value: 'd' } ], correct: 'a', explanation: '<p><strong>الخطوة ١:</strong> النظام هو <span class="math-eq">٢س + ٢ص = ٢٠</span> و <span class="math-eq">٢س + ص = ١٥</span>، حيث س ثمن القلم و ص ثمن الدفتر.</p><p><strong>الخطوة ٢:</strong> بطرح المعادلة الثانية من الأولى، نحصل على <span class="math-eq">ص = ٥</span>.</p><p><strong>الحل:</strong> إذن ثمن الدفتر ٥ ريالات.</p>' }
+    ];
+    const shuffled = [...questionBank].sort(() => 0.5 - Math.random());
+    const questionCount = Math.min(shuffled.length, 5);
+    return shuffled.slice(0, questionCount);
+}
 
-    const LESSON_ID = 'c5_l3'; 
-    
-    function generateQuiz() {
-        const questionBank = [
-            { type: 'mcq', level: '⭐', topic: 'elimination_addition', text: 'حل النظام: <br><span class="math-eq">س + ص = ٨</span><br><span class="math-eq">س - ص = ٤</span>', options: [ { display: '<span class="math-eq">(٢, ٦)</span>', value: 'b' }, { display: '<span class="math-eq">(٥, ٣)</span>', value: 'c' }, { display: '<span class="math-eq">(٦, ٢)</span>', value: 'a' }, { display: '<span class="math-eq">(٧, ١)</span>', value: 'd' } ], correct: 'a', explanation: '<p><strong>الخطوة ١:</strong> نلاحظ أن معاملي (ص) متعاكسان (+١ و -١)، لذا نجمع المعادلتين.</p><p><span class="math-eq">(س + س) + (ص - ص) = ٨ + ٤</span></p><p><span class="math-eq">٢س = ١٢</span> &larr; <span class="math-eq">س = ٦</span></p><p><strong>الخطوة ٢:</strong> نعوض قيمة س في المعادلة الأولى.</p><p><span class="math-eq">٦ + ص = ٨</span> &larr; <span class="math-eq">ص = ٢</span></p><p><strong>الحل:</strong> <span class="math-eq">(٦, ٢)</span></p>' },
-            { type: 'mcq', level: '⭐', topic: 'elimination_subtraction', text: 'حل النظام: <br><span class="math-eq">٣س + ص = ٧</span><br><span class="math-eq">٢س + ص = ٥</span>', options: [ { display: '<span class="math-eq">(١, ٤)</span>', value: 'b' }, { display: '<span class="math-eq">(٣, -٢)</span>', value: 'c' }, { display: '<span class="math-eq">(٤, -٥)</span>', value: 'd' }, { display: '<span class="math-eq">(٢, ١)</span>', value: 'a' } ], correct: 'a', explanation: '<p><strong>الخطوة ١:</strong> نلاحظ أن معاملي (ص) متساويان، لذا نطرح المعادلة الثانية من الأولى.</p><p><span class="math-eq">(٣س - ٢س) + (ص - ص) = ٧ - ٥</span></p><p><span class="math-eq">س = ٢</span></p><p><strong>الخطوة ٢:</strong> نعوض قيمة س في المعادلة الثانية.</p><p><span class="math-eq">٢(٢) + ص = ٥</span> &larr; <span class="math-eq">٤ + ص = ٥</span> &larr; <span class="math-eq">ص = ١</span></p><p><strong>الحل:</strong> <span class="math-eq">(٢, ١)</span></p>' },
-            { type: 'mcq', level: '⭐⭐', topic: 'word_problem', text: 'ما العددان اللذان مجموعهما <span class="highlight-number">٢٢</span> والفرق بينهما <span class="highlight-number">١٢</span>؟', options: [ { display: '١٦ و ٦', value: 'b' }, { display: '١٧ و ٥', value: 'a' }, { display: '١٨ و ٤', value: 'c' }, { display: '١٥ و ٧', value: 'd' } ], correct: 'a', explanation: '<p><strong>الخطوة ١:</strong> نترجم المسألة إلى نظام معادلات:<br><span class="math-eq">س + ص = ٢٢</span><br><span class="math-eq">س - ص = ١٢</span></p><p><strong>الخطوة ٢:</strong> نجمع المعادلتين للتخلص من (ص).</p><p><span class="math-eq">٢س = ٣٤</span> &larr; <span class="math-eq">س = ١٧</span></p><p><strong>الخطوة ٣:</strong> نعوض قيمة س في المعادلة الأولى.</p><p><span class="math-eq">١٧ + ص = ٢٢</span> &larr; <span class="math-eq">ص = ٥</span></p><p><strong>الحل:</strong> العددان هما ١٧ و ٥.</p>' },
-            { type: 'mcq', level: '⭐⭐', topic: 'word_problem_addition', text: 'ما العددان اللذان مجموعهما <span class="highlight-number">١١</span>، وثلاثة أمثال أحدهما ناقص الآخر يساوي <span class="highlight-number">-٢٣</span>؟', options: [ { display: '-٤ و ١٥', value: 'b' }, { display: '-٣ و ١٤', value: 'a' }, { display: '-٢ و ١٣', value: 'c' }, { display: '-٥ و ١٦', value: 'd' } ], correct: 'a', explanation: '<p><strong>الخطوة ١:</strong> نترجم المسألة إلى نظام معادلات:<br><span class="math-eq">س + ص = ١١</span><br><span class="math-eq">٣س - ص = -٢٣</span></p><p><strong>الخطوة ٢:</strong> نجمع المعادلتين للتخلص من (ص).</p><p><span class="math-eq">٤س = -١٢</span> &larr; <span class="math-eq">س = -٣</span></p><p><strong>الخطوة ٣:</strong> نعوض قيمة س في المعادلة الأولى.</p><p><span class="math-eq">-٣ + ص = ١١</span> &larr; <span class="math-eq">ص = ١٤</span></p><p><strong>الحل:</strong> العددان هما -٣ و ١٤.</p>' },
-            { type: 'mcq', level: '⭐', topic: 'elimination_subtraction', text: 'لحل النظام: <span class="math-eq">٥س + ٢ص = ١٠</span> و <span class="math-eq">٣س + ٢ص = ٦</span>، ما هي أفضل خطوة؟', options: [ { display: 'جمع المعادلتين', value: 'a' }, { display: 'ضرب المعادلة الأولى في ٣', value: 'c' }, { display: 'التعويض', value: 'd' }, { display: 'طرح المعادلة الثانية من الأولى', value: 'b' } ], correct: 'b', explanation: 'أفضل خطوة هي ملاحظة أن معاملي المتغير (ص) متساويان (<span class="highlight-number">٢</span>). لذلك، نطرح إحدى المعادلتين من الأخرى للتخلص من (ص) مباشرة.', smartExplanation: 'الجمع سيؤدي إلى <span class="math-eq">٨س + ٤ص = ١٦</span>، وهذا لا يحذف أي متغير. الضرب غير ضروري. الطرح هو أسرع طريقة لأن معاملي (ص) متطابقان.' },
-            { type: 'mcq', level: '⭐', topic: 'elimination_addition', text: 'حل النظام: <br><span class="math-eq">س - ٥ص = ١٠</span><br><span class="math-eq">-س + ٣ص = -٨</span>', options: [ { display: '<span class="math-eq">(-١, ٥)</span>', value: 'b' }, { display: '<span class="math-eq">(١٠, ٠)</span>', value: 'c' }, { display: '<span class="math-eq">(٥, -١)</span>', value: 'a' }, { display: '<span class="math-eq">(٠, -٢)</span>', value: 'd' } ], correct: 'a', explanation: '<p><strong>الخطوة ١:</strong> نجمع المعادلتين للتخلص من (س).</p><p><span class="math-eq">-٢ص = ٢</span> &larr; <span class="math-eq">ص = -١</span></p><p><strong>الخطوة ٢:</strong> نعوض قيمة ص في المعادلة الأولى.</p><p><span class="math-eq">س - ٥(-١) = ١٠</span> &larr; <span class="math-eq">س + ٥ = ١٠</span> &larr; <span class="math-eq">س = ٥</span></p><p><strong>الحل:</strong> <span class="math-eq">(٥, -١)</span></p>' },
-            { type: 'mcq', level: '⭐', topic: 'elimination_addition', text: 'حل النظام: <br><span class="math-eq">٢أ - ٣ب = -٨</span><br><span class="math-eq">-٢أ + ٥ب = ٢٠</span>', options: [ { display: '<span class="math-eq">(١, ٣)</span>', value: 'a' }, { display: '<span class="math-eq">(٧, ٦)</span>', value: 'b' }, { display: '<span class="math-eq">(٥, ٦)</span>', value: 'c' }, { display: '<span class="math-eq">(٤, ٢)</span>', value: 'd' } ], correct: 'c', explanation: '<p><strong>الخطوة ١:</strong> نجمع المعادلتين للتخلص من (أ).</p><p><span class="math-eq">٢ب = ١٢</span> &larr; <span class="math-eq">ب = ٦</span></p><p><strong>الخطوة ٢:</strong> نعوض قيمة ب في المعادلة الأولى.</p><p><span class="math-eq">٢أ - ٣(٦) = -٨</span> &larr; <span class="math-eq">٢أ - ١٨ = -٨</span> &larr; <span class="math-eq">٢أ = ١٠</span> &larr; <span class="math-eq">أ = ٥</span></p><p><strong>الحل:</strong> <span class="math-eq">(٥, ٦)</span></p>' },
-            { type: 'mcq', level: '⭐⭐', topic: 'elimination_subtraction', text: 'حل النظام: <br><span class="math-eq">٤س + ٣ص = ١</span><br><span class="math-eq">٢س + ٣ص = -١</span>', options: [ { display: '<span class="math-eq">(-١, ١)</span>', value: 'b' }, { display: '<span class="math-eq">(١, -١)</span>', value: 'a' }, { display: '<span class="math-eq">(٢, -٣)</span>', value: 'c' }, { display: '<span class="math-eq">(-٢, ٣)</span>', value: 'd' } ], correct: 'a', explanation: '<p><strong>الخطوة ١:</strong> نطرح المعادلة الثانية من الأولى للتخلص من (ص).</p><p><span class="math-eq">٢س = ٢</span> &larr; <span class="math-eq">س = ١</span></p><p><strong>الخطوة ٢:</strong> نعوض قيمة س في المعادلة الثانية.</p><p><span class="math-eq">٢(١) + ٣ص = -١</span> &larr; <span class="math-eq">٢ + ٣ص = -١</span> &larr; <span class="math-eq">٣ص = -٣</span> &larr; <span class="math-eq">ص = -١</span></p><p><strong>الحل:</strong> <span class="math-eq">(١, -١)</span></p>' },
-            { type: 'mcq', level: '⭐⭐', topic: 'word_problem', text: 'عددان مجموعهما ٣٠ والفرق بينهما ٦. ما هما العددان؟', options: [ { display: '٢٠ و ١٠', value: 'b' }, { display: '١٥ و ١٥', value: 'c' }, { display: '١٨ و ١٢', value: 'a' }, { display: '٢٤ و ٦', value: 'd' } ], correct: 'a', explanation: '<p><strong>الخطوة ١:</strong> النظام هو <span class="math-eq">س + ص = ٣٠</span> و <span class="math-eq">س - ص = ٦</span>.</p><p><strong>الخطوة ٢:</strong> بجمع المعادلتين، نحصل على <span class="math-eq">٢س = ٣٦</span>، إذن <span class="math-eq">س = ١٨</span>.</p><p><strong>الخطوة ٣:</strong> بالتعويض، نجد أن <span class="math-eq">١٨ + ص = ٣٠</span> &larr; <span class="math-eq">ص = ١٢</span>.</p><p><strong>الحل:</strong> العددان هما ١٨ و ١٢.</p>' },
-            { type: 'mcq', level: '⭐', topic: 'elimination_addition', text: 'حل النظام: <br><span class="math-eq">٥س + ٢ص = ٦</span><br><span class="math-eq">-٥س + ٣ص = -١</span>', options: [ { display: '<span class="math-eq">(١, ٠.٥)</span>', value: 'b' }, { display: '<span class="math-eq">(٠, ٣)</span>', value: 'c' }, { display: '<span class="math-eq">(١.٥, -٠.٧٥)</span>', value: 'd' }, { display: '<span class="math-eq">(٠.٨, ١)</span>', value: 'a' } ], correct: 'a', explanation: '<p><strong>الخطوة ١:</strong> نجمع المعادلتين للتخلص من (س).</p><p><span class="math-eq">٥ص = ٥</span> &larr; <span class="math-eq">ص = ١</span></p><p><strong>الخطوة ٢:</strong> نعوض قيمة ص في المعادلة الأولى.</p><p><span class="math-eq">٥س + ٢(١) = ٦</span> &larr; <span class="math-eq">٥س = ٤</span> &larr; <span class="math-eq">س = ٠.٨</span></p><p><strong>الحل:</strong> <span class="math-eq">(٠.٨, ١)</span></p>' },
-            { type: 'mcq', level: '⭐⭐', topic: 'elimination_subtraction', text: 'حل النظام: <br><span class="math-eq">أ + ب = ١٥</span><br><span class="math-eq">أ - ب = ٥</span>', options: [ { display: '<span class="math-eq">(١٢, ٣)</span>', value: 'b' }, { display: '<span class="math-eq">(٨, ٧)</span>', value: 'c' }, { display: '<span class="math-eq">(٩, ٦)</span>', value: 'd' }, { display: '<span class="math-eq">(١٠, ٥)</span>', value: 'a' } ], correct: 'a', explanation: '<p><strong>الخطوة ١:</strong> نجمع المعادلتين للتخلص من (ب).</p><p><span class="math-eq">٢أ = ٢٠</span> &larr; <span class="math-eq">أ = ١٠</span></p><p><strong>الخطوة ٢:</strong> نعوض قيمة أ في المعادلة الأولى.</p><p><span class="math-eq">١٠ + ب = ١٥</span> &larr; <span class="math-eq">ب = ٥</span></p><p><strong>الحل:</strong> <span class="math-eq">(١٠, ٥)</span></p>' },
-            { type: 'mcq', level: '⭐⭐⭐', topic: 'word_problem', text: 'اشترى أحمد قلمين ودفترين بمبلغ ٢٠ ريال. واشترى صديقه قلمين ودفتر واحد بمبلغ ١٥ ريال. فما ثمن الدفتر الواحد؟', options: [ { display: '١٠ ريالات', value: 'b' }, { display: '٧.٥ ريال', value: 'c' }, { display: '٥ ريالات', value: 'a' }, { display: '٢.٥ ريال', value: 'd' } ], correct: 'a', explanation: '<p><strong>الخطوة ١:</strong> النظام هو <span class="math-eq">٢س + ٢ص = ٢٠</span> و <span class="math-eq">٢س + ص = ١٥</span>، حيث س ثمن القلم و ص ثمن الدفتر.</p><p><strong>الخطوة ٢:</strong> بطرح المعادلة الثانية من الأولى، نحصل على <span class="math-eq">ص = ٥</span>.</p><p><strong>الحل:</strong> إذن ثمن الدفتر ٥ ريالات.</p>' }
-        ];
-        const shuffled = [...questionBank].sort(() => 0.5 - Math.random());
-        const questionCount = Math.min(shuffled.length, 5);
-        return shuffled.slice(0, questionCount);
-    }
-    
-    // =======================================================
-    // ======== لا تعدل أي شيء أسفل هذا السطر ========
-    // =======================================================
+document.addEventListener('DOMContentLoaded', () => {
+    const exampleContainers = document.querySelectorAll('[id^="interactive-container-"]');
+    const state = {};
 
-    document.addEventListener('DOMContentLoaded', () => {
-        const exampleContainers = document.querySelectorAll('[id^="interactive-container-"]');
-        const state = {};
+    exampleContainers.forEach(container => {
+        const exampleId = container.id.split('-')[2];
 
-        exampleContainers.forEach(container => {
-            const exampleId = container.id.split('-')[2];
-            
-            state[exampleId] = {
-                currentIndex: -1,
-                type: container.dataset.type,
-                stepsInitial: [...container.querySelectorAll('.steps-container-initial .step-interactive')],
-                stepsFinal: [...container.querySelectorAll('.steps-container-final .step-interactive')],
-                placeholder: container.querySelector('.interactive-placeholder'),
-                prevBtn: container.querySelector('.prev-btn'),
-                nextBtn: container.querySelector('.next-btn'),
-                resetBtn: container.querySelector('.reset-btn'),
-                systemContainer: container.querySelector('.system-container'),
-                termSpans: [...container.querySelectorAll('.system-equations span[class*="term-"]')],
-                tempComment: container.querySelector('.temp-comment'),
-                resultLine: container.querySelector('.result-line'),
-                resultEquation1: container.querySelector('.result-equation-1'),
-                resultEquation2: container.querySelector('.result-equation-2'),
-                subtractionSign: container.querySelector('.subtraction-sign'),
-                eq2Container: container.querySelector('.eq2-container .math-eq'),
-            };
+        state[exampleId] = {
+            currentIndex: -1,
+            type: container.dataset.type,
+            stepsInitial: [...container.querySelectorAll('.steps-container-initial .step-interactive')],
+            stepsFinal: [...container.querySelectorAll('.steps-container-final .step-interactive')],
+            placeholder: container.querySelector('.interactive-placeholder'),
+            prevBtn: container.querySelector('.prev-btn'),
+            nextBtn: container.querySelector('.next-btn'),
+            resetBtn: container.querySelector('.reset-btn'),
+            systemContainer: container.querySelector('.system-container'),
+            termSpans: [...container.querySelectorAll('.system-equations span[class*="term-"]')],
+            tempComment: container.querySelector('.temp-comment'),
+            resultLine: container.querySelector('.result-line'),
+            resultEquation1: container.querySelector('.result-equation-1'),
+            resultEquation2: container.querySelector('.result-equation-2'),
+            subtractionSign: container.querySelector('.subtraction-sign'),
+            eq2Container: container.querySelector('.eq2-container .math-eq'),
+        };
+        const s = state[exampleId];
+
+        let visualStepsCount = 4; // show-system, highlight+comment, result1, result2
+        if (s.type === 'subtraction') visualStepsCount++; // sign change
+
+        s.totalSteps = s.stepsInitial.length + visualStepsCount + s.stepsFinal.length;
+
+        const updateUI = () => {
             const s = state[exampleId];
-            
-            let visualStepsCount = 4; // show-system, highlight+comment, result1, result2
-            if (s.type === 'subtraction') visualStepsCount++; // sign change
-            
-            s.totalSteps = s.stepsInitial.length + visualStepsCount + s.stepsFinal.length;
+            const isWordProblem = s.stepsInitial.length > 0;
 
-            const updateUI = () => {
-                const s = state[exampleId];
-                const isWordProblem = s.stepsInitial.length > 0;
+            let baseStep = isWordProblem ? 1 : 0;
+            let systemStep = isWordProblem ? 1 : 0;
+            let highlightStep = systemStep + 1;
+            let commentStep = highlightStep;
+            let signChangeStep = highlightStep + 1;
+            let result1Step = s.type === 'subtraction' ? highlightStep + 2 : highlightStep + 1;
+            let result2Step = s.type === 'subtraction' ? highlightStep + 3 : highlightStep + 2;
+            let finalStepsStart = s.type === 'subtraction' ? highlightStep + 4 : highlightStep + 3;
 
-                let baseStep = isWordProblem ? 1 : 0;
-                let systemStep = isWordProblem ? 1 : 0;
-                let highlightStep = systemStep + 1;
-                let commentStep = highlightStep;
-                let signChangeStep = highlightStep + 1;
-                let result1Step = s.type === 'subtraction' ? highlightStep + 2 : highlightStep + 1;
-                let result2Step = s.type === 'subtraction' ? highlightStep + 3 : highlightStep + 2;
-                let finalStepsStart = s.type === 'subtraction' ? highlightStep + 4 : highlightStep + 3;
-                
-                if (s.placeholder) s.placeholder.classList.toggle('hidden', s.currentIndex >= 0);
-                
-                s.stepsInitial.forEach((step, index) => step.classList.toggle('active', s.currentIndex >= index));
-                
-                const showElement = (el, step, isTemp = false) => {
-                    if (!el) return;
-                    let shouldShow;
-                    if (isTemp) {
-                        shouldShow = s.currentIndex === step;
-                    } else {
-                        shouldShow = s.currentIndex >= step;
-                    }
-                    el.style.opacity = shouldShow ? '1' : '0';
-                    el.style.visibility = shouldShow ? 'visible' : 'hidden';
-                };
-                
-                if (!isWordProblem) {
-                    systemStep = 0;
-                    highlightStep = 1;
-                    commentStep = 1;
-                    signChangeStep = 2;
-                    result1Step = s.type === 'subtraction' ? 3 : 2;
-                    result2Step = s.type === 'subtraction' ? 4 : 3;
-                    finalStepsStart = s.type === 'subtraction' ? 5 : 4;
-                }
-                
-                showElement(s.systemContainer, systemStep);
-                s.termSpans.forEach(span => span.classList.toggle('term-highlight', s.currentIndex >= highlightStep));
+            if (s.placeholder) s.placeholder.classList.toggle('hidden', s.currentIndex >= 0);
 
-                if (s.type === 'subtraction') {
-                    showElement(s.tempComment, commentStep, true);
-                    s.tempComment.textContent = s.currentIndex === commentStep ? 'المعاملان متساويان، لذا نطرح.' : 'نغير إشارات المعادلة الثانية ثم نجمع.';
-                    showElement(s.tempComment, signChangeStep, true);
-                    showElement(s.subtractionSign, signChangeStep);
-                    
-                    if (s.eq2Container) {
-                        const sign1 = s.eq2Container.querySelector('.sign-1');
-                        const sign2 = s.eq2Container.querySelector('.sign-2');
-                        if (s.currentIndex >= signChangeStep) {
-                            sign1.innerHTML = `<span class="original-sign">+</span> <span class="sign-change">−</span>`;
-                            sign2.innerHTML = `<span class="original-sign">-</span> <span class="sign-change">+</span>`;
-                        } else {
-                            sign1.innerHTML = `+`;
-                            sign2.innerHTML = `-`;
-                        }
-                    }
+            s.stepsInitial.forEach((step, index) => step.classList.toggle('active', s.currentIndex >= index));
 
-                    showElement(s.resultLine, result1Step);
-                    showElement(s.resultEquation1, result1Step);
-                    showElement(s.resultEquation2, result2Step);
-
-                } else { // Addition
-                    showElement(s.tempComment, commentStep, true);
-                    showElement(s.resultLine, result1Step);
-                    showElement(s.resultEquation1, result1Step);
-                    showElement(s.resultEquation2, result2Step);
-                }
-
-                s.stepsFinal.forEach((step, index) => step.classList.toggle('active', s.currentIndex >= index + finalStepsStart));
-                if(s.currentIndex < finalStepsStart) s.stepsFinal.forEach(step => step.classList.remove('active'));
-
-                const isFirstStep = s.currentIndex < 0;
-                const isLastStep = s.currentIndex >= s.totalSteps -1;
-                s.prevBtn.disabled = isFirstStep;
-                s.nextBtn.classList.toggle('hidden', isLastStep);
-                s.resetBtn.classList.toggle('hidden', !isLastStep);
-            };
-
-            const changeStep = (isNext) => {
-                const s = state[exampleId];
-                if (isNext) {
-                    if (s.currentIndex < s.totalSteps - 1) s.currentIndex++;
+            const showElement = (el, step, isTemp = false) => {
+                if (!el) return;
+                let shouldShow;
+                if (isTemp) {
+                    shouldShow = s.currentIndex === step;
                 } else {
-                    if (s.currentIndex >= -1) s.currentIndex--;
+                    shouldShow = s.currentIndex >= step;
                 }
-                updateUI();
+                el.style.opacity = shouldShow ? '1' : '0';
+                el.style.visibility = shouldShow ? 'visible' : 'hidden';
             };
 
-            const resetExample = () => {
-                state[exampleId].currentIndex = -1;
-                updateUI();
-            };
-            
-            state[exampleId].nextBtn.addEventListener('click', () => changeStep(true));
-            state[exampleId].prevBtn.addEventListener('click', () => changeStep(false));
-            state[exampleId].resetBtn.addEventListener('click', resetExample);
-            
-            resetExample();
-        });
+            if (!isWordProblem) {
+                systemStep = 0;
+                highlightStep = 1;
+                commentStep = 1;
+                signChangeStep = 2;
+                result1Step = s.type === 'subtraction' ? 3 : 2;
+                result2Step = s.type === 'subtraction' ? 4 : 3;
+                finalStepsStart = s.type === 'subtraction' ? 5 : 4;
+            }
 
-        const student = getStudentFromStorage();
-        const lessonTitleElement = document.getElementById('lesson-title');
-        const lessonTitle = lessonTitleElement ? lessonTitleElement.textContent : null;
-        buildHeader(student, lessonTitle);
-        buildFooter();
-        const questions = generateQuiz();
-        initializeQuiz(LESSON_ID, questions, student);
-        const retakeBtn = document.getElementById('retake-quiz-btn');
-        if(retakeBtn) { retakeBtn.addEventListener('click', () => { window.location.reload(); }); }
-        
-        const closeModalBtn = document.getElementById('closeModalBtn');
-        if(closeModalBtn) closeModalBtn.addEventListener('click', closeModal);
-        
-        const closeSmartModalBtn = document.getElementById('closeSmartModalBtn');
-        if(closeSmartModalBtn) closeSmartModalBtn.addEventListener('click', closeSmartModal);
+            showElement(s.systemContainer, systemStep);
+            s.termSpans.forEach(span => span.classList.toggle('term-highlight', s.currentIndex >= highlightStep));
+
+            if (s.type === 'subtraction') {
+                showElement(s.tempComment, commentStep, true);
+                s.tempComment.textContent = s.currentIndex === commentStep ? 'المعاملان متساويان، لذا نطرح.' : 'نغير إشارات المعادلة الثانية ثم نجمع.';
+                showElement(s.tempComment, signChangeStep, true);
+                showElement(s.subtractionSign, signChangeStep);
+
+                if (s.eq2Container) {
+                    const sign1 = s.eq2Container.querySelector('.sign-1');
+                    const sign2 = s.eq2Container.querySelector('.sign-2');
+                    if (s.currentIndex >= signChangeStep) {
+                        sign1.innerHTML = `<span class="original-sign">+</span> <span class="sign-change">−</span>`;
+                        sign2.innerHTML = `<span class="original-sign">-</span> <span class="sign-change">+</span>`;
+                    } else {
+                        sign1.innerHTML = `+`;
+                        sign2.innerHTML = `-`;
+                    }
+                }
+
+                showElement(s.resultLine, result1Step);
+                showElement(s.resultEquation1, result1Step);
+                showElement(s.resultEquation2, result2Step);
+
+            } else { // Addition
+                showElement(s.tempComment, commentStep, true);
+                showElement(s.resultLine, result1Step);
+                showElement(s.resultEquation1, result1Step);
+                showElement(s.resultEquation2, result2Step);
+            }
+
+            s.stepsFinal.forEach((step, index) => step.classList.toggle('active', s.currentIndex >= index + finalStepsStart));
+            if(s.currentIndex < finalStepsStart) s.stepsFinal.forEach(step => step.classList.remove('active'));
+
+            const isFirstStep = s.currentIndex < 0;
+            const isLastStep = s.currentIndex >= s.totalSteps -1;
+            s.prevBtn.disabled = isFirstStep;
+            s.nextBtn.classList.toggle('hidden', isLastStep);
+            s.resetBtn.classList.toggle('hidden', !isLastStep);
+        };
+
+        const changeStep = (isNext) => {
+            const s = state[exampleId];
+            if (isNext) {
+                if (s.currentIndex < s.totalSteps - 1) s.currentIndex++;
+            } else {
+                if (s.currentIndex >= -1) s.currentIndex--;
+            }
+            updateUI();
+        };
+
+        const resetExample = () => {
+            state[exampleId].currentIndex = -1;
+            updateUI();
+        };
+
+        state[exampleId].nextBtn.addEventListener('click', () => changeStep(true));
+        state[exampleId].prevBtn.addEventListener('click', () => changeStep(false));
+        state[exampleId].resetBtn.addEventListener('click', resetExample);
+
+        resetExample();
     });
+});
     </script>
 </body>
 </html>

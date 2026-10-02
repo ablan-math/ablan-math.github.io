@@ -428,7 +428,7 @@
     <div id="explanationModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden z-50">
         <div class="bg-white rounded-lg shadow-2xl p-6 max-w-lg w-full">
             <div class="flex justify-between items-center mb-4">
-                <h3 class="text-xl font-bold">💡 شرح الإجابة</h3>
+                <h3 id="modal-title" class="text-xl font-bold">💡 شرح الإجابة</h3>
                 <button id="closeModalBtn" class="p-2 -m-2 rounded-full hover:bg-gray-200">
                     <svg class="h-6 w-6 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
@@ -448,313 +448,227 @@
         </div>
     </div>
 
+    <script src="../js/lesson-core.js"></script>
     <script>
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
-    const MAX_ATTEMPTS = 3;
-    let currentQuestions = []; 
-    const LESSON_ID = 'c4_l4'; 
+window.SKIP_SHARED_INTERACTIVE = true;
+const LESSON_ID = 'c4_l4';
 
-    function getStudentFromStorage() { const studentDataString = localStorage.getItem('currentStudent'); if (studentDataString) { try { return JSON.parse(studentDataString); } catch (e) { return null; } } return null; }
-    function buildHeader(studentData, lessonTitle = null) {
-        const headerContainer = document.getElementById('main-header');
-        if (!headerContainer) return;
-        let titleHtml = `<div><h2 class="text-sm text-gray-500 leading-tight">منصة الرياضيات التفاعلية</h2><h1 class="text-xl font-bold text-indigo-700 leading-tight">${lessonTitle || ''}</h1></div>`;
-        let userInfoHtml = '';
-        if (studentData) {
-            userInfoHtml = `<div class="text-right"><span class="font-semibold">أهلاً، ${studentData.name}</span><div><a href="../index.html" target="_top" class="text-sm text-blue-600 hover:underline">&larr; العودة إلى الفهرس</a><span class="mx-1 text-gray-300">|</span><a href="../index.html" target="_top" id="logout-link" class="text-sm text-red-500 hover:underline">خروج</a></div></div>`;
-        } else {
-            userInfoHtml = `<div class="text-right"><p class="font-semibold text-gray-700">زائر</p><a href="../index.html" target="_top" class="text-sm text-blue-600 hover:underline">&larr; العودة إلى الفهرس</a></div>`;
+function generateQuiz() {
+    const questionBank = [
+        {
+            type: 'mcq', level: '⭐', text: `أي من التالي يمثل متباينة مركبة تحتوي على أداة الربط "أو"؟`,
+            options: [
+                { display: '<span class="math-eq">-١ < س < ٥</span>', value: 'A' },
+                { display: '<span class="math-eq">س ≥ ٠</span>', value: 'B' },
+                { display: '<span class="math-eq">س < -٢</span> أو <span class="math-eq">س ≥ ٣</span>', value: 'C' },
+                { display: '<span class="math-eq">س = ٤</span>', value: 'D' }
+            ],
+            correct: 'C',
+            explanation: `<p>المتباينة المركبة التي تحتوي على "أو" (اتحاد) تربط بين متباينتين منفصلتين بهذه الأداة. الخيار (ج) هو الوحيد الذي يطابق هذا الوصف.</p><p>الخيار (أ) هو متباينة تقاطع ("و").</p>`,
+        },
+        {
+            type: 'mcq', level: '⭐⭐', text: `حل المتباينة <span class="math-eq">١ < ٢ص + ٣ ≤ ٩</span>`,
+            options: [
+                { display: '<span class="math-eq">-١ < ص ≤ ٣</span>', value: 'A' },
+                { display: '<span class="math-eq">٢ < ص ≤ ٦</span>', value: 'B' },
+                { display: '<span class="math-eq">-٢ < ص ≤ ٦</span>', value: 'C' },
+                { display: '<span class="math-eq">ص > -١</span>', value: 'D' }
+            ],
+            correct: 'A',
+            explanation: `<p>هذه متباينة تقاطع ("و").</p><p>١. نطرح <span class="highlight-number">٣</span> من جميع الأطراف: <span class="math-eq">١ - ٣ < ٢ص ≤ ٩ - ٣</span></p><p>٢. نبسط: <span class="math-eq">-٢ < ٢ص ≤ ٦</span></p><p>٣. نقسم جميع الأطراف على <span class="highlight-number">٢</span>: <span class="math-eq">-١ < ص ≤ ٣</span></p>`,
+            smartExplanation: `<p>جرب تعويض قيمة حدية. مثلاً، إذا كانت <span class="math-eq">ص = ٣</span>، فإن <span class="math-eq">٢(٣) + ٣ = ٩</span>. بما أن المتباينة تسمح بـ <span class="math-eq">≤ ٩</span>، فإن الحل يجب أن يتضمن <span class="math-eq">ص ≤ ٣</span>. هذا يلغي الخيارين (ب) و (د).</p>`
+        },
+        {
+            type: 'mcq', level: '⭐⭐', text: `حل المتباينة <span class="math-eq"><span class="fraction"><span>ك</span><span class="frac-bar"></span><span>٣</span></span> > ٢</span> أو <span class="math-eq">ك+٥ ≤ ٤</span>`,
+            options: [
+                { display: '<span class="math-eq">ك > ٦</span>', value: 'A' },
+                { display: '<span class="math-eq">ك ≤ -١</span>', value: 'B' },
+                { display: '<span class="math-eq">-١ ≤ ك < ٦</span>', value: 'C' },
+                { display: '<span class="math-eq">ك ≤ -١</span> أو <span class="math-eq">ك > ٦</span>', value: 'D' }
+            ],
+            correct: 'D',
+            explanation: `<p>هذه متباينة اتحاد ("أو"). نحل كل جزء على حدة.</p><p>الجزء الأول: <span class="math-eq"><span class="fraction"><span>ك</span><span class="frac-bar"></span><span>٣</span></span> > ٢</span>  ←  <span class="math-eq">ك > ٦</span>.</p><p>الجزء الثاني: <span class="math-eq">ك+٥ ≤ ٤</span>  ←  <span class="math-eq">ك ≤ -١</span>.</p><p>الحل هو اتحاد الحلين: <span class="math-eq">ك ≤ -١</span> أو <span class="math-eq">ك > ٦</span>.</p>`,
+        },
+        {
+            type: 'mcq', level: '⭐', text: `ما المتباينة التي تمثل الجملة "عدد ما بين <span class="highlight-number">-٥</span> و <span class="highlight-number">٧</span>"؟`,
+            options: [
+                { display: '<span class="math-eq">س > -٥</span> أو <span class="math-eq">س < ٧</span>', value: 'A' },
+                { display: '<span class="math-eq">-٥ < س < ٧</span>', value: 'B' },
+                { display: '<span class="math-eq">س < -٥</span> أو <span class="math-eq">س > ٧</span>', value: 'C' },
+                { display: '<span class="math-eq">س > ٧</span>', value: 'D' }
+            ],
+            correct: 'B',
+            explanation: `<p>كلمة "بين" تعني أن العدد أكبر من القيمة الصغرى وأصغر من القيمة الكبرى في نفس الوقت. هذا يمثل متباينة تقاطع ("و")، والتي يمكن كتابتها بالشكل <span class="math-eq">-٥ < س < ٧</span>.</p>`
+        },
+        {
+            type: 'mcq', level: '⭐⭐⭐', text: `حل المتباينة <span class="math-eq">-٢س+٧ ≤ ١</span> أو <span class="math-eq">٥س-٩ < ٦</span>`,
+            options: [
+                { display: '<span class="math-eq">س < ٣</span>', value: 'A' },
+                { display: '<span class="math-eq">س ≥ ٣</span>', value: 'B' },
+                { display: 'كل الأعداد الحقيقية', value: 'C' },
+                { display: '<span class="math-eq">٣ ≤ س < ٥</span>', value: 'D' }
+            ],
+            correct: 'C',
+            explanation: `<p>نحل كل جزء على حدة.</p><p>الجزء الأول: <span class="math-eq">-٢س+٧ ≤ ١</span> ← <span class="math-eq">-٢س ≤ -٦</span>. عند القسمة على -٢، <span class="text-red-600 font-bold">نعكس الإشارة</span>: <span class="math-eq">س ≥ ٣</span>.</p><p>الجزء الثاني: <span class="math-eq">٥س-٩ < ٦</span> ← <span class="math-eq">٥س < ١٥</span> ← <span class="math-eq">س < ٣</span>.</p><p>الحل هو اتحاد الحلين: <span class="math-eq">س ≥ ٣</span> أو <span class="math-eq">س < ٣</span>. هذا الاتحاد يغطي كل الأعداد على خط الأعداد، لذا فالحل هو جميع الأعداد الحقيقية.</p>`
+        },
+        {
+            type: 'mcq', level: '⭐', text: 'أي تمثيل بياني يمثل حل المتباينة <span class="math-eq">-٢ ≤ س < ٣</span>؟',
+            options: [
+                { value: 'A', display: `<div class="option-nl-wrapper"><div class="option-nl-ticks"><div class="option-nl-tick" style="left: 20%;"><span>-٢</span></div><div class="option-nl-tick" style="left: 80%;"><span>٣</span></div><div class="option-nl-line"><div class="option-nl-sol-line" style="left: 20%; width: 60%;"></div><div class="option-nl-sol-point closed" style="left: 20%;"></div><div class="option-nl-sol-point open" style="left: 80%;"></div></div></div></div>` },
+                { value: 'B', display: `<div class="option-nl-wrapper"><div class="option-nl-ticks"><div class="option-nl-tick" style="left: 20%;"><span>-٢</span></div><div class="option-nl-tick" style="left: 80%;"><span>٣</span></div><div class="option-nl-line"><div class="option-nl-sol-line" style="left: 20%; width: 60%;"></div><div class="option-nl-sol-point open" style="left: 20%;"></div><div class="option-nl-sol-point closed" style="left: 80%;"></div></div></div></div>` },
+                { value: 'C', display: `<div class="option-nl-wrapper"><div class="option-nl-ticks"><div class="option-nl-tick" style="left: 20%;"><span>-٢</span></div><div class="option-nl-tick" style="left: 80%;"><span>٣</span></div><div class="option-nl-line"><div class="option-nl-sol-line" style="left: 0%; width: 20%;"></div><div class="option-nl-sol-point closed" style="left: 20%;"></div><div class="option-nl-sol-line" style="left: 80%; width: 20%;"></div><div class="option-nl-sol-point open" style="left: 80%;"></div></div></div></div>` },
+                { value: 'D', display: `<div class="option-nl-wrapper"><div class="option-nl-ticks"><div class="option-nl-tick" style="left: 20%;"><span>-٢</span></div><div class="option-nl-tick" style="left: 80%;"><span>٣</span></div><div class="option-nl-line"><div class="option-nl-sol-line" style="left: 20%; width: 80%;"></div><div class="option-nl-sol-point closed" style="left: 20%;"></div></div></div></div>` }
+            ],
+            correct: 'A',
+            explanation: '<p>الإشارة <span class="math-eq">≤</span> عند <span class="highlight-number">-٢</span> تعني دائرة مغلقة.</p><p>الإشارة <span class="math-eq"><</span> عند <span class="highlight-number">٣</span> تعني دائرة مفتوحة.</p><p>بما أنها متباينة تقاطع ("و")، فإن الحل هو المنطقة المحصورة بين العددين.</p>'
+        },
+        {
+            type: 'mcq', level: '⭐⭐', text: 'حل المتباينة <span class="math-eq">س - ٣ > ١</span> أو <span class="math-eq">س + ٢ < -١</span>',
+            options: [
+                { display: '<span class="math-eq">س > ٤</span> أو <span class="math-eq">س < -٣</span>', value: 'A' },
+                { display: '<span class="math-eq">-٣ < س < ٤</span>', value: 'B' },
+                { display: '<span class="math-eq">س > -٣</span>', value: 'C' },
+                { display: '<span class="math-eq">س < ٤</span>', value: 'D' }
+            ],
+            correct: 'A',
+            explanation: '<p>نحل كل متباينة على حدة.</p><p>الأولى: <span class="math-eq">س - ٣ > ١</span> ← <span class="math-eq">س > ٤</span>.</p><p>الثانية: <span class="math-eq">س + ٢ < -١</span> ← <span class="math-eq">س < -٣</span>.</p><p>الحل هو اتحاد الحلين مع أداة الربط "أو".</p>'
+        },
+        {
+            type: 'mcq', level: '⭐⭐⭐', text: 'حل المتباينة <span class="math-eq">-٢ < <span class="fraction"><span>١-س</span><span class="frac-bar"></span><span>٣</span></span> ≤ ١</span>',
+            options: [
+                { display: '<span class="math-eq">-٢ ≤ س < ٧</span>', value: 'A' },
+                { display: '<span class="math-eq">-٧ < س ≤ ٢</span>', value: 'B' },
+                { display: '<span class="math-eq">-٢ < س ≤ ٧</span>', value: 'C' },
+                { display: '<span class="math-eq">-٧ ≤ س < ٢</span>', value: 'D' }
+            ],
+            correct: 'A',
+            explanation: '<p>١. نضرب جميع الأطراف في <span class="highlight-number">٣</span>: <span class="math-eq">-٦ < ١-س ≤ ٣</span>.</p><p>٢. نطرح <span class="highlight-number">١</span> من جميع الأطراف: <span class="math-eq">-٧ < -س ≤ ٢</span>.</p><p>٣. نضرب جميع الأطراف في <span class="highlight-number">-١</span> و<span class="text-red-600 font-bold">نعكس اتجاه الإشارتين</span>: <span class="math-eq">٧ > س ≥ -٢</span>.</p><p>٤. نعيد ترتيبها بالشكل المعتاد: <span class="math-eq">-٢ ≤ س < ٧</span>.</p>',
+            smartExplanation: '<p>عندما تصل للخطوة <span class="math-eq">-٧ < -س ≤ ٢</span>، يمكنك اختبار الخيارات. هل يمكن أن تكون <span class="math-eq">س = ٠</span>؟ نعم، لأن <span class="math-eq">-٧ < ٠ ≤ ٢</span> صحيح. هذا يلغي الخيارين (ب) و (د). هل يمكن أن تكون <span class="math-eq">س = -٢</span>؟ نعم، لأن <span class="math-eq">-٧ < ٢ ≤ ٢</span> صحيح. هذا يؤكد أن الإشارة يجب أن تكون <span class="math-eq">≥</span> عند -٢، مما يرجح الخيار (أ).</p>'
+        },
+        {
+            type: 'mcq', level: '⭐', text: 'ترجم الجملة "عدد ما (ن) هو على الأقل ٤ وعلى الأكثر ١٠" إلى متباينة مركبة.',
+            options: [
+                { display: '<span class="math-eq">ن < ٤</span> أو <span class="math-eq">ن > ١٠</span>', value: 'A' },
+                { display: '<span class="math-eq">٤ ≤ ن ≤ ١٠</span>', value: 'B' },
+                { display: '<span class="math-eq">٤ < ن < ١٠</span>', value: 'C' },
+                { display: '<span class="math-eq">ن ≤ ٤</span> أو <span class="math-eq">ن ≥ ١٠</span>', value: 'D' }
+            ],
+            correct: 'B',
+            explanation: '<p>"على الأقل ٤" تعني <span class="math-eq">ن ≥ ٤</span>.</p><p>"على الأكثر ١٠" تعني <span class="math-eq">ن ≤ ١٠</span>.</p><p>بما أن العدد يحقق الشرطين معاً، ندمجهما في متباينة تقاطع: <span class="math-eq">٤ ≤ ن ≤ ١٠</span>.</p>'
+        },
+        {
+            type: 'mcq', level: '⭐⭐', text: 'اكتب المتباينة المركبة التي يمثلها خط الأعداد التالي: شعاع يبدأ من -٥ (مفتوح) لليسار، وشعاع آخر يبدأ من ٢ (مغلق) لليمين.',
+            options: [
+                { display: '<span class="math-eq">-٥ < س ≤ ٢</span>', value: 'A' },
+                { display: '<span class="math-eq">س < -٥</span> و <span class="math-eq">س ≥ ٢</span>', value: 'B' },
+                { display: '<span class="math-eq">س < -٥</span> أو <span class="math-eq">س ≥ ٢</span>', value: 'C' },
+                { display: '<span class="math-eq">س ≤ -٥</span> أو <span class="math-eq">س > ٢</span>', value: 'D' }
+            ],
+            correct: 'C',
+            explanation: '<p>الشعاعان يتجهان للخارج، مما يعني أنها متباينة اتحاد ("أو").</p><p>الدائرة المفتوحة عند -٥ والشعاع لليسار تعني <span class="math-eq">س < -٥</span>.</p><p>الدائرة المغلقة عند ٢ والشعاع لليمين تعني <span class="math-eq">س ≥ ٢</span>.</p><p>إذن، المتباينة هي <span class="math-eq">س < -٥</span> أو <span class="math-eq">س ≥ ٢</span>.</p>'
+        },
+        {
+            type: 'mcq', level: '⭐⭐⭐', text: 'يجب أن تكون درجة حرارة معمل (د) بين ١٥° و ٢٥° سيليزية، شاملة للطرفين. أي متباينة تمثل هذا الشرط؟',
+            options: [
+                { display: '<span class="math-eq">د < ١٥</span> أو <span class="math-eq">د > ٢٥</span>', value: 'A' },
+                { display: '<span class="math-eq">١٥ ≤ د ≤ ٢٥</span>', value: 'B' },
+                { display: '<span class="math-eq">١٥ < د < ٢٥</span>', value: 'C' },
+                { display: '<span class="math-eq">د ≤ ١٥</span> أو <span class="math-eq">د ≥ ٢٥</span>', value: 'D' }
+            ],
+            correct: 'B',
+            explanation: '<p>كلمة "بين" تعني أنها متباينة تقاطع.</p><p>عبارة "شاملة للطرفين" تعني أننا نستخدم الإشارة <span class="math-eq">≤</span>.</p><p>لذلك، المتباينة هي <span class="math-eq">١٥ ≤ د ≤ ٢٥</span>.</p>'
+        },
+        {
+            type: 'mcq', level: '⭐⭐', text: 'حل المتباينة <span class="math-eq">٥س - ١ > ٤</span> و <span class="math-eq">٢س + ٣ < ١٣</span>',
+            options: [
+                { display: '<span class="math-eq">١ < س < ٥</span>', value: 'A' },
+                { display: '<span class="math-eq">س < ١</span> أو <span class="math-eq">س > ٥</span>', value: 'B' },
+                { display: '<span class="math-eq">س > ١</span>', value: 'C' },
+                { display: '<span class="math-eq">س < ٥</span>', value: 'D' }
+            ],
+            correct: 'A',
+            explanation: '<p>نحل كل متباينة على حدة.</p><p>الأولى: <span class="math-eq">٥س > ٥</span> ← <span class="math-eq">س > ١</span>.</p><p>الثانية: <span class="math-eq">٢س < ١٠</span> ← <span class="math-eq">س < ٥</span>.</p><p>بما أن أداة الربط هي "و"، فإن الحل هو تقاطع الحلين: <span class="math-eq">١ < س < ٥</span>.</p>',
+            smartExplanation: '<p>ابحث عن عدد يحقق المتباينتين. لنجرب <span class="math-eq">س = ٢</span>.</p><p>الأولى: <span class="math-eq">٥(٢) - ١ = ٩ > ٤</span> (صحيح).</p><p>الثانية: <span class="math-eq">٢(٢) + ٣ = ٧ < ١٣</span> (صحيح).</p><p>إذن الحل يجب أن يحتوي على العدد ٢. هذا يلغي الخيار (ب). لنجرب <span class="math-eq">س = ٦</span>. الأولى صحيحة لكن الثانية خاطئة. إذن الحل يجب أن يكون أصغر من ٥، مما يلغي الخيار (ج). لنجرب <span class="math-eq">س = ٠</span>. الأولى خاطئة. إذن الحل يجب أن يكون أكبر من ١، مما يلغي الخيار (د). الخيار الوحيد المتبقي هو (أ).</p>'
         }
-        headerContainer.innerHTML = `<div class="container mx-auto px-6 py-4 flex justify-between items-center">${titleHtml}${userInfoHtml}</div>`;
-        const logoutLink = headerContainer.querySelector('#logout-link');
-        if (logoutLink) {
-            logoutLink.addEventListener('click', () => {
-                localStorage.removeItem('currentStudent');
-            });
-        }
-    }
-    function buildFooter() { const footerContainer = document.getElementById('main-footer'); if (!footerContainer) return; footerContainer.innerHTML = `<div class="container mx-auto px-6"><p class="text-center text-gray-600 text-sm">© 2024 جميع الحقوق محفوظة | تصميم وتطوير: أ. عبدالعزيز خالد العبلان</p></div>`; }
-    function initializeQuiz(lessonId, questions, studentData) { currentQuestions = questions; const quizForm = document.getElementById('quizForm'); if (!quizForm) return; if (questions.length === 0) { quizForm.innerHTML = `<p class="text-center text-gray-600">لا توجد أسئلة متاحة لهذا الدرس حالياً.</p>`; return; } let attemptsLeft; if (studentData) { const studentLessonData = studentData.lessons?.[lessonId] || { attempts: 0 }; attemptsLeft = MAX_ATTEMPTS - studentLessonData.attempts; } else { attemptsLeft = 1; } const attemptsCounter = document.getElementById('attempts-counter'); if (attemptsCounter) { attemptsCounter.innerHTML = `المحاولات المتبقية: <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded-full">${attemptsLeft}</span>`; } const quizHtml = questions.map((q, index) => { const optionsHTML = q.options.map((opt, optIndex) => `<div><input type="radio" name="q${index}" value="${opt.value}" id="q${index}_opt${optIndex}" class="hidden"><label for="q${index}_opt${optIndex}" class="option-label">${opt.display}</label></div>`).join(''); const smartButtonHTML = q.smartExplanation ? `<button type="button" id="smart-explain-btn-${index}" class="hidden mt-2 text-xs text-purple-600 hover:underline font-semibold">🧠 الحل الذكي</button>` : ''; return `<div class="p-4 border-2 border-gray-200 rounded-lg"><p class="font-bold">${index + 1}. <span class="text-yellow-500">${q.level}</span> ${q.text}</p><div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">${optionsHTML}</div><div id="feedback-q${index}" class="mt-2 text-sm font-bold"></div><div class="flex items-center space-x-4 space-x-reverse">${smartButtonHTML}<button type="button" id="explain-btn-${index}" class="hidden mt-2 text-xs text-blue-600 hover:underline">اعرف لماذا؟</button></div></div>`; }).join(''); quizForm.innerHTML = quizHtml + `<button type="submit" id="submit-quiz-btn" class="w-full text-white bg-green-600 hover:bg-green-700 font-medium rounded-lg text-lg px-5 py-3 mt-8">تحقق من إجاباتي</button>`; questions.forEach((q, index) => { const explainBtn = document.getElementById(`explain-btn-${index}`); if(explainBtn) explainBtn.addEventListener('click', () => showExplanation(index)); if (q.smartExplanation) { const smartExplainBtn = document.getElementById(`smart-explain-btn-${index}`); if(smartExplainBtn) smartExplainBtn.addEventListener('click', () => showSmartExplanation(index)); } }); if (attemptsLeft <= 0) { const submitBtn = quizForm.querySelector('#submit-quiz-btn'); submitBtn.disabled = true; submitBtn.textContent = 'لا توجد محاولات متبقية'; submitBtn.classList.add('bg-gray-400', 'hover:bg-gray-400'); } quizForm.onsubmit = (e) => { e.preventDefault(); let score = 0; questions.forEach((q, index) => { const userAnswer = e.target.elements[`q${index}`]?.value; const feedbackEl = document.getElementById(`feedback-q${index}`); if (userAnswer === q.correct) { score++; feedbackEl.textContent = '✔ إجابة صحيحة!'; feedbackEl.className = 'mt-2 text-sm font-bold text-green-600'; } else { feedbackEl.textContent = `❌ إجابة خاطئة.`; feedbackEl.className = 'mt-2 text-sm font-bold text-red-600'; } document.getElementById(`explain-btn-${index}`).classList.remove('hidden'); if (q.smartExplanation) { document.getElementById(`smart-explain-btn-${index}`).classList.remove('hidden'); } }); const finalGrade = Math.round((score / questions.length) * 10); const resultsDiv = document.getElementById('quiz-results'); resultsDiv.classList.remove('hidden'); document.getElementById('quiz-score').textContent = `${finalGrade} / 10`; if (studentData) { saveGrade(LESSON_ID, finalGrade); if (attemptsLeft - 1 > 0) { document.getElementById('retake-quiz-btn').classList.remove('hidden'); } } else { document.getElementById('save-status').textContent = 'تم عرض نتيجتك. سجل الدخول لحفظ تقدمك.'; } e.target.querySelector('#submit-quiz-btn').disabled = true; }; }
-    function saveGrade(lessonId, grade) {
-        const urlParams = new URLSearchParams(window.location.search);
-        const studentId = urlParams.get('studentId');
-        const classId = urlParams.get('classId');
-        const saveStatus = document.getElementById('save-status');
+    ];
 
-        if (!studentId || !classId) {
-            saveStatus.textContent = 'خطأ: لا يمكن حفظ نتيجتك. معلومات الطالب أو الفصل مفقودة.';
-            console.error("Student ID or Class ID is missing from the URL.");
-            return;
-        }
-        
-        saveStatus.textContent = 'جارٍ حفظ نتيجتك...';
-        const url = `${SCRIPT_URL}?action=saveGrade&studentId=${studentId}&classId=${classId}&lessonId=${lessonId}&grade=${grade}`;
-        fetch(url)
-            .then(res => res.json())
-            .then(result => {
-                if (result.status === 'success') {
-                    saveStatus.textContent = '✔ تم حفظ نتيجتك بنجاح! ستظهر في لوحة التحكم عند العودة.';
-                    const studentData = getStudentFromStorage();
-                    if(studentData){
-                        if (!studentData.lessons) studentData.lessons = {};
-                        if (!studentData.lessons[lessonId] || studentData.lessons[lessonId].grade < grade) {
-                            studentData.lessons[lessonId] = { grade: grade, attempts: (studentData.lessons[lessonId]?.attempts || 0) + 1 };
-                        } else {
-                            studentData.lessons[lessonId].attempts++;
-                        }
-                        localStorage.setItem('currentStudent', JSON.stringify(studentData));
-                    }
-                } else {
-                    throw new Error(result.message);
-                }
-            })
-            .catch(error => {
-                saveStatus.textContent = '❌ حدث خطأ أثناء حفظ الدرجة.';
-                console.error("Save Grade Error:", error);
-            });
-    }
-    function showExplanation(questionIndex) { const modal = document.getElementById('explanationModal'); const explanationText = document.getElementById('explanationText'); if(modal && explanationText && currentQuestions[questionIndex] && currentQuestions[questionIndex].explanation) { explanationText.innerHTML = currentQuestions[questionIndex].explanation; modal.classList.remove('hidden'); } }
-    function closeModal() { const modal = document.getElementById('explanationModal'); if(modal) modal.classList.add('hidden'); }
-    function showSmartExplanation(questionIndex) { const modal = document.getElementById('smartExplanationModal'); const explanationText = document.getElementById('smartExplanationText'); if(modal && explanationText && currentQuestions[questionIndex] && currentQuestions[questionIndex].smartExplanation) { explanationText.innerHTML = currentQuestions[questionIndex].smartExplanation; modal.classList.remove('hidden'); } }
-    function closeSmartModal() { const modal = document.getElementById('smartExplanationModal'); if(modal) modal.classList.add('hidden'); }
-    
-    function generateQuiz() { 
-        const questionBank = [
-            { 
-                type: 'mcq', level: '⭐', text: `أي من التالي يمثل متباينة مركبة تحتوي على أداة الربط "أو"؟`,
-                options: [ 
-                    { display: '<span class="math-eq">-١ < س < ٥</span>', value: 'A' }, 
-                    { display: '<span class="math-eq">س ≥ ٠</span>', value: 'B' }, 
-                    { display: '<span class="math-eq">س < -٢</span> أو <span class="math-eq">س ≥ ٣</span>', value: 'C' }, 
-                    { display: '<span class="math-eq">س = ٤</span>', value: 'D' }
-                ], 
-                correct: 'C',
-                explanation: `<p>المتباينة المركبة التي تحتوي على "أو" (اتحاد) تربط بين متباينتين منفصلتين بهذه الأداة. الخيار (ج) هو الوحيد الذي يطابق هذا الوصف.</p><p>الخيار (أ) هو متباينة تقاطع ("و").</p>`,
-            },
-            { 
-                type: 'mcq', level: '⭐⭐', text: `حل المتباينة <span class="math-eq">١ < ٢ص + ٣ ≤ ٩</span>`,
-                options: [ 
-                    { display: '<span class="math-eq">-١ < ص ≤ ٣</span>', value: 'A' }, 
-                    { display: '<span class="math-eq">٢ < ص ≤ ٦</span>', value: 'B' }, 
-                    { display: '<span class="math-eq">-٢ < ص ≤ ٦</span>', value: 'C' }, 
-                    { display: '<span class="math-eq">ص > -١</span>', value: 'D' }
-                ], 
-                correct: 'A',
-                explanation: `<p>هذه متباينة تقاطع ("و").</p><p>١. نطرح <span class="highlight-number">٣</span> من جميع الأطراف: <span class="math-eq">١ - ٣ < ٢ص ≤ ٩ - ٣</span></p><p>٢. نبسط: <span class="math-eq">-٢ < ٢ص ≤ ٦</span></p><p>٣. نقسم جميع الأطراف على <span class="highlight-number">٢</span>: <span class="math-eq">-١ < ص ≤ ٣</span></p>`,
-                smartExplanation: `<p>جرب تعويض قيمة حدية. مثلاً، إذا كانت <span class="math-eq">ص = ٣</span>، فإن <span class="math-eq">٢(٣) + ٣ = ٩</span>. بما أن المتباينة تسمح بـ <span class="math-eq">≤ ٩</span>، فإن الحل يجب أن يتضمن <span class="math-eq">ص ≤ ٣</span>. هذا يلغي الخيارين (ب) و (د).</p>`
-            },
-            { 
-                type: 'mcq', level: '⭐⭐', text: `حل المتباينة <span class="math-eq"><span class="fraction"><span>ك</span><span class="frac-bar"></span><span>٣</span></span> > ٢</span> أو <span class="math-eq">ك+٥ ≤ ٤</span>`,
-                options: [ 
-                    { display: '<span class="math-eq">ك > ٦</span>', value: 'A' }, 
-                    { display: '<span class="math-eq">ك ≤ -١</span>', value: 'B' }, 
-                    { display: '<span class="math-eq">-١ ≤ ك < ٦</span>', value: 'C' }, 
-                    { display: '<span class="math-eq">ك ≤ -١</span> أو <span class="math-eq">ك > ٦</span>', value: 'D' }
-                ], 
-                correct: 'D',
-                explanation: `<p>هذه متباينة اتحاد ("أو"). نحل كل جزء على حدة.</p><p>الجزء الأول: <span class="math-eq"><span class="fraction"><span>ك</span><span class="frac-bar"></span><span>٣</span></span> > ٢</span>  ←  <span class="math-eq">ك > ٦</span>.</p><p>الجزء الثاني: <span class="math-eq">ك+٥ ≤ ٤</span>  ←  <span class="math-eq">ك ≤ -١</span>.</p><p>الحل هو اتحاد الحلين: <span class="math-eq">ك ≤ -١</span> أو <span class="math-eq">ك > ٦</span>.</p>`,
-            },
-            { 
-                type: 'mcq', level: '⭐', text: `ما المتباينة التي تمثل الجملة "عدد ما بين <span class="highlight-number">-٥</span> و <span class="highlight-number">٧</span>"؟`,
-                options: [ 
-                    { display: '<span class="math-eq">س > -٥</span> أو <span class="math-eq">س < ٧</span>', value: 'A' }, 
-                    { display: '<span class="math-eq">-٥ < س < ٧</span>', value: 'B' }, 
-                    { display: '<span class="math-eq">س < -٥</span> أو <span class="math-eq">س > ٧</span>', value: 'C' }, 
-                    { display: '<span class="math-eq">س > ٧</span>', value: 'D' }
-                ], 
-                correct: 'B',
-                explanation: `<p>كلمة "بين" تعني أن العدد أكبر من القيمة الصغرى وأصغر من القيمة الكبرى في نفس الوقت. هذا يمثل متباينة تقاطع ("و")، والتي يمكن كتابتها بالشكل <span class="math-eq">-٥ < س < ٧</span>.</p>`
-            },
-            { 
-                type: 'mcq', level: '⭐⭐⭐', text: `حل المتباينة <span class="math-eq">-٢س+٧ ≤ ١</span> أو <span class="math-eq">٥س-٩ < ٦</span>`,
-                options: [ 
-                    { display: '<span class="math-eq">س < ٣</span>', value: 'A' }, 
-                    { display: '<span class="math-eq">س ≥ ٣</span>', value: 'B' }, 
-                    { display: 'كل الأعداد الحقيقية', value: 'C' }, 
-                    { display: '<span class="math-eq">٣ ≤ س < ٥</span>', value: 'D' }
-                ], 
-                correct: 'C',
-                explanation: `<p>نحل كل جزء على حدة.</p><p>الجزء الأول: <span class="math-eq">-٢س+٧ ≤ ١</span> ← <span class="math-eq">-٢س ≤ -٦</span>. عند القسمة على -٢، <span class="text-red-600 font-bold">نعكس الإشارة</span>: <span class="math-eq">س ≥ ٣</span>.</p><p>الجزء الثاني: <span class="math-eq">٥س-٩ < ٦</span> ← <span class="math-eq">٥س < ١٥</span> ← <span class="math-eq">س < ٣</span>.</p><p>الحل هو اتحاد الحلين: <span class="math-eq">س ≥ ٣</span> أو <span class="math-eq">س < ٣</span>. هذا الاتحاد يغطي كل الأعداد على خط الأعداد، لذا فالحل هو جميع الأعداد الحقيقية.</p>`
-            },
-            {
-                type: 'mcq', level: '⭐', text: 'أي تمثيل بياني يمثل حل المتباينة <span class="math-eq">-٢ ≤ س < ٣</span>؟',
-                options: [
-                    { value: 'A', display: `<div class="option-nl-wrapper"><div class="option-nl-ticks"><div class="option-nl-tick" style="left: 20%;"><span>-٢</span></div><div class="option-nl-tick" style="left: 80%;"><span>٣</span></div><div class="option-nl-line"><div class="option-nl-sol-line" style="left: 20%; width: 60%;"></div><div class="option-nl-sol-point closed" style="left: 20%;"></div><div class="option-nl-sol-point open" style="left: 80%;"></div></div></div></div>` },
-                    { value: 'B', display: `<div class="option-nl-wrapper"><div class="option-nl-ticks"><div class="option-nl-tick" style="left: 20%;"><span>-٢</span></div><div class="option-nl-tick" style="left: 80%;"><span>٣</span></div><div class="option-nl-line"><div class="option-nl-sol-line" style="left: 20%; width: 60%;"></div><div class="option-nl-sol-point open" style="left: 20%;"></div><div class="option-nl-sol-point closed" style="left: 80%;"></div></div></div></div>` },
-                    { value: 'C', display: `<div class="option-nl-wrapper"><div class="option-nl-ticks"><div class="option-nl-tick" style="left: 20%;"><span>-٢</span></div><div class="option-nl-tick" style="left: 80%;"><span>٣</span></div><div class="option-nl-line"><div class="option-nl-sol-line" style="left: 0%; width: 20%;"></div><div class="option-nl-sol-point closed" style="left: 20%;"></div><div class="option-nl-sol-line" style="left: 80%; width: 20%;"></div><div class="option-nl-sol-point open" style="left: 80%;"></div></div></div></div>` },
-                    { value: 'D', display: `<div class="option-nl-wrapper"><div class="option-nl-ticks"><div class="option-nl-tick" style="left: 20%;"><span>-٢</span></div><div class="option-nl-tick" style="left: 80%;"><span>٣</span></div><div class="option-nl-line"><div class="option-nl-sol-line" style="left: 20%; width: 80%;"></div><div class="option-nl-sol-point closed" style="left: 20%;"></div></div></div></div>` }
-                ],
-                correct: 'A',
-                explanation: '<p>الإشارة <span class="math-eq">≤</span> عند <span class="highlight-number">-٢</span> تعني دائرة مغلقة.</p><p>الإشارة <span class="math-eq"><</span> عند <span class="highlight-number">٣</span> تعني دائرة مفتوحة.</p><p>بما أنها متباينة تقاطع ("و")، فإن الحل هو المنطقة المحصورة بين العددين.</p>'
-            },
-            {
-                type: 'mcq', level: '⭐⭐', text: 'حل المتباينة <span class="math-eq">س - ٣ > ١</span> أو <span class="math-eq">س + ٢ < -١</span>',
-                options: [
-                    { display: '<span class="math-eq">س > ٤</span> أو <span class="math-eq">س < -٣</span>', value: 'A' },
-                    { display: '<span class="math-eq">-٣ < س < ٤</span>', value: 'B' },
-                    { display: '<span class="math-eq">س > -٣</span>', value: 'C' },
-                    { display: '<span class="math-eq">س < ٤</span>', value: 'D' }
-                ],
-                correct: 'A',
-                explanation: '<p>نحل كل متباينة على حدة.</p><p>الأولى: <span class="math-eq">س - ٣ > ١</span> ← <span class="math-eq">س > ٤</span>.</p><p>الثانية: <span class="math-eq">س + ٢ < -١</span> ← <span class="math-eq">س < -٣</span>.</p><p>الحل هو اتحاد الحلين مع أداة الربط "أو".</p>'
-            },
-            {
-                type: 'mcq', level: '⭐⭐⭐', text: 'حل المتباينة <span class="math-eq">-٢ < <span class="fraction"><span>١-س</span><span class="frac-bar"></span><span>٣</span></span> ≤ ١</span>',
-                options: [
-                    { display: '<span class="math-eq">-٢ ≤ س < ٧</span>', value: 'A' },
-                    { display: '<span class="math-eq">-٧ < س ≤ ٢</span>', value: 'B' },
-                    { display: '<span class="math-eq">-٢ < س ≤ ٧</span>', value: 'C' },
-                    { display: '<span class="math-eq">-٧ ≤ س < ٢</span>', value: 'D' }
-                ],
-                correct: 'A',
-                explanation: '<p>١. نضرب جميع الأطراف في <span class="highlight-number">٣</span>: <span class="math-eq">-٦ < ١-س ≤ ٣</span>.</p><p>٢. نطرح <span class="highlight-number">١</span> من جميع الأطراف: <span class="math-eq">-٧ < -س ≤ ٢</span>.</p><p>٣. نضرب جميع الأطراف في <span class="highlight-number">-١</span> و<span class="text-red-600 font-bold">نعكس اتجاه الإشارتين</span>: <span class="math-eq">٧ > س ≥ -٢</span>.</p><p>٤. نعيد ترتيبها بالشكل المعتاد: <span class="math-eq">-٢ ≤ س < ٧</span>.</p>',
-                smartExplanation: '<p>عندما تصل للخطوة <span class="math-eq">-٧ < -س ≤ ٢</span>، يمكنك اختبار الخيارات. هل يمكن أن تكون <span class="math-eq">س = ٠</span>؟ نعم، لأن <span class="math-eq">-٧ < ٠ ≤ ٢</span> صحيح. هذا يلغي الخيارين (ب) و (د). هل يمكن أن تكون <span class="math-eq">س = -٢</span>؟ نعم، لأن <span class="math-eq">-٧ < ٢ ≤ ٢</span> صحيح. هذا يؤكد أن الإشارة يجب أن تكون <span class="math-eq">≥</span> عند -٢، مما يرجح الخيار (أ).</p>'
-            },
-            {
-                type: 'mcq', level: '⭐', text: 'ترجم الجملة "عدد ما (ن) هو على الأقل ٤ وعلى الأكثر ١٠" إلى متباينة مركبة.',
-                options: [
-                    { display: '<span class="math-eq">ن < ٤</span> أو <span class="math-eq">ن > ١٠</span>', value: 'A' },
-                    { display: '<span class="math-eq">٤ ≤ ن ≤ ١٠</span>', value: 'B' },
-                    { display: '<span class="math-eq">٤ < ن < ١٠</span>', value: 'C' },
-                    { display: '<span class="math-eq">ن ≤ ٤</span> أو <span class="math-eq">ن ≥ ١٠</span>', value: 'D' }
-                ],
-                correct: 'B',
-                explanation: '<p>"على الأقل ٤" تعني <span class="math-eq">ن ≥ ٤</span>.</p><p>"على الأكثر ١٠" تعني <span class="math-eq">ن ≤ ١٠</span>.</p><p>بما أن العدد يحقق الشرطين معاً، ندمجهما في متباينة تقاطع: <span class="math-eq">٤ ≤ ن ≤ ١٠</span>.</p>'
-            },
-            {
-                type: 'mcq', level: '⭐⭐', text: 'اكتب المتباينة المركبة التي يمثلها خط الأعداد التالي: شعاع يبدأ من -٥ (مفتوح) لليسار، وشعاع آخر يبدأ من ٢ (مغلق) لليمين.',
-                options: [
-                    { display: '<span class="math-eq">-٥ < س ≤ ٢</span>', value: 'A' },
-                    { display: '<span class="math-eq">س < -٥</span> و <span class="math-eq">س ≥ ٢</span>', value: 'B' },
-                    { display: '<span class="math-eq">س < -٥</span> أو <span class="math-eq">س ≥ ٢</span>', value: 'C' },
-                    { display: '<span class="math-eq">س ≤ -٥</span> أو <span class="math-eq">س > ٢</span>', value: 'D' }
-                ],
-                correct: 'C',
-                explanation: '<p>الشعاعان يتجهان للخارج، مما يعني أنها متباينة اتحاد ("أو").</p><p>الدائرة المفتوحة عند -٥ والشعاع لليسار تعني <span class="math-eq">س < -٥</span>.</p><p>الدائرة المغلقة عند ٢ والشعاع لليمين تعني <span class="math-eq">س ≥ ٢</span>.</p><p>إذن، المتباينة هي <span class="math-eq">س < -٥</span> أو <span class="math-eq">س ≥ ٢</span>.</p>'
-            },
-            {
-                type: 'mcq', level: '⭐⭐⭐', text: 'يجب أن تكون درجة حرارة معمل (د) بين ١٥° و ٢٥° سيليزية، شاملة للطرفين. أي متباينة تمثل هذا الشرط؟',
-                options: [
-                    { display: '<span class="math-eq">د < ١٥</span> أو <span class="math-eq">د > ٢٥</span>', value: 'A' },
-                    { display: '<span class="math-eq">١٥ ≤ د ≤ ٢٥</span>', value: 'B' },
-                    { display: '<span class="math-eq">١٥ < د < ٢٥</span>', value: 'C' },
-                    { display: '<span class="math-eq">د ≤ ١٥</span> أو <span class="math-eq">د ≥ ٢٥</span>', value: 'D' }
-                ],
-                correct: 'B',
-                explanation: '<p>كلمة "بين" تعني أنها متباينة تقاطع.</p><p>عبارة "شاملة للطرفين" تعني أننا نستخدم الإشارة <span class="math-eq">≤</span>.</p><p>لذلك، المتباينة هي <span class="math-eq">١٥ ≤ د ≤ ٢٥</span>.</p>'
-            },
-            {
-                type: 'mcq', level: '⭐⭐', text: 'حل المتباينة <span class="math-eq">٥س - ١ > ٤</span> و <span class="math-eq">٢س + ٣ < ١٣</span>',
-                options: [
-                    { display: '<span class="math-eq">١ < س < ٥</span>', value: 'A' },
-                    { display: '<span class="math-eq">س < ١</span> أو <span class="math-eq">س > ٥</span>', value: 'B' },
-                    { display: '<span class="math-eq">س > ١</span>', value: 'C' },
-                    { display: '<span class="math-eq">س < ٥</span>', value: 'D' }
-                ],
-                correct: 'A',
-                explanation: '<p>نحل كل متباينة على حدة.</p><p>الأولى: <span class="math-eq">٥س > ٥</span> ← <span class="math-eq">س > ١</span>.</p><p>الثانية: <span class="math-eq">٢س < ١٠</span> ← <span class="math-eq">س < ٥</span>.</p><p>بما أن أداة الربط هي "و"، فإن الحل هو تقاطع الحلين: <span class="math-eq">١ < س < ٥</span>.</p>',
-                smartExplanation: '<p>ابحث عن عدد يحقق المتباينتين. لنجرب <span class="math-eq">س = ٢</span>.</p><p>الأولى: <span class="math-eq">٥(٢) - ١ = ٩ > ٤</span> (صحيح).</p><p>الثانية: <span class="math-eq">٢(٢) + ٣ = ٧ < ١٣</span> (صحيح).</p><p>إذن الحل يجب أن يحتوي على العدد ٢. هذا يلغي الخيار (ب). لنجرب <span class="math-eq">س = ٦</span>. الأولى صحيحة لكن الثانية خاطئة. إذن الحل يجب أن يكون أصغر من ٥، مما يلغي الخيار (ج). لنجرب <span class="math-eq">س = ٠</span>. الأولى خاطئة. إذن الحل يجب أن يكون أكبر من ١، مما يلغي الخيار (د). الخيار الوحيد المتبقي هو (أ).</p>'
+    const shuffled = [...questionBank].sort(() => 0.5 - Math.random());
+    const questionCount = Math.min(shuffled.length, 5);
+    return shuffled.slice(0, questionCount);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const exampleContainers = document.querySelectorAll('[id^="interactive-container-"]');
+    const state = {};
+    exampleContainers.forEach(container => {
+        const exampleId = container.id.split('-')[2];
+        state[exampleId] = { currentIndex: -1, steps: container.querySelectorAll('.step-interactive'), placeholder: container.querySelector('.interactive-placeholder'), prevBtn: container.querySelector('.prev-btn'), nextBtn: container.querySelector('.next-btn'), resetBtn: container.querySelector('.reset-btn') };
+        const resetExample = () => {
+            state[exampleId].steps.forEach(step => step.classList.remove('active'));
+            state[exampleId].currentIndex = -1;
+            if (state[exampleId].placeholder) {
+                state[exampleId].placeholder.classList.remove('hidden');
             }
-        ];
-        
-        const shuffled = [...questionBank].sort(() => 0.5 - Math.random());
-        const questionCount = Math.min(shuffled.length, 5);
-        return shuffled.slice(0, questionCount);
-    }
-
-    document.addEventListener('DOMContentLoaded', () => {
-        const urlParams = new URLSearchParams(window.location.search);
-        const studentId = urlParams.get('studentId');
-        const classId = urlParams.get('classId');
-
-        const exampleContainers = document.querySelectorAll('[id^="interactive-container-"]');
-        const state = {};
-        exampleContainers.forEach(container => {
-            const exampleId = container.id.split('-')[2];
-            state[exampleId] = { currentIndex: -1, steps: container.querySelectorAll('.step-interactive'), placeholder: container.querySelector('.interactive-placeholder'), prevBtn: container.querySelector('.prev-btn'), nextBtn: container.querySelector('.next-btn'), resetBtn: container.querySelector('.reset-btn') };
-            const resetExample = () => { 
-                state[exampleId].steps.forEach(step => step.classList.remove('active')); 
-                state[exampleId].currentIndex = -1; 
-                if (state[exampleId].placeholder) { 
-                    state[exampleId].placeholder.classList.remove('hidden'); 
-                } 
-                if (exampleId === '7') {
-                    document.getElementById('translation-box-1').innerHTML = '';
-                    document.getElementById('translation-box-2').innerHTML = '';
-                    document.querySelectorAll('#parts-1 .word-part, #parts-2 .word-part').forEach(p => p.classList.remove('disabled'));
-                }
-                updateButtons(); 
-            };
-            const updateButtons = () => { 
-                const isFirstStep = state[exampleId].currentIndex <= -1; 
-                const isLastStep = state[exampleId].currentIndex >= state[exampleId].steps.length - 1; 
-                state[exampleId].prevBtn.disabled = isFirstStep; 
-                if (isLastStep) { 
-                    state[exampleId].nextBtn.classList.add('hidden'); 
-                    state[exampleId].resetBtn.classList.remove('hidden'); 
-                } else { 
-                    state[exampleId].nextBtn.classList.remove('hidden'); 
-                    state[exampleId].resetBtn.classList.add('hidden'); 
-                } 
-            };
-            
-            state[exampleId].nextBtn.addEventListener('click', () => {
-                if (state[exampleId].currentIndex < state[exampleId].steps.length - 1) {
-                    if (state[exampleId].currentIndex === -1 && state[exampleId].placeholder) {
-                        state[exampleId].placeholder.classList.add('hidden');
-                    }
-                    state[exampleId].currentIndex++;
-                    state[exampleId].steps[state[exampleId].currentIndex].classList.add('active');
-                    updateButtons();
-                }
-            });
-            state[exampleId].prevBtn.addEventListener('click', () => {
-                if (state[exampleId].currentIndex > -1) {
-                    if(state[exampleId].steps[state[exampleId].currentIndex]) {
-                       state[exampleId].steps[state[exampleId].currentIndex].classList.remove('active');
-                    }
-                    state[exampleId].currentIndex--;
-                     if (state[exampleId].currentIndex === -1 && state[exampleId].placeholder) {
-                        state[exampleId].placeholder.classList.remove('hidden');
-                    }
-                    updateButtons();
-                }
-            });
-
-            if(state[exampleId].resetBtn) { state[exampleId].resetBtn.addEventListener('click', resetExample); }
+            if (exampleId === '7') {
+                document.getElementById('translation-box-1').innerHTML = '';
+                document.getElementById('translation-box-2').innerHTML = '';
+                document.querySelectorAll('#parts-1 .word-part, #parts-2 .word-part').forEach(p => p.classList.remove('disabled'));
+            }
             updateButtons();
+        };
+        const updateButtons = () => {
+            const isFirstStep = state[exampleId].currentIndex <= -1;
+            const isLastStep = state[exampleId].currentIndex >= state[exampleId].steps.length - 1;
+            state[exampleId].prevBtn.disabled = isFirstStep;
+            if (isLastStep) {
+                state[exampleId].nextBtn.classList.add('hidden');
+                state[exampleId].resetBtn.classList.remove('hidden');
+            } else {
+                state[exampleId].nextBtn.classList.remove('hidden');
+                state[exampleId].resetBtn.classList.add('hidden');
+            }
+        };
+
+        state[exampleId].nextBtn.addEventListener('click', () => {
+            if (state[exampleId].currentIndex < state[exampleId].steps.length - 1) {
+                if (state[exampleId].currentIndex === -1 && state[exampleId].placeholder) {
+                    state[exampleId].placeholder.classList.add('hidden');
+                }
+                state[exampleId].currentIndex++;
+                state[exampleId].steps[state[exampleId].currentIndex].classList.add('active');
+                updateButtons();
+            }
+        });
+        state[exampleId].prevBtn.addEventListener('click', () => {
+            if (state[exampleId].currentIndex > -1) {
+                if(state[exampleId].steps[state[exampleId].currentIndex]) {
+                   state[exampleId].steps[state[exampleId].currentIndex].classList.remove('active');
+                }
+                state[exampleId].currentIndex--;
+                 if (state[exampleId].currentIndex === -1 && state[exampleId].placeholder) {
+                    state[exampleId].placeholder.classList.remove('hidden');
+                }
+                updateButtons();
+            }
         });
 
-        // Specific script for example 7 translation
-        document.querySelectorAll('.word-part').forEach(part => {
-            part.addEventListener('click', () => {
-                if (part.classList.contains('disabled')) return;
-                const targetId = part.dataset.target;
-                const targetBox = document.getElementById(`translation-box-${targetId}`);
-                const newPart = part.cloneNode(true);
-                newPart.classList.remove('word-part');
-                targetBox.appendChild(newPart);
-                part.classList.add('disabled');
-            });
-        });
-
-
-        const student = getStudentFromStorage();
-        const lessonTitleElement = document.getElementById('lesson-title');
-        const lessonTitle = lessonTitleElement ? lessonTitleElement.textContent : null;
-        buildHeader(student, lessonTitle);
-        buildFooter();
-        const questions = generateQuiz();
-        initializeQuiz(LESSON_ID, questions, student);
-        const retakeBtn = document.getElementById('retake-quiz-btn');
-        if(retakeBtn) { retakeBtn.addEventListener('click', () => { window.location.reload(); }); }
-        
-        const closeModalBtn = document.getElementById('closeModalBtn');
-        if(closeModalBtn) closeModalBtn.addEventListener('click', closeModal);
-        
-        const closeSmartModalBtn = document.getElementById('closeSmartModalBtn');
-        if(closeSmartModalBtn) closeSmartModalBtn.addEventListener('click', closeSmartModal);
+        if(state[exampleId].resetBtn) { state[exampleId].resetBtn.addEventListener('click', resetExample); }
+        updateButtons();
     });
+
+    // Specific script for example 7 translation
+    document.querySelectorAll('.word-part').forEach(part => {
+        part.addEventListener('click', () => {
+            if (part.classList.contains('disabled')) return;
+            const targetId = part.dataset.target;
+            const targetBox = document.getElementById(`translation-box-${targetId}`);
+            const newPart = part.cloneNode(true);
+            newPart.classList.remove('word-part');
+            targetBox.appendChild(newPart);
+            part.classList.add('disabled');
+        });
+    });
+});
     </script>
 </body>
 </html>

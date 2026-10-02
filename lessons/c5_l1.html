@@ -386,7 +386,7 @@
     <div id="explanationModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden z-50">
         <div class="bg-white rounded-lg shadow-2xl p-6 max-w-lg w-full">
             <div class="flex justify-between items-center mb-4">
-                <h3 class="text-xl font-bold">💡 شرح الإجابة</h3>
+                <h3 id="modal-title" class="text-xl font-bold">💡 شرح الإجابة</h3>
                 <button id="closeModalBtn" class="p-2 -m-2 rounded-full hover:bg-gray-200">
                     <svg class="h-6 w-6 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
@@ -394,421 +394,297 @@
             <div id="explanationText" class="text-gray-700 max-h-[60vh] overflow-y-auto"></div>
         </div>
     </div>
+    <script src="../js/lesson-core.js"></script>
     <script>
-    // ==================================================
-    // Platform Common Functions
-    // ==================================================
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
-    const MAX_ATTEMPTS = 3;
-    let currentQuestions = []; 
-    
-    // Read student and class IDs from URL
-    const urlParams = new URLSearchParams(window.location.search);
-    const studentId = urlParams.get('studentId');
-    const classId = urlParams.get('classId');
+const LESSON_ID = 'c5_l1';
 
-    function getStudentFromStorage() { const d = localStorage.getItem('currentStudent'); return d ? JSON.parse(d) : null; }
-    
-    function buildHeader(studentData, lessonTitle = null) {
-        const h = document.getElementById('main-header');
-        if (!h) return;
-        let t = lessonTitle ? `<div><h2 class="text-sm text-gray-500 leading-tight">منصة الرياضيات التفاعلية</h2><h1 class="text-xl font-bold text-indigo-700 leading-tight">${lessonTitle}</h1></div>` : `<a href="../index.html" target="_top"><h1 class="text-2xl font-bold text-blue-800">منصة الرياضيات التفاعلية</h1></a>`;
-        let u = studentData ?
-            `<div class="text-right">
-                <div class="flex items-center gap-4 justify-end">
-                    <span class="font-semibold">أهلاً، ${studentData.name}</span>
-                    <a href="../index.html" target="_top" id="logout-link" class="bg-red-500 text-white py-1 px-3 rounded-lg hover:bg-red-600 text-sm">خروج</a>
-                </div>
-                <a href="../index.html" target="_top" class="text-xs text-blue-600 hover:underline">&larr; العودة إلى الفهرس</a>
-            </div>` :
-            `<div class="text-right">
-                <p class="text-lg text-gray-600">زائر</p>
-                <a href="../index.html" target="_top" class="text-xs text-blue-600 hover:underline">&larr; العودة إلى الفهرس</a>
-            </div>`;
-        h.innerHTML = `<div class="container mx-auto px-6 py-4 flex justify-between items-center">${t}${u}</div>`;
-        const l = h.querySelector('#logout-link');
-        if(l) l.addEventListener('click', () => localStorage.removeItem('currentStudent'));
-    }
+function generateQuiz() {
+    const questionBank = [
+        { type: 'mcq', level: '⭐', text: 'عندما يكون لنظام المعادلات حل واحد فقط، كيف تبدو المستقيمات على الرسم البياني؟', options: [ { display: 'متوازية', value: 'A' }, { display: 'متقاطعة', value: 'B' }, { display: 'متطابقة', value: 'C' }, { display: 'متعامدة', value: 'D' } ], correct: 'B', explanation: 'الحل الوحيد للنظام هو نقطة التقاطع بين المستقيمين.' },
+        { type: 'mcq', level: '⭐', text: 'ماذا يسمى نظام المعادلات الذي لا يوجد له حل؟', options: [ { display: 'متسق ومستقل', value: 'A' }, { display: 'متسق وغير مستقل', value: 'B' }, { display: 'غير متسق', value: 'C' }, { display: 'مستقل', value: 'D' } ], correct: 'C', explanation: 'النظام الذي لا يوجد له حل (مستقيمان متوازيان) يسمى نظاماً غير متسق.' },
+        { type: 'mcq', level: '⭐⭐', text: 'كم عدد الحلول لنظام المعادلات: ص = ٣س + ٥ و ص = ٣س - ١ ؟', options: [ { display: 'حل واحد', value: 'A' }, { display: 'حلان', value: 'B' }, { display: 'عدد لا نهائي', value: 'C' }, { display: 'لا يوجد حل', value: 'D' } ], correct: 'D', explanation: 'للمعادلتين نفس الميل (٣) ومقطع صادي مختلف. هذا يعني أنهما متوازيان، وبالتالي لا يوجد حل.', smartExplanation: 'بما أن الميل متساوٍ والمقطع مختلف، فالمستقيمان متوازيان. لا يمكن أن يتقاطعا.' },
+        { type: 'mcq', level: '⭐⭐', text: 'ما هو حل النظام الممثل بالمعادلتين: ص = س + ٢ و ص = -س + ٤ ؟', options: [ { display: '(١، ٣)', value: 'A' }, { display: '(٣، ١)', value: 'B' }, { display: '(٢، ٢)', value: 'C' }, { display: '(٠، ٤)', value: 'D' } ], correct: 'A', explanation: 'بالتعويض بالنقطة (١، ٣) في المعادلتين: المعادلة الأولى: ٣ = ١ + ٢ (صحيحة). المعادلة الثانية: ٣ = -١ + ٤ (صحيحة). إذن (١، ٣) هو الحل.' },
+        { type: 'mcq', level: '⭐⭐⭐', text: 'أي نظام من المعادلات التالية هو نظام متسق وغير مستقل؟', options: [ { display: 'ص = س + ١<br>ص = س + ٢', value: 'A' }, { display: 'ص = ٢س<br>ص = -٢س', value: 'B' }, { display: 'ص = س + ٣<br>٢ص = ٢س + ٦', value: 'C' }, { display: 'ص = ٤س<br>ص = س + ٤', value: 'D' } ], correct: 'C', explanation: 'النظام المتسق وغير المستقل له عدد لا نهائي من الحلول (نفس المستقيم). إذا قسمنا المعادلة الثانية (٢ص = ٢س + ٦) على ٢، نحصل على ص = س + ٣، وهي نفس المعادلة الأولى.' },
+        { type: 'mcq', level: '⭐', text: 'إذا كان المستقيمان متطابقين، فكم عدد الحلول للنظام؟', options: [ { display: 'صفر', value: 'A' }, { display: 'واحد', value: 'B' }, { display: 'اثنان', value: 'C' }, { display: 'عدد لا نهائي', value: 'D' } ], correct: 'D', explanation: 'المستقيمان المتطابقان يشتركان في جميع النقاط، لذا يوجد عدد لا نهائي من الحلول.' },
+        { type: 'mcq', level: '⭐⭐', text: 'حل النظام: س + ص = ٥ و س - ص = ١', options: [ { display: '(٢، ٣)', value: 'A' }, { display: '(٣، ٢)', value: 'B' }, { display: '(٤، ١)', value: 'C' }, { display: '(١، ٤)', value: 'D' } ], correct: 'B', explanation: 'بتحويل المعادلتين إلى صيغة الميل والمقطع: ص = -س + ٥ و ص = س - ١. بالتعويض بالنقطة (٣، ٢): ٢ = -٣ + ٥ (صحيح)، ٢ = ٣ - ١ (صحيح).' },
+        { type: 'mcq', level: '⭐⭐⭐', text: 'إذا كان ميل المستقيم الأول يساوي ميل المستقيم الثاني، ولكن المقطع الصادي مختلف، فما نوع الحل؟', options: [ { display: 'حل وحيد', value: 'A' }, { display: 'لا يوجد حل', value: 'B' }, { display: 'عدد لا نهائي من الحلول', value: 'C' }, { display: 'لا يمكن التحديد', value: 'D' } ], correct: 'B', explanation: 'هذه هي حالة المستقيمين المتوازيين، وهما لا يتقاطعان أبداً.' },
+        { type: 'mcq', level: '⭐⭐', text: 'ما هي نقطة تقاطع المستقيمين ص = ٥ و س = ٢ ؟', options: [ { display: '(٥، ٢)', value: 'A' }, { display: '(٠، ٥)', value: 'B' }, { display: '(٢، ٠)', value: 'C' }, { display: '(٢، ٥)', value: 'D' } ], correct: 'D', explanation: 'المستقيم ص=٥ هو خط أفقي، والمستقيم س=٢ هو خط رأسي. يتقاطعان عند النقطة التي يكون فيها الإحداثي السيني ٢ والصادي ٥.' },
+        { type: 'mcq', level: '⭐', text: 'أي مما يلي يصف نظاماً متسقاً ومستقلاً؟', options: [ { display: 'مستقيمان متوازيان', value: 'A' }, { display: 'مستقيمان متقاطعان', value: 'B' }, { display: 'مستقيمان متطابقان', value: 'C' }, { display: 'لا شيء مما سبق', value: 'D' } ], correct: 'B', explanation: 'النظام المتسق والمستقل له حل واحد فقط، وهو ما يحدث عندما يتقاطع المستقيمان.' },
+        { type: 'mcq', level: '⭐⭐⭐', text: 'نظام المعادلات ص = أس + ٣ و ص = ٢س + ب له حل وحيد. ماذا تستنتج عن قيمة أ؟', options: [ { display: 'أ = ٢', value: 'A' }, { display: 'أ لا يساوي ٢', value: 'B' }, { 'display': 'أ = ب', value: 'C' }, { display: 'أ لا يساوي ب', value: 'D' } ], correct: 'B', explanation: 'لكي يكون هناك حل وحيد، يجب أن يكون للمستقيمين ميل مختلف. ميل المستقيم الثاني هو ٢، لذا يجب أن لا يساوي ميل المستقيم الأول (أ) القيمة ٢.' },
+        { type: 'mcq', level: '⭐⭐', text: 'أي نقطة تقع على المستقيم ٢س + ص = ٨؟', options: [ { display: '(١، ٦)', value: 'A' }, { display: '(٢، ٥)', value: 'B' }, { display: '(٤، ١)', value: 'C' }, { display: '(٥، -١)', value: 'D' } ], correct: 'A', explanation: 'نعوض بالنقطة (١، ٦) في المعادلة: ٢(١) + ٦ = ٢ + ٦ = ٨. المعادلة صحيحة.' }
+    ];
+    return [...questionBank].sort(() => 0.5 - Math.random()).slice(0, 5);
+}
 
-    function buildFooter() { const f = document.getElementById('main-footer'); if (f) f.innerHTML = `<div class="container mx-auto px-6"><p class="text-center text-gray-600 text-sm">© 2024 جميع الحقوق محفوظة | تصميم وتطوير: أ. عبدالعزيز خالد العبلان</p></div>`; }
-    
-    function initializeQuiz(lessonId, questions, studentData) {
-        currentQuestions = questions;
-        const qf = document.getElementById('quizForm');
-        if (!qf) return;
-        if (questions.length === 0) { qf.innerHTML = `<p class="text-center text-gray-600">لا توجد أسئلة متاحة لهذا الدرس حالياً.</p>`; return; }
-        let attemptsLeft = studentData ? MAX_ATTEMPTS - (studentData.lessons?.[lessonId]?.attempts || 0) : 1;
-        const ac = document.getElementById('attempts-counter');
-        if (ac) ac.innerHTML = `المحاولات المتبقية: <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded-full">${attemptsLeft}</span>`;
-        qf.innerHTML = questions.map((q, i) => { const o = q.options.map((opt, oi) => `<div><input type="radio" name="q${i}" value="${opt.value}" id="q${i}_opt${oi}" class="hidden"><label for="q${i}_opt${oi}" class="option-label">${opt.display}</label></div>`).join(''); return `<div class="p-4 border-2 border-gray-200 rounded-lg"><p class="font-bold">${i + 1}. <span class="text-yellow-500">${q.level}</span> ${q.text}</p><div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">${o}</div><div id="feedback-q${i}" class="mt-2 text-sm font-bold"></div><div id="explanation-buttons-${i}" class="hidden mt-2 space-x-4 rtl:space-x-reverse"></div></div>`; }).join('') + `<button type="submit" id="submit-quiz-btn" class="w-full text-white bg-green-600 hover:bg-green-700 font-medium rounded-lg text-lg px-5 py-3 mt-8">تحقق من إجاباتي</button>`;
-        if (attemptsLeft <= 0) { const btn = qf.querySelector('#submit-quiz-btn'); btn.disabled = true; btn.textContent = 'لا توجد محاولات متبقية'; btn.classList.add('bg-gray-400', 'hover:bg-gray-400'); }
-        qf.onsubmit = (e) => {
-            e.preventDefault();
-            let score = 0;
-            questions.forEach((q, i) => {
-                const ua = e.target.elements[`q${i}`]?.value;
-                const fb = document.getElementById(`feedback-q${i}`);
-                const bc = document.getElementById(`explanation-buttons-${i}`);
-                bc.innerHTML = '';
-                if (ua === q.correct) { score++; fb.textContent = '✔ إجابة صحيحة!'; fb.className = 'mt-2 text-sm font-bold text-green-600'; } else { fb.textContent = `❌ إجابة خاطئة.`; fb.className = 'mt-2 text-sm font-bold text-red-600'; }
-                bc.classList.remove('hidden');
-                const stdBtn = document.createElement('button'); stdBtn.type = 'button'; stdBtn.textContent = 'اعرف لماذا؟'; stdBtn.className = 'text-xs text-blue-600 hover:underline'; stdBtn.onclick = () => window.showExplanation(i, 'standard'); bc.appendChild(stdBtn);
-                if (q.smartExplanation) { const smtBtn = document.createElement('button'); smtBtn.type = 'button'; smtBtn.innerHTML = '🧠 الحل الذكي'; smtBtn.className = 'text-xs text-purple-600 hover:underline font-bold'; smtBtn.onclick = () => window.showExplanation(i, 'smart'); bc.appendChild(smtBtn); }
-            });
-            const finalGrade = Math.round((score / questions.length) * 10);
-            const rd = document.getElementById('quiz-results'); rd.classList.remove('hidden'); document.getElementById('quiz-score').textContent = `${finalGrade} / 10`;
-            
-            if (studentId && classId) {
-                saveGrade(lessonId, finalGrade);
-                 if (studentData && attemptsLeft - 1 > 0) {
-                    document.getElementById('retake-quiz-btn').classList.remove('hidden');
-                }
-            } else {
-                document.getElementById('save-status').textContent = 'تم عرض نتيجتك. لا يمكن الحفظ لعدم وجود بيانات الطالب في الرابط.';
+document.addEventListener('DOMContentLoaded', () => {
+    function createInteractiveSection(config) {
+        let currentStep = 0; // 0 is the initial state, 1 is the first step
+        const totalSteps = config.stepsContent.length;
+
+        if(config.totalStepsCounter) config.totalStepsCounter.textContent = totalSteps;
+
+        const renderStep = (step) => { // step is 0 for initial, 1 to totalSteps for content
+            if (step === 0) {
+                if(config.stepCounter) config.stepCounter.textContent = 1;
+                config.explanationDiv.innerHTML = `<div class="explanation-step" style="opacity:1; border-color: transparent;">${config.initialText || ''}</div>`;
+                if(config.summaryContainerId) document.getElementById(config.summaryContainerId).innerHTML = '';
+                if (config.customRender) config.customRender(0);
+                if(config.backBtn) config.backBtn.disabled = true;
+                if(config.nextBtn) config.nextBtn.textContent = 'التالي';
+                return;
             }
-            e.target.querySelector('#submit-quiz-btn').disabled = true;
+
+            if(config.stepCounter) config.stepCounter.textContent = step;
+
+            const summaryContainer = document.getElementById(config.summaryContainerId);
+            if (summaryContainer) {
+                summaryContainer.innerHTML = '';
+                if (config.summaries) {
+                    config.summaries.forEach(s => {
+                        if (step >= s.step) {
+                            const summaryEl = document.createElement('div');
+                            summaryEl.className = `summary-box ${s.colorClass}`;
+                            summaryEl.innerHTML = s.html;
+                            summaryContainer.appendChild(summaryEl);
+                        }
+                    });
+                }
+            }
+
+            config.explanationDiv.innerHTML = `<div class="explanation-step" style="opacity:1; border-color: #1d4ed8;">${config.stepsContent[step - 1] || ''}</div>`;
+
+            if (config.customRender) config.customRender(step);
+            if(config.backBtn) config.backBtn.disabled = (step === 1);
+            if(config.nextBtn) config.nextBtn.textContent = (step === totalSteps) ? 'إعادة' : 'التالي';
         };
-    }
 
-    function saveGrade(lessonId, grade) {
-        const ss = document.getElementById('save-status');
-        if (!studentId || !classId) {
-            console.error("Student ID or Class ID is missing from the URL.");
-            ss.textContent = '❌ خطأ: لا يمكن حفظ نتيجتك. بيانات الطالب أو الفصل غير موجودة.';
-            ss.className = 'mt-4 text-sm font-semibold text-red-600';
-            return;
-        }
-        ss.textContent = 'جارٍ حفظ نتيجتك...';
-        ss.className = 'mt-4 text-sm font-semibold text-gray-600';
-        fetch(`${SCRIPT_URL}?action=saveGrade&studentId=${studentId}&classId=${classId}&lessonId=${lessonId}&grade=${grade}`)
-            .then(res => res.json()).then(result => {
-                if (result.status === 'success') {
-                    ss.textContent = '✔ تم حفظ نتيجتك بنجاح!';
-                    ss.className = 'mt-4 text-sm font-semibold text-green-600';
-                    const sd = JSON.parse(localStorage.getItem('currentStudent'));
-                    if(sd && sd.id == studentId) {
-                        if (!sd.lessons) sd.lessons = {};
-                        if (!sd.lessons[lessonId] || sd.lessons[lessonId].grade < grade) {
-                            sd.lessons[lessonId] = { grade: grade, attempts: (sd.lessons[lessonId]?.attempts || 0) + 1 };
-                        } else {
-                            sd.lessons[lessonId].attempts++;
-                        }
-                        localStorage.setItem('currentStudent', JSON.stringify(sd));
-                    }
-                } else {
-                    throw new Error(result.message);
-                }
-            }).catch(error => {
-                ss.textContent = '❌ حدث خطأ أثناء حفظ الدرجة.';
-                ss.className = 'mt-4 text-sm font-semibold text-red-600';
-                console.error("Save Grade Error:", error);
-            });
-    }
-
-    window.showExplanation = (i, type) => { const q = currentQuestions[i]; const m = document.getElementById('explanationModal'); const et = document.getElementById('explanationText'); if (!m || !et || !q) return; et.innerHTML = (type === 'smart' && q.smartExplanation) ? `<p>${q.smartExplanation}</p>` : `<p>${q.explanation}</p>`; m.classList.remove('hidden'); }
-    function closeModal() { const m = document.getElementById('explanationModal'); if(m) m.classList.add('hidden'); }
-    
-    // ==================================================
-    // Lesson Specific Code
-    // ==================================================
-    const LESSON_ID = 'c5_l1'; 
-    
-    function generateQuiz() {
-        const questionBank = [
-            { type: 'mcq', level: '⭐', text: 'عندما يكون لنظام المعادلات حل واحد فقط، كيف تبدو المستقيمات على الرسم البياني؟', options: [ { display: 'متوازية', value: 'A' }, { display: 'متقاطعة', value: 'B' }, { display: 'متطابقة', value: 'C' }, { display: 'متعامدة', value: 'D' } ], correct: 'B', explanation: 'الحل الوحيد للنظام هو نقطة التقاطع بين المستقيمين.' },
-            { type: 'mcq', level: '⭐', text: 'ماذا يسمى نظام المعادلات الذي لا يوجد له حل؟', options: [ { display: 'متسق ومستقل', value: 'A' }, { display: 'متسق وغير مستقل', value: 'B' }, { display: 'غير متسق', value: 'C' }, { display: 'مستقل', value: 'D' } ], correct: 'C', explanation: 'النظام الذي لا يوجد له حل (مستقيمان متوازيان) يسمى نظاماً غير متسق.' },
-            { type: 'mcq', level: '⭐⭐', text: 'كم عدد الحلول لنظام المعادلات: ص = ٣س + ٥ و ص = ٣س - ١ ؟', options: [ { display: 'حل واحد', value: 'A' }, { display: 'حلان', value: 'B' }, { display: 'عدد لا نهائي', value: 'C' }, { display: 'لا يوجد حل', value: 'D' } ], correct: 'D', explanation: 'للمعادلتين نفس الميل (٣) ومقطع صادي مختلف. هذا يعني أنهما متوازيان، وبالتالي لا يوجد حل.', smartExplanation: 'بما أن الميل متساوٍ والمقطع مختلف، فالمستقيمان متوازيان. لا يمكن أن يتقاطعا.' },
-            { type: 'mcq', level: '⭐⭐', text: 'ما هو حل النظام الممثل بالمعادلتين: ص = س + ٢ و ص = -س + ٤ ؟', options: [ { display: '(١، ٣)', value: 'A' }, { display: '(٣، ١)', value: 'B' }, { display: '(٢، ٢)', value: 'C' }, { display: '(٠، ٤)', value: 'D' } ], correct: 'A', explanation: 'بالتعويض بالنقطة (١، ٣) في المعادلتين: المعادلة الأولى: ٣ = ١ + ٢ (صحيحة). المعادلة الثانية: ٣ = -١ + ٤ (صحيحة). إذن (١، ٣) هو الحل.' },
-            { type: 'mcq', level: '⭐⭐⭐', text: 'أي نظام من المعادلات التالية هو نظام متسق وغير مستقل؟', options: [ { display: 'ص = س + ١<br>ص = س + ٢', value: 'A' }, { display: 'ص = ٢س<br>ص = -٢س', value: 'B' }, { display: 'ص = س + ٣<br>٢ص = ٢س + ٦', value: 'C' }, { display: 'ص = ٤س<br>ص = س + ٤', value: 'D' } ], correct: 'C', explanation: 'النظام المتسق وغير المستقل له عدد لا نهائي من الحلول (نفس المستقيم). إذا قسمنا المعادلة الثانية (٢ص = ٢س + ٦) على ٢، نحصل على ص = س + ٣، وهي نفس المعادلة الأولى.' },
-            { type: 'mcq', level: '⭐', text: 'إذا كان المستقيمان متطابقين، فكم عدد الحلول للنظام؟', options: [ { display: 'صفر', value: 'A' }, { display: 'واحد', value: 'B' }, { display: 'اثنان', value: 'C' }, { display: 'عدد لا نهائي', value: 'D' } ], correct: 'D', explanation: 'المستقيمان المتطابقان يشتركان في جميع النقاط، لذا يوجد عدد لا نهائي من الحلول.' },
-            { type: 'mcq', level: '⭐⭐', text: 'حل النظام: س + ص = ٥ و س - ص = ١', options: [ { display: '(٢، ٣)', value: 'A' }, { display: '(٣، ٢)', value: 'B' }, { display: '(٤، ١)', value: 'C' }, { display: '(١، ٤)', value: 'D' } ], correct: 'B', explanation: 'بتحويل المعادلتين إلى صيغة الميل والمقطع: ص = -س + ٥ و ص = س - ١. بالتعويض بالنقطة (٣، ٢): ٢ = -٣ + ٥ (صحيح)، ٢ = ٣ - ١ (صحيح).' },
-            { type: 'mcq', level: '⭐⭐⭐', text: 'إذا كان ميل المستقيم الأول يساوي ميل المستقيم الثاني، ولكن المقطع الصادي مختلف، فما نوع الحل؟', options: [ { display: 'حل وحيد', value: 'A' }, { display: 'لا يوجد حل', value: 'B' }, { display: 'عدد لا نهائي من الحلول', value: 'C' }, { display: 'لا يمكن التحديد', value: 'D' } ], correct: 'B', explanation: 'هذه هي حالة المستقيمين المتوازيين، وهما لا يتقاطعان أبداً.' },
-            { type: 'mcq', level: '⭐⭐', text: 'ما هي نقطة تقاطع المستقيمين ص = ٥ و س = ٢ ؟', options: [ { display: '(٥، ٢)', value: 'A' }, { display: '(٠، ٥)', value: 'B' }, { display: '(٢، ٠)', value: 'C' }, { display: '(٢، ٥)', value: 'D' } ], correct: 'D', explanation: 'المستقيم ص=٥ هو خط أفقي، والمستقيم س=٢ هو خط رأسي. يتقاطعان عند النقطة التي يكون فيها الإحداثي السيني ٢ والصادي ٥.' },
-            { type: 'mcq', level: '⭐', text: 'أي مما يلي يصف نظاماً متسقاً ومستقلاً؟', options: [ { display: 'مستقيمان متوازيان', value: 'A' }, { display: 'مستقيمان متقاطعان', value: 'B' }, { display: 'مستقيمان متطابقان', value: 'C' }, { display: 'لا شيء مما سبق', value: 'D' } ], correct: 'B', explanation: 'النظام المتسق والمستقل له حل واحد فقط، وهو ما يحدث عندما يتقاطع المستقيمان.' },
-            { type: 'mcq', level: '⭐⭐⭐', text: 'نظام المعادلات ص = أس + ٣ و ص = ٢س + ب له حل وحيد. ماذا تستنتج عن قيمة أ؟', options: [ { display: 'أ = ٢', value: 'A' }, { display: 'أ لا يساوي ٢', value: 'B' }, { 'display': 'أ = ب', value: 'C' }, { display: 'أ لا يساوي ب', value: 'D' } ], correct: 'B', explanation: 'لكي يكون هناك حل وحيد، يجب أن يكون للمستقيمين ميل مختلف. ميل المستقيم الثاني هو ٢، لذا يجب أن لا يساوي ميل المستقيم الأول (أ) القيمة ٢.' },
-            { type: 'mcq', level: '⭐⭐', text: 'أي نقطة تقع على المستقيم ٢س + ص = ٨؟', options: [ { display: '(١، ٦)', value: 'A' }, { display: '(٢، ٥)', value: 'B' }, { display: '(٤، ١)', value: 'C' }, { display: '(٥، -١)', value: 'D' } ], correct: 'A', explanation: 'نعوض بالنقطة (١، ٦) في المعادلة: ٢(١) + ٦ = ٢ + ٦ = ٨. المعادلة صحيحة.' }
-        ];
-        return [...questionBank].sort(() => 0.5 - Math.random()).slice(0, 5);
-    }
-    
-    document.addEventListener('DOMContentLoaded', () => {
-        const student = getStudentFromStorage();
-        const lessonTitle = document.getElementById('lesson-title')?.textContent;
-        buildHeader(student, lessonTitle);
-        buildFooter();
-        const questions = generateQuiz();
-        initializeQuiz(LESSON_ID, questions, student);
-        document.getElementById('retake-quiz-btn')?.addEventListener('click', () => window.location.reload());
-        document.getElementById('closeModalBtn')?.addEventListener('click', closeModal);
-
-        function createInteractiveSection(config) {
-            let currentStep = 0; // 0 is the initial state, 1 is the first step
-            const totalSteps = config.stepsContent.length;
-
-            if(config.totalStepsCounter) config.totalStepsCounter.textContent = totalSteps;
-
-            const renderStep = (step) => { // step is 0 for initial, 1 to totalSteps for content
-                if (step === 0) {
-                    if(config.stepCounter) config.stepCounter.textContent = 1;
-                    config.explanationDiv.innerHTML = `<div class="explanation-step" style="opacity:1; border-color: transparent;">${config.initialText || ''}</div>`;
-                    if(config.summaryContainerId) document.getElementById(config.summaryContainerId).innerHTML = '';
-                    if (config.customRender) config.customRender(0);
-                    if(config.backBtn) config.backBtn.disabled = true;
-                    if(config.nextBtn) config.nextBtn.textContent = 'التالي';
-                    return;
-                }
-
-                if(config.stepCounter) config.stepCounter.textContent = step;
-
-                const summaryContainer = document.getElementById(config.summaryContainerId);
-                if (summaryContainer) {
-                    summaryContainer.innerHTML = '';
-                    if (config.summaries) {
-                        config.summaries.forEach(s => {
-                            if (step >= s.step) {
-                                const summaryEl = document.createElement('div');
-                                summaryEl.className = `summary-box ${s.colorClass}`;
-                                summaryEl.innerHTML = s.html;
-                                summaryContainer.appendChild(summaryEl);
-                            }
-                        });
-                    }
-                }
-
-                config.explanationDiv.innerHTML = `<div class="explanation-step" style="opacity:1; border-color: #1d4ed8;">${config.stepsContent[step - 1] || ''}</div>`;
-                
-                if (config.customRender) config.customRender(step);
-                if(config.backBtn) config.backBtn.disabled = (step === 1);
-                if(config.nextBtn) config.nextBtn.textContent = (step === totalSteps) ? 'إعادة' : 'التالي';
-            };
-
-            config.nextBtn?.addEventListener('click', () => {
-                currentStep = (currentStep < totalSteps) ? currentStep + 1 : 0;
+        config.nextBtn?.addEventListener('click', () => {
+            currentStep = (currentStep < totalSteps) ? currentStep + 1 : 0;
+            renderStep(currentStep);
+        });
+        config.backBtn?.addEventListener('click', () => {
+            if (currentStep > 0) {
+                currentStep--;
                 renderStep(currentStep);
-            });
-            config.backBtn?.addEventListener('click', () => {
-                if (currentStep > 0) {
-                    currentStep--;
-                    renderStep(currentStep);
-                }
-            });
+            }
+        });
 
-            renderStep(0); // Initial call
+        renderStep(0); // Initial call
+    }
+
+    const unit = 20;
+
+    function setupGraphElements(step, config) {
+        const { p1, p2, line, riseLine, runLine, riseText, runText, p1_coords, p2_coords, riseVal, runVal, scaleX = 1, scaleY = 1, origin = {x: 50, y: 50} } = config;
+        const getPos = (coords) => ({ x: (coords.x / scaleX) * unit, y: (coords.y / scaleY) * unit });
+        const p1_pos = getPos(p1_coords);
+
+        [p1, p2, line, riseLine, runLine, riseText, runText].forEach(el => { if(el) el.style.opacity = '0' });
+        if(line) line.style.width = '0px';
+
+        if (p1 && step >= config.p1_step) {
+            p1.style.opacity = '1'; p1.style.top = `calc(${origin.y}% - ${p1_pos.y}px)`; p1.style.left = `calc(${origin.x}% + ${p1_pos.x}px)`;
         }
-
-        const unit = 20;
-
-        function setupGraphElements(step, config) {
-            const { p1, p2, line, riseLine, runLine, riseText, runText, p1_coords, p2_coords, riseVal, runVal, scaleX = 1, scaleY = 1, origin = {x: 50, y: 50} } = config;
-            const getPos = (coords) => ({ x: (coords.x / scaleX) * unit, y: (coords.y / scaleY) * unit });
-            const p1_pos = getPos(p1_coords);
-            
-            [p1, p2, line, riseLine, runLine, riseText, runText].forEach(el => { if(el) el.style.opacity = '0' });
-            if(line) line.style.width = '0px';
-
-            if (p1 && step >= config.p1_step) {
-                p1.style.opacity = '1'; p1.style.top = `calc(${origin.y}% - ${p1_pos.y}px)`; p1.style.left = `calc(${origin.x}% + ${p1_pos.x}px)`;
+        if (p2 && step >= config.p2_step) {
+            const p2_pos = getPos(p2_coords);
+            if(riseLine) {
+                riseLine.style.opacity = '1';
+                riseLine.style.top = `calc(${origin.y}% - ${Math.max(p1_pos.y, p2_pos.y)}px)`;
+                riseLine.style.left = `calc(${origin.x}% + ${p1_pos.x}px)`;
+                riseLine.style.height = `${Math.abs(p1_pos.y - p2_pos.y)}px`;
+                riseLine.style.borderLeftWidth = '2px';
             }
-            if (p2 && step >= config.p2_step) {
-                const p2_pos = getPos(p2_coords);
-                if(riseLine) {
-                    riseLine.style.opacity = '1';
-                    riseLine.style.top = `calc(${origin.y}% - ${Math.max(p1_pos.y, p2_pos.y)}px)`;
-                    riseLine.style.left = `calc(${origin.x}% + ${p1_pos.x}px)`;
-                    riseLine.style.height = `${Math.abs(p1_pos.y - p2_pos.y)}px`;
-                    riseLine.style.borderLeftWidth = '2px';
-                }
-                if(riseText) {
-                    riseText.style.opacity = '1';
-                    riseText.textContent = riseVal > 0 ? `+${riseVal}`: `${riseVal}`;
-                    riseText.style.top = `calc(${origin.y}% - ${p1_pos.y + (p2_pos.y - p1_pos.y)/2}px)`;
-                    riseText.style.left = `calc(${origin.x}% + ${p1_pos.x - 15}px)`;
-                }
-                if(runLine) {
-                    runLine.style.opacity = '1';
-                    runLine.style.top = `calc(${origin.y}% - ${p2_pos.y}px)`;
-                    runLine.style.left = `calc(${origin.x}% + ${Math.min(p1_pos.x, p2_pos.x)}px)`;
-                    runLine.style.width = `${Math.abs(p1_pos.x - p2_pos.x)}px`;
-                    runLine.style.borderTopWidth = '2px';
-                }
-                if(runText) {
-                    runText.style.opacity = '1';
-                    runText.textContent = runVal > 0 ? `+${runVal}`: `${runVal}`;
-                    runText.style.top = `calc(${origin.y}% - ${p2_pos.y - 15}px)`;
-                    runText.style.left = `calc(${origin.x}% + ${p1_pos.x + (p2_pos.x - p1_pos.x)/2}px)`;
-                }
-                p2.style.opacity = '1';
-                p2.style.top = `calc(${origin.y}% - ${p2_pos.y}px)`;
-                p2.style.left = `calc(${origin.x}% + ${p2_pos.x}px)`;
+            if(riseText) {
+                riseText.style.opacity = '1';
+                riseText.textContent = riseVal > 0 ? `+${riseVal}`: `${riseVal}`;
+                riseText.style.top = `calc(${origin.y}% - ${p1_pos.y + (p2_pos.y - p1_pos.y)/2}px)`;
+                riseText.style.left = `calc(${origin.x}% + ${p1_pos.x - 15}px)`;
             }
-            if (line && step >= config.line_step) {
-                const extended_p1 = getPos({x: p1_coords.x - runVal * 10, y: p1_coords.y - riseVal * 10});
-                const extended_p2 = getPos({x: p1_coords.x + runVal * 10, y: p1_coords.y + riseVal * 10});
-                const dx = extended_p2.x - extended_p1.x;
-                const dy = extended_p2.y - extended_p1.y;
-                const length = Math.sqrt(dx*dx + dy*dy);
-                const angle = Math.atan2(dy, dx) * (180 / Math.PI);
-                line.style.opacity = '1';
-                line.style.width = `${length}px`;
-                line.style.top = `calc(${origin.y}% - ${extended_p1.y}px)`;
-                line.style.left = `calc(${origin.x}% + ${extended_p1.x}px)`;
-                line.style.transform = `rotate(${-angle}deg)`;
+            if(runLine) {
+                runLine.style.opacity = '1';
+                runLine.style.top = `calc(${origin.y}% - ${p2_pos.y}px)`;
+                runLine.style.left = `calc(${origin.x}% + ${Math.min(p1_pos.x, p2_pos.x)}px)`;
+                runLine.style.width = `${Math.abs(p1_pos.x - p2_pos.x)}px`;
+                runLine.style.borderTopWidth = '2px';
             }
+            if(runText) {
+                runText.style.opacity = '1';
+                runText.textContent = runVal > 0 ? `+${runVal}`: `${runVal}`;
+                runText.style.top = `calc(${origin.y}% - ${p2_pos.y - 15}px)`;
+                runText.style.left = `calc(${origin.x}% + ${p1_pos.x + (p2_pos.x - p1_pos.x)/2}px)`;
+            }
+            p2.style.opacity = '1';
+            p2.style.top = `calc(${origin.y}% - ${p2_pos.y}px)`;
+            p2.style.left = `calc(${origin.x}% + ${p2_pos.x}px)`;
         }
-        
-        // Interactive Classification Setup
-        function setupClassification(config) {
-            const radioGroup = document.getElementById(config.groupId);
-            radioGroup.addEventListener('change', (e) => {
-                const userAnswer = e.target.value;
-                const feedbackEl = document.getElementById(config.feedbackId);
-                
-                if (userAnswer === config.correctAnswer) {
-                    feedbackEl.innerHTML = `✔ ${config.correctMessage}`;
-                    feedbackEl.className = 'feedback-box feedback-correct';
-                } else {
-                    feedbackEl.innerHTML = `❌ ${config.incorrectMessage}`;
-                    feedbackEl.className = 'feedback-box feedback-incorrect';
-                }
-                feedbackEl.classList.remove('hidden');
-            });
+        if (line && step >= config.line_step) {
+            const extended_p1 = getPos({x: p1_coords.x - runVal * 10, y: p1_coords.y - riseVal * 10});
+            const extended_p2 = getPos({x: p1_coords.x + runVal * 10, y: p1_coords.y + riseVal * 10});
+            const dx = extended_p2.x - extended_p1.x;
+            const dy = extended_p2.y - extended_p1.y;
+            const length = Math.sqrt(dx*dx + dy*dy);
+            const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+            line.style.opacity = '1';
+            line.style.width = `${length}px`;
+            line.style.top = `calc(${origin.y}% - ${extended_p1.y}px)`;
+            line.style.left = `calc(${origin.x}% + ${extended_p1.x}px)`;
+            line.style.transform = `rotate(${-angle}deg)`;
         }
+    }
 
-        setupClassification({
-            groupId: 'q-classify-1',
-            feedbackId: 'feedback-classify-1',
-            correctAnswer: 'inconsistent',
-            correctMessage: 'إجابة صحيحة! ميل المعادلة الأولى (٢) يساوي ميل المعادلة الثانية (٢)، ولكن المقطع الصادي مختلف (١ ≠ -٣). لذلك، المستقيمان متوازيان ولا يوجد حل. النظام <b>غير متسق</b>.',
-            incorrectMessage: 'حاول مرة أخرى. قارن الميل والمقطع الصادي لكل معادلة.'
-        });
+    // Interactive Classification Setup
+    function setupClassification(config) {
+        const radioGroup = document.getElementById(config.groupId);
+        radioGroup.addEventListener('change', (e) => {
+            const userAnswer = e.target.value;
+            const feedbackEl = document.getElementById(config.feedbackId);
 
-        setupClassification({
-            groupId: 'q-classify-2',
-            feedbackId: 'feedback-classify-2',
-            correctAnswer: 'dependent',
-            correctMessage: 'إجابة صحيحة! للمقارنة، يجب أن تكون كلتا المعادلتين بصيغة الميل والمقطع (ص = م س + ب). لذلك، نبسط المعادلة الثانية بقسمة كل الحدود على ٢ لتصبح `ص` لوحدها. هذا يعطينا `ص = -٣س + ٢`. الآن نرى أن الميل والمقطع الصادي متطابقان. النظام <b>متسق وغير مستقل</b>.',
-            incorrectMessage: 'حاول تبسيط المعادلة الثانية أولاً لجعلها بصيغة (ص = ...)، ثم قارن الميل والمقطع.'
-        });
-
-        setupClassification({
-            groupId: 'q-classify-3',
-            feedbackId: 'feedback-classify-3',
-            correctAnswer: 'independent',
-            correctMessage: 'إجابة صحيحة! ميل المعادلة الأولى (٤) يختلف عن ميل المعادلة الثانية (-١). لذلك، المستقيمان سيتقاطعان في نقطة واحدة ويوجد حل وحيد. النظام <b>متسق ومستقل</b>.',
-            incorrectMessage: 'حاول مرة أخرى. هل الميل متساوٍ أم مختلف؟'
-        });
-
-
-        // Example 1: One Solution
-        createInteractiveSection({
-            nextBtn: document.getElementById('graph-next-1'), backBtn: document.getElementById('graph-back-1'),
-            stepCounter: document.getElementById('graph-counter-1'), 
-            totalStepsCounter: document.getElementById('graph-total-1'),
-            explanationDiv: document.getElementById('graph-exp-1'),
-            summaryContainerId: 'summary-container-1',
-            initialText: "اضغط على 'التالي' لبدء المثال.",
-            stepsContent: [
-                "<strong>1. المعادلة <span class='text-blue-600'>ص = -س + ٣</span>:</strong><br>نحدد المقطع الصادي (ب = ٣) عند النقطة (٠، ٣).",
-                "<strong>2. نستخدم الميل <span class='text-blue-600'>م = <span class='math-eq'><span class='fraction'><span>-١</span><span>١</span></span></span></span>:</strong><br>نتحرك للأسفل ١ ولليمين ١ لنجد النقطة الثانية (١، ٢).",
-                "<strong>3. نرسم المستقيم الأول.</strong>",
-                "", // Empty step for summary to appear
-                "<strong>4. المعادلة <span class='text-red-600'>ص = ٢س</span>:</strong><br>نحدد المقطع الصادي (ب = ٠) عند النقطة (٠، ٠).",
-                "<strong>5. نستخدم الميل <span class='text-red-600'>م = <span class='math-eq'><span class='fraction'><span>+٢</span><span>١</span></span></span></span>:</strong><br>نتحرك للأعلى ٢ ولليمين ١ لنجد النقطة الثانية (١، ٢).",
-                "<strong>6. نرسم المستقيم الثاني.</strong>",
-                "<strong>7. تحليل الحل:</strong><br>بما أن المستقيمان متقاطعان، فإن حل النظام هو نقطة التقاطع <span class='math-eq bg-amber-100'>(١، ٢)</span>."
-            ],
-            summaries: [
-                { step: 4, colorClass: 'summary-box-blue', html: "<b>المستقيم الأزرق:</b> ص = -س + <span class='highlight-num'>٣</span><br><b>الميل:</b> <span class='highlight-num'>-١</span> | <b>المقطع ص:</b> <span class='highlight-num'>٣</span>" },
-                { step: 8, colorClass: 'summary-box-red', html: "<b>المستقيم الأحمر:</b> ص = <span class='highlight-num'>٢</span>س + <span class='highlight-num'>٠</span><br><b>الميل:</b> <span class='highlight-num'>٢</span> | <b>المقطع ص:</b> <span class='highlight-num'>٠</span>" }
-            ],
-            customRender: (step) => {
-                const solPoint = document.getElementById('solution-point-1');
-                solPoint.style.opacity = '0';
-                setupGraphElements(step, { p1: document.getElementById('graph-point-1a1'), p2: document.getElementById('graph-point-1a2'), line: document.getElementById('graph-line-1a'), riseLine: document.getElementById('graph-rise-1a'), runLine: document.getElementById('graph-run-1a'), riseText: document.getElementById('graph-rise-text-1a'), runText: document.getElementById('graph-run-text-1a'), p1_coords: {x: 0, y: 3}, p2_coords: {x: 1, y: 2}, riseVal: -1, runVal: 1, p1_step: 1, p2_step: 2, line_step: 3 });
-                setupGraphElements(step, { p1: document.getElementById('graph-point-1b1'), p2: document.getElementById('graph-point-1b2'), line: document.getElementById('graph-line-1b'), riseLine: document.getElementById('graph-rise-1b'), runLine: document.getElementById('graph-run-1b'), riseText: document.getElementById('graph-rise-text-1b'), runText: document.getElementById('graph-run-text-1b'), p1_coords: {x: 0, y: 0}, p2_coords: {x: 1, y: 2}, riseVal: 2, runVal: 1, p1_step: 5, p2_step: 6, line_step: 7 });
-                if (step >= 8) { solPoint.style.opacity = '1'; solPoint.style.top = `calc(50% - ${2 * unit}px)`; solPoint.style.left = `calc(50% + ${1 * unit}px)`; }
+            if (userAnswer === config.correctAnswer) {
+                feedbackEl.innerHTML = `✔ ${config.correctMessage}`;
+                feedbackEl.className = 'feedback-box feedback-correct';
+            } else {
+                feedbackEl.innerHTML = `❌ ${config.incorrectMessage}`;
+                feedbackEl.className = 'feedback-box feedback-incorrect';
             }
+            feedbackEl.classList.remove('hidden');
         });
-        
-        // Life Example
-        createInteractiveSection({ 
-            nextBtn: document.getElementById('life-next-1'), backBtn: document.getElementById('life-back-1'), 
-            stepCounter: document.getElementById('life-counter-1'), 
-            totalStepsCounter: document.getElementById('life-total-1'),
-            explanationDiv: document.getElementById('life-exp-1'), 
-            summaryContainerId: 'summary-container-life',
-            initialText: "اضغط على 'التالي' لبدء تحليل المثال.",
-            stepsContent: [ 
-                "<strong>1. معادلة صالح:</strong><br>بدأ بـ ٦٥ صفحة (المقطع الصادي) ويقرأ ٢٠ صفحة يومياً (الميل).<br>المعادلة هي <span class='math-eq text-blue-600'>ص = ٢٠س + ٦٥</span>",
-                "<strong>2. نمثل معادلة صالح:</strong><br>نحدد المقطع الصادي (ب = ٦٥) عند النقطة (٠، ٦٥).",
-                "<strong>3. نستخدم الميل <span class='text-blue-600'>م = <span class='math-eq'><span class='fraction'><span>+٢٠</span><span>١</span></span></span></span>:</strong><br>نتحرك للأعلى ٢٠ (من ٦٥ إلى ٨٥) ولليمين ١ لنجد النقطة الثانية (١، ٨٥).",
-                "<strong>4. نرسم مستقيم صالح.</strong>",
-                "", // Empty step for summary to appear
-                "<strong>5. معادلة عبدالله:</strong><br>بدأ بـ ٨٥ صفحة (المقطع الصادي) ويقرأ ١٠ صفحات يومياً (الميل).<br>المعادلة هي <span class='math-eq text-green-600'>ص = ١٠س + ٨٥</span>",
-                "<strong>6. نمثل معادلة عبدالله:</strong><br>نحدد المقطع الصادي (ب = ٨٥) عند النقطة (٠، ٨٥).",
-                "<strong>7. نستخدم الميل <span class='text-green-600'>م = <span class='math-eq'><span class='fraction'><span>+١٠</span><span>١</span></span></span></span>:</strong><br>نتحرك للأعلى ١٠ (من ٨٥ إلى ٩٥) ولليمين ١ لنجد النقطة الثانية (١، ٩٥).",
-                "<strong>8. نرسم مستقيم عبدالله.</strong>",
-                "<strong>9. نحدد نقطة التقاطع.</strong><br>يتقاطع المستقيمان عند النقطة (٢، ١٠٥).",
-                "<strong>10. تحليل الحل:</strong><br>الحل <span class='math-eq bg-amber-100'>(٢، ١٠٥)</span> يعني أنه بعد يومين (س=٢) سيكون كلاهما قد قرأ ١٠٥ صفحات."
-            ],
-            summaries: [
-                { step: 5, colorClass: 'summary-box-blue', html: "<b>صالح:</b> ص = ٢٠س + ٦٥<br><b>الميل:</b> <span class='highlight-num'>٢٠</span> | <b>المقطع ص:</b> <span class='highlight-num'>٦٥</span>" },
-                { step: 9, colorClass: 'summary-box-green', html: "<b>عبدالله:</b> ص = ١٠س + ٨٥<br><b>الميل:</b> <span class='highlight-num'>١٠</span> | <b>المقطع ص:</b> <span class='highlight-num'>٨٥</span>" }
-            ],
-            customRender: (step) => { // step is 0 for initial, 1-10 for content
-                const container = document.getElementById('life-graph-container');
-                const xAxis = document.getElementById('life-x-axis');
-                const yAxis = document.getElementById('life-y-axis');
-                
-                const origin = { x: 25, y: 85 };
-                xAxis.style.top = `${origin.y}%`;
-                yAxis.style.left = `${origin.x}%`;
+    }
 
-                if (!container.dataset.labelsDrawn) {
-                    const drawAxisLabels = () => {
-                        container.querySelectorAll('.axis-label').forEach(el => el.remove());
-                        const graphSize = 360;
-                        for(let i = -5; i <= 12; i++) {
-                            const val = i * 10;
-                            const label = document.createElement('span');
-                            label.className = 'axis-label';
-                            label.textContent = val;
-                            label.style.top = `${graphSize * (origin.y/100) - (val / 10) * unit - 8}px`; 
-                            label.style.left = `${graphSize * (origin.x/100) + 5}px`;
-                            container.appendChild(label);
-                        }
-                        for(let i = -4; i <= 14; i++) {
-                            if (i === 0) continue;
-                            const label = document.createElement('span');
-                            label.className = 'axis-label';
-                            label.textContent = i;
-                            label.style.top = `${graphSize * (origin.y/100) + 5}px`; 
-                            label.style.left = `${graphSize * (origin.x/100) + (i/1) * unit - 5}px`;
-                            container.appendChild(label);
-                        }
-                    }
-                    drawAxisLabels();
-                    container.dataset.labelsDrawn = 'true';
-                }
-
-                const solPoint = document.getElementById('solution-point-life');
-                solPoint.style.opacity = '0';
-                const lifeConfig = { scaleX: 1, scaleY: 10, origin: origin };
-                
-                // Saleh's Line
-                setupGraphElements(step, { ...lifeConfig, p1: document.getElementById('graph-point-life-a1'), p2: document.getElementById('graph-point-life-a2'), line: document.getElementById('graph-line-life-a'), riseLine: document.getElementById('graph-rise-life-a'), runLine: document.getElementById('graph-run-life-a'), riseText: document.getElementById('graph-rise-text-life-a'), runText: document.getElementById('graph-run-text-life-a'), p1_coords: {x: 0, y: 65}, p2_coords: {x: 1, y: 85}, riseVal: 20, runVal: 1, p1_step: 2, p2_step: 3, line_step: 4 });
-                
-                // Abdullah's Line
-                setupGraphElements(step, { ...lifeConfig, p1: document.getElementById('graph-point-life-b1'), p2: document.getElementById('graph-point-life-b2'), line: document.getElementById('graph-line-life-b'), riseLine: document.getElementById('graph-rise-life-b'), runLine: document.getElementById('graph-run-life-b'), riseText: document.getElementById('graph-rise-text-life-b'), runText: document.getElementById('graph-run-text-life-b'), p1_coords: {x: 0, y: 85}, p2_coords: {x: 1, y: 95}, riseVal: 10, runVal: 1, p1_step: 6, p2_step: 7, line_step: 8 });
-                
-                if (step >= 9) {
-                    solPoint.style.opacity = '1';
-                    solPoint.style.top = `calc(${origin.y}% - ${(105 / 10) * unit}px)`;
-                    solPoint.style.left = `calc(${origin.x}% + ${(2 / 1) * unit}px)`;
-                }
-            }
-        });
+    setupClassification({
+        groupId: 'q-classify-1',
+        feedbackId: 'feedback-classify-1',
+        correctAnswer: 'inconsistent',
+        correctMessage: 'إجابة صحيحة! ميل المعادلة الأولى (٢) يساوي ميل المعادلة الثانية (٢)، ولكن المقطع الصادي مختلف (١ ≠ -٣). لذلك، المستقيمان متوازيان ولا يوجد حل. النظام <b>غير متسق</b>.',
+        incorrectMessage: 'حاول مرة أخرى. قارن الميل والمقطع الصادي لكل معادلة.'
     });
+
+    setupClassification({
+        groupId: 'q-classify-2',
+        feedbackId: 'feedback-classify-2',
+        correctAnswer: 'dependent',
+        correctMessage: 'إجابة صحيحة! للمقارنة، يجب أن تكون كلتا المعادلتين بصيغة الميل والمقطع (ص = م س + ب). لذلك، نبسط المعادلة الثانية بقسمة كل الحدود على ٢ لتصبح `ص` لوحدها. هذا يعطينا `ص = -٣س + ٢`. الآن نرى أن الميل والمقطع الصادي متطابقان. النظام <b>متسق وغير مستقل</b>.',
+        incorrectMessage: 'حاول تبسيط المعادلة الثانية أولاً لجعلها بصيغة (ص = ...)، ثم قارن الميل والمقطع.'
+    });
+
+    setupClassification({
+        groupId: 'q-classify-3',
+        feedbackId: 'feedback-classify-3',
+        correctAnswer: 'independent',
+        correctMessage: 'إجابة صحيحة! ميل المعادلة الأولى (٤) يختلف عن ميل المعادلة الثانية (-١). لذلك، المستقيمان سيتقاطعان في نقطة واحدة ويوجد حل وحيد. النظام <b>متسق ومستقل</b>.',
+        incorrectMessage: 'حاول مرة أخرى. هل الميل متساوٍ أم مختلف؟'
+    });
+
+
+    // Example 1: One Solution
+    createInteractiveSection({
+        nextBtn: document.getElementById('graph-next-1'), backBtn: document.getElementById('graph-back-1'),
+        stepCounter: document.getElementById('graph-counter-1'),
+        totalStepsCounter: document.getElementById('graph-total-1'),
+        explanationDiv: document.getElementById('graph-exp-1'),
+        summaryContainerId: 'summary-container-1',
+        initialText: "اضغط على 'التالي' لبدء المثال.",
+        stepsContent: [
+            "<strong>1. المعادلة <span class='text-blue-600'>ص = -س + ٣</span>:</strong><br>نحدد المقطع الصادي (ب = ٣) عند النقطة (٠، ٣).",
+            "<strong>2. نستخدم الميل <span class='text-blue-600'>م = <span class='math-eq'><span class='fraction'><span>-١</span><span>١</span></span></span></span>:</strong><br>نتحرك للأسفل ١ ولليمين ١ لنجد النقطة الثانية (١، ٢).",
+            "<strong>3. نرسم المستقيم الأول.</strong>",
+            "", // Empty step for summary to appear
+            "<strong>4. المعادلة <span class='text-red-600'>ص = ٢س</span>:</strong><br>نحدد المقطع الصادي (ب = ٠) عند النقطة (٠، ٠).",
+            "<strong>5. نستخدم الميل <span class='text-red-600'>م = <span class='math-eq'><span class='fraction'><span>+٢</span><span>١</span></span></span></span>:</strong><br>نتحرك للأعلى ٢ ولليمين ١ لنجد النقطة الثانية (١، ٢).",
+            "<strong>6. نرسم المستقيم الثاني.</strong>",
+            "<strong>7. تحليل الحل:</strong><br>بما أن المستقيمان متقاطعان، فإن حل النظام هو نقطة التقاطع <span class='math-eq bg-amber-100'>(١، ٢)</span>."
+        ],
+        summaries: [
+            { step: 4, colorClass: 'summary-box-blue', html: "<b>المستقيم الأزرق:</b> ص = -س + <span class='highlight-num'>٣</span><br><b>الميل:</b> <span class='highlight-num'>-١</span> | <b>المقطع ص:</b> <span class='highlight-num'>٣</span>" },
+            { step: 8, colorClass: 'summary-box-red', html: "<b>المستقيم الأحمر:</b> ص = <span class='highlight-num'>٢</span>س + <span class='highlight-num'>٠</span><br><b>الميل:</b> <span class='highlight-num'>٢</span> | <b>المقطع ص:</b> <span class='highlight-num'>٠</span>" }
+        ],
+        customRender: (step) => {
+            const solPoint = document.getElementById('solution-point-1');
+            solPoint.style.opacity = '0';
+            setupGraphElements(step, { p1: document.getElementById('graph-point-1a1'), p2: document.getElementById('graph-point-1a2'), line: document.getElementById('graph-line-1a'), riseLine: document.getElementById('graph-rise-1a'), runLine: document.getElementById('graph-run-1a'), riseText: document.getElementById('graph-rise-text-1a'), runText: document.getElementById('graph-run-text-1a'), p1_coords: {x: 0, y: 3}, p2_coords: {x: 1, y: 2}, riseVal: -1, runVal: 1, p1_step: 1, p2_step: 2, line_step: 3 });
+            setupGraphElements(step, { p1: document.getElementById('graph-point-1b1'), p2: document.getElementById('graph-point-1b2'), line: document.getElementById('graph-line-1b'), riseLine: document.getElementById('graph-rise-1b'), runLine: document.getElementById('graph-run-1b'), riseText: document.getElementById('graph-rise-text-1b'), runText: document.getElementById('graph-run-text-1b'), p1_coords: {x: 0, y: 0}, p2_coords: {x: 1, y: 2}, riseVal: 2, runVal: 1, p1_step: 5, p2_step: 6, line_step: 7 });
+            if (step >= 8) { solPoint.style.opacity = '1'; solPoint.style.top = `calc(50% - ${2 * unit}px)`; solPoint.style.left = `calc(50% + ${1 * unit}px)`; }
+        }
+    });
+
+    // Life Example
+    createInteractiveSection({
+        nextBtn: document.getElementById('life-next-1'), backBtn: document.getElementById('life-back-1'),
+        stepCounter: document.getElementById('life-counter-1'),
+        totalStepsCounter: document.getElementById('life-total-1'),
+        explanationDiv: document.getElementById('life-exp-1'),
+        summaryContainerId: 'summary-container-life',
+        initialText: "اضغط على 'التالي' لبدء تحليل المثال.",
+        stepsContent: [
+            "<strong>1. معادلة صالح:</strong><br>بدأ بـ ٦٥ صفحة (المقطع الصادي) ويقرأ ٢٠ صفحة يومياً (الميل).<br>المعادلة هي <span class='math-eq text-blue-600'>ص = ٢٠س + ٦٥</span>",
+            "<strong>2. نمثل معادلة صالح:</strong><br>نحدد المقطع الصادي (ب = ٦٥) عند النقطة (٠، ٦٥).",
+            "<strong>3. نستخدم الميل <span class='text-blue-600'>م = <span class='math-eq'><span class='fraction'><span>+٢٠</span><span>١</span></span></span></span>:</strong><br>نتحرك للأعلى ٢٠ (من ٦٥ إلى ٨٥) ولليمين ١ لنجد النقطة الثانية (١، ٨٥).",
+            "<strong>4. نرسم مستقيم صالح.</strong>",
+            "", // Empty step for summary to appear
+            "<strong>5. معادلة عبدالله:</strong><br>بدأ بـ ٨٥ صفحة (المقطع الصادي) ويقرأ ١٠ صفحات يومياً (الميل).<br>المعادلة هي <span class='math-eq text-green-600'>ص = ١٠س + ٨٥</span>",
+            "<strong>6. نمثل معادلة عبدالله:</strong><br>نحدد المقطع الصادي (ب = ٨٥) عند النقطة (٠، ٨٥).",
+            "<strong>7. نستخدم الميل <span class='text-green-600'>م = <span class='math-eq'><span class='fraction'><span>+١٠</span><span>١</span></span></span></span>:</strong><br>نتحرك للأعلى ١٠ (من ٨٥ إلى ٩٥) ولليمين ١ لنجد النقطة الثانية (١، ٩٥).",
+            "<strong>8. نرسم مستقيم عبدالله.</strong>",
+            "<strong>9. نحدد نقطة التقاطع.</strong><br>يتقاطع المستقيمان عند النقطة (٢، ١٠٥).",
+            "<strong>10. تحليل الحل:</strong><br>الحل <span class='math-eq bg-amber-100'>(٢، ١٠٥)</span> يعني أنه بعد يومين (س=٢) سيكون كلاهما قد قرأ ١٠٥ صفحات."
+        ],
+        summaries: [
+            { step: 5, colorClass: 'summary-box-blue', html: "<b>صالح:</b> ص = ٢٠س + ٦٥<br><b>الميل:</b> <span class='highlight-num'>٢٠</span> | <b>المقطع ص:</b> <span class='highlight-num'>٦٥</span>" },
+            { step: 9, colorClass: 'summary-box-green', html: "<b>عبدالله:</b> ص = ١٠س + ٨٥<br><b>الميل:</b> <span class='highlight-num'>١٠</span> | <b>المقطع ص:</b> <span class='highlight-num'>٨٥</span>" }
+        ],
+        customRender: (step) => { // step is 0 for initial, 1-10 for content
+            const container = document.getElementById('life-graph-container');
+            const xAxis = document.getElementById('life-x-axis');
+            const yAxis = document.getElementById('life-y-axis');
+
+            const origin = { x: 25, y: 85 };
+            xAxis.style.top = `${origin.y}%`;
+            yAxis.style.left = `${origin.x}%`;
+
+            if (!container.dataset.labelsDrawn) {
+                const drawAxisLabels = () => {
+                    container.querySelectorAll('.axis-label').forEach(el => el.remove());
+                    const graphSize = 360;
+                    for(let i = -5; i <= 12; i++) {
+                        const val = i * 10;
+                        const label = document.createElement('span');
+                        label.className = 'axis-label';
+                        label.textContent = val;
+                        label.style.top = `${graphSize * (origin.y/100) - (val / 10) * unit - 8}px`;
+                        label.style.left = `${graphSize * (origin.x/100) + 5}px`;
+                        container.appendChild(label);
+                    }
+                    for(let i = -4; i <= 14; i++) {
+                        if (i === 0) continue;
+                        const label = document.createElement('span');
+                        label.className = 'axis-label';
+                        label.textContent = i;
+                        label.style.top = `${graphSize * (origin.y/100) + 5}px`;
+                        label.style.left = `${graphSize * (origin.x/100) + (i/1) * unit - 5}px`;
+                        container.appendChild(label);
+                    }
+                }
+                drawAxisLabels();
+                container.dataset.labelsDrawn = 'true';
+            }
+
+            const solPoint = document.getElementById('solution-point-life');
+            solPoint.style.opacity = '0';
+            const lifeConfig = { scaleX: 1, scaleY: 10, origin: origin };
+
+            // Saleh's Line
+            setupGraphElements(step, { ...lifeConfig, p1: document.getElementById('graph-point-life-a1'), p2: document.getElementById('graph-point-life-a2'), line: document.getElementById('graph-line-life-a'), riseLine: document.getElementById('graph-rise-life-a'), runLine: document.getElementById('graph-run-life-a'), riseText: document.getElementById('graph-rise-text-life-a'), runText: document.getElementById('graph-run-text-life-a'), p1_coords: {x: 0, y: 65}, p2_coords: {x: 1, y: 85}, riseVal: 20, runVal: 1, p1_step: 2, p2_step: 3, line_step: 4 });
+
+            // Abdullah's Line
+            setupGraphElements(step, { ...lifeConfig, p1: document.getElementById('graph-point-life-b1'), p2: document.getElementById('graph-point-life-b2'), line: document.getElementById('graph-line-life-b'), riseLine: document.getElementById('graph-rise-life-b'), runLine: document.getElementById('graph-run-life-b'), riseText: document.getElementById('graph-rise-text-life-b'), runText: document.getElementById('graph-run-text-life-b'), p1_coords: {x: 0, y: 85}, p2_coords: {x: 1, y: 95}, riseVal: 10, runVal: 1, p1_step: 6, p2_step: 7, line_step: 8 });
+
+            if (step >= 9) {
+                solPoint.style.opacity = '1';
+                solPoint.style.top = `calc(${origin.y}% - ${(105 / 10) * unit}px)`;
+                solPoint.style.left = `calc(${origin.x}% + ${(2 / 1) * unit}px)`;
+            }
+        }
+    });
+});
     </script>
 </body>
 </html>

@@ -312,7 +312,7 @@
     <div id="explanationModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden z-50">
         <div class="bg-white rounded-lg shadow-2xl p-6 max-w-lg w-full">
             <div class="flex justify-between items-center mb-4">
-                <h3 id="modalTitle" class="text-xl font-bold"></h3>
+                <h3 id="modal-title" class="text-xl font-bold"></h3>
                 <button id="closeModalBtn" class="p-2 -m-2 rounded-full hover:bg-gray-200">
                     <svg class="h-6 w-6 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
@@ -320,358 +320,320 @@
             <div id="explanationText" class="text-gray-700 max-h-[60vh] overflow-y-auto"></div>
         </div>
     </div>
+    <script src="../js/lesson-core.js"></script>
     <script>
-    // =================================================================================
-    // دوال مشتركة (لا تقم بتعديل هذا الجزء)
-    // =================================================================================
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
-    const MAX_ATTEMPTS = 3;
-    let currentQuestions = []; 
-    function getStudentFromStorage() { const studentDataString = localStorage.getItem('currentStudent'); if (studentDataString) { try { return JSON.parse(studentDataString); } catch (e) { return null; } } return null; }
-    function buildHeader(studentData, lessonTitle = null) { const headerContainer = document.getElementById('main-header'); if (!headerContainer) return; let titleHtml; if (lessonTitle) { titleHtml = `<div><h2 class="text-sm text-gray-500 leading-tight">منصة الرياضيات التفاعلية</h2><h1 class="text-xl font-bold text-indigo-700 leading-tight">${lessonTitle}</h1></div>`; } else { titleHtml = `<a href="../index.html" target="_top"><h1 class="text-2xl font-bold text-blue-800">منصة الرياضيات التفاعلية</h1></a>`; } let userInfoHtml = ''; if (studentData) { userInfoHtml = `<div class="text-right"><div class="flex items-center gap-4 justify-end"><span class="font-semibold">أهلاً، ${studentData.name}</span><a href="../index.html" target="_top" id="logout-link" class="bg-red-500 text-white py-1 px-3 rounded-lg hover:bg-red-600 text-sm">خروج</a></div><a href="../index.html" target="_top" class="text-sm text-blue-600 hover:underline">العودة إلى الفهرس &rarr;</a></div>`; } else { userInfoHtml = `<div class="text-right"><p class="text-lg text-gray-600">زائر</p><a href="../index.html" target="_top" class="text-sm text-blue-600 hover:underline">العودة إلى الفهرس &rarr;</a></div>`; } headerContainer.innerHTML = `<div class="container mx-auto px-6 py-4 flex justify-between items-center">${titleHtml}${userInfoHtml}</div>`; const logoutLink = headerContainer.querySelector('#logout-link'); if(logoutLink) { logoutLink.addEventListener('click', () => { localStorage.removeItem('currentStudent'); }); } }
-    function buildFooter() { const footerContainer = document.getElementById('main-footer'); if (!footerContainer) return; footerContainer.innerHTML = `<div class="container mx-auto px-6"><p class="text-center text-gray-600 text-sm">© 2024 جميع الحقوق محفوظة | تصميم وتطوير: أ. عبدالعزيز خالد العبلان</p></div>`; }
-    function initializeQuiz(lessonId, questions, studentData) { currentQuestions = questions; const quizForm = document.getElementById('quizForm'); if (!quizForm) return; if (questions.length === 0) { quizForm.innerHTML = `<p class="text-center text-gray-600">لا توجد أسئلة متاحة لهذا الدرس حالياً.</p>`; return; } let attemptsLeft; if (studentData) { const studentLessonData = studentData.lessons?.[lessonId] || { attempts: 0 }; attemptsLeft = MAX_ATTEMPTS - studentLessonData.attempts; } else { attemptsLeft = 1; } const attemptsCounter = document.getElementById('attempts-counter'); if (attemptsCounter) { attemptsCounter.innerHTML = `المحاولات المتبقية: <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded-full">${attemptsLeft}</span>`; } const quizHtml = questions.map((q, index) => { const optionsHTML = q.options.map((opt, optIndex) => `<div><input type="radio" name="q${index}" value="${opt.value}" id="q${index}_opt${optIndex}" class="hidden"><label for="q${index}_opt${optIndex}" class="option-label">${opt.display}</label></div>`).join(''); return `<div class="p-4 border-2 border-gray-200 rounded-lg"><p class="font-bold">${index + 1}. <span class="text-yellow-500">${q.level}</span> ${q.text}</p><div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">${optionsHTML}</div><div id="feedback-q${index}" class="mt-2 text-sm font-bold"></div><div class="flex gap-4"><button type="button" id="smart-explain-btn-${index}" class="hidden mt-2 text-xs text-purple-600 hover:underline">🧠 الحل الذكي</button><button type="button" id="explain-btn-${index}" class="hidden mt-2 text-xs text-blue-600 hover:underline">اعرف لماذا؟</button></div></div>`; }).join(''); quizForm.innerHTML = quizHtml + `<button type="submit" id="submit-quiz-btn" class="w-full text-white bg-green-600 hover:bg-green-700 font-medium rounded-lg text-lg px-5 py-3 mt-8">تحقق من إجاباتي</button>`; questions.forEach((q, index) => { const explainBtn = document.getElementById(`explain-btn-${index}`); if(explainBtn) explainBtn.addEventListener('click', () => showExplanation(index)); const smartExplainBtn = document.getElementById(`smart-explain-btn-${index}`); if(smartExplainBtn) smartExplainBtn.addEventListener('click', () => showSmartExplanation(index)); }); if (attemptsLeft <= 0) { const submitBtn = quizForm.querySelector('#submit-quiz-btn'); submitBtn.disabled = true; submitBtn.textContent = 'لا توجد محاولات متبقية'; submitBtn.classList.add('bg-gray-400', 'hover:bg-gray-400'); } quizForm.onsubmit = (e) => { e.preventDefault(); let score = 0; questions.forEach((q, index) => { const userAnswer = e.target.elements[`q${index}`]?.value; const feedbackEl = document.getElementById(`feedback-q${index}`); if (userAnswer === q.correct) { score++; feedbackEl.textContent = '✔ إجابة صحيحة!'; feedbackEl.className = 'mt-2 text-sm font-bold text-green-600'; } else { feedbackEl.textContent = `❌ إجابة خاطئة.`; feedbackEl.className = 'mt-2 text-sm font-bold text-red-600'; } document.getElementById(`explain-btn-${index}`).classList.remove('hidden'); if(q.smartExplanation) { document.getElementById(`smart-explain-btn-${index}`).classList.remove('hidden'); } }); const finalGrade = Math.round((score / questions.length) * 10); const resultsDiv = document.getElementById('quiz-results'); resultsDiv.classList.remove('hidden'); document.getElementById('quiz-score').textContent = `${finalGrade} / 10`; if (studentData) { saveGrade(lessonId, finalGrade); if (attemptsLeft - 1 > 0) { document.getElementById('retake-quiz-btn').classList.remove('hidden'); } } else { document.getElementById('save-status').textContent = 'تم عرض نتيجتك. سجل الدخول لحفظ تقدمك.'; } e.target.querySelector('#submit-quiz-btn').disabled = true; }; }
-    function saveGrade(lessonId, grade) { const urlParams = new URLSearchParams(window.location.search); const studentId = urlParams.get('studentId'); const classId = urlParams.get('classId'); if (!studentId || !classId) { const saveStatus = document.getElementById('save-status'); if (saveStatus) saveStatus.textContent = '❌ خطأ: لا يمكن حفظ نتيجتك. معلومات الطالب أو الفصل غير موجودة في الرابط.'; console.error("Student ID or Class ID is missing from the URL."); return; } const saveStatus = document.getElementById('save-status'); saveStatus.textContent = 'جارٍ حفظ نتيجتك...'; const url = `${SCRIPT_URL}?action=saveGrade&studentId=${studentId}&classId=${classId}&lessonId=${lessonId}&grade=${grade}`; fetch(url) .then(res => res.json()) .then(result => { if (result.status === 'success') { saveStatus.textContent = '✔ تم حفظ نتيجتك بنجاح!'; const studentData = getStudentFromStorage(); if (studentData) { if (!studentData.lessons) studentData.lessons = {}; if (!studentData.lessons[lessonId] || studentData.lessons[lessonId].grade < grade) { studentData.lessons[lessonId] = { grade: grade, attempts: (studentData.lessons[lessonId]?.attempts || 0) + 1 }; } else { studentData.lessons[lessonId].attempts++; } localStorage.setItem('currentStudent', JSON.stringify(studentData)); } } else { throw new Error(result.message); } }) .catch(error => { saveStatus.textContent = '❌ حدث خطأ أثناء حفظ الدرجة.'; console.error("Save Grade Error:", error); }); }
-    function showExplanation(questionIndex) { const modal = document.getElementById('explanationModal'); const modalTitle = document.getElementById('modalTitle'); const explanationText = document.getElementById('explanationText'); if(modal && modalTitle && explanationText && currentQuestions[questionIndex] && currentQuestions[questionIndex].explanation) { modalTitle.innerHTML = '💡 شرح الإجابة'; explanationText.innerHTML = currentQuestions[questionIndex].explanation; modal.classList.remove('hidden'); } }
-    function showSmartExplanation(questionIndex) { const modal = document.getElementById('explanationModal'); const modalTitle = document.getElementById('modalTitle'); const explanationText = document.getElementById('explanationText'); if(modal && modalTitle && explanationText && currentQuestions[questionIndex] && currentQuestions[questionIndex].smartExplanation) { modalTitle.innerHTML = '🧠 الحل الذكي'; explanationText.innerHTML = currentQuestions[questionIndex].smartExplanation; modal.classList.remove('hidden'); } }
-    function closeModal() { const modal = document.getElementById('explanationModal'); if(modal) modal.classList.add('hidden'); }
+window.SKIP_SHARED_INTERACTIVE = true;
+const LESSON_ID = 'c2_l3';
 
-    // =================================================================================
-    // محتوى الدرس (هذا الجزء يتم تعديله لكل درس)
-    // =================================================================================
-    
-    // 1. ضع مُعرّفاً فريداً للدرس هنا
-    const LESSON_ID = 'c2_l3'; 
+function generateQuiz() {
+    const questionBank = [
+        {
+            type: 'mcq',
+            level: '⭐',
+            text: 'أي من المعادلات التالية هي معادلة خطية؟',
+            options: [
+                { display: '<span class="math-eq">س + ص² = ٥</span>', value: 'opt1' },
+                { display: '<span class="math-eq">س ص = ١٠</span>', value: 'opt2' },
+                { display: '<span class="math-eq">٥س - ص = ٣</span>', value: 'opt3' },
+                { display: '<span class="math-eq flex inline-flex items-center"><span class="fraction"><span>١</span><span class="frac-bar"></span><span>س</span></span> + ص = ٢</span>', value: 'opt4' }
+            ],
+            correct: 'opt3',
+            explanation: `<p>المعادلة الخطية لا تحتوي على متغيرات مضروبة ببعضها (مثل س ص)، ولا متغيرات في المقام، ولا أسس أكبر من ١. المعادلة <span class="math-eq">٥س - ص = ٣</span> هي الوحيدة التي تحقق هذه الشروط.</p>`,
+            smartExplanation: `<p>بمجرد النظر، نستبعد أي معادلة فيها تربيع (س²) أو متغيرات مضروبة ببعضها (س ص) أو في المقام. الخيار الوحيد المتبقي هو الصحيح.</p>`
+        },
+        {
+            type: 'mcq',
+            level: '⭐⭐',
+            text: 'أوجد المقطعين السيني والصادي للمعادلة <span class="math-eq">٣س + ٦ص = ١٨</span>',
+            options: [
+                { display: 'السيني = ٦، الصادي = ٣', value: 'opt1' },
+                { display: 'السيني = ٣، الصادي = ٦', value: 'opt2' },
+                { display: 'السيني = ١٨، الصادي = ١٨', value: 'opt3' },
+                { display: 'السيني = -٦، الصادي = -٣', value: 'opt4' }
+            ],
+            correct: 'opt1',
+            explanation: `<p class='mb-2'><b>لإيجاد المقطع السيني (ص=٠):</b></p><p><span class="math-eq">٣س + ٦(٠) = ١٨</span> ⬅️ <span class="math-eq">٣س = ١٨</span> ⬅️ <span class="math-eq">س = ٦</span></p><p class='mb-2 mt-4'><b>لإيجاد المقطع الصادي (س=٠):</b></p><p><span class="math-eq">٣(٠) + ٦ص = ١٨</span> ⬅️ <span class="math-eq">٦ص = ١٨</span> ⬅️ <span class="math-eq">ص = ٣</span></p>`,
+            smartExplanation: `<p><b>لتجد السيني، غطِّ الصادي:</b> <span class="math-eq">٣س = ١٨</span> إذن <span class="math-eq">س = ٦</span>.</p><p class="mt-2"><b>لتجد الصادي، غطِّ السيني:</b> <span class="math-eq">٦ص = ١٨</span> إذن <span class="math-eq">ص = ٣</span>.</p>`
+        },
+        {
+            type: 'mcq',
+            level: '⭐⭐',
+            text: 'اكتب المعادلة <span class="math-eq">ص = -٢س + ٥</span> بالصورة القياسية.',
+            options: [
+                { display: '<span class="math-eq">٢س + ص = ٥</span>', value: 'opt1' },
+                { display: '<span class="math-eq">ص - ٢س = ٥</span>', value: 'opt2' },
+                { display: '<span class="math-eq">-٢س - ص = -٥</span>', value: 'opt3' },
+                { display: '<span class="math-eq">٢س = ٥ - ص</span>', value: 'opt4' }
+            ],
+            correct: 'opt1',
+            explanation: `<p>الصورة القياسية هي <span class="math-eq">أس + ب ص = ج</span>. لنقل الحد <span class="math-eq">-٢س</span> إلى الطرف الأيمن بإضافة <span class="math-eq">٢س</span> للطرفين، فتصبح المعادلة <span class="math-eq">٢س + ص = ٥</span>.</p>`,
+            smartExplanation: `<p>الصورة القياسية تعني أن 'س' و 'ص' في نفس الطرف. فقط انقل <span class="math-eq">-٢س</span> للطرف الآخر لتصبح <span class="math-eq">+٢س</span>. الإجابة هي <span class="math-eq">٢س + ص = ٥</span>.</p>`
+        },
+        {
+            type: 'mcq',
+            level: '⭐⭐⭐',
+            text: 'إذا كان المقطع السيني لمعادلة هو ٥ والمقطع الصادي هو -٢، فأي نقطة من التالية تقع على الخط؟',
+            options: [
+                { display: '(٥، -٢)', value: 'opt1' },
+                { display: '(-٢، ٥)', value: 'opt2' },
+                { display: '(٥، ٠)', value: 'opt3' },
+                { display: '(-٥، ٢)', value: 'opt4' }
+            ],
+            correct: 'opt3',
+            explanation: `<p>المقطع السيني هو النقطة التي يقطع فيها الخط محور السينات، وتكون قيمة ص عندها صفر. بما أن المقطع السيني هو ٥، فإن النقطة هي (٥، ٠). أما المقطع الصادي -٢ فيمثل النقطة (٠، -٢).</p>`,
+            smartExplanation: `<p>المقطع السيني ٥ يعني مباشرة أن النقطة <span class="math-eq">(٥، ٠)</span> تقع على الخط. ابحث عن هذا الخيار في الإجابات.</p>`
+        },
+        {
+            type: 'mcq',
+            level: '⭐⭐',
+            text: `
+                <p class="mb-2">من الرسم البياني أدناه، ما هو المقطع الصادي؟</p>
+                <div class="graph-container mx-auto my-3" style="width: 300px; height: 220px;">
+                    <svg viewBox="0 0 300 220">
+                        <defs><pattern id="gridQuiz" width="20" height="20" patternUnits="userSpaceOnUse"><path d="M 20 0 L 0 0 0 20" fill="none" stroke="#e5e7eb" stroke-width="1.5"/></pattern></defs>
+                        <rect width="100%" height="100%" fill="url(#gridQuiz)" />
+                        <line x1="0" y1="110" x2="300" y2="110" stroke="#374151" stroke-width="3"/>
+                        <text x="280" y="105" font-family="Cairo" font-size="18" fill="#000" font-weight="bold">س</text>
+                        <line x1="150" y1="0" x2="150" y2="220" stroke="#374151" stroke-width="3"/>
+                        <text x="155" y="20" font-family="Cairo" font-size="18" fill="#000" font-weight="bold">ص</text>
+                        <line x1="150" y1="90" x2="250" y2="110" stroke="#047857" stroke-width="5"/>
+                        <circle cx="150" cy="90" r="8" fill="#dc2626"/>
+                        <text x="90" y="90" font-family="Cairo" font-size="24" fill="#1f2937" font-weight="bold">(٠، ٢)</text>
+                        <circle cx="250" cy="110" r="8" fill="#dc2626"/>
+                        <text x="200" y="140" font-family="Cairo" font-size="24" fill="#1f2937" font-weight="bold">(١٠، ٠)</text>
+                    </svg>
+                </div>
+            `,
+            options: [
+                { display: '<span class="math-eq">١٠</span>', value: 'opt1' },
+                { display: '<span class="math-eq">٠</span>', value: 'opt2' },
+                { display: '<span class="math-eq">٢</span>', value: 'opt3' },
+                { display: 'لا يمكن تحديده', value: 'opt4' }
+            ],
+            correct: 'opt3',
+            explanation: `<p>المقطع الصادي هو النقطة التي يقطع فيها الخط محور الصادات. بالنظر إلى الرسم البياني، نجد أن الخط يقطع محور الصادات عند <span class="math-eq">ص = ٢</span>.</p>`
+        },
+        {
+            type: 'mcq',
+            level: '⭐⭐⭐',
+            text: 'ما هو المقطع الصادي للمعادلة <span class="math-eq">ص = -٥</span>؟',
+            options: [
+                { display: '<span class="math-eq">٠</span>', value: 'opt1' },
+                { display: '<span class="math-eq">-٥</span>', value: 'opt2' },
+                { display: '<span class="math-eq">٥</span>', value: 'opt3' },
+                { display: 'لا يوجد', value: 'opt4' }
+            ],
+            correct: 'opt2',
+            explanation: `<p>المعادلة <span class="math-eq">ص = -٥</span> تمثل خطاً أفقياً يقطع محور الصادات عند <span class="math-eq">-٥</span>. لذلك، المقطع الصادي هو -٥.</p>`,
+            smartExplanation: `<p>المعادلة تقول مباشرة أن قيمة 'ص' دائماً تساوي -٥. إذن، المقطع الصادي هو -٥.</p>`
+        },
+         {
+            type: 'mcq',
+            level: '⭐⭐⭐',
+            text: 'في مثال "قيادة السيارة"، ماذا يمثل المقطع السيني (قيمة س عندما ص=٠)؟',
+            options: [
+                { display: 'الزمن الكلي للرحلة', value: 'opt1' },
+                { display: 'سرعة السيارة', value: 'opt2' },
+                { display: 'المسافة المبدئية إلى المزرعة', value: 'opt3' },
+                { display: 'المسافة المقطوعة بعد ساعة', value: 'opt4' }
+            ],
+            correct: 'opt1',
+            explanation: `<p>المقطع السيني يحدث عندما تكون المسافة المتبقية (ص) تساوي صفراً. في هذا السياق، هو يمثل الزمن اللازم لإنهاء الرحلة والوصول إلى المزرعة.</p>`
+        },
+        {
+            type: 'mcq',
+            level: '⭐⭐',
+            text: 'أوجد المقطعين السيني والصادي للمعادلة <span class="math-eq">س - ٢ص = ٤</span>',
+            options: [
+                { display: 'السيني = ٤، الصادي = -٢', value: 'opt1' },
+                { display: 'السيني = -٢، الصادي = ٤', value: 'opt2' },
+                { display: 'السيني = ٢، الصادي = -٤', value: 'opt3' },
+                { display: 'السيني = ٤، الصادي = ٢', value: 'opt4' }
+            ],
+            correct: 'opt1',
+            explanation: `<p class='mb-2'><b>لإيجاد المقطع السيني (ص=٠):</b></p><p><span class="math-eq">س - ٢(٠) = ٤</span> ⬅️ <span class="math-eq">س = ٤</span></p><p class='mb-2 mt-4'><b>لإيجاد المقطع الصادي (س=٠):</b></p><p><span class="math-eq">٠ - ٢ص = ٤</span> ⬅️ <span class="math-eq">-٢ص = ٤</span> ⬅️ <span class="math-eq">ص = -٢</span></p>`,
+            smartExplanation: `<p><b>لتجد السيني، غطِّ الصادي:</b> <span class="math-eq">س = ٤</span>.</p><p class="mt-2"><b>لتجد الصادي، غطِّ السيني:</b> <span class="math-eq">-٢ص = ٤</span> إذن <span class="math-eq">ص = -٢</span>.</p>`
+        },
+        {
+            type: 'mcq',
+            level: '⭐⭐',
+            text: 'ما هو المقطع السيني للمعادلة <span class="math-eq">ص = ٢</span>؟',
+            options: [
+                { display: '٢', value: 'opt1' },
+                { display: '٠', value: 'opt2' },
+                { display: '-٢', value: 'opt3' },
+                { display: 'لا يوجد', value: 'opt4' }
+            ],
+            correct: 'opt4',
+            explanation: `<p>المعادلة <span class="math-eq">ص = ٢</span> تمثل خطاً أفقياً يوازي محور السينات عند ص=٢ ولا يقطعه أبداً، لذلك لا يوجد مقطع سيني.</p>`,
+            smartExplanation: `<p>الخط <span class="math-eq">ص = ٢</span> هو خط أفقي يوازي محور السينات تماماً، لذا لن يتقاطعا أبداً. إذن، لا يوجد مقطع سيني.</p>`
+        },
+        {
+            type: 'mcq',
+            level: '⭐',
+            text: 'عند أي قيمة للمتغير <span class="math-eq">ص</span> يوجد المقطع السيني؟',
+            options: [
+                { display: '<span class="math-eq">ص = ١</span>', value: 'opt1' },
+                { display: '<span class="math-eq">ص = ٠</span>', value: 'opt2' },
+                { display: '<span class="math-eq">ص = س</span>', value: 'opt3' },
+                { display: 'يعتمد على المعادلة', value: 'opt4' }
+            ],
+            correct: 'opt2',
+            explanation: `<p>بالتعريف، المقطع السيني هو النقطة التي يقطع فيها الخط البياني محور السينات، وهذا يحدث دائماً عندما تكون قيمة <span class="math-eq">ص</span> تساوي صفراً.</p>`
+        },
+        {
+            type: 'mcq',
+            level: '⭐⭐',
+            text: 'أوجد المقطعين السيني والصادي للمعادلة <span class="math-eq">٥س - ٣ص = ١٥</span>',
+            options: [
+                { display: 'السيني = ٣، الصادي = ٥', value: 'opt1' },
+                { display: 'السيني = -٣، الصادي = ٥', value: 'opt2' },
+                { display: 'السيني = ٣، الصادي = -٥', value: 'opt3' },
+                { display: 'السيني = ٥، الصادي = -٣', value: 'opt4' }
+            ],
+            correct: 'opt3',
+            explanation: `<p class='mb-2'><b>لإيجاد المقطع السيني (ص=٠):</b></p><p><span class="math-eq">٥س - ٣(٠) = ١٥</span> ⬅️ <span class="math-eq">٥س = ١٥</span> ⬅️ <span class="math-eq">س = ٣</span></p><p class='mb-2 mt-4'><b>لإيجاد المقطع الصادي (س=٠):</b></p><p><span class="math-eq">٥(٠) - ٣ص = ١٥</span> ⬅️ <span class="math-eq">-٣ص = ١٥</span> ⬅️ <span class="math-eq">ص = -٥</span></p>`,
+            smartExplanation: `<p><b>لتجد السيني، غطِّ الصادي:</b> <span class="math-eq">٥س = ١٥</span> إذن <span class="math-eq">س = ٣</span>.</p><p class="mt-2"><b>لتجد الصادي، غطِّ السيني:</b> <span class="math-eq">-٣ص = ١٥</span> إذن <span class="math-eq">ص = -٥</span>.</p>`
+        },
+        {
+            type: 'mcq',
+            level: '⭐',
+            text: 'النقطة <span class="math-eq">(٠، ب)</span> على الرسم البياني تمثل دائماً...',
+            options: [
+                { display: 'المقطع السيني', value: 'opt1' },
+                { display: 'المقطع الصادي', value: 'opt2' },
+                { display: 'نقطة الأصل', value: 'opt3' },
+                { display: 'نقطة عشوائية', value: 'opt4' }
+            ],
+            correct: 'opt2',
+            explanation: `<p>بما أن الإحداثي السيني يساوي صفراً، فإن النقطة تقع على محور الصادات. لذلك، هي تمثل المقطع الصادي.</p>`
+        }
+    ];
+    const shuffled = [...questionBank].sort(() => 0.5 - Math.random());
+    const questionCount = Math.min(shuffled.length, 5);
+    return shuffled.slice(0, questionCount);
+}
 
-    // 2. بنك الأسئلة الخاص بالدرس
-    function generateQuiz() {
-        const questionBank = [
-            { 
-                type: 'mcq', 
-                level: '⭐', 
-                text: 'أي من المعادلات التالية هي معادلة خطية؟', 
-                options: [
-                    { display: '<span class="math-eq">س + ص² = ٥</span>', value: 'opt1' },
-                    { display: '<span class="math-eq">س ص = ١٠</span>', value: 'opt2' },
-                    { display: '<span class="math-eq">٥س - ص = ٣</span>', value: 'opt3' },
-                    { display: '<span class="math-eq flex inline-flex items-center"><span class="fraction"><span>١</span><span class="frac-bar"></span><span>س</span></span> + ص = ٢</span>', value: 'opt4' }
-                ], 
-                correct: 'opt3', 
-                explanation: `<p>المعادلة الخطية لا تحتوي على متغيرات مضروبة ببعضها (مثل س ص)، ولا متغيرات في المقام، ولا أسس أكبر من ١. المعادلة <span class="math-eq">٥س - ص = ٣</span> هي الوحيدة التي تحقق هذه الشروط.</p>`,
-                smartExplanation: `<p>بمجرد النظر، نستبعد أي معادلة فيها تربيع (س²) أو متغيرات مضروبة ببعضها (س ص) أو في المقام. الخيار الوحيد المتبقي هو الصحيح.</p>`
-            },
-            { 
-                type: 'mcq', 
-                level: '⭐⭐', 
-                text: 'أوجد المقطعين السيني والصادي للمعادلة <span class="math-eq">٣س + ٦ص = ١٨</span>', 
-                options: [
-                    { display: 'السيني = ٦، الصادي = ٣', value: 'opt1' },
-                    { display: 'السيني = ٣، الصادي = ٦', value: 'opt2' },
-                    { display: 'السيني = ١٨، الصادي = ١٨', value: 'opt3' },
-                    { display: 'السيني = -٦، الصادي = -٣', value: 'opt4' }
-                ], 
-                correct: 'opt1', 
-                explanation: `<p class='mb-2'><b>لإيجاد المقطع السيني (ص=٠):</b></p><p><span class="math-eq">٣س + ٦(٠) = ١٨</span> ⬅️ <span class="math-eq">٣س = ١٨</span> ⬅️ <span class="math-eq">س = ٦</span></p><p class='mb-2 mt-4'><b>لإيجاد المقطع الصادي (س=٠):</b></p><p><span class="math-eq">٣(٠) + ٦ص = ١٨</span> ⬅️ <span class="math-eq">٦ص = ١٨</span> ⬅️ <span class="math-eq">ص = ٣</span></p>`,
-                smartExplanation: `<p><b>لتجد السيني، غطِّ الصادي:</b> <span class="math-eq">٣س = ١٨</span> إذن <span class="math-eq">س = ٦</span>.</p><p class="mt-2"><b>لتجد الصادي، غطِّ السيني:</b> <span class="math-eq">٦ص = ١٨</span> إذن <span class="math-eq">ص = ٣</span>.</p>`
-            },
-            { 
-                type: 'mcq', 
-                level: '⭐⭐', 
-                text: 'اكتب المعادلة <span class="math-eq">ص = -٢س + ٥</span> بالصورة القياسية.', 
-                options: [
-                    { display: '<span class="math-eq">٢س + ص = ٥</span>', value: 'opt1' },
-                    { display: '<span class="math-eq">ص - ٢س = ٥</span>', value: 'opt2' },
-                    { display: '<span class="math-eq">-٢س - ص = -٥</span>', value: 'opt3' },
-                    { display: '<span class="math-eq">٢س = ٥ - ص</span>', value: 'opt4' }
-                ], 
-                correct: 'opt1', 
-                explanation: `<p>الصورة القياسية هي <span class="math-eq">أس + ب ص = ج</span>. لنقل الحد <span class="math-eq">-٢س</span> إلى الطرف الأيمن بإضافة <span class="math-eq">٢س</span> للطرفين، فتصبح المعادلة <span class="math-eq">٢س + ص = ٥</span>.</p>`,
-                smartExplanation: `<p>الصورة القياسية تعني أن 'س' و 'ص' في نفس الطرف. فقط انقل <span class="math-eq">-٢س</span> للطرف الآخر لتصبح <span class="math-eq">+٢س</span>. الإجابة هي <span class="math-eq">٢س + ص = ٥</span>.</p>`
-            },
-            { 
-                type: 'mcq', 
-                level: '⭐⭐⭐', 
-                text: 'إذا كان المقطع السيني لمعادلة هو ٥ والمقطع الصادي هو -٢، فأي نقطة من التالية تقع على الخط؟', 
-                options: [
-                    { display: '(٥، -٢)', value: 'opt1' },
-                    { display: '(-٢، ٥)', value: 'opt2' },
-                    { display: '(٥، ٠)', value: 'opt3' },
-                    { display: '(-٥، ٢)', value: 'opt4' }
-                ], 
-                correct: 'opt3', 
-                explanation: `<p>المقطع السيني هو النقطة التي يقطع فيها الخط محور السينات، وتكون قيمة ص عندها صفر. بما أن المقطع السيني هو ٥، فإن النقطة هي (٥، ٠). أما المقطع الصادي -٢ فيمثل النقطة (٠، -٢).</p>`,
-                smartExplanation: `<p>المقطع السيني ٥ يعني مباشرة أن النقطة <span class="math-eq">(٥، ٠)</span> تقع على الخط. ابحث عن هذا الخيار في الإجابات.</p>`
-            },
-            { 
-                type: 'mcq', 
-                level: '⭐⭐', 
-                text: `
-                    <p class="mb-2">من الرسم البياني أدناه، ما هو المقطع الصادي؟</p>
-                    <div class="graph-container mx-auto my-3" style="width: 300px; height: 220px;">
-                        <svg viewBox="0 0 300 220">
-                            <defs><pattern id="gridQuiz" width="20" height="20" patternUnits="userSpaceOnUse"><path d="M 20 0 L 0 0 0 20" fill="none" stroke="#e5e7eb" stroke-width="1.5"/></pattern></defs>
-                            <rect width="100%" height="100%" fill="url(#gridQuiz)" />
-                            <line x1="0" y1="110" x2="300" y2="110" stroke="#374151" stroke-width="3"/>
-                            <text x="280" y="105" font-family="Cairo" font-size="18" fill="#000" font-weight="bold">س</text>
-                            <line x1="150" y1="0" x2="150" y2="220" stroke="#374151" stroke-width="3"/>
-                            <text x="155" y="20" font-family="Cairo" font-size="18" fill="#000" font-weight="bold">ص</text>
-                            <line x1="150" y1="90" x2="250" y2="110" stroke="#047857" stroke-width="5"/>
-                            <circle cx="150" cy="90" r="8" fill="#dc2626"/>
-                            <text x="90" y="90" font-family="Cairo" font-size="24" fill="#1f2937" font-weight="bold">(٠، ٢)</text>
-                            <circle cx="250" cy="110" r="8" fill="#dc2626"/>
-                            <text x="200" y="140" font-family="Cairo" font-size="24" fill="#1f2937" font-weight="bold">(١٠، ٠)</text>
-                        </svg>
-                    </div>
-                `,
-                options: [
-                    { display: '<span class="math-eq">١٠</span>', value: 'opt1' },
-                    { display: '<span class="math-eq">٠</span>', value: 'opt2' },
-                    { display: '<span class="math-eq">٢</span>', value: 'opt3' },
-                    { display: 'لا يمكن تحديده', value: 'opt4' }
-                ], 
-                correct: 'opt3', 
-                explanation: `<p>المقطع الصادي هو النقطة التي يقطع فيها الخط محور الصادات. بالنظر إلى الرسم البياني، نجد أن الخط يقطع محور الصادات عند <span class="math-eq">ص = ٢</span>.</p>`
-            },
-            { 
-                type: 'mcq', 
-                level: '⭐⭐⭐', 
-                text: 'ما هو المقطع الصادي للمعادلة <span class="math-eq">ص = -٥</span>؟', 
-                options: [
-                    { display: '<span class="math-eq">٠</span>', value: 'opt1' },
-                    { display: '<span class="math-eq">-٥</span>', value: 'opt2' },
-                    { display: '<span class="math-eq">٥</span>', value: 'opt3' },
-                    { display: 'لا يوجد', value: 'opt4' }
-                ], 
-                correct: 'opt2', 
-                explanation: `<p>المعادلة <span class="math-eq">ص = -٥</span> تمثل خطاً أفقياً يقطع محور الصادات عند <span class="math-eq">-٥</span>. لذلك، المقطع الصادي هو -٥.</p>`,
-                smartExplanation: `<p>المعادلة تقول مباشرة أن قيمة 'ص' دائماً تساوي -٥. إذن، المقطع الصادي هو -٥.</p>`
-            },
-             { 
-                type: 'mcq', 
-                level: '⭐⭐⭐', 
-                text: 'في مثال "قيادة السيارة"، ماذا يمثل المقطع السيني (قيمة س عندما ص=٠)؟', 
-                options: [
-                    { display: 'الزمن الكلي للرحلة', value: 'opt1' },
-                    { display: 'سرعة السيارة', value: 'opt2' },
-                    { display: 'المسافة المبدئية إلى المزرعة', value: 'opt3' },
-                    { display: 'المسافة المقطوعة بعد ساعة', value: 'opt4' }
-                ], 
-                correct: 'opt1', 
-                explanation: `<p>المقطع السيني يحدث عندما تكون المسافة المتبقية (ص) تساوي صفراً. في هذا السياق، هو يمثل الزمن اللازم لإنهاء الرحلة والوصول إلى المزرعة.</p>`
-            },
-            { 
-                type: 'mcq', 
-                level: '⭐⭐', 
-                text: 'أوجد المقطعين السيني والصادي للمعادلة <span class="math-eq">س - ٢ص = ٤</span>', 
-                options: [
-                    { display: 'السيني = ٤، الصادي = -٢', value: 'opt1' },
-                    { display: 'السيني = -٢، الصادي = ٤', value: 'opt2' },
-                    { display: 'السيني = ٢، الصادي = -٤', value: 'opt3' },
-                    { display: 'السيني = ٤، الصادي = ٢', value: 'opt4' }
-                ], 
-                correct: 'opt1', 
-                explanation: `<p class='mb-2'><b>لإيجاد المقطع السيني (ص=٠):</b></p><p><span class="math-eq">س - ٢(٠) = ٤</span> ⬅️ <span class="math-eq">س = ٤</span></p><p class='mb-2 mt-4'><b>لإيجاد المقطع الصادي (س=٠):</b></p><p><span class="math-eq">٠ - ٢ص = ٤</span> ⬅️ <span class="math-eq">-٢ص = ٤</span> ⬅️ <span class="math-eq">ص = -٢</span></p>`,
-                smartExplanation: `<p><b>لتجد السيني، غطِّ الصادي:</b> <span class="math-eq">س = ٤</span>.</p><p class="mt-2"><b>لتجد الصادي، غطِّ السيني:</b> <span class="math-eq">-٢ص = ٤</span> إذن <span class="math-eq">ص = -٢</span>.</p>`
-            },
-            { 
-                type: 'mcq', 
-                level: '⭐⭐', 
-                text: 'ما هو المقطع السيني للمعادلة <span class="math-eq">ص = ٢</span>؟', 
-                options: [
-                    { display: '٢', value: 'opt1' },
-                    { display: '٠', value: 'opt2' },
-                    { display: '-٢', value: 'opt3' },
-                    { display: 'لا يوجد', value: 'opt4' }
-                ], 
-                correct: 'opt4', 
-                explanation: `<p>المعادلة <span class="math-eq">ص = ٢</span> تمثل خطاً أفقياً يوازي محور السينات عند ص=٢ ولا يقطعه أبداً، لذلك لا يوجد مقطع سيني.</p>`,
-                smartExplanation: `<p>الخط <span class="math-eq">ص = ٢</span> هو خط أفقي يوازي محور السينات تماماً، لذا لن يتقاطعا أبداً. إذن، لا يوجد مقطع سيني.</p>`
-            },
-            { 
-                type: 'mcq', 
-                level: '⭐', 
-                text: 'عند أي قيمة للمتغير <span class="math-eq">ص</span> يوجد المقطع السيني؟', 
-                options: [
-                    { display: '<span class="math-eq">ص = ١</span>', value: 'opt1' },
-                    { display: '<span class="math-eq">ص = ٠</span>', value: 'opt2' },
-                    { display: '<span class="math-eq">ص = س</span>', value: 'opt3' },
-                    { display: 'يعتمد على المعادلة', value: 'opt4' }
-                ], 
-                correct: 'opt2', 
-                explanation: `<p>بالتعريف، المقطع السيني هو النقطة التي يقطع فيها الخط البياني محور السينات، وهذا يحدث دائماً عندما تكون قيمة <span class="math-eq">ص</span> تساوي صفراً.</p>`
-            },
-            { 
-                type: 'mcq', 
-                level: '⭐⭐', 
-                text: 'أوجد المقطعين السيني والصادي للمعادلة <span class="math-eq">٥س - ٣ص = ١٥</span>', 
-                options: [
-                    { display: 'السيني = ٣، الصادي = ٥', value: 'opt1' },
-                    { display: 'السيني = -٣، الصادي = ٥', value: 'opt2' },
-                    { display: 'السيني = ٣، الصادي = -٥', value: 'opt3' },
-                    { display: 'السيني = ٥، الصادي = -٣', value: 'opt4' }
-                ], 
-                correct: 'opt3', 
-                explanation: `<p class='mb-2'><b>لإيجاد المقطع السيني (ص=٠):</b></p><p><span class="math-eq">٥س - ٣(٠) = ١٥</span> ⬅️ <span class="math-eq">٥س = ١٥</span> ⬅️ <span class="math-eq">س = ٣</span></p><p class='mb-2 mt-4'><b>لإيجاد المقطع الصادي (س=٠):</b></p><p><span class="math-eq">٥(٠) - ٣ص = ١٥</span> ⬅️ <span class="math-eq">-٣ص = ١٥</span> ⬅️ <span class="math-eq">ص = -٥</span></p>`,
-                smartExplanation: `<p><b>لتجد السيني، غطِّ الصادي:</b> <span class="math-eq">٥س = ١٥</span> إذن <span class="math-eq">س = ٣</span>.</p><p class="mt-2"><b>لتجد الصادي، غطِّ السيني:</b> <span class="math-eq">-٣ص = ١٥</span> إذن <span class="math-eq">ص = -٥</span>.</p>`
-            },
-            { 
-                type: 'mcq', 
-                level: '⭐', 
-                text: 'النقطة <span class="math-eq">(٠، ب)</span> على الرسم البياني تمثل دائماً...', 
-                options: [
-                    { display: 'المقطع السيني', value: 'opt1' },
-                    { display: 'المقطع الصادي', value: 'opt2' },
-                    { display: 'نقطة الأصل', value: 'opt3' },
-                    { display: 'نقطة عشوائية', value: 'opt4' }
-                ], 
-                correct: 'opt2', 
-                explanation: `<p>بما أن الإحداثي السيني يساوي صفراً، فإن النقطة تقع على محور الصادات. لذلك، هي تمثل المقطع الصادي.</p>`
-            }
-        ];
-        const shuffled = [...questionBank].sort(() => 0.5 - Math.random());
-        const questionCount = Math.min(shuffled.length, 5);
-        return shuffled.slice(0, questionCount);
+document.addEventListener('DOMContentLoaded', () => {
+    const exampleContainers = document.querySelectorAll('[id^="interactive-container-"]');
+    const state = {};
+
+    // Special handler for Example 1 Graph
+    const graph1State = {
+        pointX: document.getElementById('graph-1-point-x'),
+        textX: document.getElementById('graph-1-text-x'),
+        pointY: document.getElementById('graph-1-point-y'),
+        textY: document.getElementById('graph-1-text-y'),
+        line: document.getElementById('graph-1-line')
+    };
+    // Special handler for Example 2 Graph
+    const graph2State = {
+        pointX: document.getElementById('graph-2-point-x'),
+        textX: document.getElementById('graph-2-text-x'),
+        line: document.getElementById('graph-2-line')
+    };
+
+    function updateGraph1(currentIndex) {
+        const elements = [graph1State.pointX, graph1State.textX, graph1State.pointY, graph1State.textY, graph1State.line];
+        elements.forEach(el => el?.classList.add('hidden'));
+
+        if (currentIndex >= 0) {
+            graph1State.pointX?.classList.remove('hidden');
+            graph1State.textX?.classList.remove('hidden');
+        }
+        if (currentIndex >= 1) {
+            graph1State.pointY?.classList.remove('hidden');
+            graph1State.textY?.classList.remove('hidden');
+        }
+        if (currentIndex >= 2) {
+            graph1State.line?.classList.remove('hidden');
+        }
     }
 
-    // =================================================================================
-    // مشغل الكود (لا تقم بتعديل هذا الجزء)
-    // =================================================================================
-    document.addEventListener('DOMContentLoaded', () => {
-        const urlParams = new URLSearchParams(window.location.search);
-        const studentIdFromUrl = urlParams.get('studentId');
-        const classIdFromUrl = urlParams.get('classId');
+    function updateGraph2(currentIndex) {
+        const elements = [graph2State.pointX, graph2State.textX, graph2State.line];
+        elements.forEach(el => el?.classList.add('hidden'));
 
-        const exampleContainers = document.querySelectorAll('[id^="interactive-container-"]');
-        const state = {};
+        if (currentIndex >= 0) {
+            graph2State.pointX?.classList.remove('hidden');
+            graph2State.textX?.classList.remove('hidden');
+        }
+        if (currentIndex >= 1) {
+            graph2State.line?.classList.remove('hidden');
+        }
+    }
 
-        // Special handler for Example 1 Graph
-        const graph1State = {
-            pointX: document.getElementById('graph-1-point-x'),
-            textX: document.getElementById('graph-1-text-x'),
-            pointY: document.getElementById('graph-1-point-y'),
-            textY: document.getElementById('graph-1-text-y'),
-            line: document.getElementById('graph-1-line')
-        };
-        // Special handler for Example 2 Graph
-        const graph2State = {
-            pointX: document.getElementById('graph-2-point-x'),
-            textX: document.getElementById('graph-2-text-x'),
-            line: document.getElementById('graph-2-line')
+    exampleContainers.forEach(container => {
+        const exampleId = container.id.split('-')[2];
+        state[exampleId] = {
+            currentIndex: -1,
+            steps: container.querySelectorAll('.step-interactive'),
+            placeholder: container.querySelector('.interactive-placeholder'),
+            prevBtn: container.querySelector('.prev-btn'),
+            nextBtn: container.querySelector('.next-btn'),
+            resetBtn: container.querySelector('.reset-btn')
         };
 
-        function updateGraph1(currentIndex) {
-            const elements = [graph1State.pointX, graph1State.textX, graph1State.pointY, graph1State.textY, graph1State.line];
-            elements.forEach(el => el?.classList.add('hidden'));
-
-            if (currentIndex >= 0) {
-                graph1State.pointX?.classList.remove('hidden');
-                graph1State.textX?.classList.remove('hidden');
-            }
-            if (currentIndex >= 1) {
-                graph1State.pointY?.classList.remove('hidden');
-                graph1State.textY?.classList.remove('hidden');
-            }
-            if (currentIndex >= 2) {
-                graph1State.line?.classList.remove('hidden');
-            }
-        }
-        
-        function updateGraph2(currentIndex) {
-            const elements = [graph2State.pointX, graph2State.textX, graph2State.line];
-            elements.forEach(el => el?.classList.add('hidden'));
-
-            if (currentIndex >= 0) {
-                graph2State.pointX?.classList.remove('hidden');
-                graph2State.textX?.classList.remove('hidden');
-            }
-            if (currentIndex >= 1) {
-                graph2State.line?.classList.remove('hidden');
-            }
-        }
-
-        exampleContainers.forEach(container => {
-            const exampleId = container.id.split('-')[2];
-            state[exampleId] = { 
-                currentIndex: -1, 
-                steps: container.querySelectorAll('.step-interactive'), 
-                placeholder: container.querySelector('.interactive-placeholder'), 
-                prevBtn: container.querySelector('.prev-btn'), 
-                nextBtn: container.querySelector('.next-btn'), 
-                resetBtn: container.querySelector('.reset-btn') 
-            };
-            
-            const updateUI = () => {
-                state[exampleId].steps.forEach((step, index) => {
-                    if (index <= state[exampleId].currentIndex) {
-                        step.classList.add('active');
-                    } else {
-                        step.classList.remove('active');
-                    }
-                });
-
-                if (state[exampleId].currentIndex === -1 && state[exampleId].placeholder) {
-                    state[exampleId].placeholder.classList.remove('hidden');
-                } else if(state[exampleId].placeholder) {
-                    state[exampleId].placeholder.classList.add('hidden');
-                }
-                
-                if (exampleId === '1') {
-                    updateGraph1(state[exampleId].currentIndex);
-                } else if (exampleId === '2') {
-                    updateGraph2(state[exampleId].currentIndex);
-                }
-
-                updateButtons();
-            };
-            
-            const resetExample = () => {
-                state[exampleId].currentIndex = -1;
-                updateUI();
-            };
-
-            const updateButtons = () => { 
-                const isFirstStep = state[exampleId].currentIndex <= -1; 
-                const isLastStep = state[exampleId].currentIndex >= state[exampleId].steps.length - 1; 
-                state[exampleId].prevBtn.disabled = isFirstStep; 
-                if (isLastStep) { 
-                    state[exampleId].nextBtn.classList.add('hidden'); 
-                    state[exampleId].resetBtn.classList.remove('hidden'); 
-                } else { 
-                    state[exampleId].nextBtn.classList.remove('hidden'); 
-                    state[exampleId].resetBtn.classList.add('hidden'); 
-                } 
-            };
-            
-            state[exampleId].nextBtn.addEventListener('click', () => {
-                if (state[exampleId].currentIndex < state[exampleId].steps.length - 1) {
-                    state[exampleId].currentIndex++;
-                    updateUI();
+        const updateUI = () => {
+            state[exampleId].steps.forEach((step, index) => {
+                if (index <= state[exampleId].currentIndex) {
+                    step.classList.add('active');
+                } else {
+                    step.classList.remove('active');
                 }
             });
 
-            state[exampleId].prevBtn.addEventListener('click', () => {
-                if (state[exampleId].currentIndex > -1) {
-                    state[exampleId].currentIndex--;
-                    updateUI();
-                }
-            });
+            if (state[exampleId].currentIndex === -1 && state[exampleId].placeholder) {
+                state[exampleId].placeholder.classList.remove('hidden');
+            } else if(state[exampleId].placeholder) {
+                state[exampleId].placeholder.classList.add('hidden');
+            }
 
-            if(state[exampleId].resetBtn) { state[exampleId].resetBtn.addEventListener('click', resetExample); }
+            if (exampleId === '1') {
+                updateGraph1(state[exampleId].currentIndex);
+            } else if (exampleId === '2') {
+                updateGraph2(state[exampleId].currentIndex);
+            }
+
+            updateButtons();
+        };
+
+        const resetExample = () => {
+            state[exampleId].currentIndex = -1;
             updateUI();
+        };
+
+        const updateButtons = () => {
+            const isFirstStep = state[exampleId].currentIndex <= -1;
+            const isLastStep = state[exampleId].currentIndex >= state[exampleId].steps.length - 1;
+            state[exampleId].prevBtn.disabled = isFirstStep;
+            if (isLastStep) {
+                state[exampleId].nextBtn.classList.add('hidden');
+                state[exampleId].resetBtn.classList.remove('hidden');
+            } else {
+                state[exampleId].nextBtn.classList.remove('hidden');
+                state[exampleId].resetBtn.classList.add('hidden');
+            }
+        };
+
+        state[exampleId].nextBtn.addEventListener('click', () => {
+            if (state[exampleId].currentIndex < state[exampleId].steps.length - 1) {
+                state[exampleId].currentIndex++;
+                updateUI();
+            }
         });
 
-        const student = getStudentFromStorage();
-        const lessonTitleElement = document.getElementById('lesson-title');
-        const lessonTitle = lessonTitleElement ? lessonTitleElement.textContent : null;
-        buildHeader(student, lessonTitle);
-        buildFooter();
-        const questions = generateQuiz();
-        initializeQuiz(LESSON_ID, questions, student);
-        const retakeBtn = document.getElementById('retake-quiz-btn');
-        if(retakeBtn) { retakeBtn.addEventListener('click', () => { window.location.reload(); }); }
-        const closeModalBtn = document.getElementById('closeModalBtn');
-        if(closeModalBtn) { closeModalBtn.addEventListener('click', closeModal); }
+        state[exampleId].prevBtn.addEventListener('click', () => {
+            if (state[exampleId].currentIndex > -1) {
+                state[exampleId].currentIndex--;
+                updateUI();
+            }
+        });
+
+        if(state[exampleId].resetBtn) { state[exampleId].resetBtn.addEventListener('click', resetExample); }
+        updateUI();
     });
+});
     </script>
 </body>
 </html>

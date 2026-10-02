@@ -326,7 +326,7 @@
     <div id="explanationModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden z-50">
         <div class="bg-white rounded-lg shadow-2xl p-6 max-w-lg w-full">
             <div class="flex justify-between items-center mb-4">
-                <h3 id="modalTitle" class="text-xl font-bold">💡 شرح الإجابة</h3>
+                <h3 id="modal-title" class="text-xl font-bold">💡 شرح الإجابة</h3>
                 <button id="closeModalBtn" class="p-2 -m-2 rounded-full hover:bg-gray-200">
                     <svg class="h-6 w-6 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
@@ -334,775 +334,488 @@
             <div id="explanationText" class="text-gray-700 max-h-[60vh] overflow-y-auto"></div>
         </div>
     </div>
+    <script src="../js/lesson-core.js"></script>
     <script>
-    // ===================================================================================
-    // This script handles the interactive elements of the lesson page.
-    // ===================================================================================
+const LESSON_ID = 'c2_l4';
 
-    // --- 1. COMMON FUNCTIONS ---
-
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
-    const MAX_ATTEMPTS = 3;
-    let currentQuestions = [];
-
-    function getStudentFromStorage() { const studentDataString = localStorage.getItem('currentStudent'); if (studentDataString) { try { return JSON.parse(studentDataString); } catch (e) { return null; } } return null; }
-
-    /**
-     * Builds the main header of the page, including the lesson title and user info.
-     * @param {object} studentData - The current student's data from localStorage.
-     */
-    function buildHeader(studentData, lessonTitle = null) {
-        const headerContainer = document.getElementById('main-header');
-        if (!headerContainer) return;
-        
-        let titleHtml;
-        if (lessonTitle) {
-            titleHtml = `<div><h2 class="text-sm text-gray-500 leading-tight">منصة الرياضيات التفاعلية</h2><h1 class="text-xl font-bold text-indigo-700 leading-tight">${lessonTitle}</h1></div>`;
-        } else {
-            titleHtml = `<a href="../index.html" target="_top"><h1 class="text-2xl font-bold text-blue-800">منصة الرياضيات التفاعلية</h1></a>`;
-        }
-        
-        let userInfoHtml = '';
-        if (studentData) {
-            userInfoHtml = `
-                <div class="flex items-center gap-4">
-                    <div class="text-right">
-                        <span class="font-semibold">أهلاً، ${studentData.name}</span>
-                        <a href="../index.html" target="_top" class="block text-sm text-blue-600 hover:underline">العودة إلى الفهرس &larr;</a>
+function generateQuiz() {
+    const questionBank = [
+        {
+            type: 'mcq', level: '⭐', topic: 'concept', text: 'ماذا يمثل "صفر الدالة" في الرسم البياني؟',
+            options: [
+                { display: 'المقطع الصادي', value: 'A' },
+                { display: 'المقطع السيني', value: 'B' },
+                { display: 'نقطة الأصل', value: 'C' },
+                { display: 'ميل الخط', value: 'D' }
+            ],
+            correct: 'B',
+            explanation: '<p>صفر الدالة هو قيمة (س) التي تجعل قيمة الدالة (ص) تساوي صفرًا. على الرسم البياني، هذه هي النقطة التي يقطع فيها الخط محور السينات، وتُعرف بـ "المقطع السيني".</p>'
+        },
+        {
+            type: 'mcq', level: '⭐', topic: 'parent-function', text: 'ما هي الدالة المولدة (الأم) لجميع الدوال الخطية؟',
+            options: [
+                { display: '<span class="math-eq">د(س) = س²</span>', value: 'A' },
+                { display: '<span class="math-eq">د(س) = س</span>', value: 'B' },
+                { display: '<span class="math-eq">د(س) = |س|</span>', value: 'C' },
+                { display: '<span class="math-eq">د(س) = ١</span>', value: 'D' }
+            ],
+            correct: 'B',
+            explanation: '<p>الدالة <span class="math-eq">د(س) = س</span> هي أبسط صورة للدالة الخطية وتعتبر الدالة الأم التي تُبنى عليها جميع الدوال الخطية الأخرى من خلال التحويلات (إزاحة، تمدد، انعكاس).</p>'
+        },
+        {
+            type: 'mcq', level: '⭐⭐', topic: 'related-function', text: 'ما هي الدالة المرتبطة بالمعادلة <span class="math-eq">٥س = ٢٥</span>؟',
+            options: [
+                { display: '<span class="math-eq">د(س) = ٥س</span>', value: 'A' },
+                { display: '<span class="math-eq">د(س) = ٥س + ٢٥</span>', value: 'B' },
+                { display: '<span class="math-eq">د(س) = ٥س - ٢٥</span>', value: 'C' },
+                { display: '<span class="math-eq">د(س) = ٢٥</span>', value: 'D' }
+            ],
+            correct: 'C',
+            explanation: '<p>لإيجاد الدالة المرتبطة، يجب أولاً أن نجعل أحد طرفي المعادلة يساوي صفرًا. نطرح ٢٥ من الطرفين: <span class="math-eq">٥س - ٢٥ = ٠</span>. ثم نستبدل الصفر بـ <span class="math-eq">د(س)</span> لتصبح الدالة <span class="math-eq">د(س) = ٥س - ٢٥</span>.</p>'
+        },
+        {
+            type: 'mcq', level: '⭐⭐', topic: 'graph-reading', text: 'من الرسم البياني، ما هو صفر الدالة؟',
+            graph: '<svg viewBox="-5 -5 10 10" class="w-full h-40 bg-white border rounded-lg mt-2"><path d="M -5,1 L 5,1 M -5,2 L 5,2 M -5,3 L 5,3 M -5,4 L 5,4 M -5,-1 L 5,-1 M -5,-2 L 5,-2 M -5,-3 L 5,-3 M -5,-4 L 5,-4" stroke="#d1d5db" stroke-width="0.15" /><path d="M 1,-5 L 1,5 M 2,-5 L 2,5 M 3,-5 L 3,5 M 4,-5 L 4,5 M -1,-5 L -1,5 M -2,-5 L -2,5 M -3,-5 L -3,5 M -4,-5 L -4,5" stroke="#d1d5db" stroke-width="0.15" /><line x1="-5" y1="0" x2="5" y2="0" stroke="#9ca3af" stroke-width="0.2" /><line x1="0" y1="-5" x2="0" y2="5" stroke="#9ca3af" stroke-width="0.2" /><line x1="0" y1="4" x2="4" y2="-4" stroke="#3b82f6" stroke-width="0.4" /><circle cx="2" cy="0" r="0.3" fill="#ef4444" /></svg>',
+            options: [
+                { display: '<span class="math-eq">س = ٠</span>', value: 'A' },
+                { display: '<span class="math-eq">س = ٢</span>', value: 'B' },
+                { display: '<span class="math-eq">س = -٢</span>', value: 'C' },
+                { display: '<span class="math-eq">س = ٤</span>', value: 'D' }
+            ],
+            correct: 'B',
+            explanation: '<p>نبحث عن النقطة التي يقطع فيها الخط المستقيم محور السينات (المحور الأفقي). في هذا الرسم، يقطع الخط محور السينات عند النقطة التي تكون فيها <span class="math-eq">س = ٢</span>.</p>'
+        },
+        {
+            type: 'mcq', level: '⭐⭐', topic: 'solve-equation', text: 'أوجد جذر المعادلة <span class="math-eq">١٠ - ٥س = ٠</span>.',
+            options: [
+                { display: '<span class="math-eq">٢</span>', value: 'A' },
+                { display: '<span class="math-eq">-٢</span>', value: 'B' },
+                { display: '<span class="math-eq">٠.٥</span>', value: 'C' },
+                { display: '<span class="math-eq">٥</span>', value: 'D' }
+            ],
+            correct: 'A',
+            explanation: '<p>لإيجاد الجذر، نحل المعادلة. <span class="math-eq">١٠ - ٥س = ٠</span>. نضيف ٥س للطرفين: <span class="math-eq">١٠ = ٥س</span>. ثم نقسم ١٠ على ٥ لنجد أن س = ٢.</p>',
+            smartExplanation: '<p>استخدم التعويض العكسي السريع. جرب الخيار (أ): <br><span class="math-eq">١٠ - ٥(٢) = ١٠ - ١٠ = ٠</span>. <br>بما أن المعادلة تحققت، فهذا هو الحل الصحيح.</p>'
+        },
+        {
+            type: 'mcq',
+            level: '⭐⭐⭐',
+            topic: 'table-estimation',
+            text: `ما التقدير الأفضل للمقطع السيني للدالة الخطية الممثلة في الجدول التالي؟
+                    <div class="flex justify-center my-2">
+                        <table class="w-1/2 text-center border">
+                            <thead class="bg-gray-200"><tr><th class="p-1 border">س</th><th class="p-1 border">ص</th></tr></thead>
+                            <tbody>
+                                <tr><td class="p-1 border">٠</td><td class="p-1 border">٥</td></tr>
+                                <tr><td class="p-1 border">١</td><td class="p-1 border">٣</td></tr>
+                                <tr><td class="p-1 border">٢</td><td class="p-1 border">١</td></tr>
+                                <tr><td class="p-1 border">٣</td><td class="p-1 border">-١</td></tr>
+                                <tr><td class="p-1 border">٤</td><td class="p-1 border">-٣</td></tr>
+                            </tbody>
+                        </table>
+                    </div>`,
+            options: [
+                { display: 'بين ٠ و ١', value: 'A' },
+                { display: 'بين ٢ و ٣', value: 'B' },
+                { display: 'بين ١ و ٢', value: 'C' },
+                { display: 'بين ٣ و ٤', value: 'D' }
+            ],
+            correct: 'B',
+            explanation: `
+                <p class="mb-2">المقطع السيني (صفر الدالة) يحدث عندما تتغير إشارة (ص) من موجبة إلى سالبة. بالنظر إلى الجدول، نجد أن قيمة (ص) كانت ١ (موجبة) عندما كانت س = ٢، وأصبحت -١ (سالبة) عندما أصبحت س = ٣. لذلك، لا بد أن الخط قد قطع محور السينات في نقطة ما بين س=٢ و س=٣.</p>
+                <h4 class="font-bold mt-4 mb-2">توضيح مرئي:</h4>
+                <div class="bg-gray-100 p-2 rounded-lg">
+                    <svg id="animation-canvas" viewBox="-2 -6 8 12" class="w-full h-64 bg-white border rounded-lg"></svg>
+                    <div class="mt-2 grid grid-cols-3 gap-2">
+                        <button id="modal-prev-btn" class="w-full bg-blue-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">السابق</button>
+                        <button id="modal-next-btn" class="w-full bg-blue-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">التالي</button>
+                        <button id="modal-reset-btn" class="w-full bg-red-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-red-700 transition-colors">إعادة</button>
                     </div>
-                    <a href="../index.html" target="_top" id="logout-link" class="bg-red-500 text-white py-1 px-3 rounded-lg hover:bg-red-600 self-center">خروج</a>
-                </div>`;
-        } else {
-            userInfoHtml = `
-                <div class="text-right">
-                    <p class="text-lg text-gray-600">زائر</p>
-                    <a href="../index.html" target="_top" class="block text-sm text-blue-600 hover:underline">العودة إلى الفهرس &larr;</a>
-                </div>`;
+                </div>
+            `
+        },
+         {
+            type: 'mcq', level: '⭐', topic: 'related-function', text: 'ما هي الدالة المرتبطة بالمعادلة <span class="math-eq">-٢س + ٧ = ٠</span>؟',
+            options: [
+                { display: '<span class="math-eq">د(س) = ٢س + ٧</span>', value: 'A' },
+                { display: '<span class="math-eq">د(س) = -٢س + ٧</span>', value: 'B' },
+                { display: '<span class="math-eq">د(س) = -٢س - ٧</span>', value: 'C' },
+                { display: '<span class="math-eq">د(س) = ٧</span>', value: 'D' }
+            ],
+            correct: 'B',
+            explanation: '<p>بما أن أحد طرفي المعادلة يساوي صفرًا بالفعل، فإننا ببساطة نستبدل الصفر بـ <span class="math-eq">د(س)</span> للحصول على الدالة المرتبطة: <span class="math-eq">د(س) = -٢س + ٧</span>.</p>'
+        },
+         {
+            type: 'mcq', level: '⭐⭐', topic: 'graph-reading', text: 'من الرسم البياني، ما هو صفر الدالة؟',
+            graph: '<svg viewBox="-5 -5 10 10" class="w-full h-40 bg-white border rounded-lg mt-2"><path d="M -5,1 L 5,1 M -5,2 L 5,2 M -5,3 L 5,3 M -5,4 L 5,4 M -5,-1 L 5,-1 M -5,-2 L 5,-2 M -5,-3 L 5,-3 M -5,-4 L 5,-4" stroke="#d1d5db" stroke-width="0.15" /><path d="M 1,-5 L 1,5 M 2,-5 L 2,5 M 3,-5 L 3,5 M 4,-5 L 4,5 M -1,-5 L -1,5 M -2,-5 L -2,5 M -3,-5 L -3,5 M -4,-5 L -4,5" stroke="#d1d5db" stroke-width="0.15" /><line x1="-5" y1="0" x2="5" y2="0" stroke="#9ca3af" stroke-width="0.2" /><line x1="0" y1="-5" x2="0" y2="5" stroke="#9ca3af" stroke-width="0.2" /><line x1="-5" y1="2" x2="1" y2="-4" stroke="#3b82f6" stroke-width="0.4" /><circle cx="-3" cy="0" r="0.3" fill="#ef4444" /></svg>',
+            options: [
+                { display: '<span class="math-eq">س = ٢</span>', value: 'A' },
+                { display: '<span class="math-eq">س = -٣</span>', value: 'B' },
+                { display: '<span class="math-eq">س = -١</span>', value: 'C' },
+                { display: '<span class="math-eq">س = ٠</span>', value: 'D' }
+            ],
+            correct: 'B',
+            explanation: '<p>بالنظر إلى الرسم البياني، نجد أن الخط المستقيم يتقاطع مع محور السينات عند النقطة <span class="math-eq">س = -٣</span>. لذا، صفر هذه الدالة هو -٣.</p>'
+        },
+        {
+            type: 'mcq', level: '⭐⭐⭐', topic: 'solve-equation', text: 'إذا كان صفر الدالة <span class="math-eq">د(س) = ك س - ١٢</span> هو ٤، فما قيمة الثابت (ك)؟',
+            options: [
+                { display: '<span class="math-eq">٣</span>', value: 'A' },
+                { display: '<span class="math-eq">-٣</span>', value: 'B' },
+                { display: '<span class="math-eq">٤</span>', value: 'C' },
+                { display: '<span class="math-eq">١٢</span>', value: 'D' }
+            ],
+            correct: 'A',
+            explanation: '<p>معنى أن صفر الدالة هو ٤، أنه عند <span class="math-eq">س = ٤</span>، تكون <span class="math-eq">د(س) = ٠</span>. نعوض في المعادلة: <span class="math-eq">٠ = ك(٤) - ١٢</span>. نضيف ١٢ للطرفين: <span class="math-eq">١٢ = ٤ك</span>. لإيجاد قيمة ك، نقسم ١٢ على ٤، فتكون قيمة ك = ٣.</p>',
+            smartExplanation: '<p>المطلوب هو إيجاد عدد إذا ضرب في ٤ ثم طرحنا منه ١٢ يكون الناتج صفر. <br>جرب الخيار (أ): <br><span class="math-eq">(٣) * ٤ - ١٢ = ١٢ - ١٢ = ٠</span>. <br>إذن ٣ هو الحل الصحيح.</p>'
+        },
+         {
+            type: 'mcq', level: '⭐', topic: 'concept', text: 'مرادف كلمة "جذر" المعادلة هو...',
+            options: [
+                { display: 'ميل الدالة', value: 'A' },
+                { display: 'صفر الدالة', value: 'B' },
+                { display: 'مدى الدالة', value: 'C' },
+                { display: 'مجال الدالة', value: 'D' }
+            ],
+            correct: 'B',
+            explanation: '<p>جذر المعادلة، وحل المعادلة، وصفر الدالة المرتبطة بها، كلها مصطلحات تشير إلى نفس القيمة، وهي المقطع السيني للرسم البياني.</p>'
+        },
+        {
+            type: 'mcq', level: '⭐⭐', topic: 'solve-equation', text: 'حل المعادلة <span class="inline-flex flex-col text-center leading-tight align-middle"><span>س</span><span class="border-t border-current w-full"></span><span>٢</span></span> + ٥ = ٠ هو:',
+            options: [
+                { display: '<span class="math-eq">١٠</span>', value: 'A' },
+                { display: '<span class="math-eq">-٥</span>', value: 'B' },
+                { display: '<span class="math-eq">-٢.٥</span>', value: 'C' },
+                { display: '<span class="math-eq">-١٠</span>', value: 'D' }
+            ],
+            correct: 'D',
+            explanation: '<p>لحل المعادلة، نطرح ٥ من الطرفين: <span class="inline-flex flex-col text-center leading-tight align-middle"><span>س</span><span class="border-t border-current w-full"></span><span>٢</span></span> = -٥. ثم نضرب الطرفين في ٢ للتخلص من المقام: س = -١٠.</p>',
+            smartExplanation: '<p>ابحث عن عدد إذا قسمته على ٢ وأضفت له ٥ يصبح الناتج صفر. <br>جرب الخيار (د): <br><span class="math-eq">-١٠ / ٢ + ٥ = -٥ + ٥ = ٠</span>. <br>إذن -١٠ هو الحل الصحيح.</p>'
+        },
+        {
+            type: 'mcq', level: '⭐⭐⭐', topic: 'real-life', text: 'ينقص خزان ماء بمعدل ثابت. يمكن تمثيل كمية الماء (ل) باللتر بعد (ز) ساعة بالدالة <span class="math-eq">ل(ز) = ٥٠٠ - ٢٥ز</span>. ماذا يمثل صفر هذه الدالة؟',
+            options: [
+                { display: 'كمية الماء الأولية', value: 'A' },
+                { display: 'معدل النقصان في الساعة', value: 'B' },
+                { display: 'الوقت الذي يفرغ فيه الخزان', value: 'C' },
+                { display: 'نصف كمية الماء', value: 'D' }
+            ],
+            correct: 'C',
+            explanation: `<p>لنفهم الإجابة بشكل عملي، دعنا نحلل الدالة:</p>
+                            <ul class="list-disc list-inside space-y-1 my-2">
+                                <li><span class="math-eq">٥٠٠</span>: هذه هي كمية الماء الأولية في الخزان (500 لتر).</li>
+                                <li><span class="math-eq">- ٢٥ز</span>: هذا هو مقدار النقصان. الخزان يفقد 25 لتراً كل ساعة (ز).</li>
+                            </ul>
+                            <p><strong>ما هو "صفر الدالة" في هذه القصة؟</strong></p>
+                            <p>هو أن نسأل: "بعد كم ساعة (ز) ستصبح كمية الماء (ل) تساوي <strong>صفراً</strong>؟" عندما يكون الخزان فارغاً، تكون كمية الماء فيه صفراً. لذلك، "صفر الدالة" هنا يمثل <strong>الوقت اللازم حتى يفرغ الخزان تماماً</strong>.</p>`
         }
-        
-        headerContainer.innerHTML = `<div class="container mx-auto px-6 py-4 flex justify-between items-center">${titleHtml}${userInfoHtml}</div>`;
-        
-        const logoutLink = headerContainer.querySelector('#logout-link');
-        if(logoutLink) {
-            logoutLink.addEventListener('click', () => {
-                localStorage.removeItem('currentStudent');
-            });
-        }
-    }
+    ];
+    const shuffled = [...questionBank].sort(() => 0.5 - Math.random());
+    const questionCount = Math.min(shuffled.length, 5);
+    return shuffled.slice(0, questionCount);
+}
 
-    function buildFooter() { const footerContainer = document.getElementById('main-footer'); if (!footerContainer) return; footerContainer.innerHTML = `<div class="container mx-auto px-6"><p class="text-center text-gray-600 text-sm">© 2024 جميع الحقوق محفوظة | تصميم وتطوير: أ. عبدالعزيز خالد العبلان</p></div>`; }
+document.addEventListener('DOMContentLoaded', () => {
+    // Custom code for animations in this lesson
+    const nextStepBtn = document.getElementById('next-step-btn');
+    const prevStepBtn = document.getElementById('prev-step-btn');
+    const resetStepBtn = document.getElementById('reset-step-btn');
+    const tableBody = document.getElementById('interactive-table-body');
+    const graph = document.getElementById('interactive-graph');
+    let animationStep = 0;
+    const animationData = [
+        { s: '٢', calc: '٢(<span class="highlight-s">٢</span>) - ٨ = -٤', res: '-٤', point: {x: 2, y: -4}, color: '#1d4ed8'},
+        { s: '٤', calc: '٢(<span class="highlight-s">٤</span>) - ٨ = ٠', res: '٠', point: {x: 4, y: 0}, color: '#ef4444'},
+        { s: '٥', calc: '٢(<span class="highlight-s">٥</span>) - ٨ = ٢', res: '٢', point: {x: 5, y: 2}, color: '#1d4ed8'}
+    ];
 
-    function initializeQuiz(lessonId, questions, studentData, studentIdFromUrl, classIdFromUrl) {
-        currentQuestions = questions;
-        const quizForm = document.getElementById('quizForm');
-        if (!quizForm) return;
-        if (questions.length === 0) {
-            quizForm.innerHTML = `<p class="text-center text-gray-600">لا توجد أسئلة متاحة لهذا الدرس حالياً.</p>`;
-            return;
-        }
-        let attemptsLeft;
-        if (studentData) {
-            const studentLessonData = studentData.lessons?.[lessonId] || { attempts: 0 };
-            attemptsLeft = MAX_ATTEMPTS - studentLessonData.attempts;
-        } else {
-            attemptsLeft = 1;
-        }
-        const attemptsCounter = document.getElementById('attempts-counter');
-        if (attemptsCounter) {
-            attemptsCounter.innerHTML = `المحاولات المتبقية: <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded-full">${attemptsLeft}</span>`;
-        }
-        const quizHtml = questions.map((q, index) => {
-            const optionsHTML = q.options.map((opt, optIndex) => `<div><input type="radio" name="q${index}" value="${opt.value}" id="q${index}_opt${optIndex}" class="hidden"><label for="q${index}_opt${optIndex}" class="option-label">${opt.display}</label></div>`).join('');
-            
-            let questionContentHTML;
-            if (q.text.includes('<table')) {
-                const title = q.text.split('<div')[0];
-                const tableHTML = q.text.substring(q.text.indexOf('<div'));
-                questionContentHTML = `<p class="font-bold text-lg">${index + 1}. <span class="text-yellow-500">${q.level}</span> ${title}</p>${tableHTML}`;
-            } else if (q.graph) {
-                questionContentHTML = `<p class="font-bold text-lg">${index + 1}. <span class="text-yellow-500">${q.level}</span> ${q.text}</p>${q.graph}`;
-            } else {
-                questionContentHTML = `<p class="font-bold text-lg">${index + 1}. <span class="text-yellow-500">${q.level}</span> ${q.text}</p>`;
-            }
+    function drawGraphState(isAnimating = false) {
+        initializeGraph();
+        const graphConclusion = document.getElementById('graph-conclusion');
+        graphConclusion.classList.add('hidden');
+        const animationPromises = [];
 
-            const smartButtonHTML = q.smartExplanation 
-                ? `<button type="button" data-question-index="${index}" class="smart-explain-btn hidden">🧠 الحل الذكي</button>` 
-                : '';
+        for (let i = 0; i < animationStep; i++) {
+            const data = animationData[i];
+            const px = data.point.x;
+            const py = -data.point.y;
 
-            return `<div class="p-4 border-2 border-gray-200 rounded-lg">
-                        ${questionContentHTML}
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">${optionsHTML}</div>
-                        <div id="feedback-q${index}" class="mt-2 text-sm font-bold"></div>
-                        <div class="flex items-center gap-4 mt-2">
-                            <button type="button" data-question-index="${index}" class="explain-btn hidden mt-2 text-xs text-blue-600 hover:underline">اعرف لماذا؟</button>
-                            ${smartButtonHTML}
-                        </div>
-                    </div>`;
-        }).join('');
-        quizForm.innerHTML = quizHtml + `<button type="submit" id="submit-quiz-btn" class="w-full text-white bg-green-600 hover:bg-green-700 font-medium rounded-lg text-lg px-5 py-3 mt-8">تحقق من إجاباتي</button>`;
-        
-        if (attemptsLeft <= 0 && studentData) {
-            const submitBtn = quizForm.querySelector('#submit-quiz-btn');
-            submitBtn.disabled = true;
-            submitBtn.textContent = 'لا توجد محاولات متبقية';
-            submitBtn.classList.add('bg-gray-400', 'hover:bg-gray-400');
-        }
-        
-        quizForm.onsubmit = (e) => {
-            e.preventDefault();
-            let score = 0;
-            questions.forEach((q, index) => {
-                const userAnswer = e.target.elements[`q${index}`]?.value;
-                const feedbackEl = document.getElementById(`feedback-q${index}`);
-                if (userAnswer === q.correct) {
-                    score++;
-                    feedbackEl.textContent = '✔ إجابة صحيحة!';
-                    feedbackEl.className = 'mt-2 text-sm font-bold text-green-600';
-                } else {
-                    feedbackEl.textContent = `❌ إجابة خاطئة.`;
-                    feedbackEl.className = 'mt-2 text-sm font-bold text-red-600';
-                }
-                quizForm.querySelector(`button[data-question-index="${index}"].explain-btn`).classList.remove('hidden');
-                const smartBtn = quizForm.querySelector(`button[data-question-index="${index}"].smart-explain-btn`);
-                if (smartBtn) {
-                    smartBtn.classList.remove('hidden');
-                }
-            });
-            const finalGrade = Math.round((score / questions.length) * 10);
-            const resultsDiv = document.getElementById('quiz-results');
-            resultsDiv.classList.remove('hidden');
-            document.getElementById('quiz-score').textContent = `${finalGrade} / 10`;
-            
-            if (studentIdFromUrl && classIdFromUrl) {
-                saveGrade(lessonId, finalGrade, studentIdFromUrl, classIdFromUrl);
-                if (studentData && (attemptsLeft - 1 > 0)) {
-                    document.getElementById('retake-quiz-btn').classList.remove('hidden');
-                }
-            } else {
-                document.getElementById('save-status').textContent = 'تم عرض نتيجتك. لا يمكن الحفظ لعدم وجود معرّف الطالب والفصل في الرابط.';
-            }
-            e.target.querySelector('#submit-quiz-btn').disabled = true;
-        };
-    }
+            if (isAnimating && i === animationStep - 1) {
+                const promise = new Promise(resolve => {
+                    const durationX = Math.abs(px) * 0.2;
+                    const durationY = Math.abs(py) * 0.2;
 
-    /**
-     * Saves the student's grade to the Google Sheet via Google Apps Script.
-     * @param {string} lessonId - The unique ID for the lesson.
-     * @param {number} grade - The calculated grade.
-     * @param {string} studentId - The student's unique ID from URL.
-     * @param {string} classId - The student's class ID from URL.
-     */
-    function saveGrade(lessonId, grade, studentId, classId) {
-        const saveStatus = document.getElementById('save-status');
-        if (!studentId || !classId) {
-            saveStatus.textContent = '❌ خطأ: لا يمكن حفظ نتيجتك. معرّف الطالب أو الفصل غير موجود.';
-            console.error("Student ID or Class ID is missing.");
-            return;
-        }
-        
-        saveStatus.textContent = 'جارٍ حفظ نتيجتك...';
-        const url = `${SCRIPT_URL}?action=saveGrade&studentId=${studentId}&classId=${classId}&lessonId=${lessonId}&grade=${grade}`;
-        
-        fetch(url)
-            .then(res => res.json())
-            .then(result => {
-                if (result.status === 'success') {
-                    saveStatus.textContent = '✔ تم حفظ نتيجتك بنجاح! ستظهر في لوحة التحكم عند العودة.';
-                    const studentData = getStudentFromStorage();
-                    // Update attempts count in localStorage if student is logged in
-                    if (studentData && studentData.id === studentId) {
-                         if (!studentData.lessons) studentData.lessons = {};
-                         if (!studentData.lessons[lessonId] || studentData.lessons[lessonId].grade < grade) {
-                             studentData.lessons[lessonId] = { grade: grade, attempts: (studentData.lessons[lessonId]?.attempts || 0) + 1 };
-                         } else {
-                             studentData.lessons[lessonId].attempts++;
-                         }
-                         localStorage.setItem('currentStudent', JSON.stringify(studentData));
-                    }
-                } else {
-                    throw new Error(result.message);
-                }
-            })
-            .catch(error => {
-                saveStatus.textContent = '❌ حدث خطأ أثناء حفظ الدرجة.';
-                console.error("Save Grade Error:", error);
-            });
-    }
+                    const pathX = createAnimatedPath(`M 0 0 H ${px}`, durationX);
+                    graph.appendChild(pathX);
+                    pathX.firstElementChild.beginElement();
 
-    function showExplanation(questionIndex, type = 'normal') {
-        const modal = document.getElementById('explanationModal');
-        const modalTitle = document.getElementById('modalTitle');
-        const explanationText = document.getElementById('explanationText');
-        const question = currentQuestions[questionIndex];
-
-        if(modal && explanationText && modalTitle && question) {
-            if (type === 'smart' && question.smartExplanation) {
-                modalTitle.innerHTML = '🧠 الحل الذكي';
-                explanationText.innerHTML = question.smartExplanation;
-            } else {
-                modalTitle.innerHTML = '💡 شرح الإجابة';
-                explanationText.innerHTML = question.explanation;
-            }
-            modal.classList.remove('hidden');
-        }
-    }
-    
-    function closeModal() { const modal = document.getElementById('explanationModal'); if(modal) modal.classList.add('hidden'); }
-
-    // ===================================================================================
-    // --- 2. MAIN CODE RUNNER ---
-    // ===================================================================================
-    document.addEventListener('DOMContentLoaded', () => {
-        // Generic interactive example handler
-        const exampleContainers = document.querySelectorAll('[id^="interactive-container-"]');
-        const state = {};
-        exampleContainers.forEach(container => {
-            const exampleId = container.id.split('-')[2];
-            state[exampleId] = { currentIndex: -1, steps: container.querySelectorAll('.step-interactive'), placeholder: container.querySelector('.interactive-placeholder'), prevBtn: container.querySelector('.prev-btn'), nextBtn: container.querySelector('.next-btn'), resetBtn: container.querySelector('.reset-btn') };
-            
-            const updateButtons = () => {
-                const isFirstStep = state[exampleId].currentIndex <= -1;
-                const isLastStep = state[exampleId].currentIndex >= state[exampleId].steps.length - 1;
-                state[exampleId].prevBtn.disabled = isFirstStep;
-                state[exampleId].prevBtn.classList.toggle('btn-disabled', isFirstStep);
-                
-                if (isLastStep) {
-                    state[exampleId].nextBtn.classList.add('hidden');
-                    state[exampleId].resetBtn.classList.remove('hidden');
-                } else {
-                    state[exampleId].nextBtn.classList.remove('hidden');
-                    state[exampleId].resetBtn.classList.add('hidden');
-                }
-            };
-            
-            const resetExample = () => {
-                state[exampleId].steps.forEach(step => step.classList.remove('active'));
-                state[exampleId].currentIndex = -1;
-                if (state[exampleId].placeholder) {
-                    state[exampleId].placeholder.classList.remove('hidden');
-                }
-                updateButtons();
-            };
-
-            state[exampleId].nextBtn.addEventListener('click', () => {
-                if (state[exampleId].currentIndex < state[exampleId].steps.length - 1) {
-                    if (state[exampleId].currentIndex === -1 && state[exampleId].placeholder) {
-                        state[exampleId].placeholder.classList.add('hidden');
-                    }
-                    state[exampleId].currentIndex++;
-                    state[exampleId].steps[state[exampleId].currentIndex].classList.add('active');
-                    updateButtons();
-                }
-            });
-
-            state[exampleId].prevBtn.addEventListener('click', () => {
-                if (state[exampleId].currentIndex > -1) {
-                    state[exampleId].steps[state[exampleId].currentIndex].classList.remove('active');
-                    state[exampleId].currentIndex--;
-                     if (state[exampleId].currentIndex === -1 && state[exampleId].placeholder) {
-                        state[exampleId].placeholder.classList.remove('hidden');
-                    }
-                    updateButtons();
-                }
-            });
-
-            if(state[exampleId].resetBtn) { state[exampleId].resetBtn.addEventListener('click', resetExample); }
-            updateButtons();
-        });
-
-        // ===================================================================================
-        // --- 3. LESSON-SPECIFIC CODE ---
-        // ===================================================================================
-        
-        const LESSON_ID = 'c2_l4'; 
-        const LESSON_TITLE = "الدرس ٢-٤: حل المعادلات الخطية بيانياً";
-        
-        // 1. Read identifiers from the URL
-        const urlParams = new URLSearchParams(window.location.search);
-        const studentIdFromUrl = urlParams.get('studentId');
-        const classIdFromUrl = urlParams.get('classId');
-
-        function generateQuiz() {
-            const questionBank = [
-                {
-                    type: 'mcq', level: '⭐', topic: 'concept', text: 'ماذا يمثل "صفر الدالة" في الرسم البياني؟',
-                    options: [
-                        { display: 'المقطع الصادي', value: 'A' },
-                        { display: 'المقطع السيني', value: 'B' },
-                        { display: 'نقطة الأصل', value: 'C' },
-                        { display: 'ميل الخط', value: 'D' }
-                    ],
-                    correct: 'B',
-                    explanation: '<p>صفر الدالة هو قيمة (س) التي تجعل قيمة الدالة (ص) تساوي صفرًا. على الرسم البياني، هذه هي النقطة التي يقطع فيها الخط محور السينات، وتُعرف بـ "المقطع السيني".</p>'
-                },
-                {
-                    type: 'mcq', level: '⭐', topic: 'parent-function', text: 'ما هي الدالة المولدة (الأم) لجميع الدوال الخطية؟',
-                    options: [
-                        { display: '<span class="math-eq">د(س) = س²</span>', value: 'A' },
-                        { display: '<span class="math-eq">د(س) = س</span>', value: 'B' },
-                        { display: '<span class="math-eq">د(س) = |س|</span>', value: 'C' },
-                        { display: '<span class="math-eq">د(س) = ١</span>', value: 'D' }
-                    ],
-                    correct: 'B',
-                    explanation: '<p>الدالة <span class="math-eq">د(س) = س</span> هي أبسط صورة للدالة الخطية وتعتبر الدالة الأم التي تُبنى عليها جميع الدوال الخطية الأخرى من خلال التحويلات (إزاحة، تمدد، انعكاس).</p>'
-                },
-                {
-                    type: 'mcq', level: '⭐⭐', topic: 'related-function', text: 'ما هي الدالة المرتبطة بالمعادلة <span class="math-eq">٥س = ٢٥</span>؟',
-                    options: [
-                        { display: '<span class="math-eq">د(س) = ٥س</span>', value: 'A' },
-                        { display: '<span class="math-eq">د(س) = ٥س + ٢٥</span>', value: 'B' },
-                        { display: '<span class="math-eq">د(س) = ٥س - ٢٥</span>', value: 'C' },
-                        { display: '<span class="math-eq">د(س) = ٢٥</span>', value: 'D' }
-                    ],
-                    correct: 'C',
-                    explanation: '<p>لإيجاد الدالة المرتبطة، يجب أولاً أن نجعل أحد طرفي المعادلة يساوي صفرًا. نطرح ٢٥ من الطرفين: <span class="math-eq">٥س - ٢٥ = ٠</span>. ثم نستبدل الصفر بـ <span class="math-eq">د(س)</span> لتصبح الدالة <span class="math-eq">د(س) = ٥س - ٢٥</span>.</p>'
-                },
-                {
-                    type: 'mcq', level: '⭐⭐', topic: 'graph-reading', text: 'من الرسم البياني، ما هو صفر الدالة؟',
-                    graph: '<svg viewBox="-5 -5 10 10" class="w-full h-40 bg-white border rounded-lg mt-2"><path d="M -5,1 L 5,1 M -5,2 L 5,2 M -5,3 L 5,3 M -5,4 L 5,4 M -5,-1 L 5,-1 M -5,-2 L 5,-2 M -5,-3 L 5,-3 M -5,-4 L 5,-4" stroke="#d1d5db" stroke-width="0.15" /><path d="M 1,-5 L 1,5 M 2,-5 L 2,5 M 3,-5 L 3,5 M 4,-5 L 4,5 M -1,-5 L -1,5 M -2,-5 L -2,5 M -3,-5 L -3,5 M -4,-5 L -4,5" stroke="#d1d5db" stroke-width="0.15" /><line x1="-5" y1="0" x2="5" y2="0" stroke="#9ca3af" stroke-width="0.2" /><line x1="0" y1="-5" x2="0" y2="5" stroke="#9ca3af" stroke-width="0.2" /><line x1="0" y1="4" x2="4" y2="-4" stroke="#3b82f6" stroke-width="0.4" /><circle cx="2" cy="0" r="0.3" fill="#ef4444" /></svg>',
-                    options: [
-                        { display: '<span class="math-eq">س = ٠</span>', value: 'A' },
-                        { display: '<span class="math-eq">س = ٢</span>', value: 'B' },
-                        { display: '<span class="math-eq">س = -٢</span>', value: 'C' },
-                        { display: '<span class="math-eq">س = ٤</span>', value: 'D' }
-                    ],
-                    correct: 'B',
-                    explanation: '<p>نبحث عن النقطة التي يقطع فيها الخط المستقيم محور السينات (المحور الأفقي). في هذا الرسم، يقطع الخط محور السينات عند النقطة التي تكون فيها <span class="math-eq">س = ٢</span>.</p>'
-                },
-                {
-                    type: 'mcq', level: '⭐⭐', topic: 'solve-equation', text: 'أوجد جذر المعادلة <span class="math-eq">١٠ - ٥س = ٠</span>.',
-                    options: [
-                        { display: '<span class="math-eq">٢</span>', value: 'A' },
-                        { display: '<span class="math-eq">-٢</span>', value: 'B' },
-                        { display: '<span class="math-eq">٠.٥</span>', value: 'C' },
-                        { display: '<span class="math-eq">٥</span>', value: 'D' }
-                    ],
-                    correct: 'A',
-                    explanation: '<p>لإيجاد الجذر، نحل المعادلة. <span class="math-eq">١٠ - ٥س = ٠</span>. نضيف ٥س للطرفين: <span class="math-eq">١٠ = ٥س</span>. ثم نقسم ١٠ على ٥ لنجد أن س = ٢.</p>',
-                    smartExplanation: '<p>استخدم التعويض العكسي السريع. جرب الخيار (أ): <br><span class="math-eq">١٠ - ٥(٢) = ١٠ - ١٠ = ٠</span>. <br>بما أن المعادلة تحققت، فهذا هو الحل الصحيح.</p>'
-                },
-                {
-                    type: 'mcq',
-                    level: '⭐⭐⭐',
-                    topic: 'table-estimation',
-                    text: `ما التقدير الأفضل للمقطع السيني للدالة الخطية الممثلة في الجدول التالي؟
-                            <div class="flex justify-center my-2">
-                                <table class="w-1/2 text-center border">
-                                    <thead class="bg-gray-200"><tr><th class="p-1 border">س</th><th class="p-1 border">ص</th></tr></thead>
-                                    <tbody>
-                                        <tr><td class="p-1 border">٠</td><td class="p-1 border">٥</td></tr>
-                                        <tr><td class="p-1 border">١</td><td class="p-1 border">٣</td></tr>
-                                        <tr><td class="p-1 border">٢</td><td class="p-1 border">١</td></tr>
-                                        <tr><td class="p-1 border">٣</td><td class="p-1 border">-١</td></tr>
-                                        <tr><td class="p-1 border">٤</td><td class="p-1 border">-٣</td></tr>
-                                    </tbody>
-                                </table>
-                            </div>`,
-                    options: [
-                        { display: 'بين ٠ و ١', value: 'A' },
-                        { display: 'بين ٢ و ٣', value: 'B' },
-                        { display: 'بين ١ و ٢', value: 'C' },
-                        { display: 'بين ٣ و ٤', value: 'D' }
-                    ],
-                    correct: 'B',
-                    explanation: `
-                        <p class="mb-2">المقطع السيني (صفر الدالة) يحدث عندما تتغير إشارة (ص) من موجبة إلى سالبة. بالنظر إلى الجدول، نجد أن قيمة (ص) كانت ١ (موجبة) عندما كانت س = ٢، وأصبحت -١ (سالبة) عندما أصبحت س = ٣. لذلك، لا بد أن الخط قد قطع محور السينات في نقطة ما بين س=٢ و س=٣.</p>
-                        <h4 class="font-bold mt-4 mb-2">توضيح مرئي:</h4>
-                        <div class="bg-gray-100 p-2 rounded-lg">
-                            <svg id="animation-canvas" viewBox="-2 -6 8 12" class="w-full h-64 bg-white border rounded-lg"></svg>
-                            <div class="mt-2 grid grid-cols-3 gap-2">
-                                <button id="modal-prev-btn" class="w-full bg-blue-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">السابق</button>
-                                <button id="modal-next-btn" class="w-full bg-blue-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">التالي</button>
-                                <button id="modal-reset-btn" class="w-full bg-red-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-red-700 transition-colors">إعادة</button>
-                            </div>
-                        </div>
-                    `
-                },
-                 {
-                    type: 'mcq', level: '⭐', topic: 'related-function', text: 'ما هي الدالة المرتبطة بالمعادلة <span class="math-eq">-٢س + ٧ = ٠</span>؟',
-                    options: [
-                        { display: '<span class="math-eq">د(س) = ٢س + ٧</span>', value: 'A' },
-                        { display: '<span class="math-eq">د(س) = -٢س + ٧</span>', value: 'B' },
-                        { display: '<span class="math-eq">د(س) = -٢س - ٧</span>', value: 'C' },
-                        { display: '<span class="math-eq">د(س) = ٧</span>', value: 'D' }
-                    ],
-                    correct: 'B',
-                    explanation: '<p>بما أن أحد طرفي المعادلة يساوي صفرًا بالفعل، فإننا ببساطة نستبدل الصفر بـ <span class="math-eq">د(س)</span> للحصول على الدالة المرتبطة: <span class="math-eq">د(س) = -٢س + ٧</span>.</p>'
-                },
-                 {
-                    type: 'mcq', level: '⭐⭐', topic: 'graph-reading', text: 'من الرسم البياني، ما هو صفر الدالة؟',
-                    graph: '<svg viewBox="-5 -5 10 10" class="w-full h-40 bg-white border rounded-lg mt-2"><path d="M -5,1 L 5,1 M -5,2 L 5,2 M -5,3 L 5,3 M -5,4 L 5,4 M -5,-1 L 5,-1 M -5,-2 L 5,-2 M -5,-3 L 5,-3 M -5,-4 L 5,-4" stroke="#d1d5db" stroke-width="0.15" /><path d="M 1,-5 L 1,5 M 2,-5 L 2,5 M 3,-5 L 3,5 M 4,-5 L 4,5 M -1,-5 L -1,5 M -2,-5 L -2,5 M -3,-5 L -3,5 M -4,-5 L -4,5" stroke="#d1d5db" stroke-width="0.15" /><line x1="-5" y1="0" x2="5" y2="0" stroke="#9ca3af" stroke-width="0.2" /><line x1="0" y1="-5" x2="0" y2="5" stroke="#9ca3af" stroke-width="0.2" /><line x1="-5" y1="2" x2="1" y2="-4" stroke="#3b82f6" stroke-width="0.4" /><circle cx="-3" cy="0" r="0.3" fill="#ef4444" /></svg>',
-                    options: [
-                        { display: '<span class="math-eq">س = ٢</span>', value: 'A' },
-                        { display: '<span class="math-eq">س = -٣</span>', value: 'B' },
-                        { display: '<span class="math-eq">س = -١</span>', value: 'C' },
-                        { display: '<span class="math-eq">س = ٠</span>', value: 'D' }
-                    ],
-                    correct: 'B',
-                    explanation: '<p>بالنظر إلى الرسم البياني، نجد أن الخط المستقيم يتقاطع مع محور السينات عند النقطة <span class="math-eq">س = -٣</span>. لذا، صفر هذه الدالة هو -٣.</p>'
-                },
-                {
-                    type: 'mcq', level: '⭐⭐⭐', topic: 'solve-equation', text: 'إذا كان صفر الدالة <span class="math-eq">د(س) = ك س - ١٢</span> هو ٤، فما قيمة الثابت (ك)؟',
-                    options: [
-                        { display: '<span class="math-eq">٣</span>', value: 'A' },
-                        { display: '<span class="math-eq">-٣</span>', value: 'B' },
-                        { display: '<span class="math-eq">٤</span>', value: 'C' },
-                        { display: '<span class="math-eq">١٢</span>', value: 'D' }
-                    ],
-                    correct: 'A',
-                    explanation: '<p>معنى أن صفر الدالة هو ٤، أنه عند <span class="math-eq">س = ٤</span>، تكون <span class="math-eq">د(س) = ٠</span>. نعوض في المعادلة: <span class="math-eq">٠ = ك(٤) - ١٢</span>. نضيف ١٢ للطرفين: <span class="math-eq">١٢ = ٤ك</span>. لإيجاد قيمة ك، نقسم ١٢ على ٤، فتكون قيمة ك = ٣.</p>',
-                    smartExplanation: '<p>المطلوب هو إيجاد عدد إذا ضرب في ٤ ثم طرحنا منه ١٢ يكون الناتج صفر. <br>جرب الخيار (أ): <br><span class="math-eq">(٣) * ٤ - ١٢ = ١٢ - ١٢ = ٠</span>. <br>إذن ٣ هو الحل الصحيح.</p>'
-                },
-                 {
-                    type: 'mcq', level: '⭐', topic: 'concept', text: 'مرادف كلمة "جذر" المعادلة هو...',
-                    options: [
-                        { display: 'ميل الدالة', value: 'A' },
-                        { display: 'صفر الدالة', value: 'B' },
-                        { display: 'مدى الدالة', value: 'C' },
-                        { display: 'مجال الدالة', value: 'D' }
-                    ],
-                    correct: 'B',
-                    explanation: '<p>جذر المعادلة، وحل المعادلة، وصفر الدالة المرتبطة بها، كلها مصطلحات تشير إلى نفس القيمة، وهي المقطع السيني للرسم البياني.</p>'
-                },
-                {
-                    type: 'mcq', level: '⭐⭐', topic: 'solve-equation', text: 'حل المعادلة <span class="inline-flex flex-col text-center leading-tight align-middle"><span>س</span><span class="border-t border-current w-full"></span><span>٢</span></span> + ٥ = ٠ هو:',
-                    options: [
-                        { display: '<span class="math-eq">١٠</span>', value: 'A' },
-                        { display: '<span class="math-eq">-٥</span>', value: 'B' },
-                        { display: '<span class="math-eq">-٢.٥</span>', value: 'C' },
-                        { display: '<span class="math-eq">-١٠</span>', value: 'D' }
-                    ],
-                    correct: 'D',
-                    explanation: '<p>لحل المعادلة، نطرح ٥ من الطرفين: <span class="inline-flex flex-col text-center leading-tight align-middle"><span>س</span><span class="border-t border-current w-full"></span><span>٢</span></span> = -٥. ثم نضرب الطرفين في ٢ للتخلص من المقام: س = -١٠.</p>',
-                    smartExplanation: '<p>ابحث عن عدد إذا قسمته على ٢ وأضفت له ٥ يصبح الناتج صفر. <br>جرب الخيار (د): <br><span class="math-eq">-١٠ / ٢ + ٥ = -٥ + ٥ = ٠</span>. <br>إذن -١٠ هو الحل الصحيح.</p>'
-                },
-                {
-                    type: 'mcq', level: '⭐⭐⭐', topic: 'real-life', text: 'ينقص خزان ماء بمعدل ثابت. يمكن تمثيل كمية الماء (ل) باللتر بعد (ز) ساعة بالدالة <span class="math-eq">ل(ز) = ٥٠٠ - ٢٥ز</span>. ماذا يمثل صفر هذه الدالة؟',
-                    options: [
-                        { display: 'كمية الماء الأولية', value: 'A' },
-                        { display: 'معدل النقصان في الساعة', value: 'B' },
-                        { display: 'الوقت الذي يفرغ فيه الخزان', value: 'C' },
-                        { display: 'نصف كمية الماء', value: 'D' }
-                    ],
-                    correct: 'C',
-                    explanation: `<p>لنفهم الإجابة بشكل عملي، دعنا نحلل الدالة:</p>
-                                    <ul class="list-disc list-inside space-y-1 my-2">
-                                        <li><span class="math-eq">٥٠٠</span>: هذه هي كمية الماء الأولية في الخزان (500 لتر).</li>
-                                        <li><span class="math-eq">- ٢٥ز</span>: هذا هو مقدار النقصان. الخزان يفقد 25 لتراً كل ساعة (ز).</li>
-                                    </ul>
-                                    <p><strong>ما هو "صفر الدالة" في هذه القصة؟</strong></p>
-                                    <p>هو أن نسأل: "بعد كم ساعة (ز) ستصبح كمية الماء (ل) تساوي <strong>صفراً</strong>؟" عندما يكون الخزان فارغاً، تكون كمية الماء فيه صفراً. لذلك، "صفر الدالة" هنا يمثل <strong>الوقت اللازم حتى يفرغ الخزان تماماً</strong>.</p>`
-                }
-            ];
-            const shuffled = [...questionBank].sort(() => 0.5 - Math.random());
-            const questionCount = Math.min(shuffled.length, 5);
-            return shuffled.slice(0, questionCount);
-        }
-
-        const student = getStudentFromStorage();
-        buildHeader(student, LESSON_TITLE);
-        buildFooter();
-        const questions = generateQuiz();
-        initializeQuiz(LESSON_ID, questions, student, studentIdFromUrl, classIdFromUrl);
-        
-        const retakeBtn = document.getElementById('retake-quiz-btn');
-        if(retakeBtn) { retakeBtn.addEventListener('click', () => { window.location.reload(); }); }
-        const closeModalBtn = document.getElementById('closeModalBtn');
-        if(closeModalBtn) { closeModalBtn.addEventListener('click', closeModal); }
-        
-        // Custom code for animations in this lesson
-        const nextStepBtn = document.getElementById('next-step-btn');
-        const prevStepBtn = document.getElementById('prev-step-btn');
-        const resetStepBtn = document.getElementById('reset-step-btn');
-        const tableBody = document.getElementById('interactive-table-body');
-        const graph = document.getElementById('interactive-graph');
-        let animationStep = 0;
-        const animationData = [
-            { s: '٢', calc: '٢(<span class="highlight-s">٢</span>) - ٨ = -٤', res: '-٤', point: {x: 2, y: -4}, color: '#1d4ed8'},
-            { s: '٤', calc: '٢(<span class="highlight-s">٤</span>) - ٨ = ٠', res: '٠', point: {x: 4, y: 0}, color: '#ef4444'},
-            { s: '٥', calc: '٢(<span class="highlight-s">٥</span>) - ٨ = ٢', res: '٢', point: {x: 5, y: 2}, color: '#1d4ed8'}
-        ];
-        
-        function drawGraphState(isAnimating = false) {
-            initializeGraph();
-            const graphConclusion = document.getElementById('graph-conclusion');
-            graphConclusion.classList.add('hidden');
-            const animationPromises = [];
-
-            for (let i = 0; i < animationStep; i++) {
-                const data = animationData[i];
-                const px = data.point.x;
-                const py = -data.point.y;
-
-                if (isAnimating && i === animationStep - 1) {
-                    const promise = new Promise(resolve => {
-                        const durationX = Math.abs(px) * 0.2;
-                        const durationY = Math.abs(py) * 0.2;
-                        
-                        const pathX = createAnimatedPath(`M 0 0 H ${px}`, durationX);
-                        graph.appendChild(pathX);
-                        pathX.firstElementChild.beginElement();
+                    setTimeout(() => {
+                        const pathY = createAnimatedPath(`M ${px} 0 V ${py}`, durationY);
+                        graph.appendChild(pathY);
+                        pathY.firstElementChild.beginElement();
 
                         setTimeout(() => {
-                            const pathY = createAnimatedPath(`M ${px} 0 V ${py}`, durationY);
-                            graph.appendChild(pathY);
-                            pathY.firstElementChild.beginElement();
-
-                            setTimeout(() => {
-                                const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-                                circle.setAttribute('cx', px);
-                                circle.setAttribute('cy', py);
-                                circle.setAttribute('r', 0.3);
-                                circle.setAttribute('fill', data.color);
-                                graph.appendChild(circle);
-                                resolve();
-                            }, durationY * 1000);
-                        }, durationX * 1000);
-                    });
-                    animationPromises.push(promise);
-                } else {
-                    const pathX = createStaticPath(`M 0 0 H ${px}`);
-                    const pathY = createStaticPath(`M ${px} 0 V ${py}`);
-                    const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-                    circle.setAttribute('cx', px);
-                    circle.setAttribute('cy', py);
-                    circle.setAttribute('r', 0.3);
-                    circle.setAttribute('fill', data.color);
-                    graph.appendChild(pathX);
-                    graph.appendChild(pathY);
-                    graph.appendChild(circle);
-                }
-            }
-
-            Promise.all(animationPromises).then(() => {
-                if (animationStep === animationData.length) {
-                    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-                    line.setAttribute('x1', 1);
-                    line.setAttribute('y1', 6);
-                    line.setAttribute('x2', 6);
-                    line.setAttribute('y2', -4);
-                    line.setAttribute('stroke', '#3b82f6');
-                    line.setAttribute('stroke-width', '0.4');
-                    graph.insertBefore(line, graph.firstChild);
-                    graphConclusion.classList.remove('hidden');
-                }
-            });
-        }
-
-        function createStaticPath(d) {
-            const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-            path.setAttribute('d', d);
-            path.setAttribute('stroke', '#a78bfa');
-            path.setAttribute('stroke-width', '0.2');
-            path.setAttribute('stroke-dasharray', '0.4 0.4');
-            path.setAttribute('fill', 'none');
-            return path;
-        }
-
-        function createAnimatedPath(d, dur) {
-            const path = createStaticPath(d);
-            const length = path.getTotalLength();
-            path.style.strokeDasharray = length;
-            path.style.strokeDashoffset = length;
-            
-            const animate = document.createElementNS("http://www.w3.org/2000/svg", "animate");
-            animate.setAttribute('attributeName', 'stroke-dashoffset');
-            animate.setAttribute('from', length);
-            animate.setAttribute('to', '0');
-            animate.setAttribute('dur', `${dur}s`);
-            animate.setAttribute('fill', 'freeze');
-            path.appendChild(animate);
-            return path;
-        }
-        
-        function updateTable() {
-            tableBody.innerHTML = '';
-             for (let i = 0; i < animationStep; i++) {
-                const data = animationData[i];
-                const newRow = tableBody.insertRow();
-                newRow.innerHTML = `
-                    <td class="border border-slate-300 p-2 align-middle text-center font-bold highlight-s">${data.s}</td>
-                    <td class="border border-slate-300 p-2 align-middle text-center"><span class="math-eq">${data.calc}</span></td>
-                    <td class="border border-slate-300 p-2 align-middle text-center"><span class="math-eq">(${data.s}, ${data.res})</span></td>
-                `;
-             }
-        }
-
-        function updateButtons() {
-            const tableConclusion = document.getElementById('table-conclusion');
-            prevStepBtn.disabled = animationStep === 0;
-            nextStepBtn.disabled = animationStep === animationData.length;
-            
-            prevStepBtn.classList.toggle('btn-disabled', prevStepBtn.disabled);
-            
-            nextStepBtn.classList.toggle('btn-disabled', nextStepBtn.disabled);
-
-            nextStepBtn.textContent = (animationStep === animationData.length) ? 'اكتمل الشرح' : 'التالي';
-            
-            if (animationStep >= 2) {
-                tableConclusion.classList.remove('hidden');
+                            const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                            circle.setAttribute('cx', px);
+                            circle.setAttribute('cy', py);
+                            circle.setAttribute('r', 0.3);
+                            circle.setAttribute('fill', data.color);
+                            graph.appendChild(circle);
+                            resolve();
+                        }, durationY * 1000);
+                    }, durationX * 1000);
+                });
+                animationPromises.push(promise);
             } else {
-                tableConclusion.classList.add('hidden');
+                const pathX = createStaticPath(`M 0 0 H ${px}`);
+                const pathY = createStaticPath(`M ${px} 0 V ${py}`);
+                const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                circle.setAttribute('cx', px);
+                circle.setAttribute('cy', py);
+                circle.setAttribute('r', 0.3);
+                circle.setAttribute('fill', data.color);
+                graph.appendChild(pathX);
+                graph.appendChild(pathY);
+                graph.appendChild(circle);
             }
         }
 
-        function handleNextStep() {
-            if (animationStep < animationData.length) {
-                animationStep++;
-                updateTable();
-                drawGraphState(true);
-                updateButtons();
+        Promise.all(animationPromises).then(() => {
+            if (animationStep === animationData.length) {
+                const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                line.setAttribute('x1', 1);
+                line.setAttribute('y1', 6);
+                line.setAttribute('x2', 6);
+                line.setAttribute('y2', -4);
+                line.setAttribute('stroke', '#3b82f6');
+                line.setAttribute('stroke-width', '0.4');
+                graph.insertBefore(line, graph.firstChild);
+                graphConclusion.classList.remove('hidden');
             }
-        }
+        });
+    }
 
-        function handlePrevStep() {
-            if (animationStep > 0) {
-                animationStep--;
-                updateTable();
-                drawGraphState(false);
-                updateButtons();
-            }
-        }
+    function createStaticPath(d) {
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        path.setAttribute('d', d);
+        path.setAttribute('stroke', '#a78bfa');
+        path.setAttribute('stroke-width', '0.2');
+        path.setAttribute('stroke-dasharray', '0.4 0.4');
+        path.setAttribute('fill', 'none');
+        return path;
+    }
 
-        function resetAnimation() {
-            animationStep = 0;
+    function createAnimatedPath(d, dur) {
+        const path = createStaticPath(d);
+        const length = path.getTotalLength();
+        path.style.strokeDasharray = length;
+        path.style.strokeDashoffset = length;
+
+        const animate = document.createElementNS("http://www.w3.org/2000/svg", "animate");
+        animate.setAttribute('attributeName', 'stroke-dashoffset');
+        animate.setAttribute('from', length);
+        animate.setAttribute('to', '0');
+        animate.setAttribute('dur', `${dur}s`);
+        animate.setAttribute('fill', 'freeze');
+        path.appendChild(animate);
+        return path;
+    }
+
+    function updateTable() {
+        tableBody.innerHTML = '';
+         for (let i = 0; i < animationStep; i++) {
+            const data = animationData[i];
+            const newRow = tableBody.insertRow();
+            newRow.innerHTML = `
+                <td class="border border-slate-300 p-2 align-middle text-center font-bold highlight-s">${data.s}</td>
+                <td class="border border-slate-300 p-2 align-middle text-center"><span class="math-eq">${data.calc}</span></td>
+                <td class="border border-slate-300 p-2 align-middle text-center"><span class="math-eq">(${data.s}, ${data.res})</span></td>
+            `;
+         }
+    }
+
+    function updateButtons() {
+        const tableConclusion = document.getElementById('table-conclusion');
+        prevStepBtn.disabled = animationStep === 0;
+        nextStepBtn.disabled = animationStep === animationData.length;
+
+        prevStepBtn.classList.toggle('btn-disabled', prevStepBtn.disabled);
+
+        nextStepBtn.classList.toggle('btn-disabled', nextStepBtn.disabled);
+
+        nextStepBtn.textContent = (animationStep === animationData.length) ? 'اكتمل الشرح' : 'التالي';
+
+        if (animationStep >= 2) {
+            tableConclusion.classList.remove('hidden');
+        } else {
+            tableConclusion.classList.add('hidden');
+        }
+    }
+
+    function handleNextStep() {
+        if (animationStep < animationData.length) {
+            animationStep++;
             updateTable();
-            initializeGraph();
+            drawGraphState(true);
             updateButtons();
         }
+    }
 
-        function initializeGraph() {
-            graph.innerHTML = '';
-            let gridHtml = '';
-            for(let i = -9; i <= 9; i++) {
-                if (i === 0) continue;
-                gridHtml += `<line x1="-10" y1="${i}" x2="10" y2="${i}" stroke="#d1d5db" stroke-width="0.15" />`;
-                gridHtml += `<line x1="${i}" y1="-10" x2="${i}" y2="10" stroke="#d1d5db" stroke-width="0.15" />`;
-            }
-            gridHtml += '<line x1="-10" y1="0" x2="10" y2="0" stroke="#6b7280" stroke-width="0.2"/>';
-            gridHtml += '<line x1="0" y1="-10" x2="0" y2="10" stroke="#6b7280" stroke-width="0.2"/>';
-            gridHtml += '<text x="9.5" y="-0.5" font-size="0.8" fill="#374151" font-weight="bold">س</text>';
-            gridHtml += '<text x="0.5" y="-9.5" font-size="0.8" fill="#374151" font-weight="bold">ص</text>';
-            graph.innerHTML = gridHtml;
+    function handlePrevStep() {
+        if (animationStep > 0) {
+            animationStep--;
+            updateTable();
+            drawGraphState(false);
+            updateButtons();
+        }
+    }
+
+    function resetAnimation() {
+        animationStep = 0;
+        updateTable();
+        initializeGraph();
+        updateButtons();
+    }
+
+    function initializeGraph() {
+        graph.innerHTML = '';
+        let gridHtml = '';
+        for(let i = -9; i <= 9; i++) {
+            if (i === 0) continue;
+            gridHtml += `<line x1="-10" y1="${i}" x2="10" y2="${i}" stroke="#d1d5db" stroke-width="0.15" />`;
+            gridHtml += `<line x1="${i}" y1="-10" x2="${i}" y2="10" stroke="#d1d5db" stroke-width="0.15" />`;
+        }
+        gridHtml += '<line x1="-10" y1="0" x2="10" y2="0" stroke="#6b7280" stroke-width="0.2"/>';
+        gridHtml += '<line x1="0" y1="-10" x2="0" y2="10" stroke="#6b7280" stroke-width="0.2"/>';
+        gridHtml += '<text x="9.5" y="-0.5" font-size="0.8" fill="#374151" font-weight="bold">س</text>';
+        gridHtml += '<text x="0.5" y="-9.5" font-size="0.8" fill="#374151" font-weight="bold">ص</text>';
+        graph.innerHTML = gridHtml;
+    }
+
+    let modalAnimationStep = 0;
+    const modalAnimationData = [ {x: 0, y: 5}, {x: 1, y: 3}, {x: 2, y: 1}, {x: 3, y: -1}, {x: 4, y: -3} ];
+
+    function drawModalGraphState() {
+        const svg = document.getElementById('animation-canvas');
+        if (!svg) return;
+        const scaleY = (y) => -y;
+        svg.innerHTML = '';
+
+        svg.innerHTML += '<path d="M -1,0 L 6,0 M 0,-6 L 0,6" stroke="#cccccc" stroke-width="0.08"/>';
+        for(let i = -1; i <= 5; i++) { svg.innerHTML += '<line x1="'+i+'" y1="-6" x2="'+i+'" y2="6" stroke="#e5e7eb" stroke-width="0.05" />'; }
+        for(let i = -5; i <= 5; i++) { svg.innerHTML += '<line x1="-1" y1="'+i+'" x2="6" y2="'+i+'" stroke="#e5e7eb" stroke-width="0.05" />'; }
+
+        const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        rect.setAttribute('x', 2);
+        rect.setAttribute('y', -6);
+        rect.setAttribute('width', 1);
+        rect.setAttribute('height', 12);
+        rect.setAttribute('fill', 'rgba(250, 204, 21, 0.3)');
+        svg.appendChild(rect);
+        svg.innerHTML += '<text x="2.5" y="-5" font-size="0.5" text-anchor="middle" fill="#ca8a04">الحل هنا</text>';
+
+        for (let i = 0; i < modalAnimationStep; i++) {
+            const p = modalAnimationData[i];
+            const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            circle.setAttribute('cx', p.x);
+            circle.setAttribute('cy', scaleY(p.y));
+            circle.setAttribute('r', '0.15');
+            circle.setAttribute('fill', '#dc2626');
+            svg.appendChild(circle);
+
+            const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            text.setAttribute('x', p.x + 0.2);
+            text.setAttribute('y', scaleY(p.y) - 0.2);
+            text.setAttribute('font-size', '0.4');
+            text.textContent = `(${p.x},${p.y})`;
+            svg.appendChild(text);
         }
 
-        let modalAnimationStep = 0;
-        const modalAnimationData = [ {x: 0, y: 5}, {x: 1, y: 3}, {x: 2, y: 1}, {x: 3, y: -1}, {x: 4, y: -3} ];
-
-        function drawModalGraphState() {
-            const svg = document.getElementById('animation-canvas');
-            if (!svg) return;
-            const scaleY = (y) => -y;
-            svg.innerHTML = ''; 
-
-            svg.innerHTML += '<path d="M -1,0 L 6,0 M 0,-6 L 0,6" stroke="#cccccc" stroke-width="0.08"/>';
-            for(let i = -1; i <= 5; i++) { svg.innerHTML += '<line x1="'+i+'" y1="-6" x2="'+i+'" y2="6" stroke="#e5e7eb" stroke-width="0.05" />'; }
-            for(let i = -5; i <= 5; i++) { svg.innerHTML += '<line x1="-1" y1="'+i+'" x2="6" y2="'+i+'" stroke="#e5e7eb" stroke-width="0.05" />'; }
-            
-            const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-            rect.setAttribute('x', 2);
-            rect.setAttribute('y', -6);
-            rect.setAttribute('width', 1);
-            rect.setAttribute('height', 12);
-            rect.setAttribute('fill', 'rgba(250, 204, 21, 0.3)');
-            svg.appendChild(rect);
-            svg.innerHTML += '<text x="2.5" y="-5" font-size="0.5" text-anchor="middle" fill="#ca8a04">الحل هنا</text>';
-
-            for (let i = 0; i < modalAnimationStep; i++) {
-                const p = modalAnimationData[i];
-                const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-                circle.setAttribute('cx', p.x);
-                circle.setAttribute('cy', scaleY(p.y));
-                circle.setAttribute('r', '0.15');
-                circle.setAttribute('fill', '#dc2626');
-                svg.appendChild(circle);
-
-                const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
-                text.setAttribute('x', p.x + 0.2);
-                text.setAttribute('y', scaleY(p.y) - 0.2);
-                text.setAttribute('font-size', '0.4');
-                text.textContent = `(${p.x},${p.y})`;
-                svg.appendChild(text);
-            }
-
-            if (modalAnimationStep === modalAnimationData.length) {
-                const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-                line.setAttribute('x1', modalAnimationData[0].x);
-                line.setAttribute('y1', scaleY(modalAnimationData[0].y));
-                line.setAttribute('x2', modalAnimationData[4].x);
-                line.setAttribute('y2', scaleY(modalAnimationData[4].y));
-                line.setAttribute('stroke', '#3b82f6');
-                line.setAttribute('stroke-width', '0.1');
-                svg.insertBefore(line, svg.firstChild);
-            }
+        if (modalAnimationStep === modalAnimationData.length) {
+            const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            line.setAttribute('x1', modalAnimationData[0].x);
+            line.setAttribute('y1', scaleY(modalAnimationData[0].y));
+            line.setAttribute('x2', modalAnimationData[4].x);
+            line.setAttribute('y2', scaleY(modalAnimationData[4].y));
+            line.setAttribute('stroke', '#3b82f6');
+            line.setAttribute('stroke-width', '0.1');
+            svg.insertBefore(line, svg.firstChild);
         }
+    }
 
-        function updateModalButtons() {
-            const prevBtn = document.getElementById('modal-prev-btn');
-            const nextBtn = document.getElementById('modal-next-btn');
-            if (!prevBtn || !nextBtn) return;
+    function updateModalButtons() {
+        const prevBtn = document.getElementById('modal-prev-btn');
+        const nextBtn = document.getElementById('modal-next-btn');
+        if (!prevBtn || !nextBtn) return;
 
-            prevBtn.disabled = modalAnimationStep === 0;
-            nextBtn.disabled = modalAnimationStep === modalAnimationData.length;
-            prevBtn.classList.toggle('btn-disabled', prevBtn.disabled);
-            nextBtn.classList.toggle('btn-disabled', nextBtn.disabled);
-        }
+        prevBtn.disabled = modalAnimationStep === 0;
+        nextBtn.disabled = modalAnimationStep === modalAnimationData.length;
+        prevBtn.classList.toggle('btn-disabled', prevBtn.disabled);
+        nextBtn.classList.toggle('btn-disabled', nextBtn.disabled);
+    }
 
-        function handleModalNext() {
-            if (modalAnimationStep < modalAnimationData.length) {
-                modalAnimationStep++;
-                drawModalGraphState();
-                updateModalButtons();
-            }
-        }
-
-        function handleModalPrev() {
-            if (modalAnimationStep > 0) {
-                modalAnimationStep--;
-                drawModalGraphState();
-                updateModalButtons();
-            }
-        }
-
-        function resetModalAnimation() {
-            modalAnimationStep = 0;
+    function handleModalNext() {
+        if (modalAnimationStep < modalAnimationData.length) {
+            modalAnimationStep++;
             drawModalGraphState();
             updateModalButtons();
         }
+    }
 
-        document.querySelector('#quizForm').addEventListener('click', function(event) {
-            const target = event.target;
-            const questionIndex = target.getAttribute('data-question-index');
+    function handleModalPrev() {
+        if (modalAnimationStep > 0) {
+            modalAnimationStep--;
+            drawModalGraphState();
+            updateModalButtons();
+        }
+    }
 
-            if (target.classList.contains('explain-btn')) {
-                showExplanation(questionIndex, 'normal');
-            } else if (target.classList.contains('smart-explain-btn')) {
-                showExplanation(questionIndex, 'smart');
-            }
+    function resetModalAnimation() {
+        modalAnimationStep = 0;
+        drawModalGraphState();
+        updateModalButtons();
+    }
 
-            if (questionIndex && currentQuestions[questionIndex].topic === 'table-estimation') {
-                modalAnimationStep = 0; 
-                const nextBtn = document.getElementById('modal-next-btn');
-                const prevBtn = document.getElementById('modal-prev-btn');
-                const resetBtn = document.getElementById('modal-reset-btn');
-                
-                if(nextBtn && prevBtn && resetBtn) {
-                    nextBtn.onclick = handleModalNext;
-                    prevBtn.onclick = handleModalPrev;
-                    resetBtn.onclick = resetModalAnimation;
-                }
+    // === CONVERSION NOTE (flagged, see converted_batch_notes.txt) ===
+    // The original delegated click handler on #quizForm did two things:
+    //   1) called the page's OWN showExplanation(questionIndex, 'normal'/'smart') —
+    //      removed below: lesson-core.js's renderQuiz() already binds its own
+    //      click listeners directly to #explain-btn-N / #smart-explain-btn-N that
+    //      open the (now shared, private) explanation modal, so this was redundant.
+    //   2) gated the table-estimation mini-animation wiring on
+    //      `currentQuestions[questionIndex].topic === 'table-estimation'` — that
+    //      page-level `currentQuestions` array no longer exists (lesson-core keeps
+    //      its own copy privately inside its IIFE, not reachable from here).
+    //      Rewired below to detect the presence of the modal's own buttons
+    //      (#modal-next-btn / #modal-prev-btn / #modal-reset-btn) instead, since
+    //      those only exist in the DOM once that one question's explanation HTML
+    //      has actually been inserted into #explanationText. This is a deliberate
+    //      behavioral substitution, not a byte-for-byte port — please double-check
+    //      it still triggers correctly on the live page.
+    document.querySelector('#quizForm').addEventListener('click', function(event) {
+        const target = event.target;
+        if (target.classList.contains('explain-btn') || target.classList.contains('smart-explain-btn')) {
+            const nextBtn = document.getElementById('modal-next-btn');
+            const prevBtn = document.getElementById('modal-prev-btn');
+            const resetBtn = document.getElementById('modal-reset-btn');
+
+            if (nextBtn && prevBtn && resetBtn) {
+                modalAnimationStep = 0;
+                nextBtn.onclick = handleModalNext;
+                prevBtn.onclick = handleModalPrev;
+                resetBtn.onclick = resetModalAnimation;
                 drawModalGraphState();
                 updateModalButtons();
             }
-        });
-        
-        closeModalBtn.addEventListener('click', closeModal);
-        nextStepBtn.addEventListener('click', handleNextStep);
-        prevStepBtn.addEventListener('click', handlePrevStep);
-        resetStepBtn.addEventListener('click', resetAnimation);
-        
-        initializeGraph();
+        }
     });
+
+    nextStepBtn.addEventListener('click', handleNextStep);
+    prevStepBtn.addEventListener('click', handlePrevStep);
+    resetStepBtn.addEventListener('click', resetAnimation);
+
+    initializeGraph();
+});
     </script>
 </body>
 </html>

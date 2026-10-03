@@ -32,9 +32,9 @@
     if (lessonTitle) {
       titleHtml = '<div><h2 class="text-sm text-gray-500 leading-tight">منصة الرياضيات التفاعلية</h2><h1 class="text-xl font-bold text-indigo-700 leading-tight">' + lessonTitle + '</h1></div>';
     } else {
-      titleHtml = '<a href="../index.html" target="_top"><h1 class="text-2xl font-bold text-blue-800">منصة الرياضيات التفاعلية</h1></a>';
+      titleHtml = '<a href="../term1.html" target="_top"><h1 class="text-2xl font-bold text-blue-800">منصة الرياضيات التفاعلية</h1></a>';
     }
-    var backLink = '<a href="../index.html" target="_top" class="text-xs text-blue-600 hover:underline">&larr; العودة إلى الفهرس</a>';
+    var backLink = '<a href="../term1.html" target="_top" class="text-xs text-blue-600 hover:underline">&larr; العودة إلى الفهرس</a>';
     var userInfoHtml;
     if (studentData) {
       userInfoHtml = '<div class="flex items-center gap-4"><div class="text-right"><span class="font-semibold block">أهلاً، ' + esc(studentData.name) + '</span>' + backLink + '</div><a href="../index.html" target="_top" id="logout-link" class="bg-red-500 text-white py-1 px-3 rounded-lg hover:bg-red-600 self-start">خروج</a></div>';

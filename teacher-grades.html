@@ -812,7 +812,7 @@
 
   function fetchOverview(classId){
     var url = SCRIPT_URL + '?action=getParticipationOverview&classId=' + encodeURIComponent(classId);
-    return fetch(url).then(function(r){ return r.json(); }).then(function(res){
+    return fetch(url).then(parseServerReply).then(function(res){
       if (res && res.status === 'error') throw new Error(res.message);
       var data = (res && res.data) ? res.data : res;
       ovData = data; ovClassId = classId;
@@ -835,9 +835,17 @@
   // ===== سجلا الواجبات والسلوك (أسبوعيان) =====
   var extrasData = { key: '', map: {} }; // map: id -> {hw:[], bh:[]} للأسبوع المحمّل
 
+  // يقرأ رد الخادم نصاً ثم JSON، فإن جاء غير JSON (صفحة خطأ من جوجل) نعطي رسالة مفهومة بدل خطأ التحليل.
+  function parseServerReply(r){
+    return r.text().then(function(t){
+      try { return JSON.parse(t); }
+      catch(e){ throw new Error('ردّ الخادم غير متوقع (تحقق من نشر الإصدار الجديد من السكريبت أو من سجل التنفيذات)'); }
+    });
+  }
+
   function fetchExtras(classId, week){
     var url = SCRIPT_URL + '?action=getWeekExtras&classId=' + encodeURIComponent(classId) + '&week=' + encodeURIComponent(week);
-    return fetch(url).then(function(r){ return r.json(); }).then(function(res){
+    return fetch(url).then(parseServerReply).then(function(res){
       if (res && res.status === 'error') throw new Error(res.message);
       var list = ((res && res.data) ? res.data : res).students || [];
       var map = {};
@@ -934,7 +942,7 @@
       entries: students.map(function(s){ var e = { id: s.id }; e[field] = s[key].join(' '); return e; })
     };
     fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) })
-      .then(function(r){ return r.json(); })
+      .then(parseServerReply)
       .then(function(res){
         sendBtn.disabled = false; sendBtn.textContent = 'إرسال';
         if (res && res.status === 'error'){ setStatus('خطأ أثناء الحفظ: ' + res.message, 'err'); return; }
@@ -1006,7 +1014,7 @@
       entries: [{ id: ctx.id, homework: ctx.hw.join(' '), behavior: ctx.bh.join(' ') }]
     };
     fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) })
-      .then(function(r){ return r.json(); })
+      .then(parseServerReply)
       .then(function(res){
         if (res && res.status === 'error') throw new Error(res.message);
         if (extrasData.key === ctx.classId + '|' + ctx.week){
@@ -1070,7 +1078,7 @@
       + '&day=' + encodeURIComponent(day);
 
     fetch(url)
-      .then(function(r){ return r.json(); })
+      .then(parseServerReply)
       .then(function(res){
         loadBtn.disabled = false;
         var payload = (res && res.data) ? res.data : res;
@@ -1115,7 +1123,7 @@
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify(payload)
     })
-      .then(function(r){ return r.json(); })
+      .then(parseServerReply)
       .then(function(res){
         sendBtn.disabled = false;
         sendBtn.textContent = 'إرسال الدرجات';
@@ -1318,7 +1326,7 @@
     var gurl = SCRIPT_URL + '?action=getParticipationGrid'
       + '&classId=' + encodeURIComponent(ctx.classId)
       + '&week=' + ctx.week + '&day=' + ctx.day;
-    fetch(gurl).then(function(r){ return r.json(); }).then(function(res){
+    fetch(gurl).then(parseServerReply).then(function(res){
       if (res && res.status === 'error') throw new Error(res.message);
       var payload = (res && res.data) ? res.data : res;
       var list = (payload && payload.students) || [];
@@ -1333,7 +1341,7 @@
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({ action: 'saveParticipationGrid', classId: ctx.classId, week: String(ctx.week), day: String(ctx.day), entries: entries })
-      }).then(function(r){ return r.json(); });
+      }).then(parseServerReply);
     }).then(function(res){
       if (res && res.status === 'error') throw new Error(res.message);
       var days = ovData.days || 5;

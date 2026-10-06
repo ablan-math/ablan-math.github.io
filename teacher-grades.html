@@ -785,12 +785,13 @@
     beh: ['سلوك جيد', 'خصم السلوك']
   };
 
+  // مجاميع كل طالب تأتي جاهزة من الخادم مع كل تحميل/حفظ: id -> {part, hw, beh}
+  var totalsMap = {};
+  function setTotals(map){ if (map) totalsMap = map; }
   function totalsFor(stu){
-    var o = findOvStu(stu);
-    if (!o) return null;
-    if (mode === 'hw') return hwSum(allTokens(o.homework));
-    if (mode === 'beh') return bhSum(allTokens(o.behavior));
-    return sumsOf(o.grades);
+    var t = totalsMap[String(stu.id)];
+    if (!t) return null;
+    return (mode === 'hw') ? t.hw : (mode === 'beh') ? t.beh : t.part;
   }
   function fillTots(el, t){
     el.innerHTML = '';
@@ -843,14 +844,21 @@
     });
   }
 
-  function fetchExtras(classId, week){
-    var url = SCRIPT_URL + '?action=getWeekExtras&classId=' + encodeURIComponent(classId) + '&week=' + encodeURIComponent(week);
+  // طلب واحد خفيف يحمّل كل ما تحتاجه الشاشة: درجات اليوم + واجب/سلوك الأسبوع + المجاميع.
+  function fetchSnapshot(classId, week, day){
+    var url = SCRIPT_URL + '?action=getDaySnapshot&classId=' + encodeURIComponent(classId)
+      + '&week=' + encodeURIComponent(week) + '&day=' + encodeURIComponent(day);
     return fetch(url).then(parseServerReply).then(function(res){
       if (res && res.status === 'error') throw new Error(res.message);
       var list = ((res && res.data) ? res.data : res).students || [];
-      var map = {};
-      list.forEach(function(s){ map[String(s.id)] = { hw: tokArr(s.homework), bh: tokArr(s.behavior), name: s.name }; });
+      var map = {}, tmap = {};
+      list.forEach(function(s){
+        map[String(s.id)] = { hw: tokArr(s.homework), bh: tokArr(s.behavior), name: s.name };
+        tmap[String(s.id)] = s.totals;
+      });
       extrasData = { key: classId + '|' + week, map: map };
+      setTotals(tmap);
+      if (ovClassId !== classId) ovData = null;
       return list;
     });
   }
@@ -861,7 +869,7 @@
     setStatus('جاري التحميل...', '');
     students = [];
     renderExtras();
-    fetchExtras(classId, week).then(function(list){
+    fetchSnapshot(classId, week, 1).then(function(list){
       loadBtn.disabled = false;
       students = list.map(function(s){
         var m = extrasData.map[String(s.id)];
@@ -869,10 +877,6 @@
       });
       renderExtras();
       setStatus('تم التحميل — ' + students.length + ' طالب', 'ok');
-      if (ovClassId !== classId) ovData = null;
-      fetchOverview(classId).then(function(){
-        if (classSel.value === classId) refreshTots();
-      }).catch(function(){});
     }).catch(function(err){
       loadBtn.disabled = false;
       setStatus('تعذّر التحميل: ' + err.message, 'err');
@@ -947,7 +951,7 @@
         sendBtn.disabled = false; sendBtn.textContent = 'إرسال';
         if (res && res.status === 'error'){ setStatus('خطأ أثناء الحفظ: ' + res.message, 'err'); return; }
         setStatus('تم الحفظ بنجاح ✓', 'ok');
-        fetchOverview(classId).then(function(){ if (classSel.value === classId) refreshTots(); }).catch(function(){});
+        setTotals(res && res.data && res.data.totals); ovData = null; refreshTots();
       })
       .catch(function(err){
         sendBtn.disabled = false; sendBtn.textContent = 'إرسال';
@@ -1017,6 +1021,7 @@
       .then(parseServerReply)
       .then(function(res){
         if (res && res.status === 'error') throw new Error(res.message);
+        if (ctx.classId === classSel.value) setTotals(res && res.data && res.data.totals);
         if (extrasData.key === ctx.classId + '|' + ctx.week){
           extrasData.map[String(ctx.id)] = { hw: ctx.hw.slice(), bh: ctx.bh.slice(), name: ctx.name };
         }
@@ -1072,30 +1077,14 @@
     students = [];
     renderGrid();
 
-    var url = SCRIPT_URL + '?action=getParticipationGrid'
-      + '&classId=' + encodeURIComponent(classId)
-      + '&week=' + encodeURIComponent(week)
-      + '&day=' + encodeURIComponent(day);
-
-    fetch(url)
-      .then(parseServerReply)
-      .then(function(res){
+    fetchSnapshot(classId, week, day)
+      .then(function(list){
         loadBtn.disabled = false;
-        var payload = (res && res.data) ? res.data : res;
-        if (res && res.status === 'error'){
-          setStatus('خطأ: ' + res.message, 'err');
-          return;
-        }
-        students = (payload && payload.students) ? payload.students.map(function(s){
+        students = list.map(function(s){
           return { id: s.id, name: s.name, grade: parseInt(s.grade, 10) || 0 };
-        }) : [];
+        });
         renderGrid();
         setStatus('تم التحميل — ' + students.length + ' طالب', 'ok');
-        if (ovClassId !== classId) ovData = null;
-        fetchOverview(classId).then(function(){
-          if (classSel.value === classId) refreshTots();
-        }).catch(function(){});
-        fetchExtras(classId, week).catch(function(){}); // لزر ⋯ (واجب وسلوك هذا الأسبوع)
       })
       .catch(function(err){
         loadBtn.disabled = false;
@@ -1133,10 +1122,7 @@
         }
         var d = (res && res.data) ? res.data : {};
         setStatus('تم الحفظ بنجاح ✓ (' + (d.updated || students.length) + ' طالب)', 'ok');
-        var cid = classSel.value;
-        fetchOverview(cid).then(function(){
-          if (classSel.value === cid) refreshTots();
-        }).catch(function(){});
+        setTotals(d.totals); ovData = null; refreshTots();
       })
       .catch(function(err){
         sendBtn.disabled = false;
@@ -1323,27 +1309,14 @@
     cellSave.disabled = true;
     cellStatus.textContent = 'جاري الحفظ...'; cellStatus.className = '';
 
-    var gurl = SCRIPT_URL + '?action=getParticipationGrid'
-      + '&classId=' + encodeURIComponent(ctx.classId)
-      + '&week=' + ctx.week + '&day=' + ctx.day;
-    fetch(gurl).then(parseServerReply).then(function(res){
+    // طلب واحد مباشر لخلية واحدة، بدل قراءة شبكة اليوم كاملة ثم كتابتها.
+    fetch(SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'saveParticipationCell', classId: ctx.classId, week: String(ctx.week), day: String(ctx.day), id: ctx.stu.id, grade: val })
+    }).then(parseServerReply).then(function(res){
       if (res && res.status === 'error') throw new Error(res.message);
-      var payload = (res && res.data) ? res.data : res;
-      var list = (payload && payload.students) || [];
-      var found = false;
-      var entries = list.map(function(s){
-        var g = parseInt(s.grade, 10) || 0;
-        if (sameStu(s, ctx.stu)){ g = val; found = true; }
-        return { id: s.id, grade: g };
-      });
-      if (!found) throw new Error('الطالب غير موجود في هذا اليوم');
-      return fetch(SCRIPT_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'saveParticipationGrid', classId: ctx.classId, week: String(ctx.week), day: String(ctx.day), entries: entries })
-      }).then(parseServerReply);
-    }).then(function(res){
-      if (res && res.status === 'error') throw new Error(res.message);
+      if (ctx.classId === classSel.value) setTotals(res && res.data && res.data.totals);
       var days = ovData.days || 5;
       ctx.stu.grades[(ctx.week - 1) * days + (ctx.day - 1)] = val;
       cellModal.classList.remove('open');

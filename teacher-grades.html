@@ -355,9 +355,10 @@
       <svg viewBox="0 0 24 24"><path d="M12 1a5 5 0 0 0-5 5v3H6a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2h-1V6a5 5 0 0 0-5-5zm0 2a3 3 0 0 1 3 3v3H9V6a3 3 0 0 1 3-3z"/></svg>
     </div>
     <h1>صفحة المعلم</h1>
-    <p>أدخل الرمز السري للدخول إلى صفحة درجات المشاركة</p>
-    <input id="pinInput" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="10" placeholder="••••" autocomplete="off">
+    <p>أدخل الرمز للدخول إلى صفحة درجات المشاركة</p>
+    <input id="pinInput" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="14" placeholder="••••" autocomplete="off">
     <button id="pinBtn">دخول</button>
+    <button id="hiddenBtn" type="button" tabindex="-1" aria-hidden="true" style="display:block;width:100%;height:30px;margin-top:8px;padding:0;border:2px dashed #e5484d;border-radius:10px;background:transparent;color:#e5484d;font-size:11px;cursor:pointer;">الزر المخفي (للتجربة)</button>
     <div id="gateErr"></div>
   </div>
 </div>
@@ -368,8 +369,12 @@
       <h2>درجات المشاركة اليومية</h2>
       <div class="sub">مستقلة تماماً عن درجات الدروس والألعاب</div>
     </div>
+    <span id="sessionInfo" style="font-size:12px;color:var(--muted);"></span>
     <button id="logoutBtn">تسجيل الخروج</button>
   </header>
+  <div id="scoldBox" style="display:none;background:#fdecee;color:#b3263e;border:1.5px solid #e5484d;border-radius:14px;padding:14px 16px;margin-bottom:14px;font-weight:700;font-size:14px;line-height:1.7;">
+    لماذا دخلت إلى صفحة المعلم دون علمه؟ هذه نسخة تجريبية لا تحتوي أي بيانات حقيقية، ولن يُحفظ فيها شيء. وقد سُجّل دخولك، وسيعلم المعلم بذلك.
+  </div>
 
   <div class="controls">
     <div class="field">
@@ -517,59 +522,112 @@
 (function(){
   "use strict";
   var SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
-  var AUTH_KEY = "tg_auth_ok_v1";
-  var PASS_HASH = 1537248; // ليس النص الصريح للرمز — قيمة تجزئة بسيطة فقط للتشويش
-
-  function hashCode(str){
-    var h = 0;
-    for (var i = 0; i < str.length; i++){
-      h = (h << 5) - h + str.charCodeAt(i);
-      h |= 0;
+  // ===== جلسة المعلم: التحقق كله في الخادم (رمز اليوم + الزر المخفي)، والصفحة تحمل رمز جلسة فقط =====
+  var rawFetch = window.fetch.bind(window);
+  var sessionToken = '';
+  // نُظلّل fetch داخل هذه الدالة فقط: كل طلب إلى الخادم يحمل رمز الجلسة تلقائياً.
+  var fetch = function(url, opts){
+    if (opts && opts.body){
+      try { var b = JSON.parse(opts.body); b.token = sessionToken; opts = Object.assign({}, opts, { body: JSON.stringify(b) }); } catch(e){}
+      return rawFetch(url, opts);
     }
-    return h;
-  }
+    return rawFetch(url + '&token=' + encodeURIComponent(sessionToken), opts);
+  };
 
-  // ===== Password gate =====
   var gate = document.getElementById('gate');
   var app = document.getElementById('app');
   var pinInput = document.getElementById('pinInput');
   var pinBtn = document.getElementById('pinBtn');
+  var hiddenBtn = document.getElementById('hiddenBtn');
   var gateErr = document.getElementById('gateErr');
+  var sessionInfo = document.getElementById('sessionInfo');
+  var hiddenPressed = false;
+  var sessionExpiry = 0;
+  var sessionTimer = null;
 
-  function showApp(){
+  function ssGet(k){ try { return sessionStorage.getItem(k); } catch(e){ return null; } }
+  function ssSet(k, v){ try { sessionStorage.setItem(k, v); } catch(e){} }
+  function ssClear(){ try { ['tg_tok', 'tg_exp', 'tg_scold', 'tg_msg'].forEach(function(k){ sessionStorage.removeItem(k); }); } catch(e){} }
+
+  function endSession(msg){
+    ssClear();
+    if (msg) ssSet('tg_msg', msg);
+    location.reload();
+  }
+
+  function tickSession(){
+    var left = sessionExpiry - Date.now();
+    if (left <= 0){ endSession('انتهت مدة الجلسة (45 دقيقة)، أدخل الرمز من جديد'); return; }
+    sessionInfo.textContent = 'تنتهي الجلسة بعد ' + Math.ceil(left / 60000) + ' د';
+  }
+
+  function showApp(scold){
     gate.classList.add('hidden');
     app.classList.add('visible');
+    document.getElementById('scoldBox').style.display = scold ? 'block' : 'none';
+    tickSession();
+    sessionTimer = setInterval(tickSession, 20000);
+  }
+
+  function startSession(token, ttlSec, scold){
+    sessionToken = token;
+    sessionExpiry = Date.now() + ttlSec * 1000;
+    ssSet('tg_tok', token); ssSet('tg_exp', String(sessionExpiry)); ssSet('tg_scold', scold ? '1' : '0');
+    showApp(scold);
   }
 
   function tryUnlock(val){
-    if (hashCode(String(val)) === PASS_HASH){
-      try { localStorage.setItem(AUTH_KEY, '1'); } catch(e){}
+    var code = String(val || '').trim();
+    var hidden = hiddenPressed;
+    hiddenPressed = false;
+    if (!code){ gateErr.textContent = 'أدخل الرمز'; return; }
+    pinBtn.disabled = true;
+    gateErr.textContent = 'جاري التحقق...';
+    rawFetch(SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'teacherLogin', code: code, hidden: hidden })
+    }).then(function(r){ return r.text(); }).then(function(t){
+      var res;
+      try { res = JSON.parse(t); } catch(e){ throw new Error('ردّ الخادم غير متوقع'); }
+      pinBtn.disabled = false;
+      if (res && res.status === 'error'){
+        gateErr.textContent = res.message || 'الرمز غير صحيح';
+        pinInput.value = ''; pinInput.focus();
+        return;
+      }
+      var d = res.data || {};
       gateErr.textContent = '';
-      showApp();
-      return true;
-    }
-    gateErr.textContent = 'الرمز غير صحيح، حاول مرة أخرى';
-    pinInput.value = '';
-    pinInput.focus();
-    return false;
+      pinInput.value = '';
+      startSession(d.token, d.ttl || 2700, !!d.scold);
+    }).catch(function(err){
+      pinBtn.disabled = false;
+      gateErr.textContent = 'تعذّر الاتصال بالخادم: ' + err.message;
+    });
   }
 
+  hiddenBtn.addEventListener('click', function(e){
+    e.preventDefault();
+    hiddenPressed = true;
+    try { if (navigator.vibrate) navigator.vibrate(15); } catch(err){}
+  });
   pinBtn.addEventListener('click', function(){ tryUnlock(pinInput.value); });
   pinInput.addEventListener('keydown', function(e){
     if (e.key === 'Enter') tryUnlock(pinInput.value);
   });
+  document.getElementById('logoutBtn').addEventListener('click', function(){ endSession(''); });
 
-  document.getElementById('logoutBtn').addEventListener('click', function(){
-    try { localStorage.removeItem(AUTH_KEY); } catch(e){}
-    location.reload();
-  });
-
-  var already = false;
-  try { already = localStorage.getItem(AUTH_KEY) === '1'; } catch(e){}
-  if (already){
-    showApp();
-  }
-  // إن لم يتم التحقق، تبقى #app بحالتها الافتراضية (display:none) ولا يُعرض أي محتوى.
+  // استئناف جلسة سارية (نفس التبويب فقط، وتنتهي بإغلاقه أو بعد 45 دقيقة من الدخول)
+  (function resume(){
+    var msg = ssGet('tg_msg');
+    if (msg){ gateErr.textContent = msg; try { sessionStorage.removeItem('tg_msg'); } catch(e){} }
+    var tok = ssGet('tg_tok'), exp = parseInt(ssGet('tg_exp') || '0', 10);
+    if (tok && exp > Date.now()){
+      sessionToken = tok; sessionExpiry = exp;
+      showApp(ssGet('tg_scold') === '1');
+    }
+  })();
+  // إن لم تبدأ جلسة، تبقى #app بحالتها الافتراضية (display:none) ولا يُعرض أي محتوى.
 
   // ===== Name display logic =====
   // الاسم الأول + الاسم الأخير، مع دمج "عبد" مع الكلمة التالية لها إن وُجدت
@@ -839,8 +897,14 @@
   // يقرأ رد الخادم نصاً ثم JSON، فإن جاء غير JSON (صفحة خطأ من جوجل) نعطي رسالة مفهومة بدل خطأ التحليل.
   function parseServerReply(r){
     return r.text().then(function(t){
-      try { return JSON.parse(t); }
+      var j;
+      try { j = JSON.parse(t); }
       catch(e){ throw new Error('ردّ الخادم غير متوقع (تحقق من نشر الإصدار الجديد من السكريبت أو من سجل التنفيذات)'); }
+      if (j && j.status === 'error' && j.message === 'SESSION_EXPIRED'){
+        endSession('انتهت الجلسة، أدخل الرمز من جديد');
+        throw new Error('انتهت الجلسة');
+      }
+      return j;
     });
   }
 

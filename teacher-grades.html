@@ -79,6 +79,16 @@
     cursor:pointer; font-weight:700;
   }
 
+  #lockBtn{
+    border:1px solid var(--line); background:var(--card); color:var(--ink);
+    padding:8px 14px; border-radius:12px; font-family:'Cairo',sans-serif; font-size:12px;
+    cursor:pointer; font-weight:700; user-select:none; -webkit-user-select:none; touch-action:manipulation;
+  }
+  #lockBtn.on{background:var(--neg2); border-color:var(--neg2); color:#fff;}
+  /* عند القفل: الدوائر وأزرار الدرجات لا تستجيب (النوافذ المنبثقة وتبديل الفصل تعمل كالمعتاد) */
+  body.locked #grid .stu{cursor:not-allowed;}
+  body.locked #grid .stu .circle, body.locked #grid .negbtn, body.locked #grid .xb{opacity:.45;}
+  body.locked #bulkBar button{opacity:.45; cursor:not-allowed;}
   .controls{
     background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow);
     padding:14px; display:flex; gap:10px; flex-wrap:wrap; align-items:end; margin-bottom:16px;
@@ -380,6 +390,8 @@
       <div class="sub">مستقلة تماماً عن درجات الدروس والألعاب</div>
     </div>
     <span id="sessionInfo" style="font-size:12px;color:var(--muted);"></span>
+    <span id="lockHint" style="font-size:12px;color:var(--neg2);font-weight:700;"></span>
+    <button id="lockBtn" type="button" title="قفل الدرجات (اضغط مطولاً لفتح القفل)">🔓 قفل الدرجات</button>
     <button id="logoutBtn">تسجيل الخروج</button>
   </header>
   <div id="scoldBox" style="display:none;background:#fdecee;color:#b3263e;border:1.5px solid #e5484d;border-radius:14px;padding:14px 16px;margin-bottom:14px;font-weight:700;font-size:14px;line-height:1.7;">
@@ -772,11 +784,13 @@
 
       card.addEventListener('click', function(e){
         if (e.target.closest('.negbtn') || e.target.closest('.morebtn')) return; // يُعالَج بشكل منفصل أدناه
+        if (locked){ flashLockHint('الدرجات مقفولة'); return; }
         positiveTap(stu);
         updateUI();
       });
       negBtn.addEventListener('click', function(e){
         e.stopPropagation();
+        if (locked) return;
         negativeTap(stu);
         updateUI();
       });
@@ -847,6 +861,44 @@
     'ت': { face: thumbDown('#e5484d'), v: -3, label: 'سلوك خطر أو غير محترم أو ألفاظ بذيئة' },
     'ج': { face: '😊', v: 1, label: 'سلوك جيد' }
   };
+  // ===== قفل الدرجات: يمنع اللمس العرضي للدوائر على الشاشة الكبيرة =====
+  var locked = false;
+  var lockBtn = document.getElementById('lockBtn');
+  var lockHint = document.getElementById('lockHint');
+  var lockHintTimer = null;
+  var lockPressTimer = null;
+  var lockLongPressed = false;
+  function setLocked(v){
+    locked = !!v;
+    document.body.classList.toggle('locked', locked);
+    lockBtn.classList.toggle('on', locked);
+    lockBtn.textContent = locked ? '🔒 مقفولة — اضغط مطولاً للفتح' : '🔓 قفل الدرجات';
+  }
+  function flashLockHint(msg){
+    lockHint.textContent = msg;
+    if (lockHintTimer) clearTimeout(lockHintTimer);
+    lockHintTimer = setTimeout(function(){ lockHint.textContent = ''; }, 2500);
+  }
+  // الضغط القصير يقفل. الفتح بضغطة مطوّلة (0.7 ثانية) كي لا يُفتح القفل بلمسة عرضية.
+  lockBtn.addEventListener('pointerdown', function(){
+    lockLongPressed = false;
+    if (!locked) return;
+    lockPressTimer = setTimeout(function(){
+      lockLongPressed = true;
+      setLocked(false);
+      flashLockHint('تم فتح القفل');
+    }, 700);
+  });
+  function cancelLockPress(){ if (lockPressTimer){ clearTimeout(lockPressTimer); lockPressTimer = null; } }
+  lockBtn.addEventListener('pointerup', cancelLockPress);
+  lockBtn.addEventListener('pointerleave', cancelLockPress);
+  lockBtn.addEventListener('pointercancel', cancelLockPress);
+  lockBtn.addEventListener('click', function(){
+    if (lockLongPressed){ lockLongPressed = false; return; }
+    if (locked){ flashLockHint('اضغط مطولاً لفتح القفل'); return; }
+    setLocked(true);
+  });
+  lockBtn.addEventListener('contextmenu', function(e){ e.preventDefault(); });
   var BEH_ORDER = ['ج', 'ن', 'ز', 'ت'];
   document.getElementById('lgZ').innerHTML = BEH['ز'].face;
   document.getElementById('lgT').innerHTML = BEH['ت'].face;
@@ -919,7 +971,7 @@
   }
 
   function bulkAdd(n){
-    if (!students.length) return;
+    if (!students.length || locked) return;
     students.forEach(function(stu){ stu.grade = stu.grade + n; });
     renderGrid();
   }
@@ -1020,12 +1072,12 @@
       types.forEach(function(t){
         var b = document.createElement('button');
         b.type = 'button'; b.className = 'xb'; b.innerHTML = t[1]; b.title = t[2];
-        b.addEventListener('click', function(){ stu[key].push(t[0]); upd(); });
+        b.addEventListener('click', function(){ if (locked) return; stu[key].push(t[0]); upd(); });
         row.appendChild(b);
       });
       var undo = document.createElement('button');
       undo.type = 'button'; undo.className = 'xb'; undo.textContent = '↶'; undo.title = 'تراجع عن آخر رمز';
-      undo.addEventListener('click', function(){ stu[key].pop(); upd(); });
+      undo.addEventListener('click', function(){ if (locked) return; stu[key].pop(); upd(); });
       row.appendChild(undo);
       var tots = document.createElement('div');
       tots.className = 'tots';
@@ -1053,8 +1105,9 @@
       .then(function(res){
         sendBtn.disabled = false; sendBtn.textContent = 'إرسال';
         if (res && res.status === 'error'){ setStatus('خطأ أثناء الحفظ: ' + res.message, 'err'); return; }
-        setStatus('تم الحفظ بنجاح ✓', 'ok');
+        setStatus('تم الحفظ بنجاح ✓ — الدرجات مقفولة', 'ok');
         setTotals(res && res.data && res.data.totals); ovData = null; refreshTots();
+        setLocked(true);
       })
       .catch(function(err){
         sendBtn.disabled = false; sendBtn.textContent = 'إرسال';
@@ -1224,7 +1277,8 @@
           return;
         }
         var d = (res && res.data) ? res.data : {};
-        setStatus('تم الحفظ بنجاح ✓ (' + (d.updated || students.length) + ' طالب)', 'ok');
+        setStatus('تم الحفظ بنجاح ✓ (' + (d.updated || students.length) + ' طالب) — الدرجات مقفولة', 'ok');
+        setLocked(true);
         setTotals(d.totals); ovData = null; refreshTots();
       })
       .catch(function(err){

@@ -358,8 +358,8 @@
     <p>أدخل الرمز للدخول إلى صفحة درجات المشاركة</p>
     <input id="pinInput" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="14" placeholder="••••" autocomplete="off">
     <button id="pinBtn">دخول</button>
-    <button id="hiddenBtn" type="button" tabindex="-1" aria-hidden="true" style="display:block;width:100%;height:30px;margin-top:8px;padding:0;border:2px dashed #e5484d;border-radius:10px;background:transparent;color:#e5484d;font-size:11px;cursor:pointer;">الزر المخفي (للتجربة)</button>
     <div id="gateErr"></div>
+    <div id="hiddenFeedback" style="font-size:11px;color:#1fa363;min-height:14px;margin-top:6px;font-weight:700;"></div>
   </div>
 </div>
 
@@ -538,7 +538,6 @@
   var app = document.getElementById('app');
   var pinInput = document.getElementById('pinInput');
   var pinBtn = document.getElementById('pinBtn');
-  var hiddenBtn = document.getElementById('hiddenBtn');
   var gateErr = document.getElementById('gateErr');
   var sessionInfo = document.getElementById('sessionInfo');
   var hiddenPressed = false;
@@ -580,6 +579,7 @@
     var code = String(val || '').trim();
     var hidden = hiddenPressed;
     hiddenPressed = false;
+    hiddenFeedback.textContent = '';
     if (!code){ gateErr.textContent = 'أدخل الرمز'; return; }
     pinBtn.disabled = true;
     gateErr.textContent = 'جاري التحقق...';
@@ -606,16 +606,32 @@
     });
   }
 
-  hiddenBtn.addEventListener('click', function(e){
-    e.preventDefault();
+  // المنطقة السرية = كل بطاقة الدخول عدا حقل الرمز وزر «دخول».
+  // اضغط أي مكان فيها (قبل «دخول») لتفعيل الدخول الحقيقي.
+  var SHOW_HIDDEN_FEEDBACK = true; // للتجربة فقط: يظهر نص أخضر صغير عند التفعيل. غيّرها إلى false لإخفائه تماماً.
+  var hiddenFeedback = document.getElementById('hiddenFeedback');
+  document.querySelector('.gate-card').addEventListener('click', function(e){
+    if (e.target.closest('#pinInput') || e.target.closest('#pinBtn')) return;
     hiddenPressed = true;
     try { if (navigator.vibrate) navigator.vibrate(15); } catch(err){}
+    if (SHOW_HIDDEN_FEEDBACK){ hiddenFeedback.textContent = 'تم تفعيل الزر المخفي ✓'; }
   });
   pinBtn.addEventListener('click', function(){ tryUnlock(pinInput.value); });
   pinInput.addEventListener('keydown', function(e){
     if (e.key === 'Enter') tryUnlock(pinInput.value);
   });
-  document.getElementById('logoutBtn').addEventListener('click', function(){ endSession(''); });
+  // تسجيل الخروج فوري: ننهي الجلسة في الخادم (بلا انتظار) ثم نمسحها محلياً ونعيد شاشة الدخول.
+  document.getElementById('logoutBtn').addEventListener('click', function(){
+    var tok = sessionToken;
+    try {
+      rawFetch(SCRIPT_URL, { method: 'POST', keepalive: true, headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'teacherLogout', token: tok }) }).catch(function(){});
+    } catch(err){}
+    ssClear();
+    sessionToken = '';
+    if (sessionTimer) clearInterval(sessionTimer);
+    location.reload();
+  });
 
   // استئناف جلسة سارية (نفس التبويب فقط، وتنتهي بإغلاقه أو بعد 45 دقيقة من الدخول)
   (function resume(){

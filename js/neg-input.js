@@ -56,17 +56,28 @@
       'box-shadow:0 2px 8px rgba(0,0,0,.35);cursor:pointer;padding:0;touch-action:manipulation;direction:ltr;';
     // pointerdown/mousedown مع preventDefault يُبقي التركيز على الحقل ولا تُغلق اللوحة
     var keep = function (e) { e.preventDefault(); };
-    btn.addEventListener('mousedown', keep);
-    btn.addEventListener('pointerdown', keep);
-    btn.addEventListener('touchstart', keep, { passive: false });
-    btn.addEventListener('click', function (e) {
-      e.preventDefault();
+    var lastTouch = 0;
+    function toggle() {
       if (!current) return;
       var v = current.value.trim();
       current.value = v.charAt(0) === '-' ? v.slice(1) : '-' + v;
       current.dispatchEvent(new Event('input', { bubbles: true }));
       try { var n = current.value.length; current.setSelectionRange(n, n); } catch (_) {}
       current.focus();
+    }
+    btn.addEventListener('mousedown', keep);
+    btn.addEventListener('pointerdown', keep);
+    // اللمس: نمنع فقدان التركيز ونقلب الإشارة عند الرفع مباشرة (لأن منع touchstart يلغي حدث click على الجوال)
+    btn.addEventListener('touchstart', keep, { passive: false });
+    btn.addEventListener('touchend', function (e) {
+      e.preventDefault();
+      lastTouch = Date.now();
+      toggle();
+    }, { passive: false });
+    btn.addEventListener('click', function (e) {
+      e.preventDefault();
+      if (Date.now() - lastTouch < 700) return; // تم التبديل عبر اللمس
+      toggle();
     });
     document.body.appendChild(btn);
   }

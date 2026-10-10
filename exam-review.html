@@ -203,22 +203,8 @@ button{font-family:'Cairo',sans-serif}
  .sol-foot{padding:8px 14px 14px}.sol-foot .btn{flex:1}
  #result-modal .modal-content{align-self:center}
 }
-/* ===== الطباعة ===== */
-@media print{
- body{background:#fff;padding:0;margin:0;display:block}
- .page{box-shadow:none;margin:0;width:100%;min-height:auto;padding:15mm;display:block;border-bottom:none}
- .page:not(:last-of-type){page-break-after:always}
- .topbar,.feedback,.modal-overlay,.q-actions,.q-result,.chk-btn,.option input[type=radio],textarea.answer-space,#review-view{display:none!important}
- .official-header{margin-bottom:5px!important}.student-info-bar{margin-bottom:8px!important}
- .questions-grid{gap:5px!important}
- .question-block{padding:6px 10px!important;page-break-inside:avoid;margin-bottom:2px!important}
- .essay-question-block{page-break-inside:avoid}
- .essay-question-block:not(.full-width-question)::after{content:'';display:block;min-height:280px;border:1px dotted #999;border-radius:5px;background:#f9f9f9!important;margin-top:5px}
- .show-key .essay-question-block:not(.full-width-question)::after{display:none}
- .worksheet-table td{background:#f9f9f9!important}
- *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
- @page{size:A4;margin:0}
-}
+/* ===== الطباعة: القواعد الفعلية تُحقن من السكربت (PRINTCSS) كي تُستعمل أيضًا في الملاءمة التلقائية ===== */
+@media print{@page{size:A4;margin:0}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
 </style>
 </head>
 <body>
@@ -857,11 +843,11 @@ function renderExam(){
   const it=exam.items;seedRng(exam.seed*5+exam.salt*11+3);const tg=shuf([0,1,2,3,0,1,2,3,0,1,2,3]);const html=i=>it[i].q.type==='mcq'?mcqHTML(it[i],i+1,exam.salt,false,tg[i]):itemHTML(it[i],i+1,exam.salt,false);
   const foot=n=>`<div class="page-footer"><span>رقم النسخة: ${ar(exam.seed)}</span><span>صفحة ${ar(n)} من ٣</span></div>`;
   document.getElementById('exam-view').innerHTML=`
-   <div class="page"><div class="page-content">${HEADER}<div class="questions-grid">${it.slice(0,8).map((_,i)=>html(i)).join('')}</div></div>${foot(1)}</div>
-   <div class="page"><div class="page-content"><div class="questions-grid">${it.slice(8,12).map((_,i)=>html(i+8)).join('')}</div>
-     <h2 class="section-title">الأسئلة المقالية</h2><div class="essay-questions-container">${html(12)}</div></div>${foot(2)}</div>
-   <div class="page"><div class="page-content"><h2 class="section-title">تابع: الأسئلة المقالية</h2><div class="essay-questions-container">${html(13)}${html(14)}</div>
-     <div class="closing-statement"><p>بالتوفيق والسداد لطلابي الأعزاء.</p><p>أستاذكم: عبد العزيز خالد العبلان</p></div></div>${foot(3)}</div>`;
+   <div class="page"><div class="page-content"><div class="pc-in">${HEADER}<div class="questions-grid">${it.slice(0,8).map((_,i)=>html(i)).join('')}</div></div></div>${foot(1)}</div>
+   <div class="page"><div class="page-content"><div class="pc-in"><div class="questions-grid">${it.slice(8,12).map((_,i)=>html(i+8)).join('')}</div>
+     <h2 class="section-title">الأسئلة المقالية</h2><div class="essay-questions-container">${html(12)}</div></div></div>${foot(2)}</div>
+   <div class="page"><div class="page-content"><div class="pc-in"><h2 class="section-title">تابع: الأسئلة المقالية</h2><div class="essay-questions-container">${html(13)}${html(14)}</div>
+     <div class="closing-statement"><p>بالتوفيق والسداد لطلابي الأعزاء.</p><p>أستاذكم: عبد العزيز خالد العبلان</p></div></div></div>${foot(3)}</div>`;
   document.getElementById('seed-input').value=exam.seed;
   document.getElementById('grade-all-btn').style.display='';document.getElementById('retry-btn-main').style.display='none';
   exam.graded=false;
@@ -962,6 +948,62 @@ function setMode(m){
   document.getElementById('exam-tools').style.display=m==='exam'?'flex':'none';
   window.scrollTo(0,0);
 }
+/* ================= الطباعة: ٣ صفحات A4 دائمًا ================= */
+(function(){
+const PRINTCSS=`
+body{background:#fff;padding:0;margin:0;display:block;width:210mm}
+#exam-view{display:block!important;width:210mm!important;max-width:none;margin:0;padding:0}
+#review-view,.topbar,.modal-overlay,.q-actions,.q-result,.chk-btn,.feedback,.option input[type=radio],textarea.answer-space{display:none!important}
+.page{box-shadow:none;border-radius:0;margin:0;width:210mm;height:296mm;min-height:0;padding:10mm 13mm 7mm;display:flex;flex-direction:column;overflow:hidden;break-after:page;page-break-after:always;break-inside:avoid}
+.page:last-of-type{break-after:auto;page-break-after:auto}
+.page-content{flex:1 1 auto;min-height:0;display:block}
+.pc-in{display:block}
+.page-footer{flex:none;padding-top:4px;font-size:11px}
+.official-header{margin-bottom:6px;padding-bottom:8px;gap:6px}
+.header-col{font-size:12.5px;line-height:1.55}
+.logo{width:84px}
+.student-info-bar{padding:3px 0 8px;margin-bottom:10px;font-size:14px;flex-direction:row;align-items:center}
+.questions-grid{gap:7px}
+.question-block{padding:8px 11px;break-inside:avoid;page-break-inside:avoid;border-radius:6px}
+.question-prompt{font-size:15px;line-height:1.5;margin:0 0 6px;gap:8px}
+.question-number{padding:1px 7px}
+.options-container{gap:5px;flex-wrap:nowrap}
+.options-container.long{flex-wrap:wrap}
+.option{padding:3px 6px;font-size:13.5px;min-height:0;flex:1 1 0;white-space:nowrap}
+.options-container.long .option{flex:1 1 46%;white-space:normal}
+.option-label{width:22px;height:22px;margin-left:6px}
+.section-title{font-size:17px;margin:12px 0 6px;padding-bottom:4px}
+.essay-questions-container{gap:8px}
+.essay-question-block{padding:8px 10px;break-inside:avoid;margin-top:4px}
+.essay-question-block:not(.full-width-question)::after{content:'';display:block;height:330px;border:1px dotted #999;border-radius:5px;background:#f9f9f9;margin-top:5px}
+body.show-key .essay-question-block:not(.full-width-question)::after{display:none}
+.worksheet-table th,.worksheet-table td{padding:4px;font-size:13.5px}
+.worksheet-table td{height:40px;background:#f9f9f9}
+.table-graph-container{gap:14px;margin-top:6px;flex-direction:row}
+.graph-container svg{width:275px;height:275px}
+.sol-line{margin-top:8px}
+.worksheet-table input::placeholder,textarea::placeholder{color:transparent}
+.closing-statement{padding-top:20px;font-size:14px}
+body.show-key .page{height:auto;min-height:296mm;overflow:visible}
+`;
+const s=document.createElement('style');s.id='print-fit-css';
+s.textContent='@media print{'+PRINTCSS+'}\nhtml.fitmode{'+PRINTCSS+'}';
+document.head.appendChild(s);
+})();
+/* نُصغّر محتوى الورقة (zoom) فقط عند الحاجة ليبقى داخل A4، فلا تزيد الصفحات عن ثلاث مهما طالت الأسئلة */
+function fitPages(){
+  document.querySelectorAll('#exam-view .page').forEach(pg=>{
+    const box=pg.querySelector('.page-content'),inner=pg.querySelector('.pc-in');if(!box||!inner)return;
+    inner.style.zoom='';
+    if(document.body.classList.contains('show-key'))return;
+    const avail=box.getBoundingClientRect().height*.985-2;let z=1;
+    for(let i=0;i<10;i++){const h=inner.getBoundingClientRect().height;if(h<=avail)break;z=Math.max(.55,z*avail/h*.995);inner.style.zoom=z}
+  });
+}
+function enterPrint(){if(mode!=='exam')return;document.documentElement.classList.add('fitmode');fitPages()}
+function leavePrint(){document.documentElement.classList.remove('fitmode');document.querySelectorAll('.pc-in').forEach(e=>e.style.zoom='')}
+window.addEventListener('beforeprint',enterPrint);window.addEventListener('afterprint',leavePrint);
+
 (function init(){
   renderReviewShell();buildReview();renderReviewList();
   const h=(location.hash.match(/v=(\d+)/)||[])[1];

@@ -356,7 +356,13 @@
   .tot.pos{background:var(--green);}
   .tot.neg{background:var(--neg2);}
   .tot.zero{opacity:.35;}
-  .stu .nm{cursor:pointer; text-decoration:underline dotted; text-underline-offset:3px;}
+  /* الاسم يُلمس على نصّه فقط (لا على عرض البطاقة كله) كي لا يُفتح السجل بلمسة قريبة من الدائرة */
+  .stu .nm{cursor:pointer; text-decoration:underline dotted; text-underline-offset:3px; width:fit-content; max-width:100%; margin:6px auto 0;}
+  .stu{touch-action:manipulation; -webkit-touch-callout:none;}
+  .stu.pressing .circle{box-shadow:0 0 0 6px rgba(122,129,151,.35); transition:box-shadow .55s ease-out;}
+  /* الغياب */
+  .stu[data-tier="A"] .circle{background:#7a8197; font-size:18px;}
+  .ov-badge.tabs{background:#7a8197; color:#fff;}
   .recbtn{
     margin-top:6px; border:none; background:var(--bg); color:var(--accent); font-family:'Cairo',sans-serif;
     font-size:10.5px; font-weight:800; padding:3px 8px; border-radius:8px; cursor:pointer;
@@ -494,7 +500,8 @@
     <span><span style="font-size:16px;vertical-align:middle;margin-inline-end:4px">👑</span>4+</span>
     <span><span class="dot" style="background:var(--neg1)"></span>ملاحظة -1</span>
     <span><span class="dot" style="background:var(--neg2)"></span>ملاحظة -2</span>
-    <span style="color:var(--muted)">اضغط الدائرة للدرجة، والزر الصغير − للملاحظة</span>
+    <span><span class="dot" style="background:#7a8197"></span>غائب (غ)</span>
+    <span style="color:var(--muted)">اضغط الدائرة لزيادة الدرجة، والزر الصغير − للتراجع خطوة (حتى −2 ثم يُصفَّر)، وضغطة مطوّلة على الدائرة = غياب</span>
   </div>
 
   <div id="bulkExtras" style="display:none;"></div>
@@ -551,6 +558,14 @@
   </div>
 </div>
 
+<div id="guardModal" class="modal" style="z-index:980;">
+  <div class="cell-box" style="max-width:380px;">
+    <h4 id="guardTitle"></h4>
+    <div class="sub2" id="guardText" style="line-height:1.7;"></div>
+    <div class="cell-actions" id="guardBtns" style="flex-direction:column;"></div>
+  </div>
+</div>
+
 <div id="extrasModal" class="modal">
   <div class="cell-box" style="max-width:360px;">
     <h4 id="exTitle"></h4>
@@ -583,6 +598,7 @@
       <button type="button" id="cellMinus" aria-label="إنقاص">−</button>
     </div>
     <div class="cell-actions">
+      <button type="button" id="cellAbsent">غائب</button>
       <button type="button" id="cellClear">مسح</button>
       <button type="button" id="cellCancel">إلغاء</button>
       <button type="button" id="cellSave" class="primary">تطبيق</button>
@@ -630,7 +646,12 @@
 
   function tickSession(){
     var left = sessionExpiry - Date.now();
-    if (left <= 0){ endSession('انتهت مدة الجلسة (45 دقيقة)، أدخل الرمز من جديد'); return; }
+    if (left <= 0){
+      endSession('انتهت مدة الجلسة (45 دقيقة). حُفظت درجاتك التلقائية إن وُجدت، أدخل الرمز من جديد');
+      return;
+    }
+    // قبل انتهاء الجلسة بدقيقة ونصف: نرسل ما لم يُرسل تلقائياً كي لا تضيع الدرجات
+    if (left <= 90000 && !autoSaving && ssGet('tg_scold') !== '1' && hasUnsent()) autoSaveBeforeExpiry();
     sessionInfo.textContent = 'تنتهي الجلسة بعد ' + Math.ceil(left / 60000) + ' د';
   }
 
@@ -639,7 +660,8 @@
     app.classList.add('visible');
     document.getElementById('scoldBox').style.display = scold ? 'block' : 'none';
     tickSession();
-    sessionTimer = setInterval(tickSession, 20000);
+    sessionTimer = setInterval(tickSession, 15000);
+    if (!scold) setTimeout(checkAutosaveNote, 500);
   }
 
   function startSession(token, ttlSec, scold){
@@ -697,15 +719,17 @@
   });
   // تسجيل الخروج فوري: ننهي الجلسة في الخادم (بلا انتظار) ثم نمسحها محلياً ونعيد شاشة الدخول.
   document.getElementById('logoutBtn').addEventListener('click', function(){
-    var tok = sessionToken;
-    try {
-      rawFetch(SCRIPT_URL, { method: 'POST', keepalive: true, headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'teacherLogout', token: tok }) }).catch(function(){});
-    } catch(err){}
-    ssClear();
-    sessionToken = '';
-    if (sessionTimer) clearInterval(sessionTimer);
-    location.reload();
+    guardNav(function(){
+      var tok = sessionToken;
+      try {
+        rawFetch(SCRIPT_URL, { method: 'POST', keepalive: true, headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ action: 'teacherLogout', token: tok }) }).catch(function(){});
+      } catch(err){}
+      ssClear();
+      sessionToken = '';
+      if (sessionTimer) clearInterval(sessionTimer);
+      location.reload();
+    });
   });
 
   // استئناف جلسة سارية (نفس التبويب فقط، وتنتهي بإغلاقه أو بعد 45 دقيقة من الدخول)
@@ -817,7 +841,10 @@
   // المستوى البصري (اللون) المقابل لقيمة الدرجة الفعلية:
   // أي قيمة >=4 تبقى بنفسجي (المستوى 4) والرقم الحقيقي يظهر داخل الدائرة،
   // وأي قيمة <=-2 تبقى بأحمر (المستوى -2).
+  // الغياب يُنقل للخادم كرقم -999 ويُكتب في الشيت «غ»
+  var ABSENT = -999;
   function tierOf(grade){
+    if (grade === ABSENT) return 'A';
     if (grade <= -2) return -2;
     if (grade === -1) return -1;
     if (grade <= 0) return 0;
@@ -828,15 +855,24 @@
   // نقرة الدائرة الرئيسية: دورة الدرجات الإيجابية 0→1→2→3→4→0.
   // أي قيمة خارج هذا المدى (سالبة، أو أعلى من 4 بسبب إضافة جماعية) تُعتبر نقطة بداية جديدة فتُصبح 1.
   function positiveTap(stu){
+    if (stu.grade === ABSENT){ flashLockHint('الطالب غائب — اضغط مطولاً على الدائرة لإلغاء الغياب'); return; }
+    gridDirty = true;
     if (stu.grade < 0 || stu.grade > 4) stu.grade = 1;
     else stu.grade = (stu.grade + 1) % 5;
   }
 
-  // نقرة الزر الصغير (−): دورة الملاحظات السالبة 0→-1→-2→0، مستقلة عن الدورة الإيجابية.
+  // زر (−) = تراجع خطوة خطوة: ...→3→2→1→0→-1→-2، وإذا كان عند -2 يُصفَّر (0). الغائب يُلغى غيابه.
   function negativeTap(stu){
-    if (stu.grade >= 0) stu.grade = -1;
-    else if (stu.grade === -1) stu.grade = -2;
+    gridDirty = true;
+    if (stu.grade === ABSENT) stu.grade = 0;
+    else if (stu.grade > -2) stu.grade -= 1;
     else stu.grade = 0;
+  }
+
+  // ضغطة مطوّلة على الدائرة: تسجيل غياب (وإلغاؤه إن كان غائباً)
+  function toggleAbsent(stu){
+    gridDirty = true;
+    stu.grade = (stu.grade === ABSENT) ? 0 : ABSENT;
   }
 
   function renderGrid(){
@@ -864,7 +900,8 @@
       negBtn.className = 'negbtn';
       negBtn.textContent = '−';
       negBtn.setAttribute('role', 'button');
-      negBtn.setAttribute('aria-label', 'تسجيل ملاحظة سالبة');
+      negBtn.setAttribute('aria-label', 'تراجع خطوة');
+      negBtn.title = 'تراجع خطوة (حتى −2 ثم تصفير)';
 
       var circ = document.createElement('div');
       circ.className = 'circle';
@@ -882,10 +919,37 @@
 
       card.addEventListener('click', function(e){
         if (e.target.closest('.negbtn') || e.target.closest('.morebtn')) return; // يُعالَج بشكل منفصل أدناه
+        if (card._lp){ card._lp = false; return; } // انتهت ضغطة مطوّلة (غياب)، لا نحسبها نقرة درجة
         if (locked){ flashLockHint('الدرجات مقفولة'); return; }
         positiveTap(stu);
         updateUI();
       });
+
+      // ضغطة مطوّلة (0.6 ثانية) على البطاقة (غير الاسم والأزرار الصغيرة) = تسجيل غياب / إلغاؤه
+      var lpTimer = null, lpX = 0, lpY = 0;
+      function lpCancel(){ if (lpTimer){ clearTimeout(lpTimer); lpTimer = null; } card.classList.remove('pressing'); }
+      card.addEventListener('pointerdown', function(e){
+        if (e.target.closest('.negbtn') || e.target.closest('.morebtn') || e.target.closest('.nm')) return;
+        card._lp = false;
+        lpX = e.clientX; lpY = e.clientY;
+        card.classList.add('pressing');
+        lpTimer = setTimeout(function(){
+          lpTimer = null;
+          card.classList.remove('pressing');
+          card._lp = true;
+          if (locked){ flashLockHint('الدرجات مقفولة'); return; }
+          toggleAbsent(stu);
+          updateUI();
+          try { if (navigator.vibrate) navigator.vibrate(30); } catch(err){}
+        }, 600);
+      });
+      card.addEventListener('pointermove', function(e){
+        if (lpTimer && (Math.abs(e.clientX - lpX) > 10 || Math.abs(e.clientY - lpY) > 10)) lpCancel();
+      });
+      card.addEventListener('pointerup', lpCancel);
+      card.addEventListener('pointercancel', lpCancel);
+      card.addEventListener('pointerleave', lpCancel);
+      card.addEventListener('contextmenu', function(e){ e.preventDefault(); });
       negBtn.addEventListener('click', function(e){
         e.stopPropagation();
         if (locked) return;
@@ -942,9 +1006,15 @@
     var p = 0, n = 0;
     (grades || []).forEach(function(g){
       g = parseInt(g, 10) || 0;
+      if (g === ABSENT) return;
       if (g > 0) p += g; else if (g < 0) n += -g;
     });
     return { pos: p, neg: n };
+  }
+  function absentCount(grades){
+    var c = 0;
+    (grades || []).forEach(function(g){ if (parseInt(g, 10) === ABSENT) c++; });
+    return c;
   }
   // ===== السلوك والواجبات: رموز في الشيت تُعرض وجوهاً =====
   var mode = 'part'; // part | hw | beh
@@ -1002,7 +1072,8 @@
   document.getElementById('lgT').innerHTML = BEH['ت'].face;
   // محتوى الدائرة/الشارة: الدرجة 4 فأكثر تاج ذهبي والرقم في شارة صغيرة، وغير ذلك رقم عادي.
   function setGradeContent(el, g){
-    if (g >= 4){ el.innerHTML = '<span class="crown">👑</span><span class="crownnum">' + g + '</span>'; }
+    if (g === ABSENT){ el.textContent = 'غ'; }
+    else if (g >= 4){ el.innerHTML = '<span class="crown">👑</span><span class="crownnum">' + g + '</span>'; }
     else { el.textContent = g !== 0 ? String(g) : ''; }
   }
   function tokArr(s){ return String(s || '').split(/\s+/).filter(Boolean); }
@@ -1070,7 +1141,8 @@
 
   function bulkAdd(n){
     if (!students.length || locked) return;
-    students.forEach(function(stu){ stu.grade = stu.grade + n; });
+    gridDirty = true;
+    students.forEach(function(stu){ if (stu.grade !== ABSENT) stu.grade = stu.grade + n; });
     renderGrid();
   }
 
@@ -1128,6 +1200,8 @@
         var m = extrasData.map[String(s.id)];
         return { id: s.id, name: s.name, hw: m.hw.slice(), bh: m.bh.slice() };
       });
+      loadedCtx = { classId: classId, week: week, day: '1', mode: mode };
+      gridDirty = false;
       renderExtras();
       setStatus('تم التحميل — ' + students.length + ' طالب', 'ok');
     }).catch(function(err){
@@ -1167,6 +1241,7 @@
       bb.innerHTML = t[1] + '<span style="font-size:12px;font-weight:700;">' + t[2] + '</span>';
       bb.addEventListener('click', function(){
         if (locked){ flashLockHint('الدرجات مقفولة'); return; }
+        gridDirty = true;
         students.forEach(function(s){ s[key].push(t[0]); });
         renderExtras();
       });
@@ -1176,6 +1251,7 @@
     bu.type = 'button'; bu.textContent = '↶ تراجع للجميع'; bu.title = 'حذف آخر رمز لكل الطلاب';
     bu.addEventListener('click', function(){
       if (locked){ flashLockHint('الدرجات مقفولة'); return; }
+      gridDirty = true;
       students.forEach(function(s){ s[key].pop(); });
       renderExtras();
     });
@@ -1197,12 +1273,12 @@
       types.forEach(function(t){
         var b = document.createElement('button');
         b.type = 'button'; b.className = 'xb'; b.innerHTML = t[1]; b.title = t[2];
-        b.addEventListener('click', function(){ if (locked) return; stu[key].push(t[0]); upd(); });
+        b.addEventListener('click', function(){ if (locked) return; gridDirty = true; stu[key].push(t[0]); upd(); });
         row.appendChild(b);
       });
       var undo = document.createElement('button');
       undo.type = 'button'; undo.className = 'xb'; undo.textContent = '↶'; undo.title = 'تراجع عن آخر رمز';
-      undo.addEventListener('click', function(){ if (locked) return; stu[key].pop(); upd(); });
+      undo.addEventListener('click', function(){ if (locked) return; gridDirty = true; stu[key].pop(); upd(); });
       row.appendChild(undo);
       var tots = document.createElement('div');
       tots.className = 'tots';
@@ -1213,32 +1289,185 @@
     });
   }
 
-  function sendExtras(){
-    if (!students.length) return;
-    var key = (mode === 'hw') ? 'hw' : 'bh';
-    var field = (mode === 'hw') ? 'homework' : 'behavior';
+  // ===== حماية من ضياع الدرجات: تتبّع ما لم يُرسل، وسؤال قبل الانتقال، وحفظ تلقائي قبل انتهاء الجلسة =====
+  var gridDirty = false;   // تغيّرت درجات الشاشة الحالية ولم تُرسل بعد
+  var loadedCtx = null;    // سياق ما هو معروض فعلاً: {classId, week, day, mode} (الإرسال يستخدمه لا القوائم)
+  var autoSaving = false;
+  var MODE_LABELS = { part: 'المشاركة', hw: 'الواجبات', beh: 'السلوك' };
+
+  function hasUnsent(){ return gridDirty || pendCount() > 0; }
+
+  function buildGridPayload(){
+    if (!loadedCtx || !students.length) return null;
+    var c = loadedCtx;
+    if (c.mode === 'part'){
+      return { action: 'saveParticipationGrid', classId: c.classId, week: c.week, day: c.day,
+               entries: students.map(function(s){ return { id: s.id, grade: s.grade }; }) };
+    }
+    var key = (c.mode === 'hw') ? 'hw' : 'bh';
+    var field = (c.mode === 'hw') ? 'homework' : 'behavior';
+    return { action: 'saveWeekExtras', classId: c.classId, week: c.week,
+             entries: students.map(function(s){ var e = { id: s.id }; e[field] = s[key].join(' '); return e; }) };
+  }
+
+  // يُرسل الشاشة الحالية. يعيد وعداً: true نجح، false فشل.
+  function sendCurrent(){
+    var payload = buildGridPayload();
+    if (!payload) return Promise.resolve(true);
+    var c = loadedCtx;
     sendBtn.disabled = true;
     sendBtn.textContent = 'جاري الإرسال...';
     setStatus('جاري إرسال البيانات...', '');
-    var classId = classSel.value, week = weekSel.value;
-    var payload = {
-      action: 'saveWeekExtras', classId: classId, week: week,
-      entries: students.map(function(s){ var e = { id: s.id }; e[field] = s[key].join(' '); return e; })
-    };
-    fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) })
+    return fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) })
       .then(parseServerReply)
       .then(function(res){
-        sendBtn.disabled = false; sendBtn.textContent = 'إرسال';
-        if (res && res.status === 'error'){ setStatus('خطأ أثناء الحفظ: ' + res.message, 'err'); return; }
+        sendBtn.disabled = false; sendBtn.textContent = (c.mode === 'part') ? 'إرسال الدرجات' : 'إرسال';
+        if (res && res.status === 'error'){ setStatus('خطأ أثناء الحفظ: ' + res.message, 'err'); return false; }
+        var d = (res && res.data) ? res.data : {};
+        gridDirty = false;
         setStatus('تم الحفظ بنجاح ✓ — الدرجات مقفولة', 'ok');
-        setTotals(res && res.data && res.data.totals); if (pendCount() === 0) ovData = null; refreshTots();
+        if (c.classId === classSel.value) setTotals(d.totals);
+        if (pendCount() === 0) ovData = null;
+        refreshTots();
         setLocked(true);
+        return true;
       })
       .catch(function(err){
-        sendBtn.disabled = false; sendBtn.textContent = 'إرسال';
+        sendBtn.disabled = false; sendBtn.textContent = (c.mode === 'part') ? 'إرسال الدرجات' : 'إرسال';
         setStatus('تعذّر الاتصال بالخادم، لم يتم الحفظ: ' + err.message, 'err');
+        return false;
       });
   }
+
+  function flushUnsent(){
+    var p = Promise.resolve(true);
+    if (gridDirty) p = p.then(function(){ return sendCurrent(); });
+    if (pendCount() > 0) p = p.then(function(ok){ return ok ? sendPending() : false; });
+    return p;
+  }
+
+  function discardAll(){
+    gridDirty = false;
+    pending = { classId: '', students: {} };
+    ovData = null;
+    renderPendBars();
+  }
+
+  // نافذة اختيار عامة: تعيد وعداً بمفتاح الزر المضغوط.
+  var guardModal = document.getElementById('guardModal');
+  function askChoice(title, text, buttons){
+    return new Promise(function(resolve){
+      document.getElementById('guardTitle').textContent = title;
+      document.getElementById('guardText').textContent = text;
+      var host = document.getElementById('guardBtns');
+      host.innerHTML = '';
+      buttons.forEach(function(b){
+        var btn = document.createElement('button');
+        btn.type = 'button'; btn.textContent = b.label;
+        if (b.primary) btn.className = 'primary';
+        btn.addEventListener('click', function(){ guardModal.classList.remove('open'); resolve(b.key); });
+        host.appendChild(btn);
+      });
+      guardModal.classList.add('open');
+    });
+  }
+
+  // نفّذ proceed إن لم يكن هناك ما لم يُرسل، وإلا اسأل: حفظ / عدم حفظ (مع تحذير ثانٍ) / إلغاء.
+  function guardNav(proceed, revert){
+    if (!hasUnsent()){ proceed(); return; }
+    askChoice('درجات لم تُرسل', 'سجّلت درجات لم تُرسل بعد. هل ترغب بحفظها قبل المتابعة؟', [
+      { key: 'save', label: 'نعم، احفظها', primary: true },
+      { key: 'discard', label: 'لا، لا تحفظ' },
+      { key: 'cancel', label: 'إلغاء' }
+    ]).then(function(a){
+      if (a === 'save'){
+        flushUnsent().then(function(ok){
+          if (ok) proceed(); else if (revert) revert();
+        });
+      } else if (a === 'discard'){
+        askChoice('تأكيد الحذف', 'تنبيه: ستُحذف الدرجات التي سجلتها ولن تُحفظ في الشيت. هل أنت متأكد؟', [
+          { key: 'yes', label: 'نعم، احذفها' },
+          { key: 'no', label: 'رجوع', primary: true }
+        ]).then(function(b){
+          if (b === 'yes'){ discardAll(); proceed(); } else if (revert) revert();
+        });
+      } else if (revert) revert();
+    });
+  }
+
+  // ملخص ما لم يُرسل (للتنبيه بعد الحفظ التلقائي)
+  function describeUnsent(){
+    var parts = [];
+    if (gridDirty && loadedCtx){
+      var opt = classSel.querySelector('option[value="' + loadedCtx.classId + '"]');
+      var s = (opt ? opt.textContent : loadedCtx.classId) + ' — ' + MODE_LABELS[loadedCtx.mode] + ' — الأسبوع ' + loadedCtx.week;
+      if (loadedCtx.mode === 'part') s += ' — ' + (DAY_LABELS_MAIN[parseInt(loadedCtx.day, 10) - 1] || ('اليوم ' + loadedCtx.day));
+      parts.push(s);
+    }
+    var pn = pendCount();
+    if (pn) parts.push(pn + ' تعديل من سجل الطالب/الجدول الشامل');
+    return parts;
+  }
+  var DAY_LABELS_MAIN = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس'];
+
+  // قبل انتهاء الجلسة: نرسل كل ما لم يُرسل، ونحفظ ملاحظة تُعرض عند الدخول التالي.
+  function autoSaveBeforeExpiry(){
+    autoSaving = true;
+    var summary = describeUnsent();
+    var ctx = (gridDirty && loadedCtx) ? { classId: loadedCtx.classId, week: loadedCtx.week, day: loadedCtx.day, mode: loadedCtx.mode } : null;
+    var draft = gridDirty ? buildGridPayload() : null;
+    flushUnsent().then(function(ok){
+      try {
+        if (ok) localStorage.setItem('tg_autosaved', JSON.stringify({ when: Date.now(), summary: summary, ctx: ctx }));
+        else if (draft) localStorage.setItem('tg_draft', JSON.stringify({ when: Date.now(), summary: summary, payload: draft, ctx: ctx }));
+      } catch(e){}
+    });
+  }
+
+  // عند الدخول: نخبر المعلم بما حُفظ تلقائياً (أو ما تعذّر إرساله) ونعرضه للمراجعة.
+  function reviewCtx(ctx){
+    if (!ctx) return;
+    classSel.value = ctx.classId; daySel.value = ctx.day; weekSel.value = ctx.week; modeSel.value = ctx.mode;
+    selPrev.classSel = classSel.value; selPrev.daySel = daySel.value; selPrev.weekSel = weekSel.value; selPrev.modeSel = modeSel.value;
+    showWeekRange();
+    applyMode();
+  }
+  function checkAutosaveNote(){
+    var note = null, draft = null;
+    try {
+      note = JSON.parse(localStorage.getItem('tg_autosaved') || 'null');
+      draft = JSON.parse(localStorage.getItem('tg_draft') || 'null');
+      localStorage.removeItem('tg_autosaved');
+    } catch(e){}
+    if (note){
+      askChoice('تم حفظ درجاتك تلقائياً',
+        'انتهت جلستك السابقة وكانت لديك بيانات لم تُرسل، فحفظناها تلقائياً: ' + (note.summary || []).join(' | ') + '. هل تريد مراجعتها الآن؟',
+        [{ key: 'review', label: 'مراجعتها الآن', primary: true }, { key: 'close', label: 'إغلاق' }]
+      ).then(function(a){ if (a === 'review') reviewCtx(note.ctx); });
+    } else if (draft && draft.payload){
+      askChoice('درجات لم تُرسل',
+        'انتهت جلستك السابقة وتعذّر إرسال بيانات سجّلتها: ' + (draft.summary || []).join(' | ') + '. هل ترسلها الآن؟',
+        [{ key: 'send', label: 'إرسالها الآن', primary: true }, { key: 'drop', label: 'تجاهلها' }]
+      ).then(function(a){
+        try { localStorage.removeItem('tg_draft'); } catch(e){}
+        if (a !== 'send') return;
+        fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(draft.payload) })
+          .then(parseServerReply).then(function(res){
+            if (res && res.status === 'error') throw new Error(res.message);
+            setStatus('أُرسلت البيانات المعلّقة ✓', 'ok');
+            reviewCtx(draft.ctx);
+          }).catch(function(err){
+            try { localStorage.setItem('tg_draft', JSON.stringify(draft)); } catch(e){}
+            setStatus('تعذّر إرسال البيانات المعلّقة: ' + err.message, 'err');
+          });
+      });
+    }
+  }
+
+  // تنبيه المتصفح عند محاولة إغلاق التبويب وفيه درجات لم تُرسل
+  window.addEventListener('beforeunload', function(e){
+    if (hasUnsent()){ e.preventDefault(); e.returnValue = ''; }
+  });
 
   // ===== نافذة الواجب والسلوك لطالب في أسبوع (من زر ⋯ أو من سجل الطالب) =====
   var exModal = document.getElementById('extrasModal');
@@ -1347,7 +1576,7 @@
 
   // ===== تبديل السجل الأساسي =====
   var modeSel = document.getElementById('modeSel');
-  modeSel.addEventListener('change', function(){
+  function applyMode(){
     mode = modeSel.value;
     document.getElementById('dayField').style.display = (mode === 'part') ? '' : 'none';
     document.getElementById('legendPart').style.display = (mode === 'part') ? '' : 'none';
@@ -1361,7 +1590,7 @@
     bulkBar.style.display = 'none';
     bulkExtras.style.display = 'none';
     loadGrid();
-  });
+  }
 
   function loadGrid(){
     if (mode !== 'part'){ loadExtrasMode(); return; }
@@ -1379,6 +1608,8 @@
         students = list.map(function(s){
           return { id: s.id, name: s.name, grade: parseInt(s.grade, 10) || 0 };
         });
+        loadedCtx = { classId: classId, week: week, day: day, mode: 'part' };
+        gridDirty = false;
         renderGrid();
         setStatus('تم التحميل — ' + students.length + ' طالب', 'ok');
       })
@@ -1388,49 +1619,23 @@
       });
   }
 
-  function sendGrid(){
-    if (mode !== 'part'){ sendExtras(); return; }
-    if (!students.length) return;
-    sendBtn.disabled = true;
-    sendBtn.textContent = 'جاري الإرسال...';
-    setStatus('جاري إرسال الدرجات...', '');
+  function sendGrid(){ sendCurrent(); }
 
-    var payload = {
-      action: 'saveParticipationGrid',
-      classId: classSel.value,
-      week: weekSel.value,
-      day: daySel.value,
-      entries: students.map(function(s){ return { id: s.id, grade: s.grade }; })
-    };
-
-    fetch(SCRIPT_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(payload)
-    })
-      .then(parseServerReply)
-      .then(function(res){
-        sendBtn.disabled = false;
-        sendBtn.textContent = 'إرسال الدرجات';
-        if (res && res.status === 'error'){
-          setStatus('خطأ أثناء الحفظ: ' + res.message, 'err');
-          return;
-        }
-        var d = (res && res.data) ? res.data : {};
-        setStatus('تم الحفظ بنجاح ✓ (' + (d.updated || students.length) + ' طالب) — الدرجات مقفولة', 'ok');
-        setLocked(true);
-        setTotals(d.totals); if (pendCount() === 0) ovData = null; refreshTots();
-      })
-      .catch(function(err){
-        sendBtn.disabled = false;
-        sendBtn.textContent = 'إرسال الدرجات';
-        setStatus('تعذّر الاتصال بالخادم، لم يتم الحفظ. حاول مرة أخرى: ' + err.message, 'err');
-        // نحافظ على الحالة المحلية (الدرجات المختارة) للسماح بإعادة المحاولة دون فقدان العمل.
-      });
-  }
-
-  loadBtn.addEventListener('click', loadGrid);
+  loadBtn.addEventListener('click', function(){ guardNav(loadGrid); });
   sendBtn.addEventListener('click', sendGrid);
+
+  // أي قائمة تغيّرت (فصل/أسبوع/يوم/سجل) والشاشة فيها درجات لم تُرسل: نسأل قبل الانتقال، وعند الإلغاء نُعيد القيمة السابقة.
+  var selPrev = { classSel: classSel.value, daySel: daySel.value, weekSel: weekSel.value, modeSel: modeSel.value };
+  function wireGuard(sel, key, apply, onRevert){
+    sel.addEventListener('change', function(){
+      guardNav(function(){ selPrev[key] = sel.value; if (apply) apply(); },
+               function(){ sel.value = selPrev[key]; if (onRevert) onRevert(); });
+    });
+  }
+  wireGuard(classSel, 'classSel');
+  wireGuard(daySel, 'daySel');
+  wireGuard(weekSel, 'weekSel', null, showWeekRange);
+  wireGuard(modeSel, 'modeSel', applyMode);
 
   // ===== Overview modal: جدول شامل بكل درجات الفصل لكل الأسابيع (عرض فقط) =====
   var overviewModal = document.getElementById('overviewModal');
@@ -1442,6 +1647,7 @@
   var DAY_LABELS = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس'];
 
   function tierClass(tier){
+    if (tier === 'A') return 'tabs';
     if (tier === 0) return '';
     if (tier > 0) return 't' + tier;
     return 'tn' + Math.abs(tier);
@@ -1521,7 +1727,8 @@
     var l2 = document.createElement('span'); l2.textContent = 'الملاحظات';
     var n = document.createElement('span'); n.className = 'tot neg'; n.textContent = t.neg;
     var hs = hwSum(allTokens(recordStu.homework)), bs = bhSum(allTokens(recordStu.behavior));
-    var l3 = document.createElement('span'); l3.textContent = 'واجبات ✓' + hs.pos + ' ✗' + hs.neg;
+    var ab = absentCount(recordStu.grades);
+    var l3 = document.createElement('span'); l3.textContent = 'واجبات ✓' + hs.pos + ' ✗' + hs.neg + (ab ? ' — غياب ' + ab : '');
     var l4 = document.createElement('span'); l4.textContent = 'سلوك 😊' + bs.pos + ' ☹' + bs.neg;
     var hint = document.createElement('span'); hint.textContent = '— اضغط أي خانة للتعديل';
     [l1, p, l2, n, l3, l4, hint].forEach(function(x){ recordSums.appendChild(x); });
@@ -1588,16 +1795,28 @@
     var cur = parseInt(o.grades[(week - 1) * days + (day - 1)], 10) || 0;
     document.getElementById('cellTitle').textContent = displayName(o.name);
     document.getElementById('cellSub').textContent = 'الأسبوع ' + week + ' — ' + (DAY_LABELS[day - 1] || ('اليوم ' + day));
-    cellInput.value = cur;
+    cellCtx.absent = (cur === ABSENT);
+    cellInput.value = cellCtx.absent ? '' : cur;
+    document.getElementById('cellAbsent').classList.toggle('primary', cellCtx.absent);
     cellStatus.textContent = ''; cellStatus.className = '';
     cellSave.disabled = false;
     cellModal.classList.add('open');
     cellInput.focus(); cellInput.select();
   }
-  function bump(n){ cellInput.value = (parseInt(cellInput.value, 10) || 0) + n; }
+  function setAbsentFlag(v){
+    if (!cellCtx) return;
+    cellCtx.absent = !!v;
+    document.getElementById('cellAbsent').classList.toggle('primary', cellCtx.absent);
+  }
+  function bump(n){ setAbsentFlag(false); cellInput.value = (parseInt(cellInput.value, 10) || 0) + n; }
   document.getElementById('cellPlus').addEventListener('click', function(){ bump(1); });
   document.getElementById('cellMinus').addEventListener('click', function(){ bump(-1); });
-  document.getElementById('cellClear').addEventListener('click', function(){ cellInput.value = 0; });
+  document.getElementById('cellClear').addEventListener('click', function(){ setAbsentFlag(false); cellInput.value = 0; });
+  document.getElementById('cellAbsent').addEventListener('click', function(){
+    setAbsentFlag(!(cellCtx && cellCtx.absent));
+    if (cellCtx && cellCtx.absent) cellInput.value = '';
+  });
+  cellInput.addEventListener('input', function(){ setAbsentFlag(false); });
   document.getElementById('cellCancel').addEventListener('click', function(){ cellModal.classList.remove('open'); });
   cellModal.addEventListener('click', function(e){ if (e.target === cellModal) cellModal.classList.remove('open'); });
   cellInput.addEventListener('keydown', function(e){ if (e.key === 'Enter') saveCell(); });
@@ -1607,7 +1826,7 @@
   function saveCell(){
     if (!cellCtx) return;
     var ctx = cellCtx;
-    var val = parseInt(cellInput.value, 10);
+    var val = ctx.absent ? ABSENT : parseInt(cellInput.value, 10);
     if (isNaN(val)) { cellStatus.textContent = 'أدخل رقماً صحيحاً'; cellStatus.className = 'err'; return; }
     markCell(ctx.stu, ctx.week, ctx.day, val);
     cellModal.classList.remove('open');
@@ -1665,7 +1884,7 @@
     }).catch(function(){});
   }
   function sendPending(){
-    if (pendSending || !pendCount()) return;
+    if (pendSending || !pendCount()) return Promise.resolve(true);
     var cid = pending.classId;
     var list = Object.keys(pending.students).map(function(k){
       var p = pending.students[k];
@@ -1673,7 +1892,7 @@
                extras: Object.keys(p.extras).map(function(w){ return p.extras[w]; }) };
     });
     pendSending = true; renderPendBars();
-    fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    return fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({ action: 'saveRecordsBatch', classId: cid, students: list }) })
       .then(parseServerReply)
       .then(function(res){
@@ -1708,10 +1927,12 @@
         renderPendBars();
         renderRecord(); rerenderOverviewIfOpen();
         setStatus('تم إرسال التعديلات ✓', 'ok');
+        return true;
       })
       .catch(function(err){
         pendSending = false; renderPendBars();
         setStatus('تعذّر إرسال التعديلات: ' + err.message, 'err');
+        return false;
       });
   }
   document.addEventListener('click', function(e){

@@ -79,6 +79,26 @@
     cursor:pointer; font-weight:700;
   }
 
+  /* قائمة الأسبوع: الاسم بالحجم المعتاد وتحته التاريخ الميلادي بخط أصغر */
+  .wk-pick{position:relative;}
+  .wk-btn{
+    width:100%; padding:7px 10px; border-radius:10px; border:1.5px solid var(--line);
+    background:var(--bg); color:var(--ink); font-family:'Cairo',sans-serif; text-align:start;
+    cursor:pointer; display:flex; flex-direction:column; line-height:1.25; min-height:44px;
+  }
+  .wk-main{font-weight:700; font-size:14px;}
+  .wk-sub{font-weight:600; font-size:10px; color:var(--muted);}
+  .wk-list{
+    display:none; position:absolute; z-index:60; top:calc(100% + 4px); inset-inline:0; min-width:170px;
+    max-height:320px; overflow:auto; background:var(--card); border:1.5px solid var(--line);
+    border-radius:12px; box-shadow:var(--shadow); padding:4px;
+  }
+  .wk-list.open{display:block;}
+  .wk-item{padding:6px 10px; border-radius:8px; cursor:pointer; display:flex; flex-direction:column; line-height:1.25;}
+  .wk-item:hover{background:var(--bg);}
+  .wk-item.sel{background:var(--accent); }
+  .wk-item.sel .wk-main{color:#fff;}
+  .wk-item.sel .wk-sub{color:rgba(255,255,255,.8);}
   #lockBtn{
     border:1px solid var(--line); background:var(--card); color:var(--ink);
     padding:8px 14px; border-radius:12px; font-family:'Cairo',sans-serif; font-size:12px;
@@ -418,7 +438,11 @@
     </div>
     <div class="field">
       <label>الأسبوع</label>
-      <select id="weekSel"></select>
+      <select id="weekSel" style="display:none;"></select>
+      <div class="wk-pick">
+        <button type="button" id="wkBtn" class="wk-btn"><span class="wk-main"></span><span class="wk-sub"></span></button>
+        <div id="wkList" class="wk-list"></div>
+      </div>
     </div>
     <div class="field" id="dayField">
       <label>اليوم</label>
@@ -694,14 +718,57 @@
   var classSel = document.getElementById('classSel');
   var weekSel = document.getElementById('weekSel');
   var daySel = document.getElementById('daySel');
+  // بداية الأسبوع الأول (أحد) بالتاريخ الميلادي: 30 أغسطس 2026. لكل أسبوع 5 أيام دراسة (الأحد–الخميس).
+  // إن اختلف تقويم الفصل (مثلاً أسبوع إجازة)، غيّر هذا التاريخ فقط. الشهر هنا يبدأ من 0 (7 = أغسطس).
+  var WEEK1_START = new Date(2026, 7, 30);
+  var MONTHS_AR = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+  function weekRangeText(w){
+    var s = new Date(WEEK1_START.getFullYear(), WEEK1_START.getMonth(), WEEK1_START.getDate() + (w - 1) * 7);
+    var e = new Date(s.getFullYear(), s.getMonth(), s.getDate() + 4);
+    var a = s.getDate() + ' ' + MONTHS_AR[s.getMonth()];
+    var b = e.getDate() + ' ' + MONTHS_AR[e.getMonth()];
+    return 'من ' + a + ' إلى ' + b + (e.getFullYear() !== s.getFullYear() ? ' ' + e.getFullYear() : '');
+  }
+  // الـ select الأصلي مخفي ويحمل القيمة (بقية الكود يقرأ weekSel.value)، والقائمة المرئية مخصّصة.
+  var wkBtn = document.getElementById('wkBtn');
+  var wkList = document.getElementById('wkList');
+  function rangeShort(w){ return weekRangeText(w).replace('من ', '').replace(' إلى ', ' – '); }
   (function populateWeeks(){
     for (var w = 1; w <= NUM_WEEKS; w++){
       var opt = document.createElement('option');
       opt.value = String(w);
       opt.textContent = 'الأسبوع ' + w;
       weekSel.appendChild(opt);
+
+      var item = document.createElement('div');
+      item.className = 'wk-item';
+      item.setAttribute('data-w', String(w));
+      item.innerHTML = '<span class="wk-main">الأسبوع ' + w + '</span><span class="wk-sub">' + rangeShort(w) + '</span>';
+      item.addEventListener('click', function(){
+        weekSel.value = this.getAttribute('data-w');
+        wkList.classList.remove('open');
+        weekSel.dispatchEvent(new Event('change'));
+      });
+      wkList.appendChild(item);
     }
   })();
+  function showWeekRange(){
+    var w = parseInt(weekSel.value, 10) || 1;
+    wkBtn.querySelector('.wk-main').textContent = 'الأسبوع ' + w;
+    wkBtn.querySelector('.wk-sub').textContent = rangeShort(w);
+    wkList.querySelectorAll('.wk-item').forEach(function(it){
+      it.classList.toggle('sel', it.getAttribute('data-w') === String(w));
+    });
+  }
+  wkBtn.addEventListener('click', function(e){
+    e.stopPropagation();
+    wkList.classList.toggle('open');
+    var sel = wkList.querySelector('.wk-item.sel');
+    if (wkList.classList.contains('open') && sel) sel.scrollIntoView({ block: 'nearest' });
+  });
+  document.addEventListener('click', function(){ wkList.classList.remove('open'); });
+  weekSel.addEventListener('change', showWeekRange);
+  showWeekRange();
   var loadBtn = document.getElementById('loadBtn');
   var sendBtn = document.getElementById('sendBtn');
   var sendBar = document.getElementById('sendBar');

@@ -191,6 +191,29 @@
   .stu[data-tier="-1"] .negbtn{background:var(--neg1); border-color:var(--neg1); color:#fff;}
   .stu[data-tier="-2"] .negbtn{background:var(--neg2); border-color:var(--neg2); color:#fff;}
 
+  .pend-bar{
+    display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:10px 14px;
+    border-top:1px solid var(--line); background:var(--card);
+  }
+  .pend-bar .pend-info{flex:1; font-size:12px; font-weight:700; color:var(--neg1); min-width:140px;}
+  .pend-bar button{
+    border:1.5px solid var(--line); background:var(--bg); color:var(--ink); padding:9px 18px; border-radius:10px;
+    font-family:'Cairo',sans-serif; font-weight:800; font-size:13px; cursor:pointer;
+  }
+  .pend-bar button.pend-send{background:var(--accent); border-color:var(--accent); color:#fff;}
+  #bulkExtras{
+    display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+    background:var(--card); border-radius:14px; box-shadow:var(--shadow);
+    padding:10px 12px; margin-bottom:14px;
+  }
+  #bulkExtras .lbl{font-size:12px; color:var(--muted); font-weight:700; margin-inline-end:2px;}
+  #bulkExtras button{
+    border:1.5px solid var(--line); background:var(--bg); color:var(--ink);
+    padding:6px 14px; border-radius:10px; font-family:'Cairo',sans-serif;
+    font-weight:800; font-size:13px; cursor:pointer; display:inline-flex; align-items:center; gap:6px;
+  }
+  #bulkExtras button:active{transform:scale(.95);}
+  body.locked #bulkExtras button{opacity:.45; cursor:not-allowed;}
   #bulkBar{
     display:flex; align-items:center; gap:8px; flex-wrap:wrap;
     background:var(--card); border-radius:14px; box-shadow:var(--shadow);
@@ -474,6 +497,7 @@
     <span style="color:var(--muted)">اضغط الدائرة للدرجة، والزر الصغير − للملاحظة</span>
   </div>
 
+  <div id="bulkExtras" style="display:none;"></div>
   <div id="bulkBar" style="display:none;">
     <span class="lbl">إضافة للجميع (تُضاف لأي درجة موجودة، لا تمسحها):</span>
     <button type="button" data-add="1">+1 للجميع</button>
@@ -482,6 +506,7 @@
   </div>
 
   <div id="status"></div>
+  <div class="pend-bar" style="display:none;border:1.5px solid var(--neg1);border-radius:14px;margin-bottom:12px;"></div>
   <div id="grid"></div>
   <div id="empty" style="display:none;">اختر الفصل والأسبوع واليوم ثم اضغط "تحميل"</div>
 
@@ -510,6 +535,7 @@
     <div id="overviewTableWrap">
       <table id="overviewTable"></table>
     </div>
+    <div class="pend-bar" style="display:none;"></div>
   </div>
 </div>
 
@@ -521,6 +547,7 @@
     </div>
     <div class="rec-sums" id="recordSums"></div>
     <div id="recordWrap"><table id="recordTable"></table></div>
+    <div class="pend-bar" style="display:none;"></div>
   </div>
 </div>
 
@@ -558,8 +585,9 @@
     <div class="cell-actions">
       <button type="button" id="cellClear">مسح</button>
       <button type="button" id="cellCancel">إلغاء</button>
-      <button type="button" id="cellSave" class="primary">حفظ</button>
+      <button type="button" id="cellSave" class="primary">تطبيق</button>
     </div>
+    <div style="font-size:11px;color:var(--muted);margin-top:8px;">لا يُحفظ في الشيت إلا بزر «إرسال» أسفل السجل</div>
     <div id="cellStatus"></div>
   </div>
 </div>
@@ -773,6 +801,7 @@
   var sendBtn = document.getElementById('sendBtn');
   var sendBar = document.getElementById('sendBar');
   var bulkBar = document.getElementById('bulkBar');
+  var bulkExtras = document.getElementById('bulkExtras');
   var gridEl = document.getElementById('grid');
   var emptyEl = document.getElementById('empty');
   var statusEl = document.getElementById('status');
@@ -819,11 +848,13 @@
       emptyEl.textContent = 'لا يوجد طلاب في هذا الفصل';
       sendBar.style.display = 'none';
       bulkBar.style.display = 'none';
+      bulkExtras.style.display = 'none';
       return;
     }
     emptyEl.style.display = 'none';
     sendBar.style.display = 'flex';
     bulkBar.style.display = 'flex';
+    bulkExtras.style.display = 'none';
     students.forEach(function(stu, idx){
       var card = document.createElement('div');
       card.className = 'stu';
@@ -1080,7 +1111,7 @@
       });
       extrasData = { key: classId + '|' + week, map: map };
       setTotals(tmap);
-      if (ovClassId !== classId) ovData = null;
+      if (ovClassId !== classId){ ovData = null; pending = { classId: '', students: {} }; renderPendBars(); }
       return list;
     });
   }
@@ -1113,6 +1144,7 @@
       emptyEl.textContent = 'لا يوجد طلاب في هذا الفصل';
       sendBar.style.display = 'none';
       bulkBar.style.display = 'none';
+      bulkExtras.style.display = 'none';
       return;
     }
     emptyEl.style.display = 'none';
@@ -1122,6 +1154,32 @@
     var types = (mode === 'hw')
       ? [['✓', '✓', 'حلّ الواجب'], ['✗', '✗', 'لم يحلّ']]
       : BEH_ORDER.map(function(k){ return [k, BEH[k].face, BEH[k].label]; });
+
+    // شريط «للجميع»: رمز واحد لكل الطلاب بضغطة، و↶ يتراجع عن آخر رمز للجميع
+    bulkExtras.style.display = 'flex';
+    bulkExtras.innerHTML = '';
+    var bl = document.createElement('span');
+    bl.className = 'lbl'; bl.textContent = 'للجميع (يُضاف لرموز كل طالب):';
+    bulkExtras.appendChild(bl);
+    types.forEach(function(t){
+      var bb = document.createElement('button');
+      bb.type = 'button'; bb.title = t[2] + ' للجميع';
+      bb.innerHTML = t[1] + '<span style="font-size:12px;font-weight:700;">' + t[2] + '</span>';
+      bb.addEventListener('click', function(){
+        if (locked){ flashLockHint('الدرجات مقفولة'); return; }
+        students.forEach(function(s){ s[key].push(t[0]); });
+        renderExtras();
+      });
+      bulkExtras.appendChild(bb);
+    });
+    var bu = document.createElement('button');
+    bu.type = 'button'; bu.textContent = '↶ تراجع للجميع'; bu.title = 'حذف آخر رمز لكل الطلاب';
+    bu.addEventListener('click', function(){
+      if (locked){ flashLockHint('الدرجات مقفولة'); return; }
+      students.forEach(function(s){ s[key].pop(); });
+      renderExtras();
+    });
+    bulkExtras.appendChild(bu);
     students.forEach(function(stu){
       var card = document.createElement('div');
       card.className = 'stu ex';
@@ -1173,7 +1231,7 @@
         sendBtn.disabled = false; sendBtn.textContent = 'إرسال';
         if (res && res.status === 'error'){ setStatus('خطأ أثناء الحفظ: ' + res.message, 'err'); return; }
         setStatus('تم الحفظ بنجاح ✓ — الدرجات مقفولة', 'ok');
-        setTotals(res && res.data && res.data.totals); ovData = null; refreshTots();
+        setTotals(res && res.data && res.data.totals); if (pendCount() === 0) ovData = null; refreshTots();
         setLocked(true);
       })
       .catch(function(err){
@@ -1213,18 +1271,25 @@
   exMakeBtns(exBhBtns, 'bh', BEH_ORDER.map(function(k){ return [k, BEH[k].face, BEH[k].label]; }));
 
   // stu: كائن فيه id و name. إن لم تُحمّل بيانات الأسبوع بعد، لا نفتح النافذة كي لا نكتب فوق بيانات موجودة.
-  function openExtrasModal(stu, week, classId){
+  // fromRecord=true: يُطبَّق محلياً ضمن «التعديلات غير المُرسلة» ويُرسل لاحقاً بزر واحد. وإلا يُحفظ مباشرة.
+  function openExtrasModal(stu, week, classId, fromRecord){
     var cur = null;
-    if (extrasData.key === classId + '|' + week) cur = extrasData.map[String(stu.id)];
+    if (fromRecord && ovData && ovClassId === classId){
+      var o0 = findOvStu(stu);
+      if (o0) cur = { hw: tokArr((o0.homework || [])[week - 1]), bh: tokArr((o0.behavior || [])[week - 1]) };
+    }
+    if (!cur && extrasData.key === classId + '|' + week) cur = extrasData.map[String(stu.id)];
     if (!cur && ovData && ovClassId === classId){
       var o = findOvStu(stu);
       if (o) cur = { hw: tokArr((o.homework || [])[week - 1]), bh: tokArr((o.behavior || [])[week - 1]) };
     }
     if (!cur){ setStatus('انتظر لحظة حتى تُحمَّل بيانات الأسبوع ثم أعد المحاولة', 'err'); return; }
-    exCtx = { id: stu.id, name: stu.name, week: week, classId: classId, hw: cur.hw.slice(), bh: cur.bh.slice() };
+    exCtx = { id: stu.id, name: stu.name, week: week, classId: classId, hw: cur.hw.slice(), bh: cur.bh.slice(), fromRecord: !!fromRecord };
     document.getElementById('exTitle').textContent = displayName(stu.name);
     document.getElementById('exSub').textContent = 'الأسبوع ' + week;
-    exStatus.textContent = ''; exStatus.className = '';
+    exStatus.textContent = fromRecord ? 'لا يُحفظ في الشيت إلا بزر «إرسال» أسفل السجل' : ''; exStatus.className = '';
+    exStatus.style.color = '';
+    exSave.textContent = fromRecord ? 'تطبيق' : 'حفظ';
     exSave.disabled = false;
     exRender();
     exModal.classList.add('open');
@@ -1234,6 +1299,13 @@
   exSave.addEventListener('click', function(){
     if (!exCtx) return;
     var ctx = exCtx;
+    if (ctx.fromRecord){
+      markExtras(findOvStu({ id: ctx.id, name: ctx.name }), ctx.week, ctx.bh.join(' '), ctx.hw.join(' '));
+      exModal.classList.remove('open');
+      renderRecord();
+      rerenderOverviewIfOpen();
+      return;
+    }
     exSave.disabled = true;
     exStatus.textContent = 'جاري الحفظ...'; exStatus.style.color = '';
     var payload = {
@@ -1287,6 +1359,7 @@
     emptyEl.style.display = 'block';
     sendBar.style.display = 'none';
     bulkBar.style.display = 'none';
+    bulkExtras.style.display = 'none';
     loadGrid();
   });
 
@@ -1346,7 +1419,7 @@
         var d = (res && res.data) ? res.data : {};
         setStatus('تم الحفظ بنجاح ✓ (' + (d.updated || students.length) + ' طالب) — الدرجات مقفولة', 'ok');
         setLocked(true);
-        setTotals(d.totals); ovData = null; refreshTots();
+        setTotals(d.totals); if (pendCount() === 0) ovData = null; refreshTots();
       })
       .catch(function(err){
         sendBtn.disabled = false;
@@ -1386,6 +1459,13 @@
   }
 
   function loadOverview(classId){
+    // إن وُجدت تعديلات غير مُرسلة نعرض البيانات الحالية (بتعديلاتها) ولا نعيد التحميل فنفقدها
+    if (pendCount() > 0 && ovData && ovClassId === classId){
+      renderOverviewTable(ovData);
+      overviewStatus.textContent = 'عدد الطلاب: ' + (ovData.students ? ovData.students.length : 0) + ' — توجد تعديلات غير مُرسلة';
+      overviewStatus.className = '';
+      return;
+    }
     overviewTable.innerHTML = '';
     overviewStatus.textContent = 'جاري التحميل...';
     overviewStatus.className = '';
@@ -1485,7 +1565,7 @@
   recordTable.addEventListener('click', function(e){
     var ec = e.target.closest('td.ec');
     if (ec && recordStu){
-      openExtrasModal(recordStu, parseInt(ec.getAttribute('data-w'), 10), ovClassId);
+      openExtrasModal(recordStu, parseInt(ec.getAttribute('data-w'), 10), ovClassId, true);
       return;
     }
     var td = e.target.closest('td.rc');
@@ -1523,40 +1603,123 @@
   cellInput.addEventListener('keydown', function(e){ if (e.key === 'Enter') saveCell(); });
   cellSave.addEventListener('click', saveCell);
 
-  // نحمّل شبكة اليوم من الخادم، نعدّل الطالب المقصود فقط، ثم نحفظ الشبكة كاملة
-  // (نفس صيغة الحفظ المعتمدة) كي لا نمسّ بقية الطلاب.
+  // تطبيق محلي فقط: لا اتصال بالخادم هنا. التعديل يدخل «التعديلات غير المُرسلة» ويُرسل كله بزر «إرسال».
   function saveCell(){
     if (!cellCtx) return;
     var ctx = cellCtx;
     var val = parseInt(cellInput.value, 10);
     if (isNaN(val)) { cellStatus.textContent = 'أدخل رقماً صحيحاً'; cellStatus.className = 'err'; return; }
-    cellSave.disabled = true;
-    cellStatus.textContent = 'جاري الحفظ...'; cellStatus.className = '';
+    markCell(ctx.stu, ctx.week, ctx.day, val);
+    cellModal.classList.remove('open');
+    renderRecord();
+    rerenderOverviewIfOpen();
+  }
 
-    // طلب واحد مباشر لخلية واحدة، بدل قراءة شبكة اليوم كاملة ثم كتابتها.
-    fetch(SCRIPT_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action: 'saveParticipationCell', classId: ctx.classId, week: String(ctx.week), day: String(ctx.day), id: ctx.stu.id, grade: val })
-    }).then(parseServerReply).then(function(res){
-      if (res && res.status === 'error') throw new Error(res.message);
-      if (ctx.classId === classSel.value) setTotals(res && res.data && res.data.totals);
-      var days = ovData.days || 5;
-      ctx.stu.grades[(ctx.week - 1) * days + (ctx.day - 1)] = val;
-      cellModal.classList.remove('open');
-      renderRecord();
-      rerenderOverviewIfOpen();
-      refreshTots();
-      // إن كانت الشاشة اليومية تعرض نفس اليوم، نحدّث قيمة هذا الطالب فيها
-      if (mode === 'part' && ctx.classId === classSel.value && String(ctx.week) === weekSel.value && String(ctx.day) === daySel.value){
-        students.forEach(function(s){ if (sameStu(s, ctx.stu)) s.grade = val; });
-        renderGrid();
-      }
-    }).catch(function(err){
-      cellSave.disabled = false;
-      cellStatus.textContent = 'تعذّر الحفظ: ' + err.message; cellStatus.className = 'err';
+  // ===== التعديلات غير المُرسلة (سجل الطالب والجدول الشامل): تُجمع ثم تُرسل دفعة واحدة =====
+  var pending = { classId: '', students: {} };
+  function pendFor(o){
+    pending.classId = ovClassId;
+    var k = String(o.id);
+    if (!pending.students[k]) pending.students[k] = { id: o.id, name: o.name, cells: {}, extras: {} };
+    return pending.students[k];
+  }
+  function pendCount(){
+    var n = 0;
+    Object.keys(pending.students).forEach(function(k){
+      n += Object.keys(pending.students[k].cells).length + Object.keys(pending.students[k].extras).length;
+    });
+    return n;
+  }
+  function markCell(o, week, day, val){
+    var days = ovData.days || 5;
+    o.grades[(week - 1) * days + (day - 1)] = val;
+    pendFor(o).cells[week + '-' + day] = { week: week, day: day, grade: val };
+    renderPendBars();
+  }
+  function markExtras(o, week, bhStr, hwStr){
+    if (!o) return;
+    o.behavior = o.behavior || []; o.homework = o.homework || [];
+    o.behavior[week - 1] = bhStr; o.homework[week - 1] = hwStr;
+    pendFor(o).extras[week] = { week: week, behavior: bhStr, homework: hwStr };
+    renderPendBars();
+  }
+  var pendSending = false;
+  function renderPendBars(){
+    var n = pendCount();
+    document.querySelectorAll('.pend-bar').forEach(function(bar){
+      if (!n){ bar.style.display = 'none'; bar.innerHTML = ''; return; }
+      bar.style.display = 'flex';
+      bar.innerHTML = '<span class="pend-info">' + n + ' تعديل غير مُرسل</span>'
+        + '<button type="button" class="pend-cancel">تجاهل</button>'
+        + '<button type="button" class="pend-send">' + (pendSending ? 'جاري الإرسال...' : 'إرسال التعديلات') + '</button>';
     });
   }
+  function discardPending(){
+    pending = { classId: '', students: {} };
+    renderPendBars();
+    var cid = ovClassId;
+    if (cid) fetchOverview(cid).then(function(){
+      var o = recordStu ? findOvStu(recordStu) : null;
+      if (o) recordStu = o;
+      renderRecord(); rerenderOverviewIfOpen();
+    }).catch(function(){});
+  }
+  function sendPending(){
+    if (pendSending || !pendCount()) return;
+    var cid = pending.classId;
+    var list = Object.keys(pending.students).map(function(k){
+      var p = pending.students[k];
+      return { id: p.id, cells: Object.keys(p.cells).map(function(c){ return p.cells[c]; }),
+               extras: Object.keys(p.extras).map(function(w){ return p.extras[w]; }) };
+    });
+    pendSending = true; renderPendBars();
+    fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'saveRecordsBatch', classId: cid, students: list }) })
+      .then(parseServerReply)
+      .then(function(res){
+        if (res && res.status === 'error') throw new Error(res.message);
+        var snapshot = pending;
+        pending = { classId: '', students: {} };
+        pendSending = false;
+        if (cid === classSel.value){
+          setTotals(res && res.data && res.data.totals);
+          // نحدّث الشاشة الرئيسية في مكانها إن كانت تعرض نفس الأسبوع/اليوم
+          Object.keys(snapshot.students).forEach(function(k){
+            var p = snapshot.students[k];
+            Object.keys(p.cells).forEach(function(c){
+              var cell = p.cells[c];
+              if (mode === 'part' && String(cell.week) === weekSel.value && String(cell.day) === daySel.value){
+                students.forEach(function(s){ if (String(s.id) === String(p.id)) s.grade = cell.grade; });
+              }
+            });
+            Object.keys(p.extras).forEach(function(w){
+              var x = p.extras[w];
+              if (extrasData.key === cid + '|' + x.week){
+                extrasData.map[String(p.id)] = { hw: tokArr(x.homework), bh: tokArr(x.behavior), name: p.name };
+              }
+              if (mode !== 'part' && String(x.week) === weekSel.value){
+                students.forEach(function(s){ if (String(s.id) === String(p.id)){ s.hw = tokArr(x.homework); s.bh = tokArr(x.behavior); } });
+              }
+            });
+          });
+          if (students.length) renderGrid();
+          refreshTots();
+        }
+        renderPendBars();
+        renderRecord(); rerenderOverviewIfOpen();
+        setStatus('تم إرسال التعديلات ✓', 'ok');
+      })
+      .catch(function(err){
+        pendSending = false; renderPendBars();
+        setStatus('تعذّر إرسال التعديلات: ' + err.message, 'err');
+      });
+  }
+  document.addEventListener('click', function(e){
+    if (e.target.closest('.pend-send')) sendPending();
+    else if (e.target.closest('.pend-cancel')){
+      if (confirm('تجاهل كل التعديلات غير المُرسلة؟')) discardPending();
+    }
+  });
 
   function renderOverviewTable(data){
     var weeks = data.weeks || NUM_WEEKS;

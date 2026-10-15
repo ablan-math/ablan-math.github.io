@@ -99,6 +99,25 @@
   .wk-item.sel{background:var(--accent); }
   .wk-item.sel .wk-main{color:#fff;}
   .wk-item.sel .wk-sub{color:rgba(255,255,255,.8);}
+  /* سجل الاختبار (إدخال يدوي) */
+  #grid.examlist{display:flex; flex-direction:column; gap:6px; max-width:560px;}
+  .exrow{display:flex; align-items:center; gap:10px; background:var(--card); border-radius:12px; box-shadow:var(--shadow); padding:8px 14px;}
+  .exrow .nm2{flex:1; font-size:14px; font-weight:700; cursor:pointer; text-decoration:underline dotted; text-underline-offset:3px;}
+  .exrow input{
+    width:96px; padding:9px 10px; text-align:center; font-size:18px; font-weight:800; border-radius:10px;
+    border:2px solid var(--line); background:var(--bg); color:var(--ink); font-family:'Cairo',sans-serif;
+  }
+  .exrow input:focus{border-color:var(--accent); outline:none;}
+  .exrow input.bad{border-color:var(--neg2); background:#fdecee;}
+  .exrow .mx{font-size:12px; color:var(--muted); font-weight:700; min-width:28px;}
+  body.locked .exrow input{pointer-events:none; opacity:.5;}
+  /* سجل المنصة */
+  .stu.pl{text-align:center;}
+  .pl-ring{position:relative; width:68px; height:68px; margin:8px auto 4px;}
+  .pl-num{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:14px;}
+  .pl-lg{display:flex; flex-direction:column; gap:2px; font-size:11px; font-weight:700; margin-top:6px; text-align:start;}
+  .pl-lg i{display:inline-block; width:9px; height:9px; border-radius:50%; margin-inline-end:5px;}
+  .pl-fz{font-size:10px; color:var(--muted); font-weight:700; margin-top:6px; min-height:12px;}
   #settingsBtn{
     border:1px solid var(--line); background:var(--card); color:var(--ink);
     padding:8px 14px; border-radius:12px; font-family:'Cairo',sans-serif; font-size:12px;
@@ -479,6 +498,8 @@
         <option value="part">المشاركة</option>
         <option value="hw">الواجبات</option>
         <option value="beh">السلوك</option>
+        <option value="plat">المنصة</option>
+        <option value="exam">الاختبار</option>
       </select>
     </div>
     <div class="field">
@@ -498,6 +519,14 @@
         <div id="wkList" class="wk-list"></div>
       </div>
     </div>
+    <div class="field" id="periodField" style="display:none;">
+      <label>الفترة</label>
+      <select id="periodSel">
+        <option value="1">الفترة 1</option>
+        <option value="2">الفترة 2</option>
+        <option value="3">الفترة 3</option>
+      </select>
+    </div>
     <div class="field" id="dayField">
       <label>اليوم</label>
       <select id="daySel">
@@ -516,6 +545,16 @@
     <span>الواجبات: ✓ حلّ، ✗ لم يحلّ</span>
     <span>السلوك: 😊 جيد (+1)، 😴 نوم أو شرود (−1)، <span id="lgZ"></span> تأخر في الدخول أو إزعاج (−2)، <span id="lgT"></span> سلوك خطر أو غير محترم أو ألفاظ بذيئة (−3)</span>
     <span>اضغط الرمز لإضافته، و↶ للتراجع، ثم «إرسال»</span>
+  </div>
+  <div class="legend" id="legendExam" style="display:none;">
+    <span>اكتب درجة الاختبار لكل طالب (تقبل الكسور مثل 17.5)، واترك الخانة فارغة لمن لم يختبر.</span>
+    <span style="color:var(--muted)">اضغط Enter للانتقال للطالب التالي، ثم «إرسال» في الأسفل. تُحفظ في عمود «اختبار الفترة» في ورقة الطلاب.</span>
+  </div>
+  <div class="legend" id="legendPlat" style="display:none;">
+    <span><span class="dot" style="background:#22c55e"></span>إتقان: ما حصل عليه من الممكن</span>
+    <span><span class="dot" style="background:#ef4444"></span>تحتاج تحسين: ما فقده في المحلول</span>
+    <span><span class="dot" style="background:#a5b4fc"></span>بانتظارك: غير المحلول</span>
+    <span style="color:var(--muted)">النسبة من الدروس والألعاب المفتوحة فقط (الدرس 10، واللعبة 5) — للعرض فقط</span>
   </div>
   <div class="legend" id="legendPart">
     <span><span class="dot" style="background:var(--gray)"></span>بلا درجة</span>
@@ -731,22 +770,87 @@
   function ssSet(k, v){ try { sessionStorage.setItem(k, v); } catch(e){} }
   function ssClear(){ try { ['tg_tok', 'tg_exp', 'tg_scold', 'tg_msg'].forEach(function(k){ sessionStorage.removeItem(k); }); } catch(e){} }
 
+  // ===== القفل التلقائي =====
+  // يُقفل بعد 15 دقيقة بلا استخدام حقيقي. الاستخدام الحقيقي = 5 لمسات/ضغطات أو أكثر خلال دقيقة واحدة،
+  // فاللمسة العابرة (حشرة على الشاشة مثلاً) لا تجدّد الوقت.
+  // القفل يغطي الصفحة فقط ولا يمسحها: بعد إدخال الرمز تعود لنفس المكان بالضبط.
+  var IDLE_MS = 15 * 60000;
+  var REAL_TOUCHES = 5;
+  var TOUCH_WINDOW_MS = 60000;
+  var PING_EVERY_MS = 3 * 60000;   // كم مرة نخبر الخادم أن الجلسة ما زالت مستخدمة
+  var touchTimes = [];
+  var lastPing = 0;
+  var locked = false;              // الصفحة مقفلة وتحت القفل ما كان المعلم يعمل عليه
+  var lockedScrollY = 0;
+  var skipUnloadGuard = false;
+
+  function renewIdle(){
+    sessionExpiry = Date.now() + IDLE_MS;
+    ssSet('tg_exp', String(sessionExpiry));
+  }
+
+  function noteTouch(){
+    if (!sessionToken || locked) return;
+    var now = Date.now();
+    touchTimes.push(now);
+    while (touchTimes.length && now - touchTimes[0] > TOUCH_WINDOW_MS) touchTimes.shift();
+    if (touchTimes.length < REAL_TOUCHES) return;
+    renewIdle();
+    if (now - lastPing > PING_EVERY_MS){ lastPing = now; pingServer(); }
+  }
+  ['pointerdown', 'keydown', 'wheel'].forEach(function(ev){
+    document.addEventListener(ev, noteTouch, { capture: true, passive: true });
+  });
+
+  // يمدّد جلسة الخادم (لا يضر إن كان السكريبت قديماً لا يعرف هذا الإجراء)
+  function pingServer(){
+    rawFetch(SCRIPT_URL, {
+      method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'teacherPing', token: sessionToken })
+    }).then(function(r){ return r.text(); }).then(function(t){
+      var j; try { j = JSON.parse(t); } catch(e){ return; }
+      if (j && j.status === 'error' && j.message === 'SESSION_EXPIRED') endSession('انتهت الجلسة، أدخل الرمز للعودة إلى مكانك');
+    }).catch(function(){});
+  }
+
+  // القفل: نغطي الصفحة بشاشة الرمز دون إعادة تحميلها، فيبقى كل شيء كما هو تحتها.
   function endSession(msg){
+    if (locked) return;
+    locked = true;
+    savePosition();
+    if (sessionTimer){ clearInterval(sessionTimer); sessionTimer = null; }
+    var tok = sessionToken;
+    sessionToken = '';
     ssClear();
-    if (msg) ssSet('tg_msg', msg);
-    location.reload();
+    try {
+      rawFetch(SCRIPT_URL, { method: 'POST', keepalive: true, headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'teacherLogout', token: tok }) }).catch(function(){});
+    } catch(err){}
+    lockedScrollY = window.scrollY;
+    app.classList.remove('visible');
+    gate.classList.remove('hidden');
+    hiddenPressed = false;
+    pinDots.textContent = '';
+    pinInput.value = '';
+    gateErr.textContent = msg || '';
   }
 
   function tickSession(){
     var left = sessionExpiry - Date.now();
     if (left <= 0){
-      endSession('انتهت مدة الجلسة (45 دقيقة). حُفظت درجاتك التلقائية إن وُجدت، أدخل الرمز من جديد');
+      endSession('قُفلت الصفحة بعد 15 دقيقة بلا استخدام. أدخل الرمز للعودة إلى نفس المكان');
       return;
     }
-    // قبل انتهاء الجلسة بدقيقة ونصف: نرسل ما لم يُرسل تلقائياً كي لا تضيع الدرجات
+    // قبل القفل بدقيقة ونصف: نرسل ما لم يُرسل تلقائياً كي لا تضيع الدرجات
     if (left <= 90000 && !autoSaving && ssGet('tg_scold') !== '1' && hasUnsent()) autoSaveBeforeExpiry();
-    sessionInfo.textContent = 'تنتهي الجلسة بعد ' + Math.ceil(left / 60000) + ' د';
+    savePosition();
+    sessionInfo.textContent = 'يُقفل بعد ' + Math.ceil(left / 60000) + ' د بلا استخدام';
   }
+  document.addEventListener('visibilitychange', function(){
+    if (!sessionToken || locked) return;
+    if (document.visibilityState === 'visible') tickSession();
+    else savePosition();
+  });
 
   function showApp(scold){
     gate.classList.add('hidden');
@@ -754,16 +858,76 @@
     document.getElementById('scoldBox').style.display = scold ? 'block' : 'none';
     tickSession();
     sessionTimer = setInterval(tickSession, 15000);
-    if (!scold) setTimeout(checkAutosaveNote, 500);
+    if (!scold){
+      setTimeout(restorePosition, 50);
+      setTimeout(checkAutosaveNote, 500);
+    }
     setTimeout(function(){ loadGradeSettings().catch(function(){}); }, 300);
   }
 
   function startSession(token, ttlSec, scold){
     sessionToken = token;
-    sessionExpiry = Date.now() + ttlSec * 1000;
-    ssSet('tg_tok', token); ssSet('tg_exp', String(sessionExpiry)); ssSet('tg_scold', scold ? '1' : '0');
+    renewIdle();
+    ssSet('tg_tok', token); ssSet('tg_scold', scold ? '1' : '0');
+    touchTimes = [];
+    lastPing = Date.now();
+    if (locked && scold){
+      // دخول وهمي فوق صفحة مقفلة: لا نكشف ما تحت القفل، نبدأ صفحة جديدة
+      skipUnloadGuard = true;
+      location.reload();
+      return;
+    }
+    if (locked){
+      // فتح القفل: نرجع لنفس المكان دون أي تحميل
+      locked = false;
+      autoSaving = false;
+      gate.classList.add('hidden');
+      app.classList.add('visible');
+      window.scrollTo(0, lockedScrollY);
+      tickSession();
+      sessionTimer = setInterval(tickSession, 15000);
+      setTimeout(checkAutosaveNote, 300);
+      return;
+    }
     showApp(scold);
   }
+
+  // ===== حفظ المكان: لو أُغلق التبويب أو حُدّثت الصفحة، نرجع لنفس الفصل/الأسبوع/اليوم/السجل وموضع التمرير =====
+  var POS_MAX_AGE_MS = 12 * 3600000;
+  var posReady = false; // لا نحفظ قبل استرجاع المكان السابق (ولا أبداً في الجلسة الوهمية)
+  function savePosition(){
+    try {
+      if (!posReady) return;
+      localStorage.setItem('tg_pos', JSON.stringify({
+        when: Date.now(), classId: classSel.value, week: weekSel.value, day: daySel.value, mode: modeSel.value,
+        loaded: students.length > 0,
+        overview: overviewModal.classList.contains('open'),
+        y: locked ? lockedScrollY : window.scrollY
+      }));
+    } catch(e){}
+  }
+  function restorePosition(){
+    var p = null;
+    try { p = JSON.parse(localStorage.getItem('tg_pos') || 'null'); } catch(e){}
+    if (!p || !p.when || Date.now() - p.when > POS_MAX_AGE_MS){ posReady = true; return; }
+    function setIf(sel, v){ if (v != null && sel.querySelector('option[value="' + v + '"]')) sel.value = v; }
+    setIf(classSel, p.classId); setIf(weekSel, p.week); setIf(daySel, p.day); setIf(modeSel, p.mode);
+    selPrev.classSel = classSel.value; selPrev.daySel = daySel.value; selPrev.weekSel = weekSel.value; selPrev.modeSel = modeSel.value;
+    showWeekRange();
+    if (!p.loaded){ posReady = true; return; }
+    applyMode(); // يحمّل السجل تلقائياً
+    var tries = 0;
+    var waitLoad = setInterval(function(){
+      tries++;
+      if ((students.length && !loadBtn.disabled) || tries > 40){
+        clearInterval(waitLoad);
+        if (p.y) window.scrollTo(0, p.y);
+        if (p.overview) openOverview();
+        posReady = true;
+      }
+    }, 250);
+  }
+  window.addEventListener('pagehide', function(){ if (sessionToken) savePosition(); });
 
   function tryUnlock(val){
     var code = String(val || '').trim();
@@ -826,7 +990,7 @@
     });
   });
 
-  // استئناف جلسة سارية (نفس التبويب فقط، وتنتهي بإغلاقه أو بعد 45 دقيقة من الدخول)
+  // استئناف جلسة سارية (نفس التبويب فقط، وتنتهي بإغلاقه أو بعد 15 دقيقة بلا استخدام)
   (function resume(){
     var msg = ssGet('tg_msg');
     if (msg){ gateErr.textContent = msg; try { sessionStorage.removeItem('tg_msg'); } catch(e){} }
@@ -970,6 +1134,8 @@
   }
 
   function renderGrid(){
+    if (mode === 'plat'){ renderPlatform(); return; }
+    if (mode === 'exam'){ renderExam(); return; }
     if (mode !== 'part'){ renderExtras(); return; }
     gridEl.innerHTML = '';
     gridEl.className = '';
@@ -1387,13 +1553,17 @@
   var gridDirty = false;   // تغيّرت درجات الشاشة الحالية ولم تُرسل بعد
   var loadedCtx = null;    // سياق ما هو معروض فعلاً: {classId, week, day, mode} (الإرسال يستخدمه لا القوائم)
   var autoSaving = false;
-  var MODE_LABELS = { part: 'المشاركة', hw: 'الواجبات', beh: 'السلوك' };
+  var MODE_LABELS = { part: 'المشاركة', hw: 'الواجبات', beh: 'السلوك', plat: 'المنصة', exam: 'الاختبار' };
 
   function hasUnsent(){ return gridDirty || pendCount() > 0; }
 
   function buildGridPayload(){
     if (!loadedCtx || !students.length) return null;
     var c = loadedCtx;
+    if (c.mode === 'exam'){
+      return { action: 'saveExamGrades', classId: c.classId, period: c.period,
+               entries: students.map(function(s){ return { id: s.id, grade: (s.exam === null || s.exam === undefined) ? '' : s.exam }; }) };
+    }
     if (c.mode === 'part'){
       return { action: 'saveParticipationGrid', classId: c.classId, week: c.week, day: c.day,
                entries: students.map(function(s){ return { id: s.id, grade: s.grade }; }) };
@@ -1494,7 +1664,9 @@
     var parts = [];
     if (gridDirty && loadedCtx){
       var opt = classSel.querySelector('option[value="' + loadedCtx.classId + '"]');
-      var s = (opt ? opt.textContent : loadedCtx.classId) + ' — ' + MODE_LABELS[loadedCtx.mode] + ' — الأسبوع ' + loadedCtx.week;
+      var s = (opt ? opt.textContent : loadedCtx.classId) + ' — ' + MODE_LABELS[loadedCtx.mode];
+      if (loadedCtx.mode === 'exam') s += ' — الفترة ' + loadedCtx.period;
+      else s += ' — الأسبوع ' + loadedCtx.week;
       if (loadedCtx.mode === 'part') s += ' — ' + (DAY_LABELS_MAIN[parseInt(loadedCtx.day, 10) - 1] || ('اليوم ' + loadedCtx.day));
       parts.push(s);
     }
@@ -1508,7 +1680,7 @@
   function autoSaveBeforeExpiry(){
     autoSaving = true;
     var summary = describeUnsent();
-    var ctx = (gridDirty && loadedCtx) ? { classId: loadedCtx.classId, week: loadedCtx.week, day: loadedCtx.day, mode: loadedCtx.mode } : null;
+    var ctx = (gridDirty && loadedCtx) ? { classId: loadedCtx.classId, week: loadedCtx.week, day: loadedCtx.day, mode: loadedCtx.mode, period: loadedCtx.period } : null;
     var draft = gridDirty ? buildGridPayload() : null;
     flushUnsent().then(function(ok){
       try {
@@ -1522,7 +1694,9 @@
   function reviewCtx(ctx){
     if (!ctx) return;
     classSel.value = ctx.classId; daySel.value = ctx.day; weekSel.value = ctx.week; modeSel.value = ctx.mode;
+    if (ctx.period) periodSel.value = ctx.period;
     selPrev.classSel = classSel.value; selPrev.daySel = daySel.value; selPrev.weekSel = weekSel.value; selPrev.modeSel = modeSel.value;
+    selPrev.periodSel = periodSel.value;
     showWeekRange();
     applyMode();
   }
@@ -1560,7 +1734,7 @@
 
   // تنبيه المتصفح عند محاولة إغلاق التبويب وفيه درجات لم تُرسل
   window.addEventListener('beforeunload', function(e){
-    if (hasUnsent()){ e.preventDefault(); e.returnValue = ''; }
+    if (hasUnsent() && !skipUnloadGuard){ e.preventDefault(); e.returnValue = ''; }
   });
 
   // ===== نافذة الواجب والسلوك لطالب في أسبوع (من زر ⋯ أو من سجل الطالب) =====
@@ -1656,7 +1830,7 @@
           if (String(s.id) === String(ctx.id) && s.hw){ s.hw = ctx.hw.slice(); s.bh = ctx.bh.slice(); }
         });
         exModal.classList.remove('open');
-        if (mode !== 'part' && ctx.classId === classSel.value && String(ctx.week) === weekSel.value) renderExtras();
+        if ((mode === 'hw' || mode === 'beh') && ctx.classId === classSel.value && String(ctx.week) === weekSel.value) renderExtras();
         refreshTots();
         renderRecord();
         rerenderOverviewIfOpen();
@@ -1673,8 +1847,12 @@
   function applyMode(){
     mode = modeSel.value;
     document.getElementById('dayField').style.display = (mode === 'part') ? '' : 'none';
+    weekSel.closest('.field').style.display = (mode === 'exam' || mode === 'plat') ? 'none' : '';
+    document.getElementById('periodField').style.display = (mode === 'exam') ? '' : 'none';
     document.getElementById('legendPart').style.display = (mode === 'part') ? '' : 'none';
-    document.getElementById('legendExtras').style.display = (mode === 'part') ? 'none' : '';
+    document.getElementById('legendExtras').style.display = (mode === 'hw' || mode === 'beh') ? '' : 'none';
+    document.getElementById('legendPlat').style.display = (mode === 'plat') ? '' : 'none';
+    document.getElementById('legendExam').style.display = (mode === 'exam') ? '' : 'none';
     sendBtn.textContent = (mode === 'part') ? 'إرسال الدرجات' : 'إرسال';
     students = [];
     renderGrid();
@@ -1686,7 +1864,171 @@
     loadGrid();
   }
 
+  // ===== سجل المنصة: نسبة الإتقان لكل طالب (للعرض فقط) =====
+  var platSummary = null;
+  function ringSvg(m, n){
+    var r = 26, C = 2 * Math.PI * r;
+    function arc(pct, offsetPct, color){
+      var len = Math.max(0, pct) / 100 * C;
+      return '<circle cx="34" cy="34" r="' + r + '" fill="none" stroke="' + color + '" stroke-width="9" stroke-dasharray="' + len + ' ' + (C - len) + '" stroke-dashoffset="' + (-(offsetPct / 100 * C)) + '"/>';
+    }
+    var p = Math.max(0, 100 - m - n);
+    return '<svg viewBox="0 0 68 68" width="68" height="68" style="transform:rotate(-90deg)" aria-hidden="true">'
+      + '<circle cx="34" cy="34" r="' + r + '" fill="none" stroke="var(--line)" stroke-width="9"/>'
+      + arc(m, 0, '#22c55e') + arc(n, m, '#ef4444') + arc(p, m + n, '#a5b4fc') + '</svg>';
+  }
+  function renderPlatform(){
+    gridEl.innerHTML = '';
+    gridEl.className = 'wide';
+    sendBar.style.display = 'none'; bulkBar.style.display = 'none'; bulkExtras.style.display = 'none';
+    if (!students.length){
+      emptyEl.style.display = 'block';
+      emptyEl.textContent = 'لا يوجد طلاب في هذا الفصل';
+      return;
+    }
+    emptyEl.style.display = 'none';
+    students.forEach(function(s){
+      var card = document.createElement('div');
+      card.className = 'stu ex pl';
+      var nm = document.createElement('div');
+      nm.className = 'nm'; nm.textContent = displayName(s.name); nm.title = 'عرض سجل الطالب';
+      nm.addEventListener('click', function(){ openRecord(s); });
+      var ring = document.createElement('div');
+      ring.className = 'pl-ring';
+      ring.innerHTML = ringSvg(s.mastery, s.needs) + '<span class="pl-num">' + s.mastery + '٪</span>';
+      var lg = document.createElement('div');
+      lg.className = 'pl-lg';
+      lg.innerHTML = '<span><i style="background:#22c55e"></i>إتقان ' + s.mastery + '٪</span>'
+        + '<span><i style="background:#ef4444"></i>تحتاج تحسين ' + s.needs + '٪</span>'
+        + '<span><i style="background:#a5b4fc"></i>بانتظارك ' + s.pending + '٪</span>';
+      var fz = document.createElement('div');
+      fz.className = 'pl-fz';
+      var parts = [];
+      if (s.frozenMastery !== null && s.frozenMastery !== undefined) parts.push('الشهر الأول ' + s.frozenMastery + '٪');
+      if (s.frozenFinal !== null && s.frozenFinal !== undefined) parts.push('الختام ' + s.frozenFinal + '٪');
+      fz.textContent = parts.length ? 'مثبّت: ' + parts.join(' · ') : '';
+      card.appendChild(nm); card.appendChild(ring); card.appendChild(lg); card.appendChild(fz);
+      gridEl.appendChild(card);
+    });
+  }
+  function loadPlatform(){
+    var classId = classSel.value;
+    loadBtn.disabled = true;
+    setStatus('جاري التحميل...', '');
+    students = []; renderPlatform();
+    fetch(SCRIPT_URL + '?action=getPlatformStats&classId=' + encodeURIComponent(classId))
+      .then(parseServerReply)
+      .then(function(res){
+        if (res && res.status === 'error') throw new Error(res.message);
+        var d = (res && res.data) ? res.data : res;
+        loadBtn.disabled = false;
+        students = d.students || [];
+        platSummary = d.open;
+        loadedCtx = null; gridDirty = false;
+        renderPlatform();
+        var avg = students.length ? Math.round(students.reduce(function(a, s){ return a + s.mastery; }, 0) / students.length) : 0;
+        setStatus('تم التحميل — ' + students.length + ' طالب | المفتوح: ' + d.open.lessons + ' دروس و' + d.open.games + ' لعبة (' + d.open.poss + ' نقطة) | متوسط الإتقان ' + avg + '٪', 'ok');
+      })
+      .catch(function(err){
+        loadBtn.disabled = false;
+        setStatus('تعذّر التحميل: ' + err.message, 'err');
+      });
+  }
+
+  // ===== سجل الاختبار: إدخال يدوي لدرجة كل طالب في الفترة =====
+  var periodSel = document.getElementById('periodSel');
+  var examMax = 20;
+  function updatePeriodLabels(){
+    var pw = (gradeSettings && gradeSettings.periodWeeks) || 8;
+    for (var k = 1; k <= 3; k++){
+      var a = (k - 1) * pw + 1, b = Math.min(NUM_WEEKS, k * pw);
+      var opt = periodSel.options[k - 1];
+      opt.textContent = 'الفترة ' + k + (a <= NUM_WEEKS ? ' (الأسبوع ' + a + (b > a ? '–' + b : '') + ')' : '');
+      opt.disabled = a > NUM_WEEKS;
+    }
+  }
+  function examStats(){
+    var n = 0, sum = 0;
+    students.forEach(function(s){ if (s.exam !== null && s.exam !== undefined){ n++; sum += s.exam; } });
+    setStatus('المُدخل: ' + n + ' من ' + students.length + (n ? ' — المتوسط ' + (Math.round(sum / n * 100) / 100) + ' من ' + examMax : ''), '');
+  }
+  function renderExam(){
+    gridEl.innerHTML = '';
+    gridEl.className = 'examlist';
+    bulkBar.style.display = 'none'; bulkExtras.style.display = 'none';
+    if (!students.length){
+      emptyEl.style.display = 'block';
+      emptyEl.textContent = 'لا يوجد طلاب في هذا الفصل';
+      sendBar.style.display = 'none';
+      return;
+    }
+    emptyEl.style.display = 'none';
+    sendBar.style.display = 'flex';
+    students.forEach(function(s, idx){
+      var row = document.createElement('div');
+      row.className = 'exrow';
+      var nm = document.createElement('div');
+      nm.className = 'nm2'; nm.textContent = displayName(s.name); nm.title = 'عرض سجل الطالب';
+      nm.addEventListener('click', function(){ openRecord(s); });
+      var inp = document.createElement('input');
+      inp.type = 'number'; inp.step = 'any'; inp.min = '0'; inp.max = String(examMax);
+      inp.setAttribute('inputmode', 'decimal');
+      inp.value = (s.exam === null || s.exam === undefined) ? '' : s.exam;
+      inp.classList.toggle('bad', s.exam !== null && s.exam !== undefined && (s.exam < 0 || s.exam > examMax));
+      inp.addEventListener('focus', function(){ inp.select(); });
+      inp.addEventListener('input', function(){
+        var v = inp.value.trim();
+        if (v === ''){ s.exam = null; inp.classList.remove('bad'); }
+        else {
+          var n = parseFloat(v);
+          s.exam = isFinite(n) ? n : null;
+          inp.classList.toggle('bad', !isFinite(n) || n < 0 || n > examMax);
+        }
+        gridDirty = true;
+        examStats();
+      });
+      inp.addEventListener('keydown', function(e){
+        if (e.key === 'Enter'){
+          e.preventDefault();
+          var all = gridEl.querySelectorAll('input');
+          if (all[idx + 1]) all[idx + 1].focus();
+        }
+      });
+      var mx = document.createElement('span');
+      mx.className = 'mx'; mx.textContent = '/ ' + examMax;
+      row.appendChild(nm); row.appendChild(inp); row.appendChild(mx);
+      gridEl.appendChild(row);
+    });
+    examStats();
+  }
+  function loadExam(){
+    var classId = classSel.value, period = periodSel.value;
+    loadBtn.disabled = true;
+    setStatus('جاري التحميل...', '');
+    students = []; renderExam();
+    fetch(SCRIPT_URL + '?action=getExamGrades&classId=' + encodeURIComponent(classId))
+      .then(parseServerReply)
+      .then(function(res){
+        if (res && res.status === 'error') throw new Error(res.message);
+        var d = (res && res.data) ? res.data : res;
+        loadBtn.disabled = false;
+        examMax = d.max || 20;
+        students = (d.students || []).map(function(s){
+          return { id: s.id, name: s.name, exam: (s.exams && s.exams[parseInt(period, 10) - 1] !== undefined) ? s.exams[parseInt(period, 10) - 1] : null };
+        });
+        loadedCtx = { classId: classId, week: '1', day: '1', mode: 'exam', period: period };
+        gridDirty = false;
+        renderExam();
+      })
+      .catch(function(err){
+        loadBtn.disabled = false;
+        setStatus('تعذّر التحميل: ' + err.message, 'err');
+      });
+  }
+
   function loadGrid(){
+    if (mode === 'exam'){ loadExam(); return; }
+    if (mode === 'plat'){ loadPlatform(); return; }
     if (mode !== 'part'){ loadExtrasMode(); return; }
     var classId = classSel.value;
     var week = weekSel.value;
@@ -1719,7 +2061,7 @@
   sendBtn.addEventListener('click', sendGrid);
 
   // أي قائمة تغيّرت (فصل/أسبوع/يوم/سجل) والشاشة فيها درجات لم تُرسل: نسأل قبل الانتقال، وعند الإلغاء نُعيد القيمة السابقة.
-  var selPrev = { classSel: classSel.value, daySel: daySel.value, weekSel: weekSel.value, modeSel: modeSel.value };
+  var selPrev = { classSel: classSel.value, daySel: daySel.value, weekSel: weekSel.value, modeSel: modeSel.value, periodSel: periodSel.value };
   function wireGuard(sel, key, apply, onRevert){
     sel.addEventListener('change', function(){
       guardNav(function(){ selPrev[key] = sel.value; if (apply) apply(); },
@@ -1728,6 +2070,7 @@
   }
   wireGuard(classSel, 'classSel');
   wireGuard(daySel, 'daySel');
+  wireGuard(periodSel, 'periodSel');
   wireGuard(weekSel, 'weekSel', null, showWeekRange);
   wireGuard(modeSel, 'modeSel', applyMode);
 
@@ -1754,6 +2097,7 @@
     showWeekRange();
   }
   function applyWeek1(){
+    updatePeriodLabels();
     var p = String((gradeSettings && gradeSettings.week1Start) || '').split('-');
     if (p.length === 3 && +p[0] > 2000){ WEEK1_START = new Date(+p[0], +p[1] - 1, +p[2]); refreshWeekLabels(); }
   }
@@ -2126,7 +2470,7 @@
               if (extrasData.key === cid + '|' + x.week){
                 extrasData.map[String(p.id)] = { hw: tokArr(x.homework), bh: tokArr(x.behavior), name: p.name };
               }
-              if (mode !== 'part' && String(x.week) === weekSel.value){
+              if ((mode === 'hw' || mode === 'beh') && String(x.week) === weekSel.value){
                 students.forEach(function(s){ if (String(s.id) === String(p.id)){ s.hw = tokArr(x.homework); s.bh = tokArr(x.behavior); } });
               }
             });

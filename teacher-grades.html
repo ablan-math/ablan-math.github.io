@@ -110,6 +110,7 @@
   .exrow input:focus{border-color:var(--accent); outline:none;}
   .exrow input.bad{border-color:var(--neg2); background:#fdecee;}
   .exrow .mx{font-size:12px; color:var(--muted); font-weight:700; min-width:28px;}
+  .exrow .ex-info{font-size:11px; color:var(--muted); font-weight:700; min-width:110px; text-align:start;}
   body.locked .exrow input{pointer-events:none; opacity:.5;}
   /* سجل المنصة */
   .stu.pl{text-align:center;}
@@ -524,7 +525,6 @@
       <select id="periodSel">
         <option value="1">الفترة 1</option>
         <option value="2">الفترة 2</option>
-        <option value="3">الفترة 3</option>
       </select>
     </div>
     <div class="field" id="dayField">
@@ -548,7 +548,7 @@
   </div>
   <div class="legend" id="legendExam" style="display:none;">
     <span>اكتب درجة الاختبار لكل طالب (تقبل الكسور مثل 17.5)، واترك الخانة فارغة لمن لم يختبر.</span>
-    <span style="color:var(--muted)">اضغط Enter للانتقال للطالب التالي، ثم «إرسال» في الأسفل. تُحفظ في عمود «اختبار الفترة» في ورقة الطلاب.</span>
+    <span style="color:var(--muted)">اضغط Enter للانتقال للطالب التالي، ثم «إرسال» في الأسفل. تُحفظ في عمودي «اختبار الفترة 1/2» في آخر ورقة الطلاب، ويحسب الشيت «معدل الاختبارين» تلقائياً.</span>
   </div>
   <div class="legend" id="legendPlat" style="display:none;">
     <span><span class="dot" style="background:#22c55e"></span>إتقان: ما حصل عليه من الممكن</span>
@@ -1940,7 +1940,7 @@
   var examMax = 20;
   function updatePeriodLabels(){
     var pw = (gradeSettings && gradeSettings.periodWeeks) || 8;
-    for (var k = 1; k <= 3; k++){
+    for (var k = 1; k <= 2; k++){
       var a = (k - 1) * pw + 1, b = Math.min(NUM_WEEKS, k * pw);
       var opt = periodSel.options[k - 1];
       opt.textContent = 'الفترة ' + k + (a <= NUM_WEEKS ? ' (الأسبوع ' + a + (b > a ? '–' + b : '') + ')' : '');
@@ -1996,7 +1996,20 @@
       });
       var mx = document.createElement('span');
       mx.className = 'mx'; mx.textContent = '/ ' + examMax;
-      row.appendChild(nm); row.appendChild(inp); row.appendChild(mx);
+      // الفترة الأخرى والمعدل بينهما (يُحسب حياً أثناء الكتابة؛ في الشيت عمود «معدل الاختبارين» صيغة تحسبه)
+      var info = document.createElement('span');
+      info.className = 'ex-info';
+      function refreshInfo(){
+        var p = parseInt((loadedCtx && loadedCtx.period) || periodSel.value, 10);
+        var other = (s.exams && s.exams[p === 1 ? 1 : 0] !== undefined) ? s.exams[p === 1 ? 1 : 0] : null;
+        var parts = [];
+        if (other !== null) parts.push('الفترة ' + (p === 1 ? 2 : 1) + ': ' + other);
+        if (other !== null && s.exam !== null && s.exam !== undefined) parts.push('المعدل: ' + (Math.round((other + s.exam) / 2 * 100) / 100));
+        info.textContent = parts.join(' — ');
+      }
+      refreshInfo();
+      inp.addEventListener('input', refreshInfo);
+      row.appendChild(nm); row.appendChild(inp); row.appendChild(mx); row.appendChild(info);
       gridEl.appendChild(row);
     });
     examStats();
@@ -2014,7 +2027,7 @@
         loadBtn.disabled = false;
         examMax = d.max || 20;
         students = (d.students || []).map(function(s){
-          return { id: s.id, name: s.name, exam: (s.exams && s.exams[parseInt(period, 10) - 1] !== undefined) ? s.exams[parseInt(period, 10) - 1] : null };
+          return { id: s.id, name: s.name, exams: s.exams || [], exam: (s.exams && s.exams[parseInt(period, 10) - 1] !== undefined) ? s.exams[parseInt(period, 10) - 1] : null };
         });
         loadedCtx = { classId: classId, week: '1', day: '1', mode: 'exam', period: period };
         gridDirty = false;

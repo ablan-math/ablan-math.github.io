@@ -113,7 +113,10 @@
   .exrow .ex-info{font-size:11px; color:var(--muted); font-weight:700; min-width:110px; text-align:start;}
   body.locked .exrow input{pointer-events:none; opacity:.5;}
   /* سجل المنصة */
-  .stu.pl{text-align:center;}
+  .stu.pl{text-align:center; position:relative; overflow:hidden;}
+  .stu.pl > *:not(.pl-deco){position:relative; z-index:2;}
+  .pl-deco{position:absolute; z-index:1; pointer-events:none; line-height:1; white-space:nowrap; user-select:none;}
+  .pl-deco.cn{left:-40px; bottom:-56px; transform:rotate(-14deg); font-size:150px; opacity:.9;}
   .pl-ring{position:relative; width:68px; height:68px; margin:8px auto 4px;}
   .pl-num{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:14px;}
   .pl-lg{display:flex; flex-direction:column; gap:2px; font-size:11px; font-weight:700; margin-top:6px; text-align:start;}
@@ -561,6 +564,13 @@
         <div id="wkList" class="wk-list"></div>
       </div>
     </div>
+    <div class="field" id="sortField">
+      <label>ترتيب الطلاب</label>
+      <select id="sortSel">
+        <option value="orig">الترتيب الأصلي</option>
+        <option value="total">الأعلى في هذا السجل</option>
+      </select>
+    </div>
     <div class="field" id="periodField" style="display:none;">
       <label>الفترة</label>
       <select id="periodSel">
@@ -684,9 +694,6 @@
         </label>
         <label>الفترة
           <select id="pcPeriod"><option value="1">النصفي</option><option value="2">النهائي</option></select>
-        </label>
-        <label>مصدر الدرجات
-          <select id="pcSource"><option value="pin">المثبّتة</option><option value="live">الحالية الآن</option></select>
         </label>
       </div>
       <div class="set-sec">ماذا تريد إرساله؟</div>
@@ -1234,7 +1241,7 @@
     sendBar.style.display = 'flex';
     bulkBar.style.display = 'flex';
     bulkExtras.style.display = 'none';
-    students.forEach(function(stu, idx){
+    orderedStudents().forEach(function(stu, idx){
       var card = document.createElement('div');
       card.className = 'stu';
       card.setAttribute('data-idx', String(idx));
@@ -1599,7 +1606,7 @@
       renderExtras();
     });
     bulkExtras.appendChild(bu);
-    students.forEach(function(stu){
+    orderedStudents().forEach(function(stu){
       var card = document.createElement('div');
       card.className = 'stu ex';
       var nm = document.createElement('div');
@@ -1932,6 +1939,7 @@
     document.getElementById('dayField').style.display = (mode === 'part') ? '' : 'none';
     weekSel.closest('.field').style.display = (mode === 'exam' || mode === 'plat' || mode === 'mid' || mode === 'fin') ? 'none' : '';
     document.getElementById('legendBoard').style.display = (mode === 'mid' || mode === 'fin') ? '' : 'none';
+    setSortOptions();
     document.getElementById('periodField').style.display = (mode === 'exam') ? '' : 'none';
     document.getElementById('legendPart').style.display = (mode === 'part') ? '' : 'none';
     document.getElementById('legendExtras').style.display = (mode === 'hw' || mode === 'beh') ? '' : 'none';
@@ -1973,6 +1981,65 @@
     if (e >= 75) return '👍';
     return '';
   }
+  // ===== ترتيب الطلاب حسب الأعلى (النصفي/النهائي والمنصة) =====
+  function sortVal(s, key){
+    if (mode === 'plat') return engagementOf(s.mastery, s.needs);
+    if (mode === 'exam') return (s.exam === null || s.exam === undefined) ? -1 : s.exam;
+    if (mode === 'part' || mode === 'hw' || mode === 'beh'){ var t = totalsFor(s); return t ? t.pos - t.neg : 0; }
+    function eff(k){
+      if (k === 'exam') return (s.exam === null || s.exam === undefined) ? 0 : s.exam;
+      if (k === 'plat'){
+        var g = (s.pin && s.pin.platGrade !== null && s.pin.platGrade !== undefined) ? s.pin.platGrade : s.live.platGrade;
+        return g === null || g === undefined ? 0 : g;
+      }
+      var p = (s.pin && s.pin[k] !== null && s.pin[k] !== undefined) ? s.pin[k] : s.live[k];
+      return p === null || p === undefined ? 0 : p;
+    }
+    if (key === 'total') return eff('part') + eff('hw') + eff('beh') + eff('plat') + eff('exam');
+    return eff(key);
+  }
+  function orderedStudents(){
+    var key = document.getElementById('sortSel').value;
+    var list = students.slice();
+    if (key === 'orig') return list;
+    if (mode === 'plat' && key !== 'total' && key !== 'plat') return list;
+    var idx = {}; students.forEach(function(s, i){ idx[s.id] = i; });
+    list.sort(function(a, b){ return (sortVal(b, key) - sortVal(a, key)) || (idx[a.id] - idx[b.id]); });
+    return list;
+  }
+  var sortKind = 'simple';
+  function setSortOptions(){
+    var sel = document.getElementById('sortSel');
+    var kind = (mode === 'mid' || mode === 'fin' || mode === 'plat') ? 'full' : 'simple';
+    if (kind === sortKind) return;
+    var wasSorted = sel.value !== 'orig';
+    sortKind = kind;
+    sel.innerHTML = kind === 'full'
+      ? '<option value="orig">الترتيب الأصلي</option><option value="total">الأعلى مجموعًا (كل المجالات)</option><option value="part">الأعلى مشاركة</option><option value="hw">الأعلى واجبات</option><option value="beh">الأعلى سلوكًا</option><option value="plat">الأعلى في المنصة</option><option value="exam">الأعلى في الاختبار</option>'
+      : '<option value="orig">الترتيب الأصلي</option><option value="total">الأعلى في هذا السجل</option>';
+    sel.value = wasSorted ? 'total' : 'orig';
+  }
+  document.getElementById('sortSel').addEventListener('change', function(){ renderGrid(); });
+  // تاج عادي (أصفر) وتاج مرصّع (ألماسة كبيرة في الوسط وأصغر على الجانبين) كـ SVG
+  function crownSvg(gem, css){
+    var plain = '<path d="M12 76 L6 26 L36 50 L60 12 L84 50 L114 26 L108 76 Z" fill="#EF9F27" stroke="#854F0B" stroke-width="3" stroke-linejoin="round"/>'
+      + '<rect x="10" y="74" width="100" height="16" rx="4" fill="#FAC775" stroke="#854F0B" stroke-width="3"/>'
+      + '<circle cx="6" cy="24" r="6" fill="#FAC775" stroke="#854F0B" stroke-width="3"/><circle cx="60" cy="10" r="6" fill="#FAC775" stroke="#854F0B" stroke-width="3"/><circle cx="114" cy="24" r="6" fill="#FAC775" stroke="#854F0B" stroke-width="3"/>';
+    var jew = '<path d="M10 78 L2 22 L34 48 L60 6 L86 48 L118 22 L110 78 Z" fill="#EF9F27" stroke="#854F0B" stroke-width="3" stroke-linejoin="round"/>'
+      + '<rect x="8" y="76" width="104" height="18" rx="4" fill="#FAC775" stroke="#854F0B" stroke-width="3"/>'
+      + '<circle cx="2" cy="20" r="6" fill="#B5D4F4" stroke="#185FA5" stroke-width="2.5"/><circle cx="60" cy="4" r="6" fill="#B5D4F4" stroke="#185FA5" stroke-width="2.5"/><circle cx="118" cy="20" r="6" fill="#B5D4F4" stroke="#185FA5" stroke-width="2.5"/>'
+      + '<path d="M60 36 L78 56 L60 84 L42 56 Z" fill="#85B7EB" stroke="#185FA5" stroke-width="3" stroke-linejoin="round"/>'
+      + '<path d="M42 56 L78 56 M60 36 L52 56 L60 84 M60 36 L68 56 L60 84" fill="none" stroke="#E6F1FB" stroke-width="2"/>'
+      + '<path d="M26 54 L35 63 L26 76 L17 63 Z" fill="#85B7EB" stroke="#185FA5" stroke-width="2.5" stroke-linejoin="round"/>'
+      + '<path d="M94 54 L103 63 L94 76 L85 63 Z" fill="#85B7EB" stroke="#185FA5" stroke-width="2.5" stroke-linejoin="round"/>';
+    return '<svg viewBox="-4 -4 128 104" aria-hidden="true" style="' + (css || 'width:1.25em;height:1.05em;vertical-align:-.2em') + '">' + (gem ? jew : plain) + '</svg>';
+  }
+  // نفس engBadge لكن بالتيجان المرسومة (للعرض في الصفحة)؛ engBadge النصية تبقى للواتساب
+  function engBadgeHtml(e){
+    if (e >= 100) return crownSvg(true);
+    if (e >= 95) return crownSvg(false);
+    return engBadge(e);
+  }
   function renderPlatform(){
     gridEl.innerHTML = '';
     gridEl.className = 'wide';
@@ -1983,7 +2050,7 @@
       return;
     }
     emptyEl.style.display = 'none';
-    students.forEach(function(s){
+    orderedStudents().forEach(function(s){
       var card = document.createElement('div');
       card.className = 'stu ex pl';
       var nm = document.createElement('div');
@@ -1992,10 +2059,12 @@
       var ring = document.createElement('div');
       ring.className = 'pl-ring';
       var eng = engagementOf(s.mastery, s.needs);
+      var nb = engBadge(eng);
+      if (nb){ var bs = document.createElement('span'); bs.innerHTML = engBadgeHtml(eng); bs.style.cssText = 'display:inline-block;text-decoration:none;margin-inline-start:4px'; nm.appendChild(bs); }
       ring.innerHTML = ringSvg(s.mastery, s.needs) + '<span class="pl-num">' + eng + '٪</span>';
       var eg = document.createElement('div');
       eg.style.cssText = 'text-align:center;font-weight:800;font-size:13px;margin:2px 0 6px';
-      eg.textContent = 'نسبة التفاعل · الدرجة ' + engGrade(eng) + '/10 ' + engBadge(eng);
+      eg.innerHTML = 'نسبة التفاعل · الدرجة ' + engGrade(eng) + '/10 ' + engBadgeHtml(eng);
       var lg = document.createElement('div');
       lg.className = 'pl-lg';
       lg.innerHTML = '<span><i style="background:#22c55e"></i>إتقان ' + s.mastery + '٪</span>'
@@ -2007,6 +2076,20 @@
       if (s.frozenMastery !== null && s.frozenMastery !== undefined) parts.push('النصفي ' + s.frozenMastery + '٪');
       if (s.frozenFinal !== null && s.frozenFinal !== undefined) parts.push('النهائي ' + s.frozenFinal + '٪');
       fz.textContent = parts.length ? 'مثبّت: ' + parts.join(' · ') : '';
+      if (nb){
+        var gl = Array.from(nb), crown = eng >= 95, gem = eng >= 100;
+        var cn = document.createElement('div'); cn.className = 'pl-deco cn';
+        if (crown){ cn.innerHTML = crownSvg(gem, 'width:' + (gem ? 190 : 165) + 'px;height:auto'); cn.style.left = '-44px'; cn.style.bottom = '-30px'; }
+        else cn.textContent = gl[0];
+        card.appendChild(cn);
+        [[14, 18, 44, .25], [56, 46, 30, .2], [26, 78, 36, .18]].forEach(function(p){
+          var d = document.createElement('div'); d.className = 'pl-deco';
+          d.style.cssText = 'right:' + p[0] + 'px;bottom:' + p[1] + 'px;font-size:' + p[2] + 'px;opacity:' + p[3];
+          if (crown && !gem) d.innerHTML = crownSvg(false, 'width:1.2em;height:1em');
+          else d.textContent = gl[gl.length - 1];
+          card.appendChild(d);
+        });
+      }
       card.appendChild(nm); card.appendChild(ring); card.appendChild(eg); card.appendChild(lg); card.appendChild(fz);
       gridEl.appendChild(card);
     });
@@ -2051,11 +2134,11 @@
     if (c.k === 'plat'){
       var pg = s.pin ? s.pin.platGrade : null, lg = s.live.platGrade;
       if (p !== null){
-        td.innerHTML = '<span class="pinned-tag">' + fmtG(pg) + '</span> ' + engBadge(p)
+        td.innerHTML = '<span class="pinned-tag">' + fmtG(pg) + '</span> ' + engBadgeHtml(p)
           + '<small>' + p + '٪' + (lv !== null && lv < p ? ' · الآن ' + lv + '٪' : '') + '</small>';
       } else {
         td.className = 'unp';
-        td.innerHTML = '<b>' + fmtG(lg) + '</b> ' + (lv === null ? '' : engBadge(lv))
+        td.innerHTML = '<b>' + fmtG(lg) + '</b> ' + (lv === null ? '' : engBadgeHtml(lv))
           + '<small>غير مثبّت' + (lv === null ? '' : ' · ' + lv + '٪') + '</small>';
       }
       return td;
@@ -2094,10 +2177,11 @@
     head += '<th>الاختبار<small>من ' + W.exam + '</small></th></tr></thead>';
     tbl.innerHTML = head;
     var tb = document.createElement('tbody');
-    students.forEach(function(s){
+    var sorted = document.getElementById('sortSel').value !== 'orig';
+    orderedStudents().forEach(function(s, rank){
       var tr = document.createElement('tr');
       var nm = document.createElement('td');
-      nm.className = 'bn'; nm.textContent = displayName(s.name); nm.title = 'عرض سجل الطالب';
+      nm.className = 'bn'; nm.textContent = (sorted ? (rank + 1) + '. ' : '') + displayName(s.name); nm.title = 'عرض سجل الطالب';
       nm.addEventListener('click', function(){ openRecord(s); });
       tr.appendChild(nm);
       BOARD_COLS.forEach(function(c){ tr.appendChild(boardCell(c, s)); });
@@ -2179,28 +2263,24 @@
     return d.length >= 11 ? d : '';
   }
   function pcPeriodName(){ return document.getElementById('pcPeriod').value === '2' ? 'النهائي' : 'النصفي'; }
-  function pcValue(s, k, src){
-    var p = s.pin && s.pin[k] !== null && s.pin[k] !== undefined ? s.pin[k] : null;
-    if (src === 'pin') return p;
-    return s.live[k];
-  }
+  // المثبّت إن وُجد، وإلا الحالي (مع الإشارة أنه لم يُثبَّت بعد)
   function pcMessage(s){
-    var W = pcData.weights, src = document.getElementById('pcSource').value;
+    var W = pcData.weights;
     var picked = {};
     document.querySelectorAll('#pcChecks input').forEach(function(i){ picked[i.value] = i.checked; });
-    var lines = [], total = 0, max = 0, complete = true, chosen = 0;
+    var lines = [], total = 0, max = 0, complete = true, chosen = 0, pinnedN = 0, liveN = 0;
     BOARD_COLS.forEach(function(c){
       if (!picked[c.k]) return;
       chosen++;
-      var v = c.k === 'plat' ? (src === 'pin' ? (s.pin ? s.pin.platGrade : null) : s.live.platGrade) : pcValue(s, c.k, src);
+      var isPin = !!(s.pin && s.pin[c.k] !== null && s.pin[c.k] !== undefined);
+      var v, e = null;
+      if (c.k === 'plat'){ v = isPin ? s.pin.platGrade : s.live.platGrade; e = isPin ? s.pin.plat : s.live.plat; }
+      else v = isPin ? s.pin[c.k] : s.live[c.k];
       if (v === null || v === undefined){ lines.push('• ' + c.t + ': لم تُرصد بعد'); complete = false; return; }
-      var extra = '';
-      if (c.k === 'plat'){
-        var e = src === 'pin' ? (s.pin ? s.pin.plat : null) : s.live.plat;
-        if (e !== null && e !== undefined) extra = ' (نسبة التفاعل ' + e + '٪ ' + engBadge(e) + ')';
-      }
-      lines.push('• ' + c.t + ': ' + fmtG(v) + ' من ' + W[c.w] + extra);
+      var extra = (e !== null && e !== undefined) ? ' (نسبة التفاعل ' + e + '٪ ' + engBadge(e) + ')' : '';
+      lines.push('• ' + c.t + ': ' + fmtG(v) + ' من ' + W[c.w] + extra + (isPin ? ' 🔒' : ' (حالية)'));
       total += v; max += W[c.w];
+      if (isPin) pinnedN++; else liveN++;
     });
     if (picked.exam){
       chosen++;
@@ -2209,10 +2289,14 @@
     }
     if (!chosen) return '';
     if (chosen > 1 && complete) lines.push('▪ المجموع: ' + fmtG(total) + ' من ' + max);
+    var status = '';
+    if (pinnedN && !liveN) status = '\n\n✅ تم تثبيت هذه الدرجات (' + pcPeriodName() + ').';
+    else if (liveN && !pinnedN) status = '\n\n⏳ هذه الدرجات حتى الآن ولم تُثبَّت بعد، وبإمكان ابنكم رفعها بإكمال دروس المنصة والالتزام بالواجبات والمشاركة.';
+    else if (liveN && pinnedN) status = '\n\n🔒 الدرجات المعلَّمة بقفل تم تثبيتها، والبقية (حالية) لم تُثبَّت بعد وبإمكان ابنكم رفعها.';
     var note = document.getElementById('pcNote').value.trim();
     return 'السلام عليكم ورحمة الله وبركاته\nولي أمر الطالب: ' + s.name
       + '\nنفيدكم بمستوى ابنكم في مادة الرياضيات (' + pcPeriodName() + '):\n' + lines.join('\n')
-      + (note ? '\n\n' + note : '') + '\n\nشاكرين لكم تعاونكم 🌹';
+      + status + (note ? '\n\n' + note : '') + '\n\nشاكرين لكم تعاونكم 🌹';
   }
   function pcOpen(s, row){
     var ph = waPhone(s.phone), msg = pcMessage(s);
@@ -2279,7 +2363,7 @@
   document.getElementById('closeParentBtn').addEventListener('click', function(){ pcModal.classList.remove('open'); });
   pcModal.addEventListener('click', function(e){ if (e.target === pcModal) pcModal.classList.remove('open'); });
   document.getElementById('pcLoad').addEventListener('click', pcLoad);
-  ['pcSource', 'pcNote'].forEach(function(i){ document.getElementById(i).addEventListener('input', pcRender); });
+  ['pcNote'].forEach(function(i){ document.getElementById(i).addEventListener('input', pcRender); });
   document.getElementById('pcChecks').addEventListener('change', pcRender);
   document.getElementById('pcNext').addEventListener('click', function(){
     var rows = document.querySelectorAll('#pcList .pc-row');
@@ -2319,7 +2403,7 @@
     }
     emptyEl.style.display = 'none';
     sendBar.style.display = 'flex';
-    students.forEach(function(s, idx){
+    orderedStudents().forEach(function(s, idx){
       var row = document.createElement('div');
       row.className = 'exrow';
       var nm = document.createElement('div');

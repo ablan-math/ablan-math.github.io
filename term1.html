@@ -235,8 +235,10 @@ body.has-dock .toast{bottom:calc(var(--nav) + 200px + env(safe-area-inset-bottom
 .mt small{font-size:12px;font-weight:700;color:var(--muted)}
 .mt small.bad{color:#dc2626}
 .mt .msc{margin-top:4px;padding:1px 8px;border-radius:8px;border:1px solid var(--ac);font-size:12px;font-weight:800;color:var(--ac);background:var(--card)}
+.mt.lv{opacity:.7}
+.gt td.lv b{color:var(--muted);font-weight:800}
 .mt.on{background:color-mix(in srgb,#f59e0b 10%,var(--bg))}
-.mem{height:44px;line-height:44px;font-size:30px;white-space:nowrap}
+.mem{height:48px;line-height:48px;font-size:30px;white-space:nowrap;display:flex;align-items:center;justify-content:center}
 .gt{width:100%;border-collapse:collapse;text-align:center}
 .gt th{font-size:12.5px;font-weight:800;color:var(--muted);padding:4px 6px}
 .gt td{padding:9px 6px;border-top:1px solid var(--line);font-size:15px}
@@ -550,25 +552,42 @@ var today=new Date();today.setHours(0,0,0,0);var rules=student.lessonRules||{},i
 out.push({name:'التشخيصي',locked:false,score:dg.score,medal:dg.medal});
 out.push(periodMedal('المنتصف',1));out.push(periodMedal('الختام',2));
 return out}
-function badgeOf(e){return e>=100?{em:'👑💎',label:'تاج مرصّع بالألماس'}:e>=95?{em:'👑',label:'تاج'}:e>=90?{em:'⭐⭐⭐',label:'ثلاث نجوم'}:e>=85?{em:'⭐⭐',label:'نجمتان'}:e>=80?{em:'⭐',label:'نجمة'}:e>=75?{em:'👍',label:'إعجاب'}:null}
-// وسام المنتصف/الختام: من نسبة التفاعل التي ثبّتها المعلم للمنصة (لا يتغير بفتح دروس جديدة)
+function crownSvg(gem, css){
+    var plain = '<path d="M12 76 L6 26 L36 50 L60 12 L84 50 L114 26 L108 76 Z" fill="#EF9F27" stroke="#854F0B" stroke-width="3" stroke-linejoin="round"/>'
+      + '<rect x="10" y="74" width="100" height="16" rx="4" fill="#FAC775" stroke="#854F0B" stroke-width="3"/>'
+      + '<circle cx="6" cy="24" r="6" fill="#FAC775" stroke="#854F0B" stroke-width="3"/><circle cx="60" cy="10" r="6" fill="#FAC775" stroke="#854F0B" stroke-width="3"/><circle cx="114" cy="24" r="6" fill="#FAC775" stroke="#854F0B" stroke-width="3"/>';
+    var jew = '<path d="M10 78 L2 22 L34 48 L60 6 L86 48 L118 22 L110 78 Z" fill="#EF9F27" stroke="#854F0B" stroke-width="3" stroke-linejoin="round"/>'
+      + '<rect x="8" y="76" width="104" height="18" rx="4" fill="#FAC775" stroke="#854F0B" stroke-width="3"/>'
+      + '<circle cx="2" cy="20" r="6" fill="#B5D4F4" stroke="#185FA5" stroke-width="2.5"/><circle cx="60" cy="4" r="6" fill="#B5D4F4" stroke="#185FA5" stroke-width="2.5"/><circle cx="118" cy="20" r="6" fill="#B5D4F4" stroke="#185FA5" stroke-width="2.5"/>'
+      + '<path d="M60 36 L78 56 L60 84 L42 56 Z" fill="#85B7EB" stroke="#185FA5" stroke-width="3" stroke-linejoin="round"/>'
+      + '<path d="M42 56 L78 56 M60 36 L52 56 L60 84 M60 36 L68 56 L60 84" fill="none" stroke="#E6F1FB" stroke-width="2"/>'
+      + '<path d="M26 54 L35 63 L26 76 L17 63 Z" fill="#85B7EB" stroke="#185FA5" stroke-width="2.5" stroke-linejoin="round"/>'
+      + '<path d="M94 54 L103 63 L94 76 L85 63 Z" fill="#85B7EB" stroke="#185FA5" stroke-width="2.5" stroke-linejoin="round"/>';
+    return '<svg viewBox="-4 -4 128 104" aria-hidden="true" style="' + (css || 'width:1.25em;height:1.05em;vertical-align:-.2em') + '">' + (gem ? jew : plain) + '</svg>';
+  }
+function badgeOf(e){return e>=100?{em:crownSvg(true,'width:58px;height:48px'),label:'تاج مرصّع بالألماس'}:e>=95?{em:crownSvg(false,'width:50px;height:42px'),label:'تاج'}:e>=90?{em:'⭐⭐⭐',label:'ثلاث نجوم'}:e>=85?{em:'⭐⭐',label:'نجمتان'}:e>=80?{em:'⭐',label:'نجمة'}:e>=75?{em:'👍',label:'إعجاب'}:null}
+// وسام المنتصف/الختام: من نسبة التفاعل المثبّتة؛ وإن لم تُثبَّت بعد فمن نسبته الحالية (تظهر باهتة وبوسم «لم يُثبَّت بعد»)
 function periodMedal(name,period){
-var P=student.pins&&student.pins.periods?student.pins.periods[period]:null,e=(P&&P.plat!==null&&P.plat!==undefined)?P.plat:null;
-if(e===null&&student.role==='teacher'){var o=overall();e=Math.min(100,Math.round(o.mastery+o.needs/2))}
-if(e===null)return {name:name,locked:true,date:'لم يُثبَّت بعد'};
-return {name:name,locked:false,score:e,badge:badgeOf(e)}}
+var P=student.pins&&student.pins.periods?student.pins.periods[period]:null,e=(P&&P.plat!==null&&P.plat!==undefined)?P.plat:null,live=false;
+if(e===null&&P&&P.live&&P.live.plat!==null&&P.live.plat!==undefined){e=P.live.plat;live=true}
+if(e===null&&student.role==='teacher'){var o=overall();e=Math.min(100,Math.round(o.mastery+o.needs/2));live=true}
+if(e===null)return {name:name,locked:true,date:'لم تبدأ الفترة بعد'};
+return {name:name,locked:false,score:e,badge:badgeOf(e),live:live}}
 function gradesCard(){
 var P=student.pins,W=P&&P.weights,ps=P&&P.periods?P.periods:{};
 var h='<div class="pc"><h3>'+ic('chart',20)+'درجاتك</h3>';
-if(!W||(!ps[1]&&!ps[2]))return h+'<p class="note">ستظهر درجاتك هنا بعد أن يثبّتها المعلم.</p></div>';
+if(!W||(!ps[1]&&!ps[2]))return h+'<p class="note">ستظهر درجاتك هنا مع بدء الفترة.</p></div>';
 var rows=[['المشاركة','part','participation'],['الواجبات','hw','homework'],['السلوك','beh','behavior'],['المنصة','platGrade','platform'],['الاختبار','exam','exam']];
-function cell(p,k,wk){var v=p?p[k]:null;return (v===null||v===undefined)?'<td class="nv">—</td>':'<td><b>'+AR(fmt(v))+'</b><small>/'+AR(W[wk])+'</small></td>'}
+// القيمة المعروضة: المثبّتة إن وُجدت (🔒) وإلا الحالية (قابلة للارتفاع)
+function eff(p,k){if(!p)return null;var v=p[k];if(v!==null&&v!==undefined)return {v:v,pin:k!=='exam'};if(k==='exam')return null;var l=p.live?p.live[k]:null;return (l===null||l===undefined)?null:{v:l,pin:false}}
+function cell(p,k,wk){var x=eff(p,k);if(!x)return '<td class="nv">—</td>';return '<td'+((x.pin||k==='exam')?'':' class="lv"')+'><b>'+AR(fmt(x.v))+'</b><small>/'+AR(W[wk])+(x.pin?' 🔒':'')+'</small></td>'}
 h+='<table class="gt"><thead><tr><th></th><th>المنتصف</th><th>الختام</th></tr></thead><tbody>';
 rows.forEach(function(r){h+='<tr><td class="gl">'+r[0]+'</td>'+cell(ps[1],r[1],r[2])+cell(ps[2],r[1],r[2])+'</tr>'});
-function tot(p){if(!p)return null;var s=0;for(var i=0;i<rows.length;i++){var v=p[rows[i][1]];if(v===null||v===undefined)return null;s+=v}return s}
+function tot(p){if(!p)return null;var s=0,all=true;for(var i=0;i<rows.length;i++){var x=eff(p,rows[i][1]);if(!x)return null;s+=x.v;if(!x.pin&&rows[i][1]!=='exam')all=false}return {t:s,fixed:all}}
 var mx=0;rows.forEach(function(r){mx+=W[r[2]]});
-function tc(p){var t=tot(p);return t===null?'<td class="nv">—</td>':'<td><b>'+AR(fmt(t))+'</b><small>/'+AR(mx)+'</small></td>'}
-h+='<tr class="gtot"><td class="gl">المجموع</td>'+tc(ps[1])+tc(ps[2])+'</tr></tbody></table></div>';
+function tc(p){var t=tot(p);return !t?'<td class="nv">—</td>':'<td'+(t.fixed?'':' class="lv"')+'><b>'+AR(fmt(t.t))+'</b><small>/'+AR(mx)+(t.fixed?' 🔒':'')+'</small></td>'}
+h+='<tr class="gtot"><td class="gl">المجموع</td>'+tc(ps[1])+tc(ps[2])+'</tr></tbody></table>'
++'<p class="note" style="margin:10px 0 0">🔒 درجة مثبّتة نهائية. الدرجات الباهتة <b>حالية</b> ولم تُثبَّت بعد، ويمكنك رفعها بإكمال دروسك وألعابك والتزامك.</p></div>';
 return h}
 
 function isSetComplete(l){if(!l)return true;if(grade('lessons',l.id)===null)return false;var g=l.games||[];for(var i=0;i<g.length;i++)if(grade('games',g[i].id)===null)return false;return true}
@@ -744,11 +763,11 @@ fetch(SCRIPT_URL+'?action=getLeaderboardData&studentId='+encodeURIComponent(stud
 function medalTile(s){
 var ic1,sub,sc='';
 if(s.locked){ic1='<div class="mlock">'+ic('lock',30)+'</div>';sub='<small'+(/^\d/.test(s.date||'')?' dir="ltr"':'')+'>'+esc(s.date||'')+'</small>'}
-else if(s.badge){ic1='<div class="mem">'+s.badge.em+'</div>';sub='<small>'+s.badge.label+'</small>';sc='<div class="msc" dir="ltr">'+fmt(s.score)+'%</div>'}
+else if(s.badge){ic1='<div class="mem">'+s.badge.em+'</div>';sub='<small>'+s.badge.label+(s.live?' · لم يُثبَّت بعد':'')+'</small>';sc='<div class="msc" dir="ltr">'+fmt(s.score)+'%</div>'}
 else if('badge' in s){ic1=medalStar('none',44);sub='<small class="bad">لم يستحق</small>';sc='<div class="msc" dir="ltr">'+fmt(s.score)+'%</div>'}
 else if(s.medal){ic1=medalStar(s.medal.type,44);sub='<small>'+s.medal.label+'</small>';sc='<div class="msc" dir="ltr">'+fmt(s.score)+'%</div>'}
 else{ic1=medalStar('none',44);sub='<small class="bad">لم يستحق</small>';sc='<div class="msc" dir="ltr">'+fmt(s.score)+'%</div>'}
-return '<div class="mt'+((s.medal||s.badge)?' on':'')+'">'+ic1+'<b>'+s.name+'</b>'+sub+sc+'</div>'}
+return '<div class="mt'+((s.medal||s.badge)?' on':'')+(s.live?' lv':'')+'">'+ic1+'<b>'+s.name+'</b>'+sub+sc+'</div>'}
 function arc(len,off,color,C){return len>0?'<circle cx="60" cy="60" r="52" fill="none" stroke="'+color+'" stroke-width="14" stroke-dasharray="'+len.toFixed(1)+' '+(C-len).toFixed(1)+'" stroke-dashoffset="'+(-off).toFixed(1)+'"/>':''}
 function renderMe(){
 var el=$('v-me');

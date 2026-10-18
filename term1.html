@@ -191,7 +191,14 @@ button.pill{cursor:pointer;min-height:40px;color:var(--ac)}
 .bigscore{width:70px;height:70px;border-radius:50%;background:rgba(255,255,255,.95);display:grid;place-items:center;flex:none;font-weight:900;font-size:30px;position:relative;box-shadow:0 4px 0 rgba(0,0,0,.2)}
 .btnw{margin-top:12px;display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:46px;border:0;border-radius:14px;background:#fff;font-family:inherit;font-weight:900;font-size:16px;cursor:pointer;box-shadow:0 4px 0 rgba(0,0,0,.22)}
 .banner.ex .btnw{color:#b45309}.banner.gd .btnw{color:#15803d}.banner.wo .btnw{color:#c2410c}.banner.in .btnw{color:var(--ac-d)}.banner.lkb .btnw{color:#475569}
-.tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+.rc{text-align:center;display:flex;flex-direction:column;align-items:center;padding:10px 4px;border-radius:16px;background:var(--bg);min-width:0}
+.rcg{position:relative;width:68px;height:68px}
+.rcm{position:absolute;inset:0;display:grid;place-items:center;font-size:12px;color:var(--muted);font-weight:700}
+.rcm b{font-size:15px;font-weight:900}.rcm small{font-size:11px;font-weight:700}
+.rcn{font-size:12.5px;font-weight:800;line-height:1.3;margin-top:6px;min-height:34px}
+.rw2{font-size:12px;font-weight:800;margin-top:2px}
+.rc .gplay{width:100%;margin-top:8px;min-height:38px;padding:0 6px;font-size:13px;display:flex;align-items:center;justify-content:center;gap:4px}
 .tile{position:relative;border-radius:18px;padding:12px 8px 10px;text-align:center;border:2px dashed var(--lock2);overflow:hidden}
 .tile.done{border-style:solid}
 .tile.d-ex{border-color:#f59e0b;background:color-mix(in srgb,#f59e0b 14%,var(--card))}.tile.d-gd{border-color:#16a34a;background:color-mix(in srgb,#16a34a 12%,var(--card))}.tile.d-wk{border-color:#e11d48;background:color-mix(in srgb,#e11d48 10%,var(--card))}
@@ -740,10 +747,17 @@ h='<div class="dock-in"><div class="dmsg">'+ic(M[0],16)+M[1]+sec+'</div><div cla
 el.innerHTML=h;document.body.classList.add('has-dock')}
 
 function wordOf(s){return {excellent:'ممتاز',good:'أحسنت',improve:'راجع'}[s]}
-function gameTile(inf,k,lk){var g=inf.gs[k];if(!g)return '';var pl=g.grade!==null&&!lk,L=lvl(g.grade,g.max,.5);
-return '<div class="tile '+GC[k]+(pl?' done d-'+L:'')+'">'+(pl?'<i class="stamp '+L+'">'+ic('check',24,4)+'</i>':'')+'<span class="gt'+(lk?' lk':(pl?' l-'+L:''))+'">'+gic(g.title,26)+'</span><div class="nm">'+esc(g.title)+'</div>'+
-'<div class="sc2'+(pl?' v-'+L:'')+'">'+(lk?'مقفلة':pl?AR(fmt(g.grade))+'/'+AR(g.max):'—')+'</div>'+
-'<button class="gplay'+(lk?' lk':(pl?' gh':''))+'" data-play="'+k+'">'+(pl?ic('refresh',16,2.6)+'أعد اللعب':'العب')+'</button></div>'}
+// حلقة درجة لكل جزء (الدرس واللعبتان): الملوّنة = درجتك، المنقّطة = لم تُلعب بعد
+var RC={ex:'#f59e0b',gd:'#16a34a',wk:'#e11d48'};
+function ringCell(name,score,max,t,lk,playIdx){
+var C=2*Math.PI*25,none=lk||score===null,L=none?'new':lvl(score,max,t),col=RC[L]||'var(--lock2)',len=none?0:C*Math.min(1,score/max);
+var svg=none?'<svg width="68" height="68" viewBox="0 0 68 68" aria-hidden="true"><circle cx="34" cy="34" r="25" fill="none" stroke="var(--lock2)" stroke-width="3" stroke-dasharray="5 5"/></svg>'
+:'<svg width="68" height="68" viewBox="0 0 68 68" style="transform:rotate(-90deg)" aria-hidden="true"><circle cx="34" cy="34" r="25" fill="none" stroke="var(--line)" stroke-width="8"/><circle cx="34" cy="34" r="25" fill="none" stroke="'+col+'" stroke-width="8" stroke-linecap="round" stroke-dasharray="'+len.toFixed(1)+' '+(C-len).toFixed(1)+'"/></svg>';
+var mid=lk?ic('lock',22):none?'<small>'+(playIdx===undefined?'لم يبدأ':'لم تُلعب')+'</small>':'<b dir="ltr" style="color:'+col+'">'+AR(fmt(score))+'/'+AR(max)+'</b>';
+var word=lk?'مقفلة':none?(playIdx===undefined?'مفتوح':'مفتوحة'):({ex:'ممتاز',gd:'أحسنت',wk:'يحتاج تحسين'})[L];
+var btn=playIdx===undefined?'':'<button class="gplay'+(lk?' lk':(none?'':' gh'))+'" data-play="'+playIdx+'">'+(none?(lk?'مقفلة':'العب'):ic('refresh',14,2.6)+'أعد')+'</button>';
+return '<div class="rc"><div class="rcg">'+svg+'<div class="rcm">'+mid+'</div></div><div class="rcn">'+name+'</div><div class="rw2" style="color:'+(none?'var(--muted)':col)+'">'+word+'</div>'+btn+'</div>'}
+function gameTile(inf,k,lk){var g=inf.gs[k];if(!g)return '';return ringCell(esc(g.title),g.grade,g.max,.5,lk,k)}
 function openLessonSheet(id){
 var inf=lessonInfo(LESSONS[id].lesson),lk=inf.state==='locked';sheetLesson=id;
 var m=inf.lesson.maxScore||10,all=!!ST[inf.state],tt=(inf.lg||0)+inf.gs.reduce(function(a,g){return a+(g.grade||0)},0),tm=m+inf.gs.reduce(function(a,g){return a+g.max},0);
@@ -753,10 +767,20 @@ var bc=lk?'#64748b':inf.lg===null?'var(--ac)':({ex:'#d97706',gd:'#16a34a',wk:'#e
 var crown=(!lk&&inf.lg!==null&&lvl(inf.lg,m,.7)==='ex')?'<svg class="crown" width="44" height="30" viewBox="0 0 40 28" aria-hidden="true"><path d="M3 24L1 6l10 8L20 2l9 12 10-8-2 18z" fill="#fbbf24" stroke="#b45309" stroke-width="1.6" stroke-linejoin="round"/><circle cx="20" cy="17" r="2.6" fill="#ef4444"/><circle cx="9.5" cy="19" r="1.6" fill="#fff"/><circle cx="30.5" cy="19" r="1.6" fill="#fff"/></svg>':'';
 var vd=lk?'مقفل':all?(inf.state==='improve'?ic('refresh',20,3):'')+wordOf(inf.state)+'<small>'+AR(fmt(tt))+' من '+AR(tm)+'</small>':(inf.done>0?'قيد الإنجاز<small>أنجزت '+AR(inf.done)+' من '+AR(inf.total)+'</small>':'لم يبدأ');
 var full=all&&tt>=tm,label=lk?'الدرس مغلق':(full?'شاهد الدرس':(inf.lg!==null?'راجع الدرس':'ابدأ الدرس')),bi=lk?ic('lock',20,2.6):ic(full?'eye':(inf.lg!==null?'refresh':'play'),20,2.6);
-$('sheet').innerHTML='<div class="grab"></div><div class="banner '+bk+'"><div class="brow"><div class="bigscore" style="color:'+bc+'">'+crown+big+'</div><div><small>الدرس '+numLabel(id)+' · درجة الدرس من '+AR(m)+'</small><h3>'+esc(inf.title)+'</h3></div></div><div class="vd">'+vd+'</div>'+
+$('sheet').innerHTML='<div class="grab"></div><div class="banner '+bk+'"><div class="brow"><div><small>الدرس '+numLabel(id)+'</small><h3>'+esc(inf.title)+'</h3></div></div><div class="vd">'+vd+'</div>'+
 '<button class="btnw" data-start="'+id+'">'+bi+label+'</button></div>'+
 (lk?'<p class="note" style="margin-top:12px">'+(inf.lk.date?'يفتح هذا الدرس بتاريخ '+dateAR(inf.lk.date):'هذا الدرس مغلق حالياً.')+'</p>':'')+
-'<div class="tiles">'+gameTile(inf,0,lk)+gameTile(inf,1,lk)+'</div>';
+'<div class="tiles">'+ringCell('الدرس',inf.lg,m,.7,lk)+gameTile(inf,0,lk)+gameTile(inf,1,lk)+'</div><p class="note" style="text-align:center;margin:10px 0 0">الحلقة الملوّنة = درجتك، والمنقّطة = لم تُلعب بعد</p>';
+$('ov').classList.add('on')}
+// شاشة ترحيب مرة لكل جلسة: إنجازه العام في المنصة كلها (لا نسبة فصل واحد)
+function openWelcome(){
+var o=overall(),e=Math.min(100,Math.round(o.mastery+o.needs/2)),g=Math.max(0,Math.min(10,Math.floor((e-50)/5)+6)),C=2*Math.PI*52,gl=o.poss>0?o.gain/o.poss*C:0,ll=o.poss>0?o.lost/o.poss*C:0,pl=Math.max(0,C-gl-ll),b=badgeOf(e);
+$('sheet').innerHTML='<div class="grab"></div><div style="text-align:center;margin-top:6px"><small style="color:var(--muted);font-weight:700">أهلاً '+esc(String(student.name||'').split(' ')[0])+'</small><h3 style="margin:2px 0 10px;font-size:19px;font-weight:900">إنجازك العام في المنصة</h3></div>'+
+'<div class="pr" style="justify-content:center"><div class="ring" style="width:120px;height:120px"><svg width="120" height="120" viewBox="0 0 120 120" style="transform:rotate(-90deg)"><circle cx="60" cy="60" r="52" fill="none" stroke="var(--line)" stroke-width="14"/>'+arc(gl,0,'#22c55e',C)+arc(ll,gl,'#ef4444',C)+arc(pl,gl+ll,'#a5b4fc',C)+'</svg><div class="rn" style="font-size:24px"><span>'+AR(e)+'٪</span></div></div>'+
+'<div class="legend"><div style="font-weight:800;margin-bottom:4px">نسبة التفاعل · الدرجة '+AR(g)+'/١٠ '+(b?'':'')+'</div><div><i style="background:#22c55e"></i>إتقان '+AR(o.mastery)+'٪</div><div><i style="background:#ef4444"></i>تحتاج تحسين '+AR(o.needs)+'٪</div><div><i style="background:#a5b4fc"></i>بانتظارك '+AR(o.pending)+'٪</div></div></div>'+
+(b?'<div style="text-align:center;margin:6px 0 2px"><span style="display:inline-flex;align-items:center;gap:6px;font-weight:800">'+badgeInline(e)+b.label+'</span></div>':'')+
+'<p class="note" style="text-align:center;margin:10px 0 0">هذه نسبتك في <b>كل</b> المنصة. أما نسبة كل فصل في الشريط العلوي فهي لذلك الفصل فقط، فتابع حتى تكمل جميع الفصول.</p>'+
+'<button class="btn sh-btn" data-act="wme">عرض بقية إنجازاتي</button><button class="btn ghost" data-act="wgo" style="margin-top:8px">الذهاب إلى المنصة</button>';
 $('ov').classList.add('on')}
 function openDiagSheet(){
 var d=diagInfo();
@@ -833,7 +857,8 @@ setTimeout(function(){var row=document.querySelector('.row[data-l="'+l.id+'"]');
 function showLogin(){$('pre').hidden=true;$('app').hidden=true;$('login').hidden=false;document.body.classList.remove('has-dock')}
 function showApp(){$('pre').hidden=true;$('login').hidden=true;$('app').hidden=false}
 function pickChapter(){if(chapterChosen)return;chapterChosen=true;var mu=student?musaid():null;var p=mu&&mu.primaryTask;curCh=(p&&p.type!=='diagnostic')?LESSONS[taskLesson(p).id].ci:0}
-function enter(){pickChapter();lbData=null;lbStale=true;lbErr=false;showApp();setView('home')}
+function enter(){pickChapter();lbData=null;lbStale=true;lbErr=false;showApp();setView('home');
+try{if(student&&!sessionStorage.getItem('wlc')){sessionStorage.setItem('wlc','1');openWelcome()}}catch(e){}}
 function refresh(silent){
 if(!student)return;
 fetch(SCRIPT_URL+'?action=getStudentData&studentId='+encodeURIComponent(student.id)+'&classId='+encodeURIComponent(student.classIdentifier)+'&t='+Date.now(),{redirect:'follow'})
@@ -867,6 +892,8 @@ var c=t.closest('[data-c]');if(c){curCh=+c.getAttribute('data-c');renderHome();r
 var a=t.closest('[data-act]');
 if(a){var act=a.getAttribute('data-act');
 if(act==='logout'){logout();return}
+if(act==='wme'){closeSheet();setView('me');return}
+if(act==='wgo'){closeSheet();return}
 if(act==='gtab'){gradeTab=+a.getAttribute('data-p');renderMe();return}
 if(act==='login'){closeSheet();localStorage.removeItem('currentStudent');student=null;$('login-err').hidden=true;showLogin();return}
 if(act==='diag'){openDiag();return}

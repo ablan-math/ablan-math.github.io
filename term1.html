@@ -538,12 +538,12 @@ return {lesson:lesson,lk:lk,lg:lg,gs:gs,state:lk.locked?'locked':perf(gr),done:g
 function numLabel(id){var L=LESSONS[id];return AR(L.ci+1)+'-'+AR(L.li+1)}
 
 function totalPoints(){var p=0;KEYS.forEach(function(k){curriculumIndex[k].lessons.forEach(function(l){p+=grade('lessons',l.id)||0;(l.games||[]).forEach(function(g){p+=grade('games',g.id)||0})})});return p}
-function chapStats(ci){var poss=0,gain=0,pts=0,done=0,stars=0,ch=curriculumIndex[KEYS[ci]];
+function chapStats(ci){var poss=0,gain=0,pts=0,ld=0,gd=0,gn=0,mp=0,ch=curriculumIndex[KEYS[ci]];
 ch.lessons.forEach(function(l){var inf=lessonInfo(l);
 if(!inf.lk.locked){poss+=(l.maxScore||10);if(inf.lg!==null)gain+=inf.lg;inf.gs.forEach(function(g){poss+=g.max;if(g.grade!==null)gain+=g.grade})}
-pts+=(inf.lg||0);inf.gs.forEach(function(g){pts+=g.grade||0});
-if(ST[inf.state]){done++;stars+=ST[inf.state]}});
-return {poss:poss,gain:gain,pts:pts,done:done,stars:stars,n:ch.lessons.length,pct:poss>0?Math.round(gain/poss*100):0}}
+mp+=(l.maxScore||10);pts+=(inf.lg||0);if(inf.lg!==null&&inf.lg>0)ld++;
+inf.gs.forEach(function(g){mp+=g.max;gn++;pts+=g.grade||0;if(g.grade!==null&&g.grade>0)gd++})});
+return {poss:poss,gain:gain,pts:pts,ld:ld,gd:gd,gn:gn,mp:mp,n:ch.lessons.length,pct:poss>0?Math.round(gain/poss*100):0}}
 function overall(){var poss=0,gain=0,att=0;
 KEYS.forEach(function(k){curriculumIndex[k].lessons.forEach(function(l){if(lockInfo(l.id).locked)return;var lm=l.maxScore||10;poss+=lm;var lg=grade('lessons',l.id);if(lg!==null){gain+=lg;att+=lm}
 (l.games||[]).forEach(function(g){var gm=g.maxScore||5;poss+=gm;var gg=grade('games',g.id);if(gg!==null){gain+=gg;att+=gm}})})});
@@ -681,11 +681,13 @@ var h='';
 if(!student)h='<div class="strip"><span>تتصفح كزائر. سجّل دخولك لتُحفظ درجاتك وتظهر في لوحة الأوائل.</span><button data-act="login">دخول</button></div>';
 $('strip').innerHTML=h}
 function renderHero(){
-var ch=curriculumIndex[KEYS[curCh]],s=chapStats(curCh),C=2*Math.PI*30;
-$('hero').innerHTML='<span class="sym" style="left:8px;bottom:-10px">√</span><span class="sym" style="left:84px;top:-12px">÷</span>'+
-'<div class="hero-top"><div><div class="k">الفصل '+AR(curCh+1)+'</div><h2>'+esc(chapName(KEYS[curCh]))+'</h2></div>'+
-'<div class="ring"><svg width="72" height="72" viewBox="0 0 72 72" style="transform:rotate(-90deg)"><circle cx="36" cy="36" r="30" fill="none" stroke="rgba(255,255,255,.25)" stroke-width="8"/><circle cx="36" cy="36" r="30" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round" stroke-dasharray="'+C.toFixed(1)+'" stroke-dashoffset="'+(C*(1-s.pct/100)).toFixed(1)+'"/></svg><div class="rn">'+AR(s.pct)+'٪</div></div></div>'+
-'<div class="stats"><div class="stat"><b>'+AR(s.done)+'/'+AR(s.n)+'</b><span>دروس مكتملة</span></div><div class="stat"><b>'+AR(s.stars)+'/'+AR(s.n*3)+'</b><span>نجوم</span></div><div class="stat"><b>'+AR(fmt(s.pts))+'</b><span>نقاط</span></div></div>'}
+var ch=curriculumIndex[KEYS[curCh]],s=chapStats(curCh),C=2*Math.PI*17,o=overall(),e=Math.min(100,Math.round(o.mastery+o.needs/2)),BC=2*Math.PI*62,bl=BC*e/100;
+var big='<div style="position:absolute;left:-52px;top:-40px;width:156px;height:156px;pointer-events:none"><svg width="156" height="156" viewBox="0 0 156 156" style="transform:rotate(-90deg)"><circle cx="78" cy="78" r="62" fill="none" stroke="rgba(255,255,255,.2)" stroke-width="16"/><circle cx="78" cy="78" r="62" fill="none" stroke="#FAC775" stroke-width="16" stroke-linecap="round" stroke-dasharray="'+bl.toFixed(1)+' '+(BC-bl).toFixed(1)+'"/></svg><div style="position:absolute;inset:0;display:grid;place-items:center;font-size:26px;font-weight:900">'+AR(e)+'٪</div></div>'+
+'<div style="position:absolute;left:14px;top:112px;width:72px;text-align:center;font-size:11px;font-weight:700;line-height:1.3;opacity:.95">إنجازك العام في المنصة</div>';
+$('hero').innerHTML='<span class="sym" style="left:8px;bottom:-10px">√</span><span class="sym" style="left:84px;top:-12px">÷</span>'+big+
+'<div class="hero-top" style="min-height:128px;align-items:flex-start"><div><div class="k">الفصل '+AR(curCh+1)+'</div><h2>'+esc(chapName(KEYS[curCh]))+'</h2>'+
+'<div style="display:flex;align-items:center;gap:8px;margin-top:10px"><div style="position:relative;width:46px;height:46px;flex:none"><svg width="46" height="46" viewBox="0 0 46 46" style="transform:rotate(-90deg)"><circle cx="23" cy="23" r="17" fill="none" stroke="rgba(255,255,255,.25)" stroke-width="6"/><circle cx="23" cy="23" r="17" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-dasharray="'+C.toFixed(1)+'" stroke-dashoffset="'+(C*(1-s.pct/100)).toFixed(1)+'"/></svg></div><span style="font-size:12.5px;font-weight:700;line-height:1.3">هذا الفصل فقط<br><b style="font-size:17px;font-weight:900">'+AR(s.pct)+'٪</b></span></div></div></div>'+
+'<div class="stats"><div class="stat"><b>'+AR(s.ld)+'/'+AR(s.n)+'</b><span>دروس منجزة</span></div><div class="stat"><b>'+AR(s.gd)+'/'+AR(s.gn)+'</b><span>ألعاب منجزة</span></div><div class="stat"><b>'+AR(fmt(s.pts))+'/'+AR(s.mp)+'</b><span>نقاط</span></div></div>'}
 function nodeIcon(st){return st==='locked'?ic('lock',32):st==='current'?ic('play',34):st==='new'?ic('book',32):st==='improve'?ic('refresh',34,2.8):st==='good'?ic('check',36,3):ic('trophy',34)}
 function lessonNode(inf,st,isCur,pips){
 var l=inf.lesson;

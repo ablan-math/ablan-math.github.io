@@ -236,15 +236,22 @@ body.has-dock .toast{bottom:calc(var(--nav) + 200px + env(safe-area-inset-bottom
 .mt small.bad{color:#dc2626}
 .mt .msc{margin-top:4px;padding:1px 8px;border-radius:8px;border:1px solid var(--ac);font-size:12px;font-weight:800;color:var(--ac);background:var(--card)}
 .mt.lv{opacity:.7}
-.gt td.lv b{color:var(--muted);font-weight:800}
 .mt.on{background:color-mix(in srgb,#f59e0b 10%,var(--bg))}
 .mem{height:48px;line-height:48px;font-size:30px;white-space:nowrap;display:flex;align-items:center;justify-content:center}
-.gt{width:100%;border-collapse:collapse;text-align:center}
-.gt th{font-size:12.5px;font-weight:800;color:var(--muted);padding:4px 6px}
-.gt td{padding:9px 6px;border-top:1px solid var(--line);font-size:15px}
-.gt td b{font-weight:900}.gt td small{color:var(--muted);font-weight:700;font-size:12px}
-.gt td.gl{text-align:start;font-weight:800;font-size:14px}.gt td.nv{color:var(--muted)}
-.gt tr.gtot td{background:var(--bg);font-weight:900}
+.gtabs{display:flex;gap:6px;margin-bottom:6px}
+.gtabs button{flex:1;border:0;border-radius:10px;padding:8px 0;font:inherit;font-size:13.5px;font-weight:800;background:var(--bg);color:var(--muted);cursor:pointer}
+.gtabs button.on{background:color-mix(in srgb,var(--ac) 14%,var(--bg));color:var(--ac)}
+.grd{display:grid;grid-template-columns:1.1fr 1fr 1fr;gap:8px;align-items:stretch}
+.grd .h{font-size:13px;font-weight:800;color:var(--muted);text-align:center;padding:2px 0 4px}
+.grd .l{display:flex;align-items:center;font-size:14.5px;font-weight:800}
+.grd .v{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 4px;border-radius:14px;background:color-mix(in srgb,var(--ac) 10%,var(--bg));line-height:1.25;text-align:center}
+.grd .v b{font-size:20px;font-weight:900}
+.grd .v small{font-size:11.5px;font-weight:700;color:var(--muted)}
+.grd .v.lv{background:transparent;border:1.5px dashed var(--line)}
+.grd .v.lv b{color:var(--muted);font-weight:800}
+.grd .v.nv{background:var(--bg);color:var(--muted);font-weight:800}
+.grd .v.tt{background:color-mix(in srgb,#f59e0b 16%,var(--bg))}
+.grd .v.tt.lv{background:transparent}
 .mlock{width:44px;height:44px;display:grid;place-items:center;color:var(--muted)}
 .cbar{position:relative;height:16px;border-radius:8px;background:var(--line);margin:22px 4px 14px}
 .cfill{height:100%;border-radius:8px;background:var(--ac);min-width:4px}
@@ -514,13 +521,13 @@ if(!rule)return {locked:false};
 if(rule.method==='يدوي'&&rule.value==='مفتوح')return {locked:false};
 if(rule.method==='تاريخ'){var t=new Date();t.setHours(0,0,0,0);if(t>=parseDateAsLocal(rule.value))return {locked:false};return {locked:true,date:rule.value}}
 return {locked:true}}
-function perf(g){if(g.some(function(x){return x.grade===null}))return 'new';var t=0,m=0;g.forEach(function(x){t+=x.grade;m+=x.max});if(t>=m*.9-1e-9)return 'excellent';if(t>=m*.55-1e-9)return 'good';return 'improve'}
+function perf(g){if(g.some(function(x){return x.grade===null||x.grade<=0}))return 'new';var t=0,m=0;g.forEach(function(x){t+=x.grade;m+=x.max});if(t>=m*.9-1e-9)return 'excellent';if(t>=m*.55-1e-9)return 'good';return 'improve'}
 function lvl(g,m,t){if(g===null)return 'new';if(g>=m)return 'ex';return g>=Math.ceil(m*t-1e-9)?'gd':'wk'}
 function lessonInfo(lesson){
 var lk=lockInfo(lesson.id),lg=grade('lessons',lesson.id);
 var gs=(lesson.games||[]).map(function(g){return {id:g.id,title:String(g.title).trim(),max:g.maxScore||5,grade:grade('games',g.id)}});
 var gr=[{grade:lg,max:lesson.maxScore||10}].concat(gs.map(function(g){return {grade:g.grade,max:g.max}}));
-return {lesson:lesson,lk:lk,lg:lg,gs:gs,state:lk.locked?'locked':perf(gr),done:gr.filter(function(x){return x.grade!==null}).length,total:gr.length,title:cleanTitle(lesson.title)}}
+return {lesson:lesson,lk:lk,lg:lg,gs:gs,state:lk.locked?'locked':perf(gr),done:gr.filter(function(x){return x.grade!==null&&x.grade>0}).length,total:gr.length,title:cleanTitle(lesson.title)}}
 function numLabel(id){var L=LESSONS[id];return AR(L.ci+1)+'-'+AR(L.li+1)}
 
 function totalPoints(){var p=0;KEYS.forEach(function(k){curriculumIndex[k].lessons.forEach(function(l){p+=grade('lessons',l.id)||0;(l.games||[]).forEach(function(g){p+=grade('games',g.id)||0})})});return p}
@@ -565,7 +572,19 @@ function crownSvg(gem, css){
       + '<path d="M94 54 L103 63 L94 76 L85 63 Z" fill="#85B7EB" stroke="#185FA5" stroke-width="2.5" stroke-linejoin="round"/>';
     return '<svg viewBox="-4 -4 128 104" aria-hidden="true" style="' + (css || 'width:1.25em;height:1.05em;vertical-align:-.2em') + '">' + (gem ? jew : plain) + '</svg>';
   }
-function badgeOf(e){return e>=100?{em:crownSvg(true,'width:58px;height:48px'),label:'تاج مرصّع بالألماس'}:e>=95?{em:crownSvg(false,'width:50px;height:42px'),label:'تاج'}:e>=90?{em:'⭐⭐⭐',label:'ثلاث نجوم'}:e>=85?{em:'⭐⭐',label:'نجمتان'}:e>=80?{em:'⭐',label:'نجمة'}:e>=75?{em:'👍',label:'إعجاب'}:null}
+// نجمة وإبهام ومعيّن كـ SVG بدل الإيموجي (الإيموجي يظهر بحواف سوداء على بعض الشاشات والتلفزيونات)
+function starSvg(css){
+  return '<svg viewBox="0 0 24 24" aria-hidden="true" style="' + (css || 'width:1.1em;height:1.1em;vertical-align:-.2em') + '"><polygon points="12,2 15.1,8.6 22.4,9.5 17,14.5 18.5,21.7 12,18.1 5.5,21.7 7,14.5 1.6,9.5 8.9,8.6" fill="#FAC775" stroke="#BA7517" stroke-width="1.6" stroke-linejoin="round"/></svg>';
+}
+function thumbSvg(css){
+  return '<svg viewBox="0 0 24 24" aria-hidden="true" style="' + (css || 'width:1.1em;height:1.1em;vertical-align:-.2em') + '"><path d="M7 11v8a1 1 0 0 1 -1 1h-2a1 1 0 0 1 -1 -1v-7a1 1 0 0 1 1 -1h3a4 4 0 0 0 4 -4v-1a2 2 0 0 1 4 0v5h3a2 2 0 0 1 2 2l-1 5a2 3 0 0 1 -2 2h-7a3 3 0 0 1 -3 -3" fill="#FAC775" stroke="#BA7517" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/></svg>';
+}
+function diamondSvg(css){
+  return '<svg viewBox="0 0 24 24" aria-hidden="true" style="' + (css || 'width:1.1em;height:1.1em;vertical-align:-.2em') + '"><path d="M12 2 L21 10 L12 22 L3 10 Z" fill="#85B7EB" stroke="#185FA5" stroke-width="1.6" stroke-linejoin="round"/><path d="M3 10 H21 M12 2 L8 10 L12 22 M12 2 L16 10 L12 22" fill="none" stroke="#E6F1FB" stroke-width="1"/></svg>';
+}
+function badgeInline(e){if(e>=95)return crownSvg(e>=100,'width:26px;height:22px;vertical-align:middle');var n=e>=90?3:e>=85?2:e>=80?1:0,h='';for(var i=0;i<n;i++)h+=starSvg('width:18px;height:18px;vertical-align:middle');return n?h:(e>=75?thumbSvg('width:20px;height:20px;vertical-align:middle'):'')}
+function stars(n){var h='';for(var i=0;i<n;i++)h+=starSvg('width:30px;height:30px');return h}
+function badgeOf(e){return e>=100?{em:crownSvg(true,'width:58px;height:48px'),label:'تاج مرصّع بالألماس'}:e>=95?{em:crownSvg(false,'width:50px;height:42px'),label:'تاج'}:e>=90?{em:stars(3),label:'ثلاث نجوم'}:e>=85?{em:stars(2),label:'نجمتان'}:e>=80?{em:stars(1),label:'نجمة'}:e>=75?{em:thumbSvg('width:34px;height:34px'),label:'إعجاب'}:null}
 // وسام المنتصف/الختام: من نسبة التفاعل المثبّتة؛ وإن لم تُثبَّت بعد فمن نسبته الحالية (تظهر باهتة وبوسم «لم يُثبَّت بعد»)
 function periodMedal(name,period){
 var P=student.pins&&student.pins.periods?student.pins.periods[period]:null,e=(P&&P.plat!==null&&P.plat!==undefined)?P.plat:null,live=false;
@@ -573,25 +592,41 @@ if(e===null&&P&&P.live&&P.live.plat!==null&&P.live.plat!==undefined){e=P.live.pl
 if(e===null&&student.role==='teacher'){var o=overall();e=Math.min(100,Math.round(o.mastery+o.needs/2));live=true}
 if(e===null)return {name:name,locked:true,date:'لم تبدأ الفترة بعد'};
 return {name:name,locked:false,score:e,badge:badgeOf(e),live:live}}
+var gradeTab=1;
+// درجاتك: مخطط عنكبوتي بخمسة محاور والمجموع في المركز، بتبويب المنتصف/الختام
 function gradesCard(){
 var P=student.pins,W=P&&P.weights,ps=P&&P.periods?P.periods:{};
 var h='<div class="pc"><h3>'+ic('chart',20)+'درجاتك</h3>';
 if(!W||(!ps[1]&&!ps[2]))return h+'<p class="note">ستظهر درجاتك هنا مع بدء الفترة.</p></div>';
+if(!ps[gradeTab])gradeTab=ps[1]?1:2;
 var rows=[['المشاركة','part','participation'],['الواجبات','hw','homework'],['السلوك','beh','behavior'],['المنصة','platGrade','platform'],['الاختبار','exam','exam']];
-// القيمة المعروضة: المثبّتة إن وُجدت (🔒) وإلا الحالية (قابلة للارتفاع)
 function eff(p,k){if(!p)return null;var v=p[k];if(v!==null&&v!==undefined)return {v:v,pin:k!=='exam'};if(k==='exam')return null;var l=p.live?p.live[k]:null;return (l===null||l===undefined)?null:{v:l,pin:false}}
-function cell(p,k,wk){var x=eff(p,k);if(!x)return '<td class="nv">—</td>';return '<td'+((x.pin||k==='exam')?'':' class="lv"')+'><b>'+AR(fmt(x.v))+'</b><small>/'+AR(W[wk])+(x.pin?' 🔒':'')+'</small></td>'}
-h+='<table class="gt"><thead><tr><th></th><th>المنتصف</th><th>الختام</th></tr></thead><tbody>';
-rows.forEach(function(r){h+='<tr><td class="gl">'+r[0]+'</td>'+cell(ps[1],r[1],r[2])+cell(ps[2],r[1],r[2])+'</tr>'});
-function tot(p){if(!p)return null;var s=0,all=true;for(var i=0;i<rows.length;i++){var x=eff(p,rows[i][1]);if(!x)return null;s+=x.v;if(!x.pin&&rows[i][1]!=='exam')all=false}return {t:s,fixed:all}}
-var mx=0;rows.forEach(function(r){mx+=W[r[2]]});
-function tc(p){var t=tot(p);return !t?'<td class="nv">—</td>':'<td'+(t.fixed?'':' class="lv"')+'><b>'+AR(fmt(t.t))+'</b><small>/'+AR(mx)+(t.fixed?' 🔒':'')+'</small></td>'}
-h+='<tr class="gtot"><td class="gl">المجموع</td>'+tc(ps[1])+tc(ps[2])+'</tr></tbody></table>'
-+'<p class="note" style="margin:10px 0 0">🔒 درجة مثبّتة نهائية. الدرجات الباهتة <b>حالية</b> ولم تُثبَّت بعد، ويمكنك رفعها بإكمال دروسك وألعابك والتزامك.</p></div>';
+var p=ps[gradeTab],mx=0,sum=0,miss=0,allPin=true;
+rows.forEach(function(r){mx+=W[r[2]]});
+h+='<div class="gtabs">'+[1,2].map(function(n){return '<button data-act="gtab" data-p="'+n+'" class="'+(gradeTab===n?'on':'')+'">'+(n===1?'المنتصف':'الختام')+'</button>'}).join('')+'</div>';
+var cx=160,cy=122,R=76,pts=[],dots='',labs='',grid='',axes='';
+function pt(i,r){var a=(-90+i*72)*Math.PI/180;return [cx+r*Math.cos(a),cy+r*Math.sin(a)]}
+[.5,1].forEach(function(f){var q=[];for(var i=0;i<5;i++)q.push(pt(i,R*f).map(function(n){return n.toFixed(1)}).join(','));grid+='<polygon points="'+q.join(' ')+'" fill="none" stroke="var(--line)" stroke-width="1"/>'});
+rows.forEach(function(r,i){
+var x=eff(p,r[1]),ratio=0,val='—';
+if(x){ratio=Math.max(0,Math.min(1,x.v/W[r[2]]));sum+=x.v;val=AR(fmt(x.v))+'/'+AR(W[r[2]])+(x.pin?' 🔒':'');if(!x.pin&&r[1]!=='exam')allPin=false}else{miss++;allPin=false}
+var e=pt(i,R),q=pt(i,R*ratio),l=pt(i,R+26);
+axes+='<line x1="'+cx+'" y1="'+cy+'" x2="'+e[0].toFixed(1)+'" y2="'+e[1].toFixed(1)+'" stroke="var(--line)" stroke-width="1"/>';
+pts.push(q[0].toFixed(1)+','+q[1].toFixed(1));
+dots+='<circle cx="'+q[0].toFixed(1)+'" cy="'+q[1].toFixed(1)+'" r="4.5" fill="'+((x&&(x.pin||r[1]==='exam'))?'#059669':'var(--card)')+'" stroke="#059669" stroke-width="2"/>';
+labs+='<text x="'+l[0].toFixed(1)+'" y="'+(l[1]-1).toFixed(1)+'" text-anchor="middle" font-size="12.5" font-weight="800" fill="var(--text)">'+r[0]+'</text><text x="'+l[0].toFixed(1)+'" y="'+(l[1]+13).toFixed(1)+'" text-anchor="middle" font-size="11.5" font-weight="700" fill="var(--muted)">'+val+'</text>'});
+h+='<svg viewBox="0 0 320 250" width="100%" role="img" aria-label="مخطط درجاتك">'+grid+axes
++'<polygon points="'+pts.join(' ')+'" fill="#10b981" fill-opacity=".22" stroke="#059669" stroke-width="2.5" stroke-linejoin="round"/>'+dots
++'<circle cx="'+cx+'" cy="'+cy+'" r="29" fill="var(--card)" stroke="var(--line)" stroke-width="1.5"/>'
++'<text x="'+cx+'" y="'+(cy+3)+'" text-anchor="middle" font-size="19" font-weight="900" fill="var(--text)">'+AR(fmt(sum))+'</text>'
++'<text x="'+cx+'" y="'+(cy+17)+'" text-anchor="middle" font-size="10" font-weight="700" fill="var(--muted)">من '+AR(mx)+'</text>'+labs+'</svg>';
+h+='<p class="note" style="margin:6px 0 0;text-align:center">'+(miss?'المجموع جزئي حتى تكتمل كل المجالات. ':'')
++(allPin?'🔒 كل الدرجات مثبّتة نهائيًا.':'● مثبّتة 🔒 &nbsp; ○ حالية ولم تُثبَّت بعد، وبإمكانك رفعها بإكمال دروسك وألعابك والتزامك.')+'</p></div>';
 return h}
 
-function isSetComplete(l){if(!l)return true;if(grade('lessons',l.id)===null)return false;var g=l.games||[];for(var i=0;i<g.length;i++)if(grade('games',g[i].id)===null)return false;return true}
-function firstIncomplete(l){if(!l)return null;if(grade('lessons',l.id)===null)return {type:'lesson',details:l};var g=l.games||[];for(var i=0;i<g.length;i++)if(grade('games',g[i].id)===null)return {type:'game',details:g[i],parentLessonId:l.id};return null}
+function got(v){return v!==null&&v>0}
+function isSetComplete(l){if(!l)return true;if(!got(grade('lessons',l.id)))return false;var g=l.games||[];for(var i=0;i<g.length;i++)if(!got(grade('games',g[i].id)))return false;return true}
+function firstIncomplete(l){if(!l)return null;if(!got(grade('lessons',l.id)))return {type:'lesson',details:l};var g=l.games||[];for(var i=0;i<g.length;i++)if(!got(grade('games',g[i].id)))return {type:'game',details:g[i],parentLessonId:l.id};return null}
 function oldestUncompleted(){for(var a=0;a<KEYS.length;a++){var ls=curriculumIndex[KEYS[a]].lessons;for(var b=0;b<ls.length;b++){var l=ls[b];if(lockInfo(l.id).locked)continue;var t=firstIncomplete(l);if(t)return t}}return null}
 function musaid(){
 if(!student)return {primaryTask:null,secondaryTask:null,messageType:'none'};
@@ -773,7 +808,7 @@ function renderMe(){
 var el=$('v-me');
 if(!student){el.innerHTML=guest('إنجازاتي','user');return}
 var o=overall(),C=2*Math.PI*52,gl=o.poss>0?o.gain/o.poss*C:0,ll=o.poss>0?o.lost/o.poss*C:0,pl=Math.max(0,C-gl-ll),d=diagInfo(),rm=remaining(),dl=(diagInfo().has);
-var m=o.mastery,eg=Math.min(100,Math.round(o.mastery+o.needs/2)),egG=Math.max(0,Math.min(10,Math.floor((eg-50)/5)+6)),egB=eg>=100?'👑💎':eg>=95?'👑':eg>=90?'⭐⭐⭐':eg>=85?'⭐⭐':eg>=80?'⭐':eg>=75?'👍':'';
+var m=o.mastery,eg=Math.min(100,Math.round(o.mastery+o.needs/2)),egG=Math.max(0,Math.min(10,Math.floor((eg-50)/5)+6)),egB=badgeInline(eg);
 el.innerHTML='<div style="height:calc(env(safe-area-inset-top,0px) + 14px)"></div>'+
 '<div class="pc"><div class="prof"><div class="av">'+esc(String(student.name||'؟').trim().charAt(0))+'</div><div><b>'+esc(student.name)+(student.role==='teacher'?' (معلم)':'')+'</b><small>الصف: '+esc(student.class||'-')+'</small></div></div></div>'+
 '<div class="pc"><h3>'+ic('chart',20)+'مستوى التقدم والإتقان</h3><div class="pr"><div class="ring" style="width:120px;height:120px"><svg width="120" height="120" viewBox="0 0 120 120" style="transform:rotate(-90deg)"><circle cx="60" cy="60" r="52" fill="none" stroke="var(--line)" stroke-width="14"/>'+arc(gl,0,'#22c55e',C)+arc(ll,gl,'#ef4444',C)+arc(pl,gl+ll,'#a5b4fc',C)+'</svg><div class="rn" style="font-size:24px"><span>'+AR(eg)+'٪</span></div></div>'+
@@ -832,6 +867,7 @@ var c=t.closest('[data-c]');if(c){curCh=+c.getAttribute('data-c');renderHome();r
 var a=t.closest('[data-act]');
 if(a){var act=a.getAttribute('data-act');
 if(act==='logout'){logout();return}
+if(act==='gtab'){gradeTab=+a.getAttribute('data-p');renderMe();return}
 if(act==='login'){closeSheet();localStorage.removeItem('currentStudent');student=null;$('login-err').hidden=true;showLogin();return}
 if(act==='diag'){openDiag();return}
 if(act==='diagsheet'){openDiagSheet();return}

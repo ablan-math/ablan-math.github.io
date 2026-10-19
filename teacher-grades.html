@@ -120,13 +120,13 @@
   .pl-ring{position:relative; width:68px; height:68px; margin:8px auto 4px;}
   .pl-num{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:14px;}
   .pl-lg{display:flex; flex-direction:column; align-items:flex-start; gap:4px; font-size:11px; font-weight:700; margin-top:6px; text-align:start;}
-  .pl-lg span, .pl-eg{background:var(--card); border:1px solid var(--line); border-radius:10px; padding:2px 10px; box-shadow:0 1px 2px rgba(0,0,0,.08);}
+  .pl-lg span, .pl-eg{background:color-mix(in srgb, var(--card) 70%, transparent); border:1px solid var(--line); border-radius:10px; padding:2px 10px; box-shadow:0 1px 2px rgba(0,0,0,.08);}
   .pl-eg{display:inline-block; border-radius:12px; padding:3px 12px;}
   .pl-lg i{display:inline-block; width:9px; height:9px; border-radius:50%; margin-inline-end:5px;}
   .pl-fz{font-size:10px; color:var(--muted); font-weight:700; margin-top:6px; min-height:12px;}
   /* سجلّا النصفي والنهائي (تثبيت الدرجات) */
   #grid.boardwrap{display:block; overflow-x:auto;}
-  table.board{border-collapse:separate; border-spacing:0; width:100%; min-width:720px; background:var(--card); border-radius:16px; box-shadow:var(--shadow); overflow:hidden; --bc:#0d9488;}
+  table.board{border-collapse:separate; border-spacing:0; width:100%; min-width:800px; background:var(--card); border-radius:16px; box-shadow:var(--shadow); overflow:hidden; --bc:#0d9488;}
   table.board.fin{--bc:#7c3aed;}
   table.board thead th{background:var(--bc); color:#fff; padding:10px 8px; font-size:13px; font-weight:800; vertical-align:top; text-align:center;}
   table.board thead th small{display:block; font-weight:700; opacity:.85; font-size:11px; margin-top:2px;}
@@ -2187,6 +2187,17 @@
     return td;
   }
 
+  // مجموع الطالب = المثبّت أو الحالي لكل مجال + الاختبار؛ المجال الذي بلا درجة لا يُحسب ويُشار إليه بـ«جزئي»
+  function boardTotal(s){
+    var W = boardData.weights, t = 0, miss = 0, max = W.participation + W.homework + W.behavior + W.platform + W.exam;
+    ['part', 'hw', 'beh', 'plat'].forEach(function(k){
+      var v = (k === 'plat') ? ((s.pin && s.pin.platGrade !== null && s.pin.platGrade !== undefined) ? s.pin.platGrade : s.live.platGrade)
+        : ((s.pin && s.pin[k] !== null && s.pin[k] !== undefined) ? s.pin[k] : s.live[k]);
+      if (v === null || v === undefined) miss++; else t += v;
+    });
+    if (s.exam === null || s.exam === undefined) miss++; else t += s.exam;
+    return { t: t, miss: miss, max: max };
+  }
   function renderBoard(){
     gridEl.innerHTML = '';
     gridEl.className = 'boardwrap';
@@ -2202,9 +2213,10 @@
     tbl.className = 'board ' + (mode === 'fin' ? 'fin' : 'mid');
     var head = '<thead><tr><th style="text-align:start;min-width:120px">' + (mode === 'fin' ? 'النهائي' : 'النصفي')
       + '<small>الأسابيع ' + boardData.range.from + '–' + boardData.range.to + '</small></th>';
+    head += '<th>المجموع<small>من ' + (W.participation + W.homework + W.behavior + W.platform + W.exam) + '</small></th>';
     BOARD_COLS.forEach(function(c){
       var n = students.filter(function(s){ return s.pin && s.pin[c.k] !== null && s.pin[c.k] !== undefined; }).length;
-      head += '<th>' + c.t + '<small>من ' + W[c.w] + ' · مثبّت ' + n + '/' + students.length + '</small>'
+      head += '<th>' + c.t + '<small>الدرجة العظمى ' + W[c.w] + '</small><small>تم تثبيت ' + n + ' من ' + students.length + ' طالبًا</small>'
         + '<div class="bd-btns"><button type="button" data-f="' + c.k + '" data-sc="class">' + (c.k === 'plat' ? 'تحديث' : 'تثبيت') + '</button>'
         + '<button type="button" data-f="' + c.k + '" data-sc="all">كل الصفوف</button></div></th>';
     });
@@ -2218,6 +2230,9 @@
       nm.className = 'bn'; nm.textContent = (sorted ? (rank + 1) + '. ' : '') + displayName(s.name); nm.title = 'عرض سجل الطالب';
       nm.addEventListener('click', function(){ openRecord(s); });
       tr.appendChild(nm);
+      var tt = boardTotal(s), tdT = document.createElement('td');
+      tdT.innerHTML = '<span style="font-size:17px">' + fmtG(tt.t) + '</span><small>' + (tt.miss ? 'جزئي (' + tt.miss + ' بلا درجة)' : 'من ' + tt.max) + '</small>';
+      tr.appendChild(tdT);
       BOARD_COLS.forEach(function(c){ tr.appendChild(boardCell(c, s)); });
       var ex = document.createElement('td');
       ex.innerHTML = (s.exam === null || s.exam === undefined) ? '<b style="color:var(--muted)">—</b>' : String(s.exam);

@@ -25,12 +25,30 @@
     return null;
   }
 
+  // درجة الطالب الحالية في هذا الدرس (تظهر بجانب العنوان وتتحدّث بعد الحفظ)
+  function lessonIdFromUrl() { var m = location.pathname.match(/(c\d+_l\d+)\.html/); return m ? m[1] : ''; }
+  function scoreChipHtml(studentData) {
+    var id = lessonIdFromUrl();
+    if (!studentData || !id) return '';
+    var g = studentData.lessons && studentData.lessons[id] ? parseFloat(studentData.lessons[id].grade) : null;
+    var has = g !== null && !isNaN(g);
+    var cls = !has ? 'bg-gray-100 text-gray-600' : (g >= 9 ? 'bg-green-100 text-green-800' : (g >= 5.5 ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-700'));
+    return '<span id="lesson-score-chip" class="inline-block mt-1 text-xs font-bold px-2 py-0.5 rounded-full ' + cls + '">' + (has ? 'درجتك الحالية في الدرس: ' + toAr(Math.round(g * 10) / 10) + ' من ١٠' : 'لم تُحلّ هذا الدرس بعد') + '</span>';
+  }
+  function refreshScoreChip() {
+    var old = $('lesson-score-chip');
+    if (!old) return;
+    var tmp = document.createElement('div');
+    tmp.innerHTML = scoreChipHtml(getStudentFromStorage());
+    if (tmp.firstChild) old.replaceWith(tmp.firstChild);
+  }
+
   function buildHeader(studentData, lessonTitle) {
     var headerContainer = $('main-header');
     if (!headerContainer) return;
     var titleHtml;
     if (lessonTitle) {
-      titleHtml = '<div><h2 class="text-sm text-gray-500 leading-tight">منصة الرياضيات التفاعلية</h2><h1 class="text-xl font-bold text-indigo-700 leading-tight">' + lessonTitle + '</h1></div>';
+      titleHtml = '<div><h2 class="text-sm text-gray-500 leading-tight">منصة الرياضيات التفاعلية</h2><h1 class="text-xl font-bold text-indigo-700 leading-tight">' + lessonTitle + '</h1>' + scoreChipHtml(studentData) + '</div>';
     } else {
       titleHtml = '<a href="../term1.html" target="_top"><h1 class="text-2xl font-bold text-blue-800">منصة الرياضيات التفاعلية</h1></a>';
     }
@@ -139,6 +157,7 @@
           if (!old || old.grade < grade) s.lessons[lessonId] = { grade: grade, attempts: ((old && old.attempts) || 0) + 1 };
           else old.attempts = (old.attempts || 0) + 1;
           localStorage.setItem('currentStudent', JSON.stringify(s));
+          refreshScoreChip();
         }
       })
       .catch(function (err) {

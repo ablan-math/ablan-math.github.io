@@ -672,11 +672,29 @@
   <div class="rec-box">
     <div class="ov-head">
       <h3 id="recordTitle">سجل الطالب</h3>
+      <button id="recWaBtn" type="button" style="margin-inline-start:auto;border:none;background:#25d366;color:#fff;padding:8px 14px;border-radius:12px;font-family:'Cairo',sans-serif;font-weight:800;font-size:12px;cursor:pointer;">📱 مراسلة ولي الأمر</button>
       <button id="closeRecordBtn" type="button" style="border:none;background:var(--bg);color:var(--muted);width:32px;height:32px;border-radius:50%;font-size:16px;cursor:pointer;font-weight:700;">✕</button>
     </div>
     <div class="rec-sums" id="recordSums"></div>
     <div id="recordWrap"><table id="recordTable"></table></div>
     <div class="pend-bar" style="display:none;"></div>
+  </div>
+</div>
+
+<div id="recWaModal" class="modal" style="z-index:965;">
+  <div class="cell-box" style="max-width:480px;text-align:start;">
+    <h4 id="rwTitle">مراسلة ولي الأمر</h4>
+    <div class="sub2" id="rwSub"></div>
+    <div class="pc-checks" style="margin-bottom:8px;">
+      <label><input type="checkbox" id="rwLogin"> 🔑 رقم الدخول للمنصة</label>
+      <label><input type="checkbox" id="rwLink"> 🌐 رابط المنصة</label>
+    </div>
+    <textarea id="rwText" rows="15" class="pc-note"></textarea>
+    <div class="cell-actions" style="margin-top:10px;">
+      <button type="button" id="rwCancel">إلغاء</button>
+      <button type="button" id="rwSend" class="primary" style="background:#25d366;border-color:#25d366;">إرسال واتساب</button>
+    </div>
+    <div id="rwStatus" style="font-size:12px;min-height:16px;margin-top:8px;color:var(--muted);"></div>
   </div>
 </div>
 
@@ -724,6 +742,8 @@
         <label><input type="checkbox" value="beh" checked> السلوك</label>
         <label><input type="checkbox" value="plat" checked> المنصة</label>
         <label><input type="checkbox" value="exam" checked> الاختبار</label>
+        <label><input type="checkbox" value="login"> 🔑 رقم الدخول للمنصة</label>
+        <label><input type="checkbox" value="link"> 🌐 رابط المنصة</label>
       </div>
       <div class="set-sec">ملاحظة من المعلم (اختيارية)</div>
       <textarea id="pcNote" rows="2" class="pc-note" placeholder="مثال: نرجو متابعة حل الواجبات وزيارة المنصة"></textarea>
@@ -2303,6 +2323,15 @@
   // ===== التواصل مع أولياء الأمور (واتساب) =====
   var pcModal = document.getElementById('parentModal');
   var pcData = null, pcSent = {};
+  // رقم الدخول للمنصة = رقم الطالب المسجل في الشيت (قد يختلف عن رقم هويته الفعلي)
+  var PLATFORM_URL = 'https://ablan-math.github.io/';
+  function accessLines(id, withLogin, withLink){
+    var l = [];
+    if (withLogin) l.push('🔑 رقم الدخول للمنصة: ' + id);
+    if (withLink) l.push('🌐 رابط المنصة: ' + PLATFORM_URL);
+    if (l.length) l.push('(ادخل بالرقم الموضّح أعلاه كما هو، وليس برقم الهوية أو الإقامة)');
+    return l;
+  }
   function waPhone(p){
     var d = String(p || '').replace(/[٠-٩]/g, function(c){ return '٠١٢٣٤٥٦٧٨٩'.indexOf(c); }).replace(/\D/g, '');
     if (!d) return '';
@@ -2336,16 +2365,18 @@
       if (s.exam === null || s.exam === undefined){ lines.push('• الاختبار: لم يُرصد بعد'); complete = false; }
       else { lines.push('• الاختبار: ' + fmtG(s.exam) + ' من ' + W.exam); total += s.exam; max += W.exam; }
     }
-    if (!chosen) return '';
+    if (!chosen && !picked.login && !picked.link) return '';
     if (chosen > 1 && complete) lines.push('▪ المجموع: ' + fmtG(total) + ' من ' + max);
     var status = '';
     if (pinnedN && !liveN) status = '\n\n✅ تم تثبيت هذه الدرجات (' + pcPeriodName() + ').';
     else if (liveN && !pinnedN) status = '\n\n⏳ هذه الدرجات حتى الآن ولم تُثبَّت بعد، وبإمكان ابنكم رفعها بإكمال دروس المنصة والالتزام بالواجبات والمشاركة.';
     else if (liveN && pinnedN) status = '\n\n🔒 الدرجات المعلَّمة بقفل تم تثبيتها، والبقية (حالية) لم تُثبَّت بعد وبإمكان ابنكم رفعها.';
     var note = document.getElementById('pcNote').value.trim();
-    return 'السلام عليكم ورحمة الله وبركاته\nولي أمر الطالب: ' + s.name
-      + '\n' + pcIntro() + '\n' + lines.join('\n')
-      + status + (note ? '\n\n' + note : '') + '\n\n' + pcOutro();
+    var access = accessLines(s.id, picked.login, picked.link);
+    var body = chosen ? ('\n' + pcIntro() + '\n' + lines.join('\n') + status) : '';
+    if (access.length) body += (chosen ? '\n\n' : '\nنرسل لكم بيانات دخول ابنكم إلى منصة الرياضيات التفاعلية:\n') + access.join('\n');
+    return 'السلام عليكم ورحمة الله وبركاته\nولي أمر الطالب: ' + s.name + body
+      + (note ? '\n\n' + note : '') + '\n\n' + pcOutro();
   }
   function pcOpen(s, row){
     var ph = waPhone(s.phone), msg = pcMessage(s);
@@ -2816,6 +2847,78 @@
       recordSums.textContent = 'تعذّر الاتصال بالخادم: ' + err.message;
     });
   }
+
+
+  // ===== مراسلة ولي أمر الطالب من سجله: ترحيب + بيان المستوى =====
+  var rwModal = document.getElementById('recWaModal'), rwPhone = '';
+  function rwPeriodText(s, W, name){
+    var rows = [['المشاركة', 'part'], ['الواجبات', 'hw'], ['السلوك', 'beh'], ['المنصة', 'plat'], ['الاختبار', 'exam']];
+    var lines = [], total = 0, mx = 0, miss = false;
+    rows.forEach(function(r){
+      var v = pcEff(s, r[1]), w = W[PC_WEIGHT[r[1]]];
+      if (v === null){ lines.push('• ' + r[0] + ': لم تُرصد بعد'); miss = true; return; }
+      var isPin = r[1] !== 'exam' && s.pin && ((r[1] === 'plat' ? s.pin.platGrade : s.pin[r[1]]) !== null && (r[1] === 'plat' ? s.pin.platGrade : s.pin[r[1]]) !== undefined);
+      lines.push('• ' + r[0] + ': ' + fmtG(v) + ' من ' + w + (isPin ? ' 🔒' : (r[1] === 'exam' ? '' : ' (حالية)')));
+      total += v; mx += w;
+    });
+    var has = rows.some(function(r){ return pcEff(s, r[1]) !== null && (r[1] === 'exam' || (s.pin && s.pin[r[1] === 'plat' ? 'platGrade' : r[1]] !== null && s.pin[r[1] === 'plat' ? 'platGrade' : r[1]] !== undefined)); });
+    return { has: has, text: '📊 ' + name + ':\n' + lines.join('\n') + '\n▪ المجموع' + (miss ? ' (جزئي)' : '') + ': ' + fmtG(total) + ' من ' + (W.participation + W.homework + W.behavior + W.platform + W.exam) };
+  }
+  var rwBody = '', rwId = '';
+  function rwRebuild(){
+    var a = accessLines(rwId, document.getElementById('rwLogin').checked, document.getElementById('rwLink').checked);
+    document.getElementById('rwText').value = rwBody + (a.length ? '\n\n' + a.join('\n') : '') + '\n\nنسأل الله له التوفيق، ونرحّب بتواصلكم في أي وقت 🌹';
+  }
+  document.getElementById('rwLogin').addEventListener('change', rwRebuild);
+  document.getElementById('rwLink').addEventListener('change', rwRebuild);
+  function openRecWa(){
+    if (!recordStu) return;
+    var classId = classSel.value;
+    rwModal.classList.add('open');
+    document.getElementById('rwSub').textContent = recordStu.name;
+    document.getElementById('rwText').value = '';
+    document.getElementById('rwLogin').checked = false; document.getElementById('rwLink').checked = false;
+    document.getElementById('rwStatus').textContent = 'جاري تجهيز الرسالة...';
+    document.getElementById('rwSend').disabled = true;
+    function board(p){
+      return fetch(SCRIPT_URL + '?action=getPeriodBoard&classId=' + encodeURIComponent(classId) + '&period=' + p)
+        .then(parseServerReply).then(function(res){
+          if (res && res.status === 'error') throw new Error(res.message);
+          return (res && res.data) ? res.data : res;
+        });
+    }
+    Promise.all([board(1), board(2)]).then(function(r){
+      var find = function(d){ return (d.students || []).filter(function(x){ return String(x.id) === String(recordStu.id); })[0]; };
+      var s1 = find(r[0]), s2 = find(r[1]);
+      if (!s1){ throw new Error('لم يُعثر على بيانات الطالب'); }
+      rwPhone = waPhone(s1.phone);
+      var t = sumsOf(recordStu.grades), hs = hwSum(allTokens(recordStu.homework)), bs = bhSum(allTokens(recordStu.behavior)), ab = absentCount(recordStu.grades);
+      var msg = 'السلام عليكم ورحمة الله وبركاته\nولي أمر الطالب: ' + recordStu.name
+        + '\n\nيسعدنا الترحيب بكم ونشكر لكم تعاونكم، ونحيطكم علمًا بمستوى ابنكم في مادة الرياضيات:'
+        + '\n\n📌 سجل الحصص:\n• الإيجابيات: ' + t.pos + ' — الملاحظات: ' + t.neg
+        + '\n• الواجبات: حُلّ ' + hs.pos + ' ولم يُحلّ ' + hs.neg
+        + '\n• السلوك: جيد ' + bs.pos + ' — ملاحظات ' + bs.neg + (ab ? '\n• الغياب: ' + ab + ' يوم' : '');
+      var p1 = rwPeriodText(s1, r[0].weights, 'النصفي');
+      msg += '\n\n' + p1.text;
+      var p2 = s2 ? rwPeriodText(s2, r[1].weights, 'النهائي') : null;
+      if (p2 && p2.has) msg += '\n\n' + p2.text;
+      rwBody = msg; rwId = recordStu.id;
+      rwRebuild();
+      document.getElementById('rwStatus').textContent = rwPhone ? 'الرقم: +' + rwPhone + ' — يمكنك تعديل النص قبل الإرسال.' : 'لا يوجد رقم جوال صحيح لهذا الطالب في الشيت.';
+      document.getElementById('rwSend').disabled = !rwPhone;
+    }).catch(function(err){
+      document.getElementById('rwStatus').textContent = 'تعذّر تجهيز الرسالة: ' + err.message;
+    });
+  }
+  document.getElementById('recWaBtn').addEventListener('click', openRecWa);
+  document.getElementById('rwCancel').addEventListener('click', function(){ rwModal.classList.remove('open'); });
+  rwModal.addEventListener('click', function(e){ if (e.target === rwModal) rwModal.classList.remove('open'); });
+  document.getElementById('rwSend').addEventListener('click', function(){
+    var msg = document.getElementById('rwText').value.trim();
+    if (!rwPhone || !msg) return;
+    window.open('https://wa.me/' + rwPhone + '?text=' + encodeURIComponent(msg), '_blank', 'noopener');
+    document.getElementById('rwStatus').textContent = 'فُتح واتساب ✓';
+  });
 
   function renderRecord(){
     if (!recordStu || !ovData) return;

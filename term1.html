@@ -140,6 +140,8 @@ button.pill{cursor:pointer;min-height:40px;color:var(--ac)}
 .dock button{pointer-events:auto}
 .dmsg{display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:800;color:var(--muted);padding:0 4px}
 .dmsg svg{color:var(--ac)}
+.gt2{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;min-height:58px;border:0;border-radius:18px;color:#fff;padding:8px 16px;cursor:pointer;text-align:right;font-family:inherit;box-shadow:0 4px 0 rgba(0,0,0,.25)}
+.gt2 b{display:block;font-size:16px;font-weight:900}.gt2 small{display:block;font-size:12.5px;font-weight:700;opacity:.92;margin-top:1px}
 .dsec{margin-inline-start:auto;border:0;background:none;color:var(--ac);font-weight:800;font-size:12.5px;cursor:pointer;min-height:32px;text-decoration:underline;pointer-events:auto}
 .games{display:grid;grid-template-columns:1fr 1fr;gap:9px}
 .gbtn{position:relative;display:flex;align-items:center;gap:9px;min-height:58px;padding:6px 9px;border-radius:18px;background:var(--card);border:2px solid color-mix(in srgb,var(--g1) 55%,var(--line));box-shadow:0 4px 0 color-mix(in srgb,var(--g2) 55%,transparent);cursor:pointer;text-align:right;min-width:0;color:var(--text);transition:transform .08s,box-shadow .08s}
@@ -512,7 +514,7 @@ function medalStar(type,size){var f={gold:'url(#gG)',silver:'url(#gS)',bronze:'u
 if(!f)return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 24 24" fill="none" stroke="var(--lock2)" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="M12 2L15 9L22 9L17 14L19 21L12 17L5 21L7 14L2 9L9 9L12 2Z"/></svg>';
 return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 24 24" fill="'+f+'" stroke="rgba(0,0,0,.25)" stroke-width=".6" stroke-linejoin="round" aria-hidden="true" style="filter:drop-shadow(0 2px 3px rgba(0,0,0,.25))"><path d="M12 2L15 9L22 9L17 14L19 21L12 17L5 21L7 14L2 9L9 9L12 2Z"/></svg>'}
 
-var student=null,curCh=0,view='home',chapterChosen=false;
+var dockTasks={old:null,nw:null},student=null,curCh=0,view='home',chapterChosen=false;
 var lbData=null,lbStale=true,lbLoading=false,lbErr=false,lbTab=0,lbAll=false,sheetLesson=null;
 var WAVE=[0,52,0,-52],GC=['g1','g2'];
 var ST={excellent:3,good:2,improve:1};
@@ -658,7 +660,7 @@ var L=LESSONS[lessonId].lesson,g=(L.games||[])[k];if(!g)return;
 if(lockInfo(lessonId).locked){toast('اللعبة مقفلة');return}
 if(!student){var at=JSON.parse(localStorage.getItem('visitorGameAttempts')||'{}');if((at[g.id]||0)>=VISITOR_MAX_ATTEMPTS){toast('انتهت محاولاتك المجانية ('+AR(VISITOR_MAX_ATTEMPTS)+')، سجّل دخولك');return}}
 closeSheet();
-$('gm-t').textContent=String(g.title).trim();$('gm-f').setAttribute('allow','fullscreen; autoplay');$('gm-f').src='games/'+g.id+'.html'+qs();$('gm').hidden=false;document.body.style.overflow='hidden'}
+var og=grade('games',g.id);$('gm-t').textContent=String(g.title).trim()+(student?' · '+(og!==null?'درجتك الحالية: '+AR(fmt(og))+' من '+AR(g.maxScore||5):'لم تُلعب بعد'):'');$('gm-f').setAttribute('allow','fullscreen; autoplay');$('gm-f').src='games/'+g.id+'.html'+qs();$('gm').hidden=false;document.body.style.overflow='hidden'}
 function closeGame(){$('gm').hidden=true;$('gm-f').src='about:blank';document.body.style.overflow='';if(student)refresh(true)}
 
 function themeApply(){var t=THEMES[curCh%THEMES.length],r=document.documentElement.style;r.setProperty('--ac',t[0]);r.setProperty('--ac-d',t[1]);var m=document.querySelector('meta[name=theme-color]');if(m)m.setAttribute('content',t[0])}
@@ -742,11 +744,19 @@ var mu=musaid(),p=mu.primaryTask,h='';
 if(!p){h='<div class="dock-in"><button class="alldone" data-tab="me">'+ic('trophy',26)+'<span>أحسنت! أنهيت كل المهام المتاحة</span>'+ic('chev',18)+'</button></div>'}
 else if(p.type==='diagnostic'){h='<div class="dock-in"><div class="dmsg">'+ic('rocket',16)+'مهمتك الأولى</div><button class="cta dx" data-act="diag">'+ic('rocket',22)+'ابدأ الاختبار التشخيصي</button></div>'}
 else{
-var lesson=taskLesson(p),inf=lessonInfo(lesson),M={'complete-previous':['alert','لديك مهمة سابقة لم تكتمل'],'do-new':['star','مهمتك التالية'],'complete-oldest':['clock','لديك مهمة قديمة لم تنهها']}[mu.messageType]||['star','مهمتك التالية'];
-var sec=(mu.secondaryTask&&mu.secondaryTask.details.id!==p.details.id)?'<button class="dsec" data-act="oldest">اذهب لأقدم مهمة</button>':'';
-var games=inf.gs.slice(0,2).map(function(g,k){var pl=g.grade!==null,hl=p.type==='game'&&p.details.id===g.id;
-return '<button class="gbtn '+GC[k]+(hl?' hl':'')+'" data-pg="'+k+'" data-l="'+lesson.id+'">'+(hl?'<span class="here">ابدأ هنا</span>':'')+'<span class="gt">'+gic(g.title,24)+(pl?'<i class="ck">'+ic('check',9,4)+'</i>':'')+'</span><span class="gtx"><small>'+(k?'اللعبة الثانية':'اللعبة الأولى')+(pl?' · '+AR(fmt(g.grade))+'/'+AR(g.max):'')+'</small><b>'+esc(g.title)+'</b></span></button>'}).join('');
-h='<div class="dock-in"><div class="dmsg">'+ic(M[0],16)+M[1]+sec+'</div><div class="games">'+games+'</div><button class="cta" data-go="'+lesson.id+'">'+ic(inf.lg!==null?'refresh':'play',22)+(inf.lg!==null?'راجع الدرس ':'ابدأ الدرس ')+numLabel(lesson.id)+'</button></div>'}
+// زران: أقدم مهمة ناقصة + المهمة الجديدة (أحدث درس مفتوح). الضغط يوجّه للمهمة على الخريطة.
+var oldT=oldestUncompleted(),newT=null,un2=[];
+KEYS.forEach(function(k){curriculumIndex[k].lessons.forEach(function(l){if(!lockInfo(l.id).locked)un2.push(l)})});
+if(un2.length)newT=firstIncomplete(un2[un2.length-1]);
+dockTasks={old:oldT,nw:newT};
+function tl(t){var l=taskLesson(t);return 'الدرس '+numLabel(l.id)+' · '+(t.type==='game'?esc(String(t.details.title).trim()):'الدرس')}
+function opened(t){var l=taskLesson(t),r=(student.lessonRules||{})[l.id];if(!r||r.method!=='تاريخ')return '';var d=Math.round((new Date().setHours(0,0,0,0)-parseDateAsLocal(r.value))/864e5);return d<=0?' · فُتح اليوم':d===1?' · فُتح أمس':d<=7?' · فُتح منذ '+AR(d)+' أيام':''}
+var same=oldT&&newT&&taskLesson(oldT).id===taskLesson(newT).id;
+function big(act,ico,title,sub,bg){return '<button class="gt2" data-act="'+act+'" style="background:'+bg+'"><span><b>'+ico+' '+title+'</b><small>'+sub+'</small></span>'+ic('chev',22)+'</button>'}
+var btns='';
+if(same||(!oldT&&newT))btns=big('gonew','▶','متابعة مهمتك',tl(newT||oldT)+opened(newT||oldT),'#0f766e');
+else{if(oldT)btns+=big('goold','⏳','أقدم مهمة ناقصة',tl(oldT),'#b45309');if(newT)btns+=big('gonew','🆕','المهمة الجديدة',tl(newT)+opened(newT),'#1d4ed8')}
+h='<div class="dock-in"><div class="dmsg">'+ic('star',16)+'إلى أين تريد أن تذهب؟</div>'+btns+'</div>'}
 el.innerHTML=h;document.body.classList.add('has-dock')}
 
 function wordOf(s){return {excellent:'ممتاز',good:'أحسنت',improve:'راجع'}[s]}
@@ -901,6 +911,8 @@ if(act==='gtab'){gradeTab=+a.getAttribute('data-p');renderMe();return}
 if(act==='login'){closeSheet();localStorage.removeItem('currentStudent');student=null;$('login-err').hidden=true;showLogin();return}
 if(act==='diag'){openDiag();return}
 if(act==='diagsheet'){openDiagSheet();return}
+if(act==='goold'){if(dockTasks.old)goTo(dockTasks.old);return}
+if(act==='gonew'){var tt=dockTasks.nw||dockTasks.old;if(tt)goTo(tt);return}
 if(act==='oldest'){var mu=musaid();if(mu.secondaryTask)goTo(mu.secondaryTask);return}
 if(act==='lbretry'){lbErr=false;renderLB();return}
 if(act==='lbmore'){lbAll=!lbAll;renderLB();return}

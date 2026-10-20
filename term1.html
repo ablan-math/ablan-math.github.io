@@ -529,7 +529,7 @@ if(student.role==='teacher'&&!ignoreTeacher)return {locked:false};
 var rule=(student.lessonRules||{})[id];
 if(!rule)return {locked:false};
 if(rule.method==='يدوي'&&rule.value==='مفتوح')return {locked:false};
-if(rule.method==='تاريخ'){var t=new Date();t.setHours(0,0,0,0);if(t>=parseDateAsLocal(rule.value))return {locked:false};return {locked:true,date:rule.value}}
+if(rule.method==='تاريخ'){if(rule.status==='معتمد')return {locked:false};if(rule.status==='بانتظار')return {locked:true};var t=new Date();t.setHours(0,0,0,0);if(t>=parseDateAsLocal(rule.value))return {locked:false};return {locked:true,date:rule.value}}
 return {locked:true}}
 function perf(g){if(g.some(function(x){return x.grade===null||x.grade<=0}))return 'new';var t=0,m=0;g.forEach(function(x){t+=x.grade;m+=x.max});if(t>=m*.9-1e-9)return 'excellent';if(t>=m*.55-1e-9)return 'good';return 'improve'}
 function lvl(g,m,t){if(g===null)return 'new';if(g>=m)return 'ex';return g>=Math.ceil(m*t-1e-9)?'gd':'wk'}
@@ -540,12 +540,12 @@ var gr=[{grade:lg,max:lesson.maxScore||10}].concat(gs.map(function(g){return {gr
 return {lesson:lesson,lk:lk,lg:lg,gs:gs,state:lk.locked?'locked':perf(gr),done:gr.filter(function(x){return x.grade!==null&&x.grade>0}).length,total:gr.length,title:cleanTitle(lesson.title)}}
 function numLabel(id){var L=LESSONS[id];return AR(L.ci+1)+'-'+AR(L.li+1)}
 
-function totalPoints(){var p=0;KEYS.forEach(function(k){curriculumIndex[k].lessons.forEach(function(l){p+=grade('lessons',l.id)||0;(l.games||[]).forEach(function(g){p+=grade('games',g.id)||0})})});return p}
+function totalPoints(){var p=0;KEYS.forEach(function(k){curriculumIndex[k].lessons.forEach(function(l){if(lockInfo(l.id).locked)return;p+=grade('lessons',l.id)||0;(l.games||[]).forEach(function(g){p+=grade('games',g.id)||0})})});return p}
 function chapStats(ci){var poss=0,gain=0,pts=0,ld=0,gd=0,gn=0,mp=0,ch=curriculumIndex[KEYS[ci]];
 ch.lessons.forEach(function(l){var inf=lessonInfo(l);
 if(!inf.lk.locked){poss+=(l.maxScore||10);if(inf.lg!==null)gain+=inf.lg;inf.gs.forEach(function(g){poss+=g.max;if(g.grade!==null)gain+=g.grade})}
-mp+=(l.maxScore||10);pts+=(inf.lg||0);if(inf.lg!==null&&inf.lg>0)ld++;
-inf.gs.forEach(function(g){mp+=g.max;gn++;pts+=g.grade||0;if(g.grade!==null&&g.grade>0)gd++})});
+var lkd=inf.lk.locked;mp+=(l.maxScore||10);if(!lkd){pts+=(inf.lg||0);if(inf.lg!==null&&inf.lg>0)ld++}
+inf.gs.forEach(function(g){mp+=g.max;gn++;if(!lkd){pts+=g.grade||0;if(g.grade!==null&&g.grade>0)gd++}})});
 return {poss:poss,gain:gain,pts:pts,ld:ld,gd:gd,gn:gn,mp:mp,n:ch.lessons.length,pct:poss>0?Math.round(gain/poss*100):0}}
 function overall(){var poss=0,gain=0,att=0;
 KEYS.forEach(function(k){curriculumIndex[k].lessons.forEach(function(l){if(lockInfo(l.id).locked)return;var lm=l.maxScore||10;poss+=lm;var lg=grade('lessons',l.id);if(lg!==null){gain+=lg;att+=lm}

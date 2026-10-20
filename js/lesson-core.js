@@ -43,6 +43,32 @@
     if (tmp.firstChild) old.replaceWith(tmp.firstChild);
   }
 
+  // درس مغلق على الطالب (نفس منطق صفحة الفهرس): لا قاعدة = مفتوح؛ يدوي/مفتوح؛ تاريخ مع «معتمد»؛ «بانتظار» مغلق؛ غير ذلك مغلق
+  function isLessonLockedFor(studentData, id) {
+    if (!studentData || studentData.role === 'teacher' || !id) return false;
+    var rule = (studentData.lessonRules || {})[id];
+    if (!rule) return false;
+    if (rule.method === 'يدوي' && rule.value === 'مفتوح') return false;
+    if (rule.method === 'تاريخ') {
+      if (rule.status === 'معتمد') return false;
+      if (rule.status === 'بانتظار') return true;
+      var p = String(rule.value || '').split('-');
+      if (p.length !== 3) return true;
+      var d = new Date(+p[0], +p[1] - 1, +p[2]), t = new Date(); t.setHours(0, 0, 0, 0);
+      return t < d;
+    }
+    return true;
+  }
+  function showLessonClosed() {
+    Array.prototype.slice.call(document.body.children).forEach(function (el) {
+      if (el.id !== 'main-header' && el.tagName !== 'SCRIPT') el.style.display = 'none';
+    });
+    var box = document.createElement('div');
+    box.className = 'container mx-auto px-6 py-10 text-center';
+    box.innerHTML = '<div class="max-w-md mx-auto p-6 rounded-xl bg-amber-50 border border-amber-200"><p class="text-2xl mb-2">🔒</p><p class="font-bold text-amber-900 text-lg mb-2">هذا الدرس مغلق حالياً</p><p class="text-sm text-gray-700 mb-4">سيفتحه المعلم في موعده. ولن تُحتسب درجاته قبل ذلك.</p><a href="../term1.html" target="_top" class="inline-block bg-blue-600 text-white font-bold py-2 px-6 rounded-lg">العودة إلى الفهرس</a></div>';
+    document.body.appendChild(box);
+  }
+
   function buildHeader(studentData, lessonTitle) {
     var headerContainer = $('main-header');
     if (!headerContainer) return;
@@ -413,6 +439,7 @@
     var titleEl = $('lesson-title');
     buildHeader(student, titleEl ? titleEl.textContent : null);
     buildFooter();
+    if (isLessonLockedFor(student, lessonIdFromUrl())) { showLessonClosed(); return; }
 
     if (typeof LESSON_ID === 'undefined' || typeof generateQuiz !== 'function') {
       console.error('lesson-core: الصفحة لا تعرّف LESSON_ID أو generateQuiz');

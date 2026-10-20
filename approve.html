@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>استئذان فتح درس</title>
+<style>
+  :root{--bg:#f3f5fb;--card:#fff;--ink:#0f172a;--muted:#475569}
+  @media (prefers-color-scheme:dark){:root{--bg:#0b1020;--card:#151b2e;--ink:#e8ecf6;--muted:#93a0b8}}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:Tahoma,Arial,sans-serif;padding:18px}
+  .card{max-width:440px;margin:30px auto;background:var(--card);border-radius:18px;padding:22px;text-align:center;box-shadow:0 6px 24px rgba(0,0,0,.1)}
+  h2{margin:0 0 10px;font-size:20px}
+  p{color:var(--muted);line-height:1.8;font-size:15px;margin:6px 0}
+  button{display:block;width:100%;margin:10px 0;padding:14px;border:0;border-radius:12px;color:#fff;font:inherit;font-weight:800;font-size:17px;cursor:pointer}
+  button:disabled{opacity:.6}
+  .ok{background:#15803d}.wait{background:#b45309}
+  .spin{width:34px;height:34px;border-radius:50%;border:4px solid #cbd5e1;border-top-color:#2563eb;margin:12px auto;animation:r 1s linear infinite}
+  @keyframes r{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="card" id="box"><div class="spin"></div><p>جاري التحميل...</p></div>
+<script>
+(function(){
+  var SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec";
+  var q = new URLSearchParams(location.search);
+  var base = '?action=lessonDecision&l=' + encodeURIComponent(q.get('l') || '') + '&d=' + encodeURIComponent(q.get('d') || '') +
+             '&e=' + encodeURIComponent(q.get('e') || '') + '&s=' + encodeURIComponent(q.get('s') || '');
+  var box = document.getElementById('box');
+  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function show(title, body, buttons){
+    box.innerHTML = '<h2>' + title + '</h2><p>' + body + '</p>' + (buttons || '');
+    Array.prototype.forEach.call(box.querySelectorAll('button[data-a]'), function(b){
+      b.addEventListener('click', function(){ run(b.getAttribute('data-a'), b); });
+    });
+  }
+  function call(a){
+    return fetch(SCRIPT_URL + base + (a ? '&a=' + a : '')).then(function(r){ return r.text(); }).then(function(t){
+      var j; try { j = JSON.parse(t); } catch (e) { throw new Error('رد غير متوقع من الخادم'); }
+      if (j.status === 'error') throw new Error(j.message || 'خطأ');
+      return j.data;
+    });
+  }
+  function render(d){
+    var lab = esc(d.label || '');
+    if (d.state === 'ask') {
+      show('استئذان فتح درس', lab + '<br>الموعد المقرر: ' + esc(d.planned),
+        '<button class="ok" data-a="open">✅ فتح الآن</button><button class="wait" data-a="p1">⏳ تأجيل يوم</button><button class="wait" data-a="p2">⏳ تأجيل يومين</button><button class="wait" data-a="p3">⏳ تأجيل ثلاثة أيام</button>');
+    } else if (d.state === 'opened') show('✅ تم فتح الدرس', lab + '<br>أصبح مفتوحاً للطلاب الآن.');
+    else if (d.state === 'postponed') show('⏳ تم التأجيل', lab + '<br>الموعد الجديد: ' + esc(d.newDate) + '<br>سيصلك استئذان جديد صباح ذلك اليوم.');
+    else if (d.state === 'decided') show('تم البتّ في هذا الطلب', 'سبق أن اتخذت قراراً بشأن ' + lab + '.');
+    else if (d.state === 'expired') show('انتهت صلاحية الرابط', 'سيصلك استئذان جديد صباح الغد.');
+    else show('رابط غير صالح', 'تأكد أنك فتحت الرابط كما وصلك في رسالة الواتساب.');
+  }
+  function run(a, btn){
+    if (btn) { Array.prototype.forEach.call(box.querySelectorAll('button'), function(b){ b.disabled = true; }); }
+    call(a).then(render).catch(function(e){ show('تعذّر الاتصال', esc(e.message) + '<br>حاول مرة أخرى بعد قليل.'); });
+  }
+  if (!q.get('l') || !q.get('s')) show('رابط غير صالح', 'تأكد أنك فتحت الرابط كما وصلك في رسالة الواتساب.');
+  else run('');
+})();
+</script>
+</body>
+</html>

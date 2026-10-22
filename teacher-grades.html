@@ -100,7 +100,20 @@
   .wk-item.sel .wk-main{color:#fff;}
   .wk-item.sel .wk-sub{color:rgba(255,255,255,.8);}
   /* سجل الاختبار (إدخال يدوي) */
-  #grid.examlist{display:flex; flex-direction:column; gap:6px; max-width:560px;}
+  #grid.examlist{display:flex; flex-direction:column; gap:6px; max-width:760px;}
+  .exrow input.imp{width:78px; font-size:15px; border-color:#f3d28a; background:#fffaf0;}
+  .exrow input.imp:focus{border-color:#d97706;}
+  .exrow .ex-lbl{font-size:11px; color:var(--muted); font-weight:700;}
+  .chip{display:inline-block; font-size:11px; font-weight:800; padding:2px 8px; border-radius:8px; margin:1px 2px; white-space:nowrap;}
+  .chip.plat{background:#dbeafe; color:#1d4ed8;}
+  .chip.imp{background:#fef3c7; color:#b45309;}
+  .chip.spill{background:#dcfce7; color:#15803d;}
+  .plus-mark{display:inline-block; font-size:12px; font-weight:800; color:#b45309; background:#fef3c7; border-radius:8px; padding:0 6px; margin-inline-start:4px;}
+  .spill-btn{border:1.5px solid #15803d; background:transparent; color:#15803d; border-radius:8px; padding:2px 8px; font-family:'Cairo',sans-serif; font-size:11px; font-weight:800; cursor:pointer; margin-top:3px;}
+  .sp-row{display:flex; align-items:center; gap:8px; margin:8px 0; font-size:13px; font-weight:700;}
+  .sp-row span{flex:1;}
+  .sp-row input{width:80px; padding:7px; text-align:center; font-size:15px; font-weight:800; border-radius:8px; border:2px solid var(--line); background:var(--bg); color:var(--ink); font-family:'Cairo',sans-serif;}
+  .sp-row small{color:var(--muted); font-weight:600; font-size:11px; min-width:62px;}
   .exrow{display:flex; align-items:center; gap:10px; background:var(--card); border-radius:12px; box-shadow:var(--shadow); padding:8px 14px;}
   .exrow .nm2{flex:1; font-size:14px; font-weight:700; cursor:pointer; text-decoration:underline dotted; text-underline-offset:3px;}
   .exrow input{
@@ -825,6 +838,22 @@
     <h4 id="guardTitle"></h4>
     <div class="sub2" id="guardText" style="line-height:1.7;"></div>
     <div class="cell-actions" id="guardBtns" style="flex-direction:column;"></div>
+  </div>
+</div>
+
+<div id="spillModal" class="modal">
+  <div class="cell-box" style="max-width:380px;">
+    <h4 id="spTitle"></h4>
+    <div class="sub2" id="spSub" style="line-height:1.7;"></div>
+    <div class="sp-row"><span>الواجبات</span><input type="number" id="spHw" min="0" step="any" inputmode="decimal"><small id="spHwMax"></small></div>
+    <div class="sp-row"><span>المشاركة</span><input type="number" id="spPart" min="0" step="any" inputmode="decimal"><small id="spPartMax"></small></div>
+    <div class="sp-row"><span>السلوك</span><input type="number" id="spBeh" min="0" step="any" inputmode="decimal"><small id="spBehMax"></small></div>
+    <div class="sub2" id="spMsg" style="margin:6px 0 10px;"></div>
+    <div class="cell-actions">
+      <button type="button" id="spCancel">إلغاء</button>
+      <button type="button" id="spReset">التلقائي</button>
+      <button type="button" id="spSave" class="primary">حفظ</button>
+    </div>
   </div>
 </div>
 
@@ -1693,7 +1722,8 @@
     var c = loadedCtx;
     if (c.mode === 'exam'){
       return { action: 'saveExamGrades', classId: c.classId, period: c.period,
-               entries: students.map(function(s){ return { id: s.id, grade: (s.exam === null || s.exam === undefined) ? '' : s.exam }; }) };
+               entries: students.map(function(s){ return { id: s.id, grade: (s.exam === null || s.exam === undefined) ? '' : s.exam }; }),
+               improveEntries: students.map(function(s){ return { id: s.id, grade: (s.improve === null || s.improve === undefined) ? '' : s.improve }; }) };
     }
     if (c.mode === 'part'){
       return { action: 'saveParticipationGrid', classId: c.classId, week: c.week, day: c.day,
@@ -2181,8 +2211,28 @@
   function boardPeriod(){ return mode === 'fin' ? 2 : 1; }
   function fmtG(v){ return (v === null || v === undefined) ? '—' : String(Math.round(v * 100) / 100); }
 
+  function examNote(s){
+    var i = s.examInfo; if (!i) return '';
+    var p = [];
+    if (i.improve) p.push('تحسين +' + fmtG(i.improve));
+    if (i.bonus) p.push('إضافة المنصة +' + i.bonus);
+    return p.length ? ' (' + fmtG(i.raw) + ' ' + p.join(' ') + ')' : '';
+  }
+  var ADD_LABEL = { part: 'المشاركة', hw: 'الواجبات', beh: 'السلوك' };
+  function addNote(s){
+    if (!s.add) return '';
+    var l = [];
+    ['hw', 'part', 'beh'].forEach(function(k){ if (s.add[k] > 0) l.push(ADD_LABEL[k] + ' +' + fmtG(s.add[k])); });
+    return l.length ? '• زيادة من فائض الاختبار: ' + l.join('، ') : '';
+  }
   function boardCell(c, s){
     var td = document.createElement('td');
+    var sp = (c.k !== 'plat' && s.add && s.add[c.k] > 0) ? '<span class="chip spill">+' + fmtG(s.add[c.k]) + ' من الاختبار</span>' : '';
+    var res = boardCellBase(c, s, td);
+    if (sp) td.insertAdjacentHTML('beforeend', sp);
+    return res;
+  }
+  function boardCellBase(c, s, td){
     var p = s.pin && s.pin[c.k] !== null && s.pin[c.k] !== undefined ? s.pin[c.k] : null;
     var lv = s.live[c.k];
     if (c.k === 'plat'){
@@ -2251,11 +2301,27 @@
       nm.addEventListener('click', function(){ openRecord(s); });
       tr.appendChild(nm);
       var tt = boardTotal(s), tdT = document.createElement('td');
-      tdT.innerHTML = '<span style="font-size:17px">' + fmtG(tt.t) + '</span><small>' + (tt.miss ? 'جزئي (' + tt.miss + ' بلا درجة)' : 'من ' + tt.max) + '</small>';
+      tdT.innerHTML = '<span style="font-size:17px">' + fmtG(tt.t) + '</span>'
+        + (s.examInfo && s.examInfo.rest > 0 ? '<span class="plus-mark" title="درجة زائدة لم يجد لها مكانًا">+' + fmtG(s.examInfo.rest) + '</span>' : '')
+        + '<small>' + (tt.miss ? 'جزئي (' + tt.miss + ' بلا درجة)' : 'من ' + tt.max) + '</small>';
       tr.appendChild(tdT);
       BOARD_COLS.forEach(function(c){ tr.appendChild(boardCell(c, s)); });
       var ex = document.createElement('td');
-      ex.innerHTML = (s.exam === null || s.exam === undefined) ? '<b style="color:var(--muted)">—</b>' : String(s.exam);
+      ex.innerHTML = (s.exam === null || s.exam === undefined) ? '<b style="color:var(--muted)">—</b>' : String(fmtG(s.exam));
+      var ei = s.examInfo;
+      if (ei){
+        var cs = '';
+        if (ei.improve) cs += '<span class="chip imp">تحسين +' + fmtG(ei.improve) + '</span>';
+        if (ei.bonus) cs += '<span class="chip plat">إضافة المنصة +' + ei.bonus + '</span>';
+        if (cs) ex.innerHTML += '<small>الأصلي ' + fmtG(ei.raw) + '</small>' + cs;
+        if (ei.over > 0){
+          ex.innerHTML += '<small>فائض ' + fmtG(ei.over) + (ei.rest > 0 ? ' — بقي ' + fmtG(ei.rest) : '') + (ei.custom ? ' (بتعديلك)' : '') + '</small>';
+          var sb = document.createElement('button');
+          sb.type = 'button'; sb.className = 'spill-btn'; sb.textContent = 'توزيع الفائض';
+          sb.addEventListener('click', function(){ openSpill(s); });
+          ex.appendChild(sb);
+        }
+      }
       tr.appendChild(ex);
       tb.appendChild(tr);
     });
@@ -2288,6 +2354,62 @@
         setStatus('تعذّر التحميل: ' + err.message, 'err');
       });
   }
+
+  // ===== توزيع فائض الاختبار على الواجبات/المشاركة/السلوك =====
+  var spillModal = document.getElementById('spillModal'), spillStu = null;
+  var SP_IDS = { hw: 'spHw', part: 'spPart', beh: 'spBeh' };
+  function spRead(){
+    var o = {};
+    Object.keys(SP_IDS).forEach(function(k){ var v = parseFloat(document.getElementById(SP_IDS[k]).value); o[k] = isFinite(v) && v > 0 ? v : 0; });
+    return o;
+  }
+  function spCheck(){
+    var i = spillStu.examInfo, v = spRead(), sum = v.hw + v.part + v.beh, err = '';
+    Object.keys(v).forEach(function(k){ if (v[k] > i.room[k] + 1e-9) err = 'أكبر من الحد في ' + ADD_LABEL[k] + ' (' + fmtG(i.room[k]) + ')'; });
+    if (!err && sum > i.over + 1e-9) err = 'المجموع ' + fmtG(sum) + ' أكبر من الفائض ' + fmtG(i.over);
+    var m = document.getElementById('spMsg');
+    m.textContent = err || ('الموزَّع ' + fmtG(sum) + ' من ' + fmtG(i.over) + (sum < i.over ? ' — الباقي يظهر بعلامة + أمام المجموع' : ''));
+    m.style.color = err ? 'var(--neg2)' : 'var(--muted)';
+    document.getElementById('spSave').disabled = !!err;
+    return !err;
+  }
+  function openSpill(s){
+    spillStu = s;
+    var i = s.examInfo;
+    document.getElementById('spTitle').textContent = 'توزيع فائض الاختبار — ' + displayName(s.name);
+    document.getElementById('spSub').textContent = 'مجموع الاختبار ' + fmtG(i.total) + ' (الأصلي ' + fmtG(i.raw)
+      + (i.improve ? ' + تحسين ' + fmtG(i.improve) : '') + (i.bonus ? ' + منصة ' + i.bonus : '') + ') والسقف ' + boardData.weights.exam + ' — الفائض ' + fmtG(i.over);
+    Object.keys(SP_IDS).forEach(function(k){
+      document.getElementById(SP_IDS[k]).value = i.add[k] > 0 ? i.add[k] : '';
+      document.getElementById(SP_IDS[k] + 'Max').textContent = 'حتى ' + fmtG(i.room[k]);
+    });
+    spCheck();
+    spillModal.classList.add('open');
+  }
+  function spSend(body){
+    if (document.body.classList.contains('locked')){ setStatus('الشاشة مقفلة — افتح القفل أولاً', 'err'); return; }
+    var btns = [document.getElementById('spSave'), document.getElementById('spReset')];
+    btns.forEach(function(b){ b.disabled = true; });
+    body.action = 'saveExamSpill'; body.classId = classSel.value; body.period = boardPeriod(); body.studentId = spillStu.id;
+    fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) })
+      .then(parseServerReply)
+      .then(function(res){
+        if (res && res.status === 'error') throw new Error(res.message);
+        spillModal.classList.remove('open');
+        btns.forEach(function(b){ b.disabled = false; });
+        return loadBoard().then(function(){ setStatus('تم حفظ التوزيع ✓', 'ok'); });
+      })
+      .catch(function(err){
+        btns.forEach(function(b){ b.disabled = false; });
+        document.getElementById('spMsg').textContent = 'تعذّر الحفظ: ' + err.message;
+        document.getElementById('spMsg').style.color = 'var(--neg2)';
+      });
+  }
+  Object.keys(SP_IDS).forEach(function(k){ document.getElementById(SP_IDS[k]).addEventListener('input', spCheck); });
+  document.getElementById('spCancel').addEventListener('click', function(){ spillModal.classList.remove('open'); });
+  spillModal.addEventListener('click', function(e){ if (e.target === spillModal) spillModal.classList.remove('open'); });
+  document.getElementById('spSave').addEventListener('click', function(){ if (spCheck()) spSend(spRead()); });
+  document.getElementById('spReset').addEventListener('click', function(){ spSend({ reset: true }); });
 
   function pinColumn(field, scope){
     if (boardBusy) return;
@@ -2363,7 +2485,8 @@
     if (picked.exam){
       chosen++;
       if (s.exam === null || s.exam === undefined){ lines.push('• الاختبار: لم يُرصد بعد'); complete = false; }
-      else { lines.push('• الاختبار: ' + fmtG(s.exam) + ' من ' + W.exam); total += s.exam; max += W.exam; }
+      else { lines.push('• الاختبار: ' + fmtG(s.exam) + ' من ' + W.exam + examNote(s)); total += s.exam; max += W.exam;
+             var an = addNote(s); if (an) lines.push(an); }
     }
     if (!chosen && !picked.login && !picked.link) return '';
     if (chosen > 1 && complete) lines.push('▪ المجموع: ' + fmtG(total) + ' من ' + max);
@@ -2550,6 +2673,7 @@
       nm.addEventListener('click', function(){ openRecord(s); });
       var inp = document.createElement('input');
       inp.type = 'number'; inp.step = 'any'; inp.min = '0'; inp.max = String(examMax);
+      inp.className = 'exmain';
       inp.setAttribute('inputmode', 'decimal');
       inp.value = (s.exam === null || s.exam === undefined) ? '' : s.exam;
       inp.classList.toggle('bad', s.exam !== null && s.exam !== undefined && (s.exam < 0 || s.exam > examMax));
@@ -2568,12 +2692,32 @@
       inp.addEventListener('keydown', function(e){
         if (e.key === 'Enter'){
           e.preventDefault();
-          var all = gridEl.querySelectorAll('input');
+          var all = gridEl.querySelectorAll('input.exmain');
           if (all[idx + 1]) all[idx + 1].focus();
         }
       });
       var mx = document.createElement('span');
       mx.className = 'mx'; mx.textContent = '/ ' + examMax;
+      var imp = document.createElement('input');
+      imp.type = 'number'; imp.step = 'any'; imp.min = '0'; imp.max = String(examMax);
+      imp.className = 'imp'; imp.placeholder = 'تحسين'; imp.title = 'درجة اختبار التحسين (تُجمع مع الاختبار)';
+      imp.setAttribute('inputmode', 'decimal');
+      imp.value = (s.improve === null || s.improve === undefined) ? '' : s.improve;
+      imp.addEventListener('focus', function(){ imp.select(); });
+      imp.addEventListener('input', function(){
+        var v = imp.value.trim(), n = parseFloat(v);
+        s.improve = (v === '' || !isFinite(n)) ? null : n;
+        imp.classList.toggle('bad', v !== '' && (!isFinite(n) || n < 0 || n > examMax));
+        gridDirty = true;
+        refreshInfo();
+      });
+      imp.addEventListener('keydown', function(e){
+        if (e.key === 'Enter'){
+          e.preventDefault();
+          var all = gridEl.querySelectorAll('input.exmain');
+          if (all[idx + 1]) all[idx + 1].focus();
+        }
+      });
       // الفترة الأخرى والمعدل بينهما (يُحسب حياً أثناء الكتابة؛ في الشيت عمود «معدل الاختبارين» صيغة تحسبه)
       var info = document.createElement('span');
       info.className = 'ex-info';
@@ -2584,10 +2728,24 @@
         if (other !== null) parts.push('الفترة ' + (p === 1 ? 2 : 1) + ': ' + other);
         if (other !== null && s.exam !== null && s.exam !== undefined) parts.push('المعدل: ' + (Math.round((other + s.exam) / 2 * 100) / 100));
         info.textContent = parts.join(' — ');
+        if (s.bonus){
+          var bc = document.createElement('span');
+          bc.className = 'chip plat'; bc.textContent = 'إضافة المنصة +' + s.bonus + (s.eng !== null && s.eng !== undefined ? ' (' + s.eng + '٪)' : '');
+          info.appendChild(document.createElement('br')); info.appendChild(bc);
+        }
+        if (s.exam !== null && s.exam !== undefined){
+          var tot = Math.round((s.exam + (s.improve || 0) + (s.bonus || 0)) * 100) / 100;
+          if (tot !== s.exam){
+            var tc = document.createElement('span');
+            tc.className = 'chip ' + (tot > examMax ? 'spill' : 'imp');
+            tc.textContent = 'المجموع ' + tot + (tot > examMax ? ' — فائض ' + (Math.round((tot - examMax) * 100) / 100) : '');
+            info.appendChild(document.createElement('br')); info.appendChild(tc);
+          }
+        }
       }
       refreshInfo();
       inp.addEventListener('input', refreshInfo);
-      row.appendChild(nm); row.appendChild(inp); row.appendChild(mx); row.appendChild(info);
+      row.appendChild(nm); row.appendChild(inp); row.appendChild(mx); row.appendChild(imp); row.appendChild(info);
       gridEl.appendChild(row);
     });
     examStats();
@@ -2597,7 +2755,7 @@
     loadBtn.disabled = true;
     setStatus('جاري التحميل...', '');
     students = []; renderExam();
-    fetch(SCRIPT_URL + '?action=getExamGrades&classId=' + encodeURIComponent(classId))
+    fetch(SCRIPT_URL + '?action=getExamGrades&classId=' + encodeURIComponent(classId) + '&period=' + encodeURIComponent(period))
       .then(parseServerReply)
       .then(function(res){
         if (res && res.status === 'error') throw new Error(res.message);
@@ -2605,7 +2763,10 @@
         loadBtn.disabled = false;
         examMax = d.max || 20;
         students = (d.students || []).map(function(s){
-          return { id: s.id, name: s.name, exams: s.exams || [], exam: (s.exams && s.exams[parseInt(period, 10) - 1] !== undefined) ? s.exams[parseInt(period, 10) - 1] : null };
+          var pi = parseInt(period, 10) - 1;
+          return { id: s.id, name: s.name, exams: s.exams || [], exam: (s.exams && s.exams[pi] !== undefined) ? s.exams[pi] : null,
+                   improve: (s.improves && s.improves[pi] !== undefined) ? s.improves[pi] : null,
+                   bonus: s.bonus || 0, eng: (s.eng === undefined ? null : s.eng) };
         });
         loadedCtx = { classId: classId, week: '1', day: '1', mode: 'exam', period: period };
         gridDirty = false;
@@ -2858,7 +3019,8 @@
       var v = pcEff(s, r[1]), w = W[PC_WEIGHT[r[1]]];
       if (v === null){ lines.push('• ' + r[0] + ': لم تُرصد بعد'); miss = true; return; }
       var isPin = r[1] !== 'exam' && s.pin && ((r[1] === 'plat' ? s.pin.platGrade : s.pin[r[1]]) !== null && (r[1] === 'plat' ? s.pin.platGrade : s.pin[r[1]]) !== undefined);
-      lines.push('• ' + r[0] + ': ' + fmtG(v) + ' من ' + w + (isPin ? ' 🔒' : (r[1] === 'exam' ? '' : ' (حالية)')));
+      lines.push('• ' + r[0] + ': ' + fmtG(v) + ' من ' + w + (isPin ? ' 🔒' : (r[1] === 'exam' ? examNote(s) : ' (حالية)')));
+      if (r[1] === 'exam'){ var an2 = addNote(s); if (an2) lines.push(an2); }
       total += v; mx += w;
     });
     var has = rows.some(function(r){ return pcEff(s, r[1]) !== null && (r[1] === 'exam' || (s.pin && s.pin[r[1] === 'plat' ? 'platGrade' : r[1]] !== null && s.pin[r[1] === 'plat' ? 'platGrade' : r[1]] !== undefined)); });

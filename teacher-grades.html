@@ -869,7 +869,15 @@
               </label>
               <label id="ctMinL"><span id="ctMinT">النسبة ٪</span><input type="number" id="ctMin" min="0" max="100" step="0.5" value="95"></label>
               <label id="ctMaxL"><span>إلى أقل من ٪</span><input type="number" id="ctMax" min="0" max="100" step="0.5" value="95"></label>
+              <label id="ctExamL">درجة الاختبار المعتمدة
+                <select id="ctExamMode">
+                  <option value="raw">الأصلية (قبل التحسين وإضافة المنصة)</option>
+                  <option value="imp">مع اختبار التحسين فقط</option>
+                  <option value="all">مع التحسين وإضافة المنصة</option>
+                </select>
+              </label>
             </div>
+            <div id="ctPlatNote" class="set-note">نسبة المنصة = نسبة التفاعل (الإتقان + نصف «تحتاج تحسين») كما تظهر في سجل المنصة، وليست الدرجة من 10.</div>
             <div class="ct-chips" id="ctQuick"></div>
           </div>
 
@@ -2872,7 +2880,7 @@
     ctTeacherLbl: 'معلم المادة', ctPrinLbl: 'مدير المدرسة', ctYear: '1448هـ', ctPublish: true,
     ctWaMsg: 'السلام عليكم ورحمة الله وبركاته\nولي أمر الطالب: {الاسم}\n\nيسعدنا أن نهنّئكم بحصول ابنكم على شهادة «{الشهادة}» في مادة الرياضيات خلال {الفترة} 🏅\nنشكر لكم متابعتكم ودعمكم، ونتمنّى له دوام التفوّق والنجاح 🌹'
   };
-  var CT_FIELDS = ['ctType', 'ctCond', 'ctMin', 'ctMax', 'ctTitle', 'ctIntro', 'ctTheme', 'ctSeal', 'ctHeader', 'ctTeacherLbl', 'ctTeacher',
+  var CT_FIELDS = ['ctType', 'ctCond', 'ctMin', 'ctMax', 'ctExamMode', 'ctTitle', 'ctIntro', 'ctTheme', 'ctSeal', 'ctHeader', 'ctTeacherLbl', 'ctTeacher',
     'ctPrinLbl', 'ctPrin', 'ctYear', 'ctWaMsg', 'ctDx', 'ctDy', 'ctScale', 'ctColor', 'ctPTitle', 'ctPHeader', 'ctPSign', 'ctGrid', 'ctBgInImg', 'ctPublish'];
 
   function ctStyle(){ var r = document.querySelector('input[name=ctStyle]:checked'); return r ? r.value : 'color'; }
@@ -2917,7 +2925,18 @@
       for (var k in PC_WEIGHT){ var v = pcEff(s, k); if (v === null) return null; sum += v; mx += W[PC_WEIGHT[k]]; }
       return mx > 0 ? sum / mx * 100 : null;
     }
+    // المنصة: نسبة التفاعل نفسها (لا الدرجة من 10 التي تبلغ العلامة الكاملة من 70٪)؛ الأعلى بين المثبّتة والحالية
+    if (dom === 'plat'){
+      var a = s.pin ? s.pin.plat : null, b = s.live ? s.live.plat : null;
+      a = (a === null || a === undefined) ? null : a; b = (b === null || b === undefined) ? null : b;
+      return (a === null && b === null) ? null : Math.max(a === null ? -1 : a, b === null ? -1 : b);
+    }
     var x = pcEff(s, dom), w = W[PC_WEIGHT[dom]];
+    // الاختبار: الأصل الدرجة قبل التحسين وقبل إضافة المنصة، ويمكن اختيار احتسابهما
+    if (dom === 'exam' && x !== null && s.examInfo){
+      var ei = s.examInfo, m = ctEl('ctExamMode').value;
+      x = m === 'all' ? ei.eff : (m === 'imp' ? Math.min(w, ei.raw + (ei.improve || 0)) : ei.raw);
+    }
     return (x === null || !w) ? null : x / w * 100;
   }
   function ctFmtPct(p){ var v = Math.min(100, Math.floor(p * 10 + 1e-6) / 10); return (v % 1 ? v.toFixed(1) : String(v)) + '٪'; }
@@ -2953,6 +2972,8 @@
     ctEl('ctCondBox').style.display = custom ? 'none' : '';
     ctEl('ctMinL').style.display = c === 'manual' ? 'none' : '';
     ctEl('ctMaxL').style.display = c === 'range' ? '' : 'none';
+    ctEl('ctExamL').style.display = ctType() === 'exam' ? '' : 'none';
+    ctEl('ctPlatNote').style.display = ctType() === 'plat' ? '' : 'none';
     ctEl('ctMinT').textContent = c === 'range' ? 'من ٪ (فأكثر)' : (c === 'gt' ? 'أكبر من ٪' : 'النسبة ٪ (فأكثر)');
     var q = ctEl('ctQuick'); q.innerHTML = '';
     var a = ctNum('ctMin'), b = ctNum('ctMax');
@@ -3356,7 +3377,7 @@
   ctModal.addEventListener('click', function(e){ if (e.target === ctModal) ctModal.classList.remove('open'); });
   ['ctClass', 'ctPeriod'].forEach(function(i){ ctEl(i).addEventListener('change', ctLoad); });
   ctEl('ctType').addEventListener('change', function(){ ctApplyType(); ctUi(); ctSavePrefs(); ctRefilter(); });
-  ['ctCond', 'ctMin', 'ctMax'].forEach(function(i){
+  ['ctCond', 'ctMin', 'ctMax', 'ctExamMode'].forEach(function(i){
     ctEl(i).addEventListener('input', function(){ ctUi(); ctSavePrefs(); ctRefilter(); });
   });
   ['ctName', 'ctBody'].forEach(function(i){ ctEl(i).addEventListener('input', ctTextInput); });

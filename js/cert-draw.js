@@ -13,6 +13,8 @@
   var CT_MONO = { p: '#111111', a: '#111111', a2: '#111111', paper: '#ffffff', ink: '#111111', mono: true };
   var F_TITLE = '"Aref Ruqaa", Amiri, serif', F_BODY = 'Amiri, Cairo, serif', F_UI = 'Cairo, sans-serif';
   var ctFontsP = null;
+  // NF: بلا إطار (للورق المؤطَّر مسبقًا) — NB: بلا لون خلفية (للورق الملوّن)
+  var NF = false, NB = false;
   function ctFonts(){
     if (!ctFontsP){
       ctFontsP = Promise.all(['700 20px "Aref Ruqaa"', '400 20px Amiri', '700 20px Amiri', '700 20px Cairo'].map(function(f){
@@ -66,16 +68,19 @@
     var D = DESIGNS[o.design] || DESIGNS.classic;
     var T = o.style === 'bw' ? CT_MONO : (CT_THEMES[o.theme] || CT_THEMES.navy);
     if (D.pal && !T.mono) T = D.pal(T);
+    NF = !!o.noFrame; NB = !!o.noBg;
     D.draw(c, T, o);
     ctWrite(c, o, T);
   }
   function ctFrame(c, T, o){
     var m = !!T.mono;
-    c.fillStyle = T.paper; c.fillRect(0, 0, 297, 210);
+    if (!NB){ c.fillStyle = T.paper; c.fillRect(0, 0, 297, 210); }
     if (!m){
-      var g = c.createRadialGradient(148.5, 105, 40, 148.5, 105, 175);
-      g.addColorStop(0, ctRgba(T.a2, 0)); g.addColorStop(1, ctRgba(T.a2, .45));
-      c.fillStyle = g; c.fillRect(0, 0, 297, 210);
+      if (!NB){
+        var g = c.createRadialGradient(148.5, 105, 40, 148.5, 105, 175);
+        g.addColorStop(0, ctRgba(T.a2, 0)); g.addColorStop(1, ctRgba(T.a2, .45));
+        c.fillStyle = g; c.fillRect(0, 0, 297, 210);
+      }
       // نقش هندسي خفيف (نجمة ثمانية) + وردة كبيرة خلف النص
       c.save(); c.beginPath(); c.rect(17, 17, 263, 176); c.clip();
       c.strokeStyle = ctRgba(T.p, .055); c.lineWidth = .3;
@@ -87,6 +92,7 @@
       ctCircle(c, 148.5, 122, 44); c.stroke();
       c.restore();
     }
+    if (!NF){
     c.strokeStyle = T.p; c.lineWidth = m ? 1 : 3.6; c.strokeRect(10, 10, 277, 190);
     if (!m){ c.strokeStyle = T.a; c.lineWidth = .5; c.strokeRect(12.6, 12.6, 271.8, 184.8); }
     c.strokeStyle = T.a; c.lineWidth = m ? .35 : .8; c.strokeRect(15, 15, 267, 180);
@@ -99,6 +105,7 @@
     [[148.5, 15], [148.5, 195], [15, 105], [282, 105]].forEach(function(q){
       ctDiamond(c, q[0], q[1], 3.2); c.fillStyle = m ? '#ffffff' : T.a; c.fill(); c.strokeStyle = T.p; c.lineWidth = .35; c.stroke();
     });
+    }
     if (o.seal) ctSeal(c, T, 48, 44, o.seal);
   }
   function ctSeal(c, T, x, y, txt){
@@ -199,6 +206,7 @@
   function ln(c, x0, y0, x1, y1){ c.beginPath(); c.moveTo(x0, y0); c.lineTo(x1, y1); c.stroke(); }
   function poly(c, pts){ c.beginPath(); pts.forEach(function(p, i){ if (i) c.lineTo(p[0], p[1]); else c.moveTo(p[0], p[1]); }); c.closePath(); }
   function paper(c, T){
+    if (NB) return;
     c.fillStyle = T.paper; c.fillRect(0, 0, 297, 210);
     if (T.mono) return;
     var g = c.createRadialGradient(148.5, 105, 40, 148.5, 105, 175);
@@ -207,6 +215,7 @@
   }
   // إطار بسيط: شريط خارجي + خط داخلي
   function frame(c, T, band){
+    if (NF) return;
     c.strokeStyle = T.p; c.lineWidth = T.mono ? 1 : (band || 3); c.strokeRect(10, 10, 277, 190);
     c.strokeStyle = T.a; c.lineWidth = T.mono ? .35 : .6; c.strokeRect(14.5, 14.5, 268, 181);
   }
@@ -233,7 +242,7 @@
     ctStar(c, x + 13, y - 12, 3, 5, 1.3); fillOr(c, T, T.a); c.strokeStyle = T.p; c.lineWidth = .3; c.stroke();
   }
   function dGraph(c, T, o){
-    c.fillStyle = T.mono ? '#ffffff' : '#f7fbff'; c.fillRect(0, 0, 297, 210);
+    if (!NB){ c.fillStyle = T.mono ? '#ffffff' : '#f7fbff'; c.fillRect(0, 0, 297, 210); }
     if (!T.mono){
       c.save(); c.beginPath(); c.rect(14.5, 14.5, 268, 181); c.clip();
       for (var k = 0; k * 2.5 <= 268; k++){ c.strokeStyle = ctRgba(T.p, k % 4 ? .07 : .17); c.lineWidth = k % 4 ? .12 : .25; ln(c, 14.5 + k * 2.5, 14.5, 14.5 + k * 2.5, 195.5); }
@@ -247,7 +256,7 @@
     }
     frame(c, T, 3);
     c.strokeStyle = T.a; c.lineWidth = .25;
-    for (k = 0; k * 2.5 <= 268; k++){ var L = k % 10 === 0 ? 4 : (k % 2 ? 1.3 : 2.4), x = 14.5 + k * 2.5; ln(c, x, 14.5, x, 14.5 + L); ln(c, x, 195.5, x, 195.5 - L); }
+    if (!NF) for (k = 0; k * 2.5 <= 268; k++){ var L = k % 10 === 0 ? 4 : (k % 2 ? 1.3 : 2.4), x = 14.5 + k * 2.5; ln(c, x, 14.5, x, 14.5 + L); ln(c, x, 195.5, x, 195.5 - L); }
     emGraph(c, T, 48, 46);
   }
 
@@ -255,18 +264,20 @@
   function dChalk(c, T, o){
     if (T.mono){ c.fillStyle = '#ffffff'; c.fillRect(0, 0, 297, 210); frame(c, T); if (o.seal) ctSeal(c, T, 48, 44, o.seal); return; }
     var w = c.createLinearGradient(0, 0, 297, 210); w.addColorStop(0, '#9a6a3a'); w.addColorStop(.5, '#7a4f28'); w.addColorStop(1, '#94643a');
-    c.fillStyle = w; c.fillRect(0, 0, 297, 210);
+    c.fillStyle = w; if (!NF) c.fillRect(0, 0, 297, 210);
     var g = c.createRadialGradient(148.5, 100, 20, 148.5, 105, 170); g.addColorStop(0, '#2f5d4f'); g.addColorStop(1, '#1d3a31');
-    c.fillStyle = g; c.fillRect(9, 9, 279, 192);
+    c.fillStyle = g; if (NF) c.fillRect(0, 0, 297, 210); else c.fillRect(9, 9, 279, 192);
     var r = rnd(7);
     for (var i = 0; i < 420; i++){ c.fillStyle = 'rgba(255,255,255,' + (.02 + r() * .05) + ')'; c.fillRect(9 + r() * 279, 9 + r() * 192, .4 + r() * 1.2, .3); }
     [['a² + b² = c²', 72, 98, -.12, 6], ['π ≈ 3.14', 244, 64, .1, 7], ['∑', 30, 150, 0, 11], ['√2', 266, 120, -.1, 8], ['y = mx + b', 232, 104, .06, 5.5],
      ['x²', 40, 120, .2, 8], ['∞', 268, 160, 0, 10], ['½ + ¼ = ¾', 76, 160, -.06, 5.5], ['Δ', 200, 40, 0, 7], ['%', 112, 44, .2, 8]].forEach(function(q){
       mathText(c, q[0], q[1], q[2], q[4], 'rgba(255,255,255,.12)', q[3]);
     });
+    if (!NF){
     c.strokeStyle = 'rgba(255,255,255,.45)'; c.lineWidth = .35; c.setLineDash([2.2, 1.4]); c.strokeRect(14.5, 14.5, 268, 181); c.setLineDash([]);
     c.fillStyle = '#6b4423'; c.fillRect(60, 201, 177, 4.5);
     [[100, '#fdfdf2'], [112, '#f4d35e'], [180, '#f28b82']].forEach(function(q){ c.fillStyle = q[1]; c.fillRect(q[0], 201.6, 9, 1.8); });
+    }
     ctCircle(c, 48, 44, 15); c.strokeStyle = '#f4d35e'; c.lineWidth = .9; c.stroke();
     ctStar(c, 48, 44, 12, 5, 5); c.strokeStyle = 'rgba(253,253,242,.85)'; c.lineWidth = .6; c.stroke();
     if (o.seal){ c.textAlign = 'center'; c.textBaseline = 'middle'; ctFit(c, o.seal, '700', 6, F_TITLE, 18); c.fillStyle = '#f4d35e'; c.fillText(o.seal, 48, 45); c.textBaseline = 'alphabetic'; }
@@ -284,7 +295,7 @@
       c.restore();
     }
     frame(c, T, 3.4);
-    [[15, 15, '+'], [282, 15, '−'], [15, 195, '×'], [282, 195, '÷']].forEach(function(q){
+    if (!NF) [[15, 15, '+'], [282, 15, '−'], [15, 195, '×'], [282, 195, '÷']].forEach(function(q){
       ctCircle(c, q[0], q[1], 6.2); fillOr(c, T, T.p); c.strokeStyle = T.a; c.lineWidth = .7; c.stroke();
       mathText(c, q[2], q[0], q[1] + .2, 7, T.mono ? '#111111' : '#ffffff');
     });
@@ -302,7 +313,7 @@
       c.restore();
       [['a', 151, 180], ['b', 61, 121], ['c', 158, 115]].forEach(function(q){ mathText(c, q[0], q[1], q[2], 9, ctRgba(T.p, .16)); });
       // شريطان جانبيان بمربعات a² و b² و c²
-      [[18, 1], [279, -1]].forEach(function(s){
+      if (!NF) [[18, 1], [279, -1]].forEach(function(s){
         [[T.a2, 6], [ctRgba(T.p, .3), 4.5], [T.a, 7.5]].forEach(function(q, i){
           var y = 120 + i * 20; c.fillStyle = q[0]; c.fillRect(s[0] - q[1] / 2, y, q[1], q[1]);
         });
@@ -310,7 +321,7 @@
     }
     frame(c, T, 2.6);
     c.strokeStyle = T.p; c.lineWidth = .35;
-    [[14.5, 14.5, 1, 1], [282.5, 14.5, -1, 1], [14.5, 195.5, 1, -1], [282.5, 195.5, -1, -1]].forEach(function(q){
+    if (!NF) [[14.5, 14.5, 1, 1], [282.5, 14.5, -1, 1], [14.5, 195.5, 1, -1], [282.5, 195.5, -1, -1]].forEach(function(q){
       c.strokeRect(Math.min(q[0], q[0] + q[2] * 5), Math.min(q[1], q[1] + q[3] * 5), 5, 5);
     });
     var A = [40, 54], B = [54, 54], C = [40, 43.5], n = [10.5, -14];
@@ -330,17 +341,22 @@
     if (T.mono){ c.fillStyle = '#ffffff'; c.fillRect(0, 0, 297, 210); }
     else {
       // شريط داكن تدور فيه أرقام π بالذهبي
-      c.fillStyle = T.p; c.fillRect(0, 0, 297, 210);
-      c.fillStyle = T.paper; c.fillRect(17.6, 17.6, 261.8, 174.8);
-      var g = c.createRadialGradient(148.5, 105, 40, 148.5, 105, 170); g.addColorStop(0, ctRgba(T.a2, 0)); g.addColorStop(1, ctRgba(T.a2, .35));
-      c.fillStyle = g; c.fillRect(17.6, 17.6, 261.8, 174.8);
+      if (!NF){ c.fillStyle = T.p; c.fillRect(0, 0, 297, 210); }
+      var bx = NF ? 0 : 17.6, bw = NF ? 297 : 261.8, bh = NF ? 210 : 174.8;
+      if (!NB){
+        c.fillStyle = T.paper; c.fillRect(bx, bx, bw, bh);
+        var g = c.createRadialGradient(148.5, 105, 40, 148.5, 105, 170); g.addColorStop(0, ctRgba(T.a2, 0)); g.addColorStop(1, ctRgba(T.a2, .35));
+        c.fillStyle = g; c.fillRect(bx, bx, bw, bh);
+      }
       c.save(); c.textAlign = 'center'; c.textBaseline = 'middle'; ctFont(c, '700', 150, F_BODY); c.fillStyle = ctRgba(T.p, .045); c.fillText('π', 148.5, 112); c.restore();
     }
+    if (!NF){
     c.strokeStyle = T.p; c.lineWidth = T.mono ? .8 : .6; c.strokeRect(9, 9, 279, 192);
     c.strokeStyle = T.a; c.lineWidth = .7; c.strokeRect(17.6, 17.6, 261.8, 174.8);
     var i = 0, step = 2.15, col = T.mono ? '#111111' : T.a2;
     function side(x0, y0, dx, dy, len, rot){ for (var d = 0; d < len; d += step){ mathText(c, PI_DIGITS.charAt(i++ % PI_DIGITS.length), x0 + dx * d, y0 + dy * d, 2.9, col, rot); } }
     side(14, 13.3, 1, 0, 270, 0); side(283.7, 14, 0, 1, 183, Math.PI / 2); side(283, 196.7, -1, 0, 270, Math.PI); side(13.3, 196, 0, -1, 183, -Math.PI / 2);
+    }
     ctCircle(c, 48, 44, 16); fillOr(c, T, T.p); c.strokeStyle = T.a; c.lineWidth = .8; c.stroke();
     ctCircle(c, 48, 44, 13.8); c.strokeStyle = T.mono ? '#111111' : T.a2; c.lineWidth = .3; c.stroke();
     c.save(); c.textAlign = 'center'; c.textBaseline = 'middle'; ctFont(c, '700', 22, F_BODY); c.fillStyle = T.mono ? '#111111' : T.a2; c.fillText('π', 48, 43); c.restore();
@@ -351,7 +367,7 @@
     paper(c, T);
     c.save(); c.beginPath(); c.rect(14.5, 14.5, 268, 181); c.clip();
     c.strokeStyle = T.mono ? 'rgba(0,0,0,.35)' : ctRgba(T.a, .8); c.lineWidth = .45;
-    [[14.5, 14.5], [282.5, 14.5], [14.5, 195.5], [282.5, 195.5]].forEach(function(q){
+    if (!NF) [[14.5, 14.5], [282.5, 14.5], [14.5, 195.5], [282.5, 195.5]].forEach(function(q){
       ctCircle(c, q[0], q[1], 13); c.stroke();
       for (var k = 0; k < 6; k++){ ctCircle(c, q[0] + 13 * Math.cos(k * Math.PI / 3), q[1] + 13 * Math.sin(k * Math.PI / 3), 13); c.stroke(); }
       ctCircle(c, q[0], q[1], 26); c.stroke();
@@ -366,7 +382,7 @@
     c.restore();
     frame(c, T, 2.6);
     c.strokeStyle = T.p; c.lineWidth = .22;
-    for (var k = 0; k * 2.5 <= 120; k++){ var L = k % 10 === 0 ? 4 : (k % 2 ? 1.3 : 2.4); ln(c, 14.5, 45 + k * 2.5, 14.5 + L, 45 + k * 2.5); ln(c, 282.5, 45 + k * 2.5, 282.5 - L, 45 + k * 2.5); }
+    if (!NF) for (var k = 0; k * 2.5 <= 120; k++){ var L = k % 10 === 0 ? 4 : (k % 2 ? 1.3 : 2.4); ln(c, 14.5, 45 + k * 2.5, 14.5 + L, 45 + k * 2.5); ln(c, 282.5, 45 + k * 2.5, 282.5 - L, 45 + k * 2.5); }
     var x = 48, y = 56, R = 18;
     c.beginPath(); c.arc(x, y, R, Math.PI, 2 * Math.PI); c.closePath(); fillOr(c, T, ctRgba(T.a2, .7)); c.strokeStyle = T.p; c.lineWidth = .5; c.stroke();
     c.beginPath(); c.arc(x, y, R - 6, Math.PI, 2 * Math.PI); c.lineWidth = .25; c.stroke();
@@ -387,22 +403,26 @@
     if (!T.mono){ c.fillStyle = ctRgba(T.p, .05); sier(c, 148.5, 178, 130, true, 5); }
     frame(c, T, 3);
     // على الجانبين (بعيدًا عن الترويسة والتوقيعات)
+    if (!NF){
     c.fillStyle = T.mono ? '#111111' : T.a;
     sier(c, 24, 124, 17, true, 4); sier(c, 273, 124, 17, true, 4);
     c.fillStyle = T.mono ? '#111111' : T.p;
     sier(c, 24, 128, 17, false, 4); sier(c, 273, 128, 17, false, 4);
+    }
     if (o.seal) ctSeal(c, T, 48, 44, o.seal);
   }
 
   // 9) الأرقام الملوّنة
   var KIDS = ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899'];
   function dNumbers(c, T, o){
-    c.fillStyle = T.mono ? '#ffffff' : '#fffef7'; c.fillRect(0, 0, 297, 210);
+    if (!NB){ c.fillStyle = T.mono ? '#ffffff' : '#fffef7'; c.fillRect(0, 0, 297, 210); }
     var r = rnd(5), n = 0;
     function put(x, y){ mathText(c, String(n % 10), x, y, 7, T.mono ? '#111111' : KIDS[n % KIDS.length], (r() - .5) * .7); n++; }
+    if (!NF){
     for (var x = 16; x <= 282; x += 9){ put(x, 15.5); put(x, 194.5); }
     for (var y = 26; y <= 184; y += 9.5){ put(15.5, y); put(281.5, y); }
     c.strokeStyle = T.p; c.lineWidth = .5; c.setLineDash([1.6, 1]); c.strokeRect(22, 22, 253, 166); c.setLineDash([]);
+    }
     ctStar(c, 48, 45, 16, 5, 7.5); fillOr(c, T, '#f59e0b'); c.strokeStyle = T.mono ? '#111111' : '#d97706'; c.lineWidth = .6; c.stroke();
     if (o.seal){ c.textAlign = 'center'; c.textBaseline = 'middle'; ctFit(c, o.seal, '700', 5.2, F_TITLE, 12); c.fillStyle = T.mono ? '#111111' : '#ffffff'; c.fillText(o.seal, 48, 46.5); c.textBaseline = 'alphabetic'; }
   }
@@ -412,7 +432,7 @@
   function dHex(c, T, o){
     paper(c, T);
     var r = rnd(3), R = 4.2, dy = R * 1.732;
-    [[14, 1], [283, -1]].forEach(function(q){
+    if (!NF) [[14, 1], [283, -1]].forEach(function(q){
       for (var col = 0; col < 2; col++){
         var x = q[0] + q[1] * col * R * 1.5;
         for (var y = 12 + col * dy / 2; y < 200; y += dy){
@@ -422,8 +442,10 @@
         }
       }
     });
+    if (!NF){
     c.strokeStyle = T.p; c.lineWidth = T.mono ? .8 : 2.4; ln(c, 26, 10, 271, 10); ln(c, 26, 200, 271, 200);
     c.strokeStyle = T.a; c.lineWidth = .5; ln(c, 26, 14, 271, 14); ln(c, 26, 196, 271, 196);
+    }
     hex(c, 48, 45, 17); fillOr(c, T, T.p); c.strokeStyle = T.a; c.lineWidth = .8; c.stroke();
     hex(c, 48, 45, 14.3); c.strokeStyle = T.mono ? '#111111' : T.a2; c.lineWidth = .3; c.stroke();
     if (o.seal){ c.textAlign = 'center'; c.textBaseline = 'middle'; ctFit(c, o.seal, '700', 8, F_TITLE, 19); c.fillStyle = T.mono ? '#111111' : T.a2; c.fillText(o.seal, 48, 45.5); c.textBaseline = 'alphabetic'; }
@@ -431,13 +453,12 @@
 
   // 11) الرسم البياني: أعمدة متصاعدة وسهم نمو
   function dChart(c, T, o){
-    c.fillStyle = T.mono ? '#ffffff' : '#ffffff'; c.fillRect(0, 0, 297, 210);
-    if (!T.mono){
+    if (!T.mono && !NB){ c.fillStyle = ctRgba(T.p, .04); c.fillRect(0, 0, 297, 210); }
+    if (!T.mono && !NF){
       var g = c.createLinearGradient(0, 0, 297, 0); g.addColorStop(0, T.p); g.addColorStop(1, T.a);
       c.fillStyle = g; c.fillRect(0, 0, 297, 7); c.fillRect(0, 203, 297, 7);
-      c.fillStyle = ctRgba(T.p, .04); c.fillRect(0, 7, 297, 196);
     }
-    c.strokeStyle = T.p; c.lineWidth = T.mono ? .8 : .5; c.strokeRect(12, 12, 273, 186);
+    if (!NF){ c.strokeStyle = T.p; c.lineWidth = T.mono ? .8 : .5; c.strokeRect(12, 12, 273, 186); }
     var base = 62, xs = [33, 40.5, 48, 55.5], hs = [9, 15, 22, 30];
     xs.forEach(function(x, i){
       c.beginPath(); c.rect(x, base - hs[i], 5.5, hs[i]);
@@ -468,12 +489,14 @@
     c.strokeStyle = T.mono ? 'rgba(0,0,0,.25)' : ctRgba(T.a, .45); c.lineWidth = .6;
     arcs.forEach(function(a){ c.beginPath(); c.arc(a[0], a[1], a[2], a[3], a[4]); c.stroke(); });
     c.restore();
+    if (!NF){
     c.strokeStyle = T.p; c.lineWidth = T.mono ? .8 : 1.6; c.strokeRect(10, 10, 277, 190);
     c.strokeStyle = T.a; c.lineWidth = .4; c.strokeRect(13.5, 13.5, 270, 183);
     c.strokeStyle = T.a; c.lineWidth = 1.2;
     [[17, 17, 1, 1], [280, 17, -1, 1], [17, 193, 1, -1], [280, 193, -1, -1]].forEach(function(q){
       c.beginPath(); c.moveTo(q[0], q[1] + q[3] * 14); c.lineTo(q[0], q[1]); c.lineTo(q[0] + q[2] * 14, q[1]); c.stroke();
     });
+    }
     ctCircle(c, 48, 44, 15.5); fillOr(c, T, T.p); c.strokeStyle = T.a; c.lineWidth = 1; c.stroke();
     ctCircle(c, 48, 44, 13); c.strokeStyle = T.mono ? '#111111' : T.a2; c.lineWidth = .3; c.stroke();
     c.save(); c.textAlign = 'center'; c.textBaseline = 'middle'; ctFont(c, '700', 17, F_BODY); c.fillStyle = T.mono ? '#111111' : T.a2; c.fillText('φ', 48, 43.5); c.restore();
@@ -493,30 +516,32 @@
   function dCubes(c, T, o){
     paper(c, T);
     var sh = T.mono ? ['#ffffff', '#ffffff', '#ffffff'] : [T.a2, T.p, ctRgba(T.p, .7)], s = 4.2, h = s * .866;
-    [[9, 25], [185, 201]].forEach(function(b){
+    if (!NF) [[9, 25], [185, 201]].forEach(function(b){
       c.save(); c.beginPath(); c.rect(9, b[0], 279, b[1] - b[0]); c.clip();
       for (var row = 0, y = b[0] + s * .5; y < b[1] + s; y += s * 1.5, row++){
         for (var x = 9 + (row % 2) * h; x < 290; x += 2 * h) cube(c, T, x, y, s, sh);
       }
       c.restore();
     });
+    if (!NF){
     c.strokeStyle = T.p; c.lineWidth = T.mono ? .8 : 1.2; c.strokeRect(9, 9, 279, 192);
     c.strokeStyle = T.a; c.lineWidth = .5; ln(c, 9, 27, 288, 27); ln(c, 9, 183, 288, 183);
+    }
     cube(c, T, 48, 48, 15, T.mono ? sh : [T.a2, T.p, ctRgba(T.p, .75)]);
     ctStar(c, 48, 40.5, 4.2, 5, 1.8); fillOr(c, T, T.a); c.strokeStyle = T.p; c.lineWidth = .3; c.stroke();
   }
 
   // 14) اللانهاية: مثلثات لونية في زاويتين + ∞
   function dInf(c, T, o){
-    c.fillStyle = T.mono ? '#ffffff' : T.paper; c.fillRect(0, 0, 297, 210);
-    if (!T.mono){
+    if (!NB){ c.fillStyle = T.mono ? '#ffffff' : T.paper; c.fillRect(0, 0, 297, 210); }
+    if (!T.mono && !NF){
       poly(c, [[0, 0], [82, 0], [0, 58]]); c.fillStyle = T.p; c.fill();
       poly(c, [[82, 0], [90, 0], [0, 63.5], [0, 58]]); c.fillStyle = T.a; c.fill();
       poly(c, [[297, 210], [245, 210], [297, 172]]); c.fillStyle = T.p; c.fill();
       poly(c, [[245, 210], [238, 210], [297, 167], [297, 172]]); c.fillStyle = T.a; c.fill();
     }
-    c.strokeStyle = T.p; c.lineWidth = T.mono ? .8 : .4; c.strokeRect(10, 10, 277, 190);
-    c.strokeStyle = T.mono ? '#111111' : '#ffffff'; c.lineWidth = 1.6; c.beginPath();
+    if (!NF){ c.strokeStyle = T.p; c.lineWidth = T.mono ? .8 : .4; c.strokeRect(10, 10, 277, 190); }
+    c.strokeStyle = T.mono ? '#111111' : (NF ? T.p : '#ffffff'); c.lineWidth = 1.6; c.beginPath();
     for (var t = 0; t <= 2 * Math.PI + .01; t += .05){ var d = 1 + Math.sin(t) * Math.sin(t), px = 30 + 13 * Math.cos(t) / d, py = 24 + 13 * Math.sin(t) * Math.cos(t) / d; if (t) c.lineTo(px, py); else c.moveTo(px, py); }
     c.stroke();
   }
@@ -537,7 +562,7 @@
   function dTangram(c, T, o){
     paper(c, T);
     frame(c, T, 2.6);
-    [[15, 15], [282, 15], [15, 195], [282, 195]].forEach(function(q, i){ tangram(c, T, q[0], q[1], 11, Math.PI / 4 + i * Math.PI / 2); });
+    if (!NF) [[15, 15], [282, 15], [15, 195], [282, 195]].forEach(function(q, i){ tangram(c, T, q[0], q[1], 11, Math.PI / 4 + i * Math.PI / 2); });
     tangram(c, T, 48, 45, 28, Math.PI / 4);
   }
 

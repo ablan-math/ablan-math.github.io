@@ -880,7 +880,7 @@
               </label>
               <label id="ctMinL"><span id="ctMinT">النسبة ٪</span><input type="number" id="ctMin" min="0" max="100" step="0.5" value="95"></label>
               <label id="ctMaxL"><span>إلى أقل من ٪</span><input type="number" id="ctMax" min="0" max="100" step="0.5" value="95"></label>
-              <label id="ctExamL">درجة الاختبار المعتمدة
+              <label id="ctExamL"><span id="ctExamT">درجة الاختبار المعتمدة</span>
                 <select id="ctExamMode">
                   <option value="raw">الأصلية (قبل التحسين وإضافة المنصة)</option>
                   <option value="imp">مع اختبار التحسين فقط</option>
@@ -923,6 +923,10 @@
               </select>
             </label>
             <label>كلمة الختم (فارغة = بلا ختم)<input id="ctSeal" maxlength="12"></label>
+          </div>
+          <div id="ctFrameBox" class="pc-checks" style="margin-top:10px;">
+            <label><input type="checkbox" id="ctNoFrame"> بدون إطار (لورق شهادات مؤطَّر مسبقًا)</label>
+            <label><input type="checkbox" id="ctNoBg"> بدون لون خلفية (للورق الملوّن)</label>
           </div>
           <div id="ctPreBox" style="display:none;">
             <div class="set-note">اطبع «طباعة تجريبية» على ورقة عادية، وضعها فوق شهادتك الجاهزة أمام الضوء، ثم اضبط الإزاحة حتى يقع النص في مكانه. الشبكة كل 10 مم. الإعدادات تُحفظ تلقائيًا.</div>
@@ -2936,7 +2940,7 @@
     ctWaMsg: 'السلام عليكم ورحمة الله وبركاته\nولي أمر الطالب: {الاسم}\n\nيسعدنا أن نهنّئكم بحصول ابنكم على شهادة «{الشهادة}» في مادة الرياضيات خلال {الفترة} 🏅\nنشكر لكم متابعتكم ودعمكم، ونتمنّى له دوام التفوّق والنجاح 🌹'
   };
   var CT_FIELDS = ['ctType', 'ctCond', 'ctMin', 'ctMax', 'ctExamMode', 'ctTitle', 'ctIntro', 'ctTheme', 'ctSeal', 'ctHeader', 'ctTeacherLbl', 'ctTeacher',
-    'ctPrinLbl', 'ctPrin', 'ctYear', 'ctWaMsg', 'ctDx', 'ctDy', 'ctScale', 'ctColor', 'ctPTitle', 'ctPHeader', 'ctPSign', 'ctGrid', 'ctBgInImg', 'ctPublish'];
+    'ctPrinLbl', 'ctPrin', 'ctYear', 'ctWaMsg', 'ctDx', 'ctDy', 'ctScale', 'ctColor', 'ctPTitle', 'ctPHeader', 'ctPSign', 'ctGrid', 'ctBgInImg', 'ctPublish', 'ctNoFrame', 'ctNoBg'];
 
   function ctStyle(){ var r = document.querySelector('input[name=ctStyle]:checked'); return r ? r.value : 'color'; }
   function ctType(){ return ctEl('ctType').value; }
@@ -2976,9 +2980,23 @@
     var dom = CT_TYPES[ctType()].d;
     if (!dom || !ctData) return null;
     var W = ctData.weights;
+    var exMode = ctEl('ctExamMode').value;
+    // الاختبار: الأصل الدرجة قبل التحسين وقبل إضافة المنصة، ويمكن اختيار احتسابهما
+    function examOf(w){
+      var x = pcEff(s, 'exam');
+      if (x === null || !s.examInfo) return x;
+      var ei = s.examInfo;
+      return exMode === 'all' ? ei.eff : (exMode === 'imp' ? Math.min(w, ei.raw + (ei.improve || 0)) : ei.raw);
+    }
     if (dom === 'total'){
+      // المجموع الأصلي: اختبار بلا تحسين/إضافة، والمجالات بلا ما انتقل إليها من فائض الاختبار
       var sum = 0, mx = 0;
-      for (var k in PC_WEIGHT){ var v = pcEff(s, k); if (v === null) return null; sum += v; mx += W[PC_WEIGHT[k]]; }
+      for (var k in PC_WEIGHT){
+        var v = k === 'exam' ? examOf(W.exam) : pcEff(s, k);
+        if (v === null) return null;
+        if (k !== 'exam' && exMode !== 'all' && s.add && s.add[k] > 0) v = Math.max(0, v - s.add[k]);
+        sum += v; mx += W[PC_WEIGHT[k]];
+      }
       return mx > 0 ? sum / mx * 100 : null;
     }
     // المنصة: نسبة التفاعل نفسها (لا الدرجة من 10 التي تبلغ العلامة الكاملة من 70٪)؛ الأعلى بين المثبّتة والحالية
@@ -2987,12 +3005,7 @@
       a = (a === null || a === undefined) ? null : a; b = (b === null || b === undefined) ? null : b;
       return (a === null && b === null) ? null : Math.max(a === null ? -1 : a, b === null ? -1 : b);
     }
-    var x = pcEff(s, dom), w = W[PC_WEIGHT[dom]];
-    // الاختبار: الأصل الدرجة قبل التحسين وقبل إضافة المنصة، ويمكن اختيار احتسابهما
-    if (dom === 'exam' && x !== null && s.examInfo){
-      var ei = s.examInfo, m = ctEl('ctExamMode').value;
-      x = m === 'all' ? ei.eff : (m === 'imp' ? Math.min(w, ei.raw + (ei.improve || 0)) : ei.raw);
-    }
+    var w = W[PC_WEIGHT[dom]], x = dom === 'exam' ? examOf(w) : pcEff(s, dom);
     return (x === null || !w) ? null : x / w * 100;
   }
   function ctFmtPct(p){ var v = Math.min(100, Math.floor(p * 10 + 1e-6) / 10); return (v % 1 ? v.toFixed(1) : String(v)) + '٪'; }
@@ -3028,7 +3041,9 @@
     ctEl('ctCondBox').style.display = custom ? 'none' : '';
     ctEl('ctMinL').style.display = c === 'manual' ? 'none' : '';
     ctEl('ctMaxL').style.display = c === 'range' ? '' : 'none';
-    ctEl('ctExamL').style.display = ctType() === 'exam' ? '' : 'none';
+    ctEl('ctExamL').style.display = (ctType() === 'exam' || ctType() === 'total') ? '' : 'none';
+    ctEl('ctExamT').textContent = ctType() === 'total' ? 'المجموع المعتمد (حسب درجة الاختبار)' : 'درجة الاختبار المعتمدة';
+    ctEl('ctFrameBox').style.display = st === 'pre' ? 'none' : '';
     ctEl('ctPlatNote').style.display = ctType() === 'plat' ? '' : 'none';
     ctEl('ctMinT').textContent = c === 'range' ? 'من ٪ (فأكثر)' : (c === 'gt' ? 'أكبر من ٪' : 'النسبة ٪ (فأكثر)');
     var q = ctEl('ctQuick'); q.innerHTML = '';
@@ -3214,7 +3229,8 @@
       pLbl: ctEl('ctPrinLbl').value.trim(), prin: ctEl('ctPrin').value.trim(), date: ctEl('ctDate').value.trim(),
       logo: ctLogo, bg: ctBg, bgInImage: ctEl('ctBgInImg').checked,
       dx: ctNum('ctDx'), dy: ctNum('ctDy'), scale: (ctNum('ctScale') || 100) / 100, color: ctEl('ctColor').value,
-      pTitle: ctEl('ctPTitle').checked, pHeader: ctEl('ctPHeader').checked, pSign: ctEl('ctPSign').checked, grid: ctEl('ctGrid').checked
+      pTitle: ctEl('ctPTitle').checked, pHeader: ctEl('ctPHeader').checked, pSign: ctEl('ctPSign').checked, grid: ctEl('ctGrid').checked,
+      noFrame: ctEl('ctNoFrame').checked, noBg: ctEl('ctNoBg').checked
     };
   }
 
@@ -3479,7 +3495,7 @@
     r.addEventListener('change', function(){ ctUi(); ctSavePrefs(); ctShareFiles = null; ctDesignsUi(); ctDrawPreview(); });
   });
   ['ctTitle', 'ctIntro', 'ctTheme', 'ctSeal', 'ctHeader', 'ctTeacherLbl', 'ctTeacher', 'ctPrinLbl', 'ctPrin', 'ctYear', 'ctDate', 'ctWaMsg',
-   'ctDx', 'ctDy', 'ctScale', 'ctColor', 'ctPTitle', 'ctPHeader', 'ctPSign', 'ctGrid', 'ctBgInImg', 'ctPublish'].forEach(function(i){
+   'ctDx', 'ctDy', 'ctScale', 'ctColor', 'ctPTitle', 'ctPHeader', 'ctPSign', 'ctGrid', 'ctBgInImg', 'ctPublish', 'ctNoFrame', 'ctNoBg'].forEach(function(i){
     ctEl(i).addEventListener(ctEl(i).type === 'checkbox' || ctEl(i).tagName === 'SELECT' ? 'change' : 'input', function(){
       ctSavePrefs(); ctShareFiles = null; ctDrawPreview();
     });
@@ -3492,7 +3508,7 @@
       ctTextInput();
     });
   });
-  ctEl('ctTheme').addEventListener('change', ctDesignsUi);
+  ['ctTheme', 'ctNoFrame', 'ctNoBg'].forEach(function(i){ ctEl(i).addEventListener('change', ctDesignsUi); });
   ctEl('ctDesAll').addEventListener('click', function(e){ e.preventDefault(); ctDesShowAll = !ctDesShowAll; ctDesignsUi(); });
   ctEl('ctBodyReset').addEventListener('click', function(e){
     e.preventDefault();

@@ -540,6 +540,11 @@
   .ct-styles label.on{border-color:var(--accent); background:color-mix(in srgb, var(--accent) 10%, transparent);}
   .ct-styles input{display:none;}
   .ct-styles small{display:block; font-weight:600; color:var(--muted); font-size:10.5px; margin-top:2px;}
+  .ct-designs{display:grid; grid-template-columns:repeat(auto-fill,minmax(112px,1fr)); gap:8px;}
+  .ct-des{position:relative; border:2px solid var(--line); border-radius:10px; padding:3px; cursor:pointer; background:var(--bg); text-align:center; font-size:11px; font-weight:800; line-height:1.5;}
+  .ct-des.on{border-color:var(--accent); box-shadow:0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent);}
+  .ct-des canvas{width:100%; aspect-ratio:297/210; display:block; border-radius:6px; background:#fff;}
+  .ct-des .fav{position:absolute; top:5px; left:5px; width:22px; height:22px; line-height:22px; border-radius:50%; background:rgba(255,255,255,.9); color:#f59e0b; font-size:15px; box-shadow:0 1px 3px rgba(0,0,0,.25);}
   details.ct-det summary{cursor:pointer; font-size:13px; font-weight:800; color:var(--accent); margin:16px 0 4px;}
   .ct-mini{border:1.5px solid var(--line); background:var(--bg); color:var(--ink); padding:4px 10px; border-radius:8px; font-family:'Cairo',sans-serif; font-weight:800; font-size:12px; cursor:pointer;}
   #ctCanvas{width:100%; aspect-ratio:297/210; display:block; border-radius:8px; box-shadow:0 8px 24px -10px rgba(0,0,0,.45); background:#fff;}
@@ -905,6 +910,10 @@
             <label><input type="radio" name="ctStyle" value="color" checked>🎨 ملوّنة<small>تصميم كامل للطباعة والواتساب</small></label>
             <label><input type="radio" name="ctStyle" value="bw">🖨 أبيض وأسود<small>إطار خفيف بلا ألوان</small></label>
             <label><input type="radio" name="ctStyle" value="pre">📄 على ورق جاهز<small>النص فقط فوق شهاداتك</small></label>
+          </div>
+          <div id="ctDesignBox">
+            <div class="ct-lbl" style="display:flex;justify-content:space-between;gap:8px;"><span>التصميم — اضغط ☆ لإضافته إلى مفضّلتك فلا يظهر غيرها</span><a href="#" id="ctDesAll" style="color:var(--accent);font-weight:800;"></a></div>
+            <div class="ct-designs" id="ctDesigns"></div>
           </div>
           <div id="ctColorBox" class="set-grid" style="margin-top:10px;">
             <label id="ctThemeL">لون التصميم
@@ -2902,6 +2911,7 @@
   var ctModal = ctEl('certModal'), ctCv = ctEl('ctCanvas');
   var ctData = null, ctSel = {}, ctSent = {}, ctPrevId = null, ctOnlyId = null, ctShowRest = false, ctReq = 0;
   var ctLogo = null, ctBg = null, ctShareFiles = null, ctTexts = {};
+  var ctDesign = 'classic', ctFavs = [], ctDesShowAll = false;
   var CT_KEY = 'tg_cert_v1';
   var CT_END = 'متمنّين له دوام التفوّق والنجاح.';
   var CT_TYPES = {
@@ -2945,13 +2955,14 @@
       if (el.type === 'checkbox') el.checked = !!v; else el.value = v;
     });
     ctTexts = p.texts || {};
+    ctDesign = p.design || 'classic'; ctFavs = Array.isArray(p.favs) ? p.favs : [];
     var st = p.style || 'color';
     document.querySelectorAll('input[name=ctStyle]').forEach(function(r){ r.checked = r.value === st; });
     try { var lg = localStorage.getItem('tg_cert_logo'); if (lg) ctImg(lg, function(i){ ctLogo = i; ctDrawPreview(); }); } catch(e){}
     try { var bg = localStorage.getItem('tg_cert_bg'); if (bg) ctImg(bg, function(i){ ctBg = i; ctDrawPreview(); }); } catch(e){}
   }
   function ctSavePrefs(){
-    var p = { texts: ctTexts, style: ctStyle() };
+    var p = { texts: ctTexts, style: ctStyle(), design: ctDesign, favs: ctFavs };
     CT_FIELDS.forEach(function(id){ var el = ctEl(id); p[id] = el.type === 'checkbox' ? el.checked : el.value; });
     try { localStorage.setItem(CT_KEY, JSON.stringify(p)); } catch(e){}
   }
@@ -3036,7 +3047,9 @@
     });
     document.querySelectorAll('#ctStyles label').forEach(function(l){ l.classList.toggle('on', l.querySelector('input').checked); });
     ctEl('ctColorBox').style.display = st === 'pre' ? 'none' : '';
-    ctEl('ctThemeL').style.display = st === 'color' ? '' : 'none';
+    ctEl('ctDesignBox').style.display = st === 'pre' ? 'none' : '';
+    var dz = CertDraw.designs.filter(function(d){ return d.id === ctDesign; })[0];
+    ctEl('ctThemeL').style.display = (st === 'color' && !(dz && dz.fixed)) ? '' : 'none';
     ctEl('ctPreBox').style.display = st === 'pre' ? '' : 'none';
     ctEl('ctShareSel').style.display = ctMobileShare() ? '' : 'none';
   }
@@ -3140,6 +3153,41 @@
     return byId || ctChecked()[0] || ctData.students[0] || null;
   }
 
+  // ----- اختيار التصميم: مصغّرات بكل التصاميم، والمفضّلة (☆) وحدها تظهر إن وُجدت -----
+  function ctDesignsUi(){
+    var box = ctEl('ctDesigns'), list = CertDraw.designs, thumbs = [];
+    var favs = ctFavs.filter(function(id){ return list.some(function(d){ return d.id === id; }); });
+    var show = (!favs.length || ctDesShowAll) ? list : list.filter(function(d){ return favs.indexOf(d.id) >= 0 || d.id === ctDesign; });
+    box.innerHTML = '';
+    show.forEach(function(d){
+      var b = document.createElement('div'), cv = document.createElement('canvas'), nm = document.createElement('div'), f = document.createElement('span');
+      b.className = 'ct-des' + (d.id === ctDesign ? ' on' : '');
+      cv.width = 240; cv.height = 170;
+      nm.textContent = d.name;
+      f.className = 'fav'; f.textContent = favs.indexOf(d.id) >= 0 ? '★' : '☆';
+      f.title = favs.indexOf(d.id) >= 0 ? 'إزالة من المفضّلة' : 'إضافة إلى المفضّلة';
+      f.addEventListener('click', function(e){
+        e.stopPropagation();
+        var i = ctFavs.indexOf(d.id);
+        if (i >= 0) ctFavs.splice(i, 1); else ctFavs.push(d.id);
+        ctSavePrefs(); ctDesignsUi();
+      });
+      b.addEventListener('click', function(){ ctDesign = d.id; ctSavePrefs(); ctShareFiles = null; ctDesignsUi(); ctUi(); ctDrawPreview(); });
+      b.appendChild(cv); b.appendChild(nm); b.appendChild(f);
+      box.appendChild(b);
+      thumbs.push([cv, d.id]);
+    });
+    var a = ctEl('ctDesAll');
+    a.textContent = favs.length ? (ctDesShowAll ? 'المفضّلة فقط (' + favs.length + ')' : 'كل التصاميم (' + list.length + ')') : '';
+    ctFonts().then(function(){
+      thumbs.forEach(function(t){
+        var o = ctOpts(ctPrevStu());
+        o.design = t[1]; o.style = ctStyle() === 'bw' ? 'bw' : 'color'; o.logo = null;
+        CertDraw.draw(t[0], o, 'image');
+      });
+    });
+  }
+
   // ----- محتوى الشهادة -----
   function ctPeriodName(){ return ctEl('ctPeriod').value === '2' ? 'الفترة الثانية' : 'الفترة الأولى'; }
   function ctVals(s){
@@ -3158,7 +3206,7 @@
   function ctOpts(s){
     var v = ctVals(s);
     return {
-      style: ctStyle(), theme: ctEl('ctTheme').value, seal: ctEl('ctSeal').value.trim(),
+      style: ctStyle(), theme: ctEl('ctTheme').value, seal: ctEl('ctSeal').value.trim(), design: ctDesign,
       title: ctEl('ctTitle').value.trim(), cert: v.cert, intro: ctFill(ctEl('ctIntro').value, v).trim(),
       student: v.name, body: ctFill(ctEl('ctBody').value, v).trim(),
       header: ctEl('ctHeader').value.split('\n').map(function(l){ return l.trim(); }).filter(Boolean).slice(0, 4),
@@ -3319,7 +3367,7 @@
     var o = ctOpts(s);
     return { title: o.title, cert: o.cert, intro: o.intro, student: o.student, body: o.body, header: o.header,
              tLbl: o.tLbl, teacher: o.teacher, pLbl: o.pLbl, prin: o.prin, date: o.date,
-             theme: o.style === 'color' ? o.theme : 'navy', seal: o.seal };
+             theme: o.style === 'color' ? o.theme : 'navy', seal: o.seal, design: o.design };
   }
   function ctPublishList(list){
     if (!ctEl('ctPublish').checked || !ctData || !ctEl('ctName').value.trim()) return;
@@ -3393,6 +3441,7 @@
     ctOnlyId = (onlyId === undefined || onlyId === null) ? null : onlyId;
     ctModal.classList.add('open');
     ctUi();
+    ctDesignsUi();
     ctFonts().then(ctDrawPreview);
     ctLoad();
   }
@@ -3427,7 +3476,7 @@
   });
   ['ctName', 'ctBody'].forEach(function(i){ ctEl(i).addEventListener('input', ctTextInput); });
   document.querySelectorAll('input[name=ctStyle]').forEach(function(r){
-    r.addEventListener('change', function(){ ctUi(); ctSavePrefs(); ctShareFiles = null; ctDrawPreview(); });
+    r.addEventListener('change', function(){ ctUi(); ctSavePrefs(); ctShareFiles = null; ctDesignsUi(); ctDrawPreview(); });
   });
   ['ctTitle', 'ctIntro', 'ctTheme', 'ctSeal', 'ctHeader', 'ctTeacherLbl', 'ctTeacher', 'ctPrinLbl', 'ctPrin', 'ctYear', 'ctDate', 'ctWaMsg',
    'ctDx', 'ctDy', 'ctScale', 'ctColor', 'ctPTitle', 'ctPHeader', 'ctPSign', 'ctGrid', 'ctBgInImg', 'ctPublish'].forEach(function(i){
@@ -3443,6 +3492,8 @@
       ctTextInput();
     });
   });
+  ctEl('ctTheme').addEventListener('change', ctDesignsUi);
+  ctEl('ctDesAll').addEventListener('click', function(e){ e.preventDefault(); ctDesShowAll = !ctDesShowAll; ctDesignsUi(); });
   ctEl('ctBodyReset').addEventListener('click', function(e){
     e.preventDefault();
     ctEl('ctBody').value = CT_TYPES[ctType()].body; ctTextInput();

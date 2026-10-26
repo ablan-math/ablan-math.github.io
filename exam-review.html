@@ -206,6 +206,7 @@ button{font-family:'Cairo',sans-serif}
 /* ===== الطباعة: القواعد الفعلية تُحقن من السكربت (PRINTCSS) كي تُستعمل أيضًا في الملاءمة التلقائية ===== */
 @media print{@page{size:A4;margin:0}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
 </style>
+<script src="js/access-guard.js"></script>
 </head>
 <body>
 
@@ -215,6 +216,7 @@ button{font-family:'Cairo',sans-serif}
   <div class="tabs">
     <button class="tab active" id="tab-review" onclick="setMode('review')">📚 مراجعة بالدروس</button>
     <button class="tab" id="tab-exam" onclick="setMode('exam')">📝 نموذج اختبار</button>
+    <button class="tab" id="tab-improve" onclick="setMode('improve')">🔁 اختبار تحسين</button>
   </div>
   <div class="tools" id="exam-tools" style="display:none">
     <span class="desk-only" style="font-size:13px">رقم النسخة:</span>
@@ -230,6 +232,7 @@ button{font-family:'Cairo',sans-serif}
 
 <div id="review-view" class="review-wrap"></div>
 <div id="exam-view" style="display:none"></div>
+<div id="improve-view" style="display:none"></div>
 
 <!-- نافذة النتيجة -->
 <div id="result-modal" class="modal-overlay" style="display:none">
@@ -254,6 +257,7 @@ button{font-family:'Cairo',sans-serif}
 </div>
 
 <script>
+const AG=window.AccessGuard;
 /*ENGINE-START*/
 /* ================= أدوات عامة ================= */
 const AD='٠١٢٣٤٥٦٧٨٩';
@@ -739,8 +743,22 @@ LESSONS.forEach((l,i)=>l.gens.forEach(g=>GENS[g].lesson=i));
 let UID=0;const ITEMS={};
 let mode='review';
 const exam={seed:0,salt:0,items:[],graded:false};
+const imp={items:[]};
+const E=()=>mode==='improve'?imp:exam;
 const review={sel:new Set(),n:10,items:[],ok:0,no:0};
 const SLOTS=[['one_sub','one_add'],['one_mul','one_div'],['indep'],['consec'],['abs_empty'],['both','both_simple'],['identity'],['linear'],['frac','two'],['domain'],['intercept'],['slope'],['tbl'],['abs_essay'],['seq_essay']];
+
+/* اختبار التحسين: الأسئلة المقالية الثلاثة نفسها (الجدول/الرسم، القيمة المطلقة، الحد النوني) لنفس رقم النسخة، في حاوية منفصلة */
+function buildImprove(){imp.items=exam.items.slice(12,15).map(it=>newItem(it.gid,it.seed))}
+function renderImprove(){
+  const it=AG.guest?imp.items.slice(0,1):imp.items,foot=`<div class="page-footer"><span>رقم النسخة: ${ar(exam.seed)}</span><span>صفحة ١ من ١</span></div>`;
+  document.getElementById('improve-view').innerHTML=`
+   <div class="page imp-page"><div class="page-content"><div class="pc-in">${HEADER.replace('اختبار الفترة الأولى','اختبار التحسين')}
+    <h2 class="section-title">الأسئلة المقالية</h2><div class="essay-questions-container">${it.map((x,i)=>itemHTML(x,i+1,0,false)).join('')}</div>
+    ${AG.guest?AG.lockCard('تظهر هنا مسألة واحدة فقط من اختبار التحسين. سجّل دخولك لعرض الاختبار كاملًا والحلول والطباعة.'):''}
+    <div class="closing-statement"><p>بالتوفيق والسداد لطلابي الأعزاء.</p><p>أستاذكم: عبد العزيز خالد العبلان</p></div></div></div>${foot}</div>`;
+  if(mode==='improve'){document.getElementById('grade-all-btn').style.display='';document.getElementById('retry-btn-main').style.display='none'}
+}
 
 /* الكتاب يكتب المعادلة كلها من اليمين لليسار: الإشارة السالبة يمين الرقم «١٣-» والمعامل يمين المتغير.
    المتصفح يضع السالب الأحادي يسار الرقم العربي، فنثبّته بعلامة RLM بعده داخل عنصر معزول باتجاه RTL. */
@@ -767,8 +785,8 @@ function stepHTML(s){if(Array.isArray(s))return `<li><div>${s[0]}</div>${s[1]?`<
   const cols=s.cols?`<div class="cols">${s.cols.map(c=>`<div class="col"><div class="ch">${c.h}</div>${c.lines.map(l=>l[0]==='§'?`<div class="cp">${l.slice(1)}</div>`:`<div class="cl">${l}</div>`).join('')}</div>`).join('')}</div>`:'';
   return `<li><div class="st-t">${s.t}</div>${s.d?`<div class="st-d">${s.d}</div>`:''}${s.eq.map(e=>`<div class="eq">${e}</div>`).join('')}${s.mv?`<div class="mv">🔀 ${s.mv}</div>`:''}${cols}</li>`}
 function stepsHTML(steps){return `<ol class="steps">${steps.map(stepHTML).join('')}</ol>`}
-function keyHTML(it){const q=it.q;return `<b>الحل:</b>${stepsHTML(q.steps)}${q.extra?`<div class="sol-extra">${q.extra}</div>`:''}`}
-function actionsHTML(rv,essayCheck){return `<div class="q-actions"><button class="btn sol-btn" data-act="sol">💡 طريقة الحل</button>${rv?'<button class="btn sim-btn" data-act="sim">🔄 سؤال مشابه</button>':''}</div>`}
+function keyHTML(it){if(AG.guest)return '';const q=it.q;return `<b>الحل:</b>${stepsHTML(q.steps)}${q.extra?`<div class="sol-extra">${q.extra}</div>`:''}`}
+function actionsHTML(rv,essayCheck){if(AG.guest)return '';return `<div class="q-actions"><button class="btn sol-btn" data-act="sol">💡 طريقة الحل</button>${rv?'<button class="btn sim-btn" data-act="sim">🔄 سؤال مشابه</button>':''}</div>`}
 
 function mcqHTML(it,num,salt,rv,target){
   const ord=optOrder(it,salt,target),long=it.q.opts.some(o=>plain(o.h).length>16);
@@ -816,8 +834,9 @@ function gradeMcq(it){
   const res=el.querySelector('.q-result');
   if(chk){const lab=chk.parentElement;it.chosen=+lab.dataset.k;if(lab.dataset.correct)got=1;else lab.classList.add('incorrect')}
   res.style.display='block';res.className='q-result '+(chk?(got?'ok':'no'):'skip');
-  res.textContent=chk?(got?'✅ إجابة صحيحة':'❌ إجابة خاطئة — اضغط «طريقة الحل» لتعرف السبب'):'⚠ لم تُجب عن هذا السؤال — اضغط «طريقة الحل»';
-  el.classList.add('locked');el.querySelector('.q-actions').style.display='flex';
+  const hint=AG.guest?' — سجّل دخولك لعرض طريقة الحل':'';
+  res.textContent=chk?(got?'✅ إجابة صحيحة':'❌ إجابة خاطئة'+(AG.guest?hint:' — اضغط «طريقة الحل» لتعرف السبب')):'⚠ لم تُجب عن هذا السؤال'+(AG.guest?hint:' — اضغط «طريقة الحل»');
+  el.classList.add('locked');const qa=el.querySelector('.q-actions');if(qa)qa.style.display='flex';
   it.graded=true;it.score=got;it.max=1;return got;
 }
 function readInputs(it){
@@ -829,7 +848,7 @@ function gradeEssay(it){
   const cls=r.score>=r.max?'correct':r.score>0?'partial':'incorrect';
   fb.className='feedback '+cls;fb.style.display='block';
   fb.innerHTML=`<strong>الدرجة: ${ar(+r.score.toFixed(1))} / ${ar(r.max)}</strong>`+r.lines.map(l=>`<div class="ln">${l.ok?'✅':'❌'} ${fixBidi(l.t)}</div>`).join('')+(r.note?`<div class="ln">ℹ ${r.note}</div>`:'')+'<div class="ln">اضغط «طريقة الحل» لعرض الحل مفصلًا.</div>';
-  const el=document.getElementById('qb-'+it.uid);el.querySelector('.q-actions').style.display='flex';
+  const el=document.getElementById('qb-'+it.uid);const qa=el.querySelector('.q-actions');if(qa)qa.style.display='flex';
   it.graded=true;it.score=r.score;it.max=r.max;return r.score;
 }
 function gradeItem(it){return it.q.type==='mcq'?gradeMcq(it):gradeEssay(it)}
@@ -842,6 +861,12 @@ const HEADER=`<div class="official-header"><div class="header-col header-right">
 function renderExam(){
   const it=exam.items;seedRng(exam.seed*5+exam.salt*11+3);const tg=shuf([0,1,2,3,0,1,2,3,0,1,2,3]);const html=i=>it[i].q.type==='mcq'?mcqHTML(it[i],i+1,exam.salt,false,tg[i]):itemHTML(it[i],i+1,exam.salt,false);
   const foot=n=>`<div class="page-footer"><span>رقم النسخة: ${ar(exam.seed)}</span><span>صفحة ${ar(n)} من ٣</span></div>`;
+  if(AG.guest){
+    document.getElementById('exam-view').innerHTML=`
+   <div class="page"><div class="page-content"><div class="pc-in">${HEADER}<div class="questions-grid">${it.slice(0,3).map((_,i)=>html(i)).join('')}</div>
+     ${AG.lockCard('تظهر هنا أول ٣ أسئلة فقط. سجّل دخولك لعرض الاختبار كاملًا (١٥ سؤالًا) والتصحيح والحلول والطباعة.')}</div></div>${foot(1).replace(' من ٣','')}</div>`;
+    document.getElementById('seed-input').value=exam.seed;exam.graded=false;return;
+  }
   document.getElementById('exam-view').innerHTML=`
    <div class="page"><div class="page-content"><div class="pc-in">${HEADER}<div class="questions-grid">${it.slice(0,8).map((_,i)=>html(i)).join('')}</div></div></div>${foot(1)}</div>
    <div class="page"><div class="page-content"><div class="pc-in"><div class="questions-grid">${it.slice(8,12).map((_,i)=>html(i+8)).join('')}</div>
@@ -852,21 +877,22 @@ function renderExam(){
   document.getElementById('grade-all-btn').style.display='';document.getElementById('retry-btn-main').style.display='none';
   exam.graded=false;
 }
-function setSeed(s){exam.seed=s;exam.salt=0;try{history.replaceState(null,'','#v='+s)}catch(e){}buildExam();renderExam()}
+function setSeed(s){exam.seed=s;exam.salt=0;try{history.replaceState(null,'','#v='+s+(mode==='improve'?'&t=imp':''))}catch(e){}buildExam();renderExam();buildImprove();renderImprove()}
 function newVersion(){setSeed(rseed())}
 function openVersion(){const v=parseInt(document.getElementById('seed-input').value);if(v>0&&v<=99999)setSeed(v);else alert('أدخل رقم نسخة بين ١ و ٩٩٩٩٩')}
 function gradeAll(){
+  if(AG.guest){AG.prompt('تصحيح الاختبار للطلاب المسجّلين فقط');return}
   let tot=0,max=0,mcq=0,mcqMax=0;
-  exam.items.forEach(it=>{gradeItem(it);tot+=it.score;max+=it.max;if(it.q.type==='mcq'){mcq+=it.score;mcqMax+=it.max}});
-  exam.graded=true;
+  E().items.forEach(it=>{gradeItem(it);tot+=it.score;max+=it.max;if(it.q.type==='mcq'){mcq+=it.score;mcqMax+=it.max}});
+  E().graded=true;
   document.getElementById('grade-all-btn').style.display='none';document.getElementById('retry-btn-main').style.display='';
   document.getElementById('result-score').textContent=`${ar(+tot.toFixed(1))} / ${ar(max)}`;
   document.getElementById('result-detail').textContent=`الاختيار من متعدد: ${ar(mcq)} من ${ar(mcqMax)} — المقالي: ${ar(+(tot-mcq).toFixed(1))} من ${ar(max-mcqMax)}`;
   document.getElementById('result-modal').style.display='flex';
 }
 function closeResult(){document.getElementById('result-modal').style.display='none';window.scrollTo(0,0)}
-function retryExam(){document.getElementById('result-modal').style.display='none';exam.salt++;renderExam();window.scrollTo(0,0)}
-function toggleKey(){const on=document.body.classList.toggle('show-key');document.getElementById('key-btn').classList.toggle('on',on)}
+function retryExam(){document.getElementById('result-modal').style.display='none';if(mode==='improve'){buildImprove();renderImprove()}else{exam.salt++;renderExam()};window.scrollTo(0,0)}
+function toggleKey(){if(AG.guest){AG.prompt('مفتاح الحل للطلاب المسجّلين فقط');return}const on=document.body.classList.toggle('show-key');document.getElementById('key-btn').classList.toggle('on',on)}
 
 /* ================= وضع المراجعة ================= */
 function renderReviewShell(){
@@ -877,18 +903,18 @@ function renderReviewShell(){
    <div class="panel"><div class="chap-title">اختر الدروس التي تريد مراجعتها (أو اتركها فارغة لمراجعة الكل)</div>
      <div class="chap-title">الفصل ١: المعادلات الخطية</div><div class="chips">${ch(1)}</div>
      <div class="chap-title">الفصل ٢: العلاقات والدوال الخطية</div><div class="chips">${ch(2)}</div>
-     <div class="review-bar"><label>عدد الأسئلة: <select id="rv-n">${[5,10,15,20].map(n=>`<option value="${n}"${n===review.n?' selected':''}>${ar(n)}</option>`).join('')}</select></label>
-       <button class="btn btn-green" id="rv-new">🎲 أسئلة جديدة</button><span class="tally" id="rv-tally"></span></div></div>
+     <div class="review-bar"><label data-ag="full">عدد الأسئلة: <select id="rv-n">${[5,10,15,20].map(n=>`<option value="${n}"${n===review.n?' selected':''}>${ar(n)}</option>`).join('')}</select></label>
+       <button class="btn btn-green" id="rv-new" data-ag="full">🎲 أسئلة جديدة</button><span class="tally" id="rv-tally"></span></div></div>
    ${card}<div class="review-list" id="rv-list"></div>`;
 }
 function buildReview(){
   const sel=review.sel.size?[...review.sel]:LESSONS.map((_,i)=>i);
   const pool=[];sel.forEach(i=>LESSONS[i].gens.forEach(g=>pool.push(g)));
-  const mcqPool=pool.filter(g=>!/essay|^tbl$/.test(g)),essPool=pool.filter(g=>/essay|^tbl$/.test(g));
+  const mcqPool=pool.filter(g=>!/essay|^tbl$/.test(g)),essPool=AG.guest?[]:pool.filter(g=>/essay|^tbl$/.test(g));
   review.items=[];review.ok=0;review.no=0;
   const base=rseed();
   // نوزّع الأسئلة على الدروس بالتناوب لتنويع المحتوى
-  const order=shuf(mcqPool);const n=review.n;
+  const order=shuf(mcqPool);const n=AG.guest?3:review.n;
   for(let i=0;i<n;i++){
     let gid;
     if(essPool.length&&(i===n-1||(n>=10&&i===Math.floor(n/2)&&rnd()<.5)))gid=essPool[Math.floor(Math.random()*essPool.length)];
@@ -897,7 +923,7 @@ function buildReview(){
   }
 }
 function renderReviewList(){
-  document.getElementById('rv-list').innerHTML=review.items.map((it,i)=>{it.num=i+1;return itemHTML(it,i+1,0,true)}).join('');
+  document.getElementById('rv-list').innerHTML=review.items.map((it,i)=>{it.num=i+1;return itemHTML(it,i+1,0,true)}).join('')+(AG.guest?AG.lockCard('تظهر هنا ٣ أسئلة فقط. سجّل دخولك لعرض كل الأسئلة وطرق الحل والأسئلة المشابهة.'):'');
   updateTally();
 }
 function updateTally(){const t=document.getElementById('rv-tally');if(!t)return;const done=review.items.filter(i=>i.graded).length;t.textContent=`أجبتَ عن ${ar(done)} من ${ar(review.items.length)} — صحيحة: ${ar(review.items.filter(i=>i.graded&&i.score>=i.max).length)}`}
@@ -911,6 +937,7 @@ function similar(uid){
 /* ================= نافذة الحل ================= */
 let curSol=null;
 function showSol(uid){
+  if(AG.guest){AG.prompt('طريقة الحل للطلاب المسجّلين فقط');return}
   const it=ITEMS[uid],q=it.q;curSol=uid;let head='';
   if(q.type==='mcq'){
     const el=document.getElementById('qb-'+uid),okEl=el.querySelector('.option[data-correct="true"]');
@@ -942,17 +969,20 @@ document.addEventListener('change',e=>{
     const blk=e.target.closest('[data-uid]'),it=ITEMS[+blk.dataset.uid];if(it.graded)return;gradeMcq(it);updateTally()}
 });
 function setMode(m){
-  mode=m;document.getElementById('tab-review').classList.toggle('active',m==='review');document.getElementById('tab-exam').classList.toggle('active',m==='exam');
+  mode=m;document.getElementById('tab-review').classList.toggle('active',m==='review');document.getElementById('tab-exam').classList.toggle('active',m==='exam');document.getElementById('tab-improve').classList.toggle('active',m==='improve');document.body.classList.toggle('m-improve',m==='improve');
   document.getElementById('review-view').style.display=m==='review'?'':'none';
   document.getElementById('exam-view').style.display=m==='exam'?'':'none';
-  document.getElementById('exam-tools').style.display=m==='exam'?'flex':'none';
+  document.getElementById('improve-view').style.display=m==='improve'?'':'none';
+  document.getElementById('exam-tools').style.display=m!=='review'&&!AG.guest?'flex':'none';
+  if(m==='improve'){document.getElementById('grade-all-btn').style.display='';document.getElementById('retry-btn-main').style.display='none'}
   window.scrollTo(0,0);
 }
 /* ================= الطباعة: ٣ صفحات A4 دائمًا ================= */
 (function(){
 const PRINTCSS=`
 body{background:#fff;padding:0;margin:0;display:block;width:210mm}
-#exam-view{display:block!important;width:210mm!important;max-width:none;margin:0;padding:0}
+#exam-view,#improve-view{display:block!important;width:210mm!important;max-width:none;margin:0;padding:0}
+body.m-improve #exam-view,body:not(.m-improve) #improve-view{display:none!important}
 #review-view,.topbar,.modal-overlay,.q-actions,.q-result,.chk-btn,.feedback,.option input[type=radio],textarea.answer-space{display:none!important}
 .page{box-shadow:none;border-radius:0;margin:0;width:210mm;height:296mm;min-height:0;padding:10mm 13mm 7mm;display:flex;flex-direction:column;overflow:hidden;break-after:page;page-break-after:always;break-inside:avoid}
 .page:last-of-type{break-after:auto;page-break-after:auto}
@@ -975,6 +1005,7 @@ body{background:#fff;padding:0;margin:0;display:block;width:210mm}
 .section-title{font-size:17px;margin:12px 0 6px;padding-bottom:4px}
 .essay-questions-container{gap:8px}
 .essay-question-block{padding:8px 10px;break-inside:avoid;margin-top:4px}
+.imp-page .essay-question-block:not(.full-width-question)::after{height:190px!important}
 .essay-question-block:not(.full-width-question)::after{content:'';display:block;height:330px;border:1px dotted #999;border-radius:5px;background:#f9f9f9;margin-top:5px}
 body.show-key .essay-question-block:not(.full-width-question)::after{display:none}
 .worksheet-table th,.worksheet-table td{padding:4px;font-size:13.5px}
@@ -992,7 +1023,7 @@ document.head.appendChild(s);
 })();
 /* نُصغّر محتوى الورقة (zoom) فقط عند الحاجة ليبقى داخل A4، فلا تزيد الصفحات عن ثلاث مهما طالت الأسئلة */
 function fitPages(){
-  document.querySelectorAll('#exam-view .page').forEach(pg=>{
+  document.querySelectorAll('#exam-view .page,#improve-view .page').forEach(pg=>{
     const box=pg.querySelector('.page-content'),inner=pg.querySelector('.pc-in');if(!box||!inner)return;
     inner.style.zoom='';
     if(document.body.classList.contains('show-key'))return;
@@ -1000,15 +1031,15 @@ function fitPages(){
     for(let i=0;i<10;i++){const h=inner.getBoundingClientRect().height;if(h<=avail)break;z=Math.max(.55,z*avail/h*.995);inner.style.zoom=z}
   });
 }
-function enterPrint(){if(mode!=='exam')return;document.documentElement.classList.add('fitmode');fitPages()}
+function enterPrint(){if(mode==='review')return;document.documentElement.classList.add('fitmode');fitPages()}
 function leavePrint(){document.documentElement.classList.remove('fitmode');document.querySelectorAll('.pc-in').forEach(e=>e.style.zoom='')}
 window.addEventListener('beforeprint',enterPrint);window.addEventListener('afterprint',leavePrint);
 
 (function init(){
   renderReviewShell();buildReview();renderReviewList();
   const h=(location.hash.match(/v=(\d+)/)||[])[1];
-  exam.seed=h?Math.min(99999,Math.max(1,+h)):rseed();exam.salt=0;buildExam();renderExam();
-  if(h)setMode('exam');else setMode('review');
+  exam.seed=h?Math.min(99999,Math.max(1,+h)):rseed();exam.salt=0;buildExam();renderExam();buildImprove();renderImprove();
+  if(h)setMode(/t=imp/.test(location.hash)?'improve':'exam');else setMode('review');
 })();
 </script>
 </body>

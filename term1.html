@@ -9,7 +9,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3C!-- Cap Base (Dark Blue) --%3E%3Cpath d='M25 58 V72 Q50 85 75 72 V58' fill='%231e40af' /%3E%3C!-- Cap Top (Primary Blue) --%3E%3Cpath d='M50 25 L90 50 L50 75 L10 50 Z' fill='%232563eb' stroke='%231e40af' stroke-width='2'/%3E%3C!-- Tassel Button --%3E%3Ccircle cx='50' cy='50' r='5' fill='%231d4ed8'/%3E%3C!-- Tassel (White) --%3E%3Cline x1='50' y1='50' x2='85' y2='65' stroke='white' stroke-width='4'/%3E%3Ccircle cx='85' cy='65' r='5' fill='white'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=Amiri:wght@400;700&family=Aref+Ruqaa:wght@700&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#f3f5fb;--card:#ffffff;--text:#0f172a;--muted:#64748b;--line:#e3e8f2;--ok:#15803d;--lock1:#d5dbe6;--lock2:#a9b3c4;--ac:#2563eb;--ac-d:#1e40af;--nav:64px;color-scheme:light}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0b1020;--card:#151b2e;--text:#e8ecf6;--muted:#93a0b8;--line:#263049;--ok:#4ade80;--lock1:#2b3550;--lock2:#1c2438;color-scheme:dark}}
@@ -297,9 +297,19 @@ body.has-dock .toast{bottom:calc(var(--nav) + 200px + env(safe-area-inset-bottom
 .more{width:100%;min-height:46px;border:1px solid var(--line);border-radius:14px;background:var(--card);color:var(--muted);font-weight:800;font-size:14px;cursor:pointer;margin-bottom:10px}
 .empty{padding:36px 18px;text-align:center;color:var(--muted);font-weight:700}
 .empty .btn{margin-top:16px}
+/* شهادات الشكر من المعلم */
+.certs{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-bottom:14px}
+.cert{position:relative;border:0;padding:0;border-radius:14px;overflow:hidden;cursor:pointer;background:var(--bg);text-align:center;box-shadow:0 3px 0 var(--line);font-family:inherit}
+.cert canvas{display:block;width:100%;aspect-ratio:297/210}
+.cert b{display:block;padding:6px 6px 0;font-size:13px;font-weight:800;color:var(--text);line-height:1.4}
+.cert small{display:block;padding:0 6px 8px;font-size:11px;font-weight:700;color:var(--muted)}
+.cert .new{position:absolute;top:6px;right:6px;background:#ef4444;color:#fff;font-size:11px;font-weight:800;padding:1px 8px;border-radius:9px}
+.csub{font-size:13px;font-weight:800;color:var(--muted);margin:0 0 8px}
+#certView{display:block;width:100%;aspect-ratio:297/210;border-radius:10px;box-shadow:0 6px 18px -8px rgba(0,0,0,.4);margin:8px 0 4px}
 @media (prefers-reduced-motion:reduce){.crown,.glow,.chip.dx.pulse,.st-current::after,.node.pulse::after,.gbtn.hl,.flash .node,.spin{animation:none}.sheet{animation:none}}
 </style>
 <script src="js/game-save.js"></script>
+<script src="js/cert-draw.js"></script>
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
@@ -849,6 +859,31 @@ else if('badge' in s){ic1=medalStar('none',44);sub='<small class="bad">لم يس
 else if(s.medal){ic1=medalStar(s.medal.type,44);sub='<small>'+s.medal.label+'</small>';sc='<div class="msc" dir="ltr">'+fmt(s.score)+'%</div>'}
 else{ic1=medalStar('none',44);sub='<small class="bad">لم يستحق</small>';sc='<div class="msc" dir="ltr">'+fmt(s.score)+'%</div>'}
 return '<div class="mt'+((s.medal||s.badge)?' on':'')+(s.live?' lv':'')+'">'+ic1+'<b>'+s.name+'</b>'+sub+sc+'</div>'}
+// ===== شهادات الشكر من المعلم: تُرسم بـ js/cert-draw.js بالتصميم نفسه في صفحة المعلم =====
+var certCur=null;
+function certList(){return (student&&Array.isArray(student.certificates))?student.certificates:[]}
+function certSeen(){try{return JSON.parse(localStorage.getItem('seenCerts')||'{}')||{}}catch(e){return {}}}
+function certOpts(c){var d=c.data||{};return {style:'color',theme:d.theme||'navy',seal:d.seal===undefined?'تميّز':d.seal,title:d.title||'شهادة شكر وتقدير',cert:d.cert||c.cert,intro:d.intro||'',student:d.student||student.name,body:d.body||'',header:d.header||[],tLbl:d.tLbl||'',teacher:d.teacher||'',pLbl:d.pLbl||'',prin:d.prin||'',date:d.date||'',logo:null}}
+function certPaint(cv,c,w){cv.width=w;cv.height=Math.round(w*210/297);CertDraw.draw(cv,certOpts(c),'image')}
+function certPx(cv,def){return Math.round((cv.clientWidth||def)*Math.min(2,window.devicePixelRatio||1))}
+function certsHTML(){var L=certList();if(!L.length||!window.CertDraw)return '';var seen=certSeen();
+return '<p class="csub">🏅 شهادات حصلت عليها من معلمك</p><div class="certs">'+L.map(function(c,i){return '<button class="cert" data-act="cert" data-i="'+i+'"><canvas data-ci="'+i+'"></canvas>'+(seen[c.key]?'':'<span class="new">جديدة</span>')+'<b>'+esc(c.cert)+'</b><small>'+(c.period===2?'الفترة الثانية':'الفترة الأولى')+'</small></button>'}).join('')+'</div>'}
+function paintCertThumbs(){var L=certList();if(!L.length||!window.CertDraw)return;CertDraw.fonts().then(function(){document.querySelectorAll('canvas[data-ci]').forEach(function(cv){var c=L[+cv.getAttribute('data-ci')];if(c)certPaint(cv,c,certPx(cv,150))})})}
+function canShareFiles(){try{return !!navigator.canShare&&navigator.canShare({files:[new File(['x'],'x.jpg',{type:'image/jpeg'})]})&&/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent)}catch(e){return false}}
+function openCertSheet(i){var c=certList()[i];if(!c||!window.CertDraw)return;certCur=c;var seen=certSeen();seen[c.key]=1;try{localStorage.setItem('seenCerts',JSON.stringify(seen))}catch(e){}
+var nb=document.querySelector('.cert[data-i="'+i+'"] .new');if(nb)nb.remove();
+$('sheet').innerHTML='<div class="grab"></div><div style="text-align:center"><small style="color:var(--muted);font-weight:700">شهادة شكر وتقدير</small><h3 style="margin:2px 0 4px;font-size:19px;font-weight:900">'+esc(c.cert)+'</h3></div><canvas id="certView"></canvas>'+
+'<p class="note" style="text-align:center;margin-top:8px">مبارك! احتفظ بشهادتك أو شاركها مع أهلك 🌹</p>'+
+'<button class="btn sh-btn" data-act="certsave">💾 حفظ الشهادة صورة</button>'+(canShareFiles()?'<button class="btn ghost" data-act="certshare" style="margin-top:10px">📤 مشاركة الشهادة</button>':'');
+$('ov').classList.add('on');
+CertDraw.fonts().then(function(){var cv=$('certView');if(cv)certPaint(cv,c,certPx(cv,480))})}
+function certBlob(c){return CertDraw.fonts().then(function(){return new Promise(function(res){var cv=document.createElement('canvas');certPaint(cv,c,2376);cv.toBlob(res,'image/jpeg',.92)})})}
+function certFile(c){return ('شهادة '+c.cert+' - '+(student.name||'')).replace(/[\\/:*?"<>|]+/g,' ')+'.jpg'}
+function certSave(){var c=certCur;if(!c)return;certBlob(c).then(function(b){var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=certFile(c);document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},4000);toast('تم حفظ الشهادة ✓')})}
+function certShare(){var c=certCur;if(!c)return;certBlob(c).then(function(b){return navigator.share({files:[new File([b],certFile(c),{type:'image/jpeg'})]})}).catch(function(e){if(!e||e.name!=='AbortError')toast('تعذّرت المشاركة')})}
+// تنبيه مرة في الجلسة إن وُجدت شهادة لم يفتحها الطالب بعد
+function certNotify(){var seen=certSeen(),n=certList().filter(function(c){return !seen[c.key]}).length;if(!n)return;try{if(sessionStorage.getItem('certN')===String(n))return;sessionStorage.setItem('certN',String(n))}catch(e){}
+setTimeout(function(){toast('🏅 لديك '+(n===1?'شهادة شكر جديدة':n===2?'شهادتا شكر جديدتان':AR(n)+(n<=10?' شهادات شكر جديدة':' شهادة شكر جديدة'))+' من معلمك — تجدها في «إنجازاتي»')},900)}
 function arc(len,off,color,C){return len>0?'<circle cx="60" cy="60" r="52" fill="none" stroke="'+color+'" stroke-width="14" stroke-dasharray="'+len.toFixed(1)+' '+(C-len).toFixed(1)+'" stroke-dashoffset="'+(-off).toFixed(1)+'"/>':''}
 function renderMe(){
 var el=$('v-me');
@@ -860,11 +895,11 @@ el.innerHTML='<div style="height:calc(env(safe-area-inset-top,0px) + 14px)"></di
 '<div class="pc"><h3>'+ic('chart',20)+'مستوى التقدم والإتقان</h3><div class="pr"><div class="ring" style="width:120px;height:120px"><svg width="120" height="120" viewBox="0 0 120 120" style="transform:rotate(-90deg)"><circle cx="60" cy="60" r="52" fill="none" stroke="var(--line)" stroke-width="14"/>'+arc(gl,0,'#22c55e',C)+arc(ll,gl,'#ef4444',C)+arc(pl,gl+ll,'#a5b4fc',C)+'</svg><div class="rn" style="font-size:24px"><span>'+AR(eg)+'٪</span></div></div>'+
 '<div class="legend"><div style="font-weight:800;margin-bottom:4px">نسبة التفاعل · الدرجة '+AR(egG)+'/١٠ '+egB+'</div><div><i style="background:#22c55e"></i>إتقان '+AR(m)+'٪</div><div><i style="background:#ef4444"></i>تحتاج تحسين '+AR(o.needs)+'٪</div><div><i style="background:#a5b4fc"></i>بانتظارك '+AR(o.pending)+'٪</div></div></div></div>'+
 '<div class="pc"><h3>'+ic('star',20)+'أوسمتك</h3><div class="medals">'+starsInfo().map(medalTile).join('')+'</div></div>'+gradesCard()+
-'<div class="pc"><h3>'+ic('trophy',20)+'الشهادات</h3><div class="cbar"><div class="cfill" style="width:'+Math.min(100,m)+'%"></div><i class="ctick" style="right:55%"></i><i class="ctick" style="right:85%"></i><i class="ctick" style="right:95%"></i></div>'+
+'<div class="pc"><h3>'+ic('trophy',20)+'الشهادات</h3>'+certsHTML()+'<div class="cbar"><div class="cfill" style="width:'+Math.min(100,m)+'%"></div><i class="ctick" style="right:55%"></i><i class="ctick" style="right:85%"></i><i class="ctick" style="right:95%"></i></div>'+
 '<div class="cchips"><div class="cc'+(m>=55?' on':'')+'">شهادة مشارك<small>٥٥٪ فأكثر</small></div><div class="cc'+(m>=85?' on gold':'')+'">شهادة تميز<small>٨٥٪ فأكثر</small></div><div class="cc'+(m>=95?' on star':'')+'">نجم المنصة<small>٩٥٪ فأكثر</small></div></div></div>'+
 '<div class="pc"><h3>'+ic('rocket',20)+'الاختبار التشخيصي</h3>'+(dl?'<div class="dgrid"><div class="dg"><small>المعدل</small><b>'+AR(fmt(d.score))+'٪</b></div><div class="dg"><small>النقاط</small><b>'+(d.pts!==null&&d.pts!==undefined?AR(d.pts):'—')+'</b></div></div><button class="btn ghost" data-act="diag">إعادة الاختبار</button>':'<p class="note">لم يتم أداء الاختبار بعد.</p><button class="btn dx" data-act="diag">ابدأ الاختبار الآن</button>')+'</div>'+
 '<div class="pc"><h3>'+ic('clock',20)+'المتبقي لك</h3><div class="rem"><div><b>'+AR(rm.rl)+'</b><small>دروس متبقية</small></div><div><b>'+AR(rm.rg)+'</b><small>لعبة متبقية</small></div></div></div>'+
-'<button class="btn ghost" data-act="logout" style="margin-bottom:12px">'+ic('logout',20)+'تسجيل الخروج</button><footer class="foot">'+footHTML()+'</footer>'}
+'<button class="btn ghost" data-act="logout" style="margin-bottom:12px">'+ic('logout',20)+'تسجيل الخروج</button><footer class="foot">'+footHTML()+'</footer>';paintCertThumbs()}
 
 function renderHome(){themeApply();renderChips();renderStrip();renderHero();renderMap();$('foot-h').innerHTML=footHTML()}
 function renderAll(){renderHeader();if(view==='home')renderHome();else if(view==='lb'){themeApply();renderLB()}else{themeApply();renderMe()}renderDock()}
@@ -880,12 +915,12 @@ function showLogin(){$('pre').hidden=true;$('app').hidden=true;$('login').hidden
 function showApp(){$('pre').hidden=true;$('login').hidden=true;$('app').hidden=false}
 function pickChapter(){if(chapterChosen)return;chapterChosen=true;var mu=student?musaid():null;var p=mu&&mu.primaryTask;curCh=(p&&p.type!=='diagnostic')?LESSONS[taskLesson(p).id].ci:0}
 function enter(){pickChapter();lbData=null;lbStale=true;lbErr=false;showApp();setView('home');
-try{if(student&&!sessionStorage.getItem('wlc')){sessionStorage.setItem('wlc','1');openWelcome()}}catch(e){}}
+try{if(student&&!sessionStorage.getItem('wlc')){sessionStorage.setItem('wlc','1');openWelcome()}}catch(e){}certNotify()}
 function refresh(silent){
 if(!student)return;
 fetch(SCRIPT_URL+'?action=getStudentData&studentId='+encodeURIComponent(student.id)+'&classId='+encodeURIComponent(student.classIdentifier)+'&t='+Date.now(),{redirect:'follow'})
 .then(function(r){return r.json()}).then(function(res){
-if(res.status==='success'&&res.data){res.data.classIdentifier=getClassIdentifier(res.data.class)||student.classIdentifier;if(student.role)res.data.role=student.role;student=res.data;localStorage.setItem('currentStudent',JSON.stringify(student));lbStale=true;if(!$('app').hidden)renderAll()}
+if(res.status==='success'&&res.data){res.data.classIdentifier=getClassIdentifier(res.data.class)||student.classIdentifier;if(student.role)res.data.role=student.role;student=res.data;localStorage.setItem('currentStudent',JSON.stringify(student));lbStale=true;if(!$('app').hidden){renderAll();certNotify()}}
 else throw new Error(res.message||'refresh failed')})
 .catch(function(e){console.error('Data refresh error:',e)})}
 function initialRefresh(s){
@@ -917,6 +952,9 @@ if(act==='logout'){logout();return}
 if(act==='wme'){closeSheet();setView('me');return}
 if(act==='wgo'){closeSheet();return}
 if(act==='gtab'){gradeTab=+a.getAttribute('data-p');renderMe();return}
+if(act==='cert'){openCertSheet(+a.getAttribute('data-i'));return}
+if(act==='certsave'){certSave();return}
+if(act==='certshare'){certShare();return}
 if(act==='login'){closeSheet();localStorage.removeItem('currentStudent');student=null;$('login-err').hidden=true;showLogin();return}
 if(act==='diag'){openDiag();return}
 if(act==='diagsheet'){openDiagSheet();return}

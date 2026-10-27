@@ -15,6 +15,14 @@
   var ctFontsP = null;
   // NF: بلا إطار (للورق المؤطَّر مسبقًا) — NB: بلا لون خلفية (للورق الملوّن)
   var NF = false, NB = false;
+  // موضع الشعار/الختم: يُرسم كل شعار حول (48، 46) ثم يُنقل ويُكبَّر من هنا
+  var EM = { dx: 0, dy: 0, s: 1, hide: false, moved: false };
+  function withEm(c, fn){
+    if (EM.hide) return;
+    c.save(); c.translate(48 + EM.dx, 46 + EM.dy); c.scale(EM.s, EM.s); c.translate(-48, -46);
+    fn();
+    c.restore();
+  }
   function ctFonts(){
     if (!ctFontsP){
       ctFontsP = Promise.all(['700 20px "Aref Ruqaa"', '400 20px Amiri', '700 20px Amiri', '700 20px Cairo'].map(function(f){
@@ -69,6 +77,10 @@
     var T = o.style === 'bw' ? CT_MONO : (CT_THEMES[o.theme] || CT_THEMES.navy);
     if (D.pal && !T.mono) T = D.pal(T);
     NF = !!o.noFrame; NB = !!o.noBg;
+    var pos = o.emPos || 'tl';
+    EM.hide = pos === 'none';
+    EM.dx = (pos === 'tr' ? 201 : 0) + (+o.emDx || 0); EM.dy = +o.emDy || 0;
+    EM.s = (+o.emScale || 100) / 100; EM.mirror = pos === 'tr'; EM.moved = (+o.emDx || 0) !== 0 || EM.dy !== 0;
     D.draw(c, T, o);
     ctWrite(c, o, T);
   }
@@ -106,7 +118,7 @@
       ctDiamond(c, q[0], q[1], 3.2); c.fillStyle = m ? '#ffffff' : T.a; c.fill(); c.strokeStyle = T.p; c.lineWidth = .35; c.stroke();
     });
     }
-    if (o.seal) ctSeal(c, T, 48, 44, o.seal);
+    if (o.seal) withEm(c, function(){ ctSeal(c, T, 48, 44, o.seal); });
   }
   function ctSeal(c, T, x, y, txt){
     var m = !!T.mono;
@@ -132,8 +144,9 @@
     c.textBaseline = 'alphabetic';
     var head = !pl || o.pHeader;
     if (head && o.header.length){
-      c.textAlign = 'right'; c.fillStyle = T.p;
-      o.header.forEach(function(l, i){ ctFit(c, l, '700', 4.6, F_BODY, 80); c.fillText(l, 270, 29 + i * 6.6); });
+      var hl = o.emPos === 'tr';
+      c.textAlign = hl ? 'left' : 'right'; c.fillStyle = T.p;
+      o.header.forEach(function(l, i){ ctFit(c, l, '700', 4.6, F_BODY, 80); c.fillText(l, hl ? 27 : 270, 29 + i * 6.6); });
     }
     if (head && o.logo){
       var h = 22, w = h * o.logo.width / o.logo.height;
@@ -257,12 +270,14 @@
     frame(c, T, 3);
     c.strokeStyle = T.a; c.lineWidth = .25;
     if (!NF) for (k = 0; k * 2.5 <= 268; k++){ var L = k % 10 === 0 ? 4 : (k % 2 ? 1.3 : 2.4), x = 14.5 + k * 2.5; ln(c, x, 14.5, x, 14.5 + L); ln(c, x, 195.5, x, 195.5 - L); }
+    withEm(c, function(){
     emGraph(c, T, 48, 46);
+    });
   }
 
   // 3) السبورة
   function dChalk(c, T, o){
-    if (T.mono){ c.fillStyle = '#ffffff'; c.fillRect(0, 0, 297, 210); frame(c, T); if (o.seal) ctSeal(c, T, 48, 44, o.seal); return; }
+    if (T.mono){ c.fillStyle = '#ffffff'; c.fillRect(0, 0, 297, 210); frame(c, T); if (o.seal) withEm(c, function(){ ctSeal(c, T, 48, 44, o.seal); }); return; }
     var w = c.createLinearGradient(0, 0, 297, 210); w.addColorStop(0, '#9a6a3a'); w.addColorStop(.5, '#7a4f28'); w.addColorStop(1, '#94643a');
     c.fillStyle = w; if (!NF) c.fillRect(0, 0, 297, 210);
     var g = c.createRadialGradient(148.5, 100, 20, 148.5, 105, 170); g.addColorStop(0, '#2f5d4f'); g.addColorStop(1, '#1d3a31');
@@ -278,9 +293,11 @@
     c.fillStyle = '#6b4423'; c.fillRect(60, 201, 177, 4.5);
     [[100, '#fdfdf2'], [112, '#f4d35e'], [180, '#f28b82']].forEach(function(q){ c.fillStyle = q[1]; c.fillRect(q[0], 201.6, 9, 1.8); });
     }
+    withEm(c, function(){
     ctCircle(c, 48, 44, 15); c.strokeStyle = '#f4d35e'; c.lineWidth = .9; c.stroke();
     ctStar(c, 48, 44, 12, 5, 5); c.strokeStyle = 'rgba(253,253,242,.85)'; c.lineWidth = .6; c.stroke();
     if (o.seal){ c.textAlign = 'center'; c.textBaseline = 'middle'; ctFit(c, o.seal, '700', 6, F_TITLE, 18); c.fillStyle = '#f4d35e'; c.fillText(o.seal, 48, 45); c.textBaseline = 'alphabetic'; }
+    });
   }
 
   // 4) رموز رياضية
@@ -299,7 +316,7 @@
       ctCircle(c, q[0], q[1], 6.2); fillOr(c, T, T.p); c.strokeStyle = T.a; c.lineWidth = .7; c.stroke();
       mathText(c, q[2], q[0], q[1] + .2, 7, T.mono ? '#111111' : '#ffffff');
     });
-    if (o.seal) ctSeal(c, T, 48, 44, o.seal);
+    if (o.seal) withEm(c, function(){ ctSeal(c, T, 48, 44, o.seal); });
   }
 
   // 5) فيثاغورس
@@ -324,6 +341,7 @@
     if (!NF) [[14.5, 14.5, 1, 1], [282.5, 14.5, -1, 1], [14.5, 195.5, 1, -1], [282.5, 195.5, -1, -1]].forEach(function(q){
       c.strokeRect(Math.min(q[0], q[0] + q[2] * 5), Math.min(q[1], q[1] + q[3] * 5), 5, 5);
     });
+    withEm(c, function(){
     var A = [40, 54], B = [54, 54], C = [40, 43.5], n = [10.5, -14];
     poly(c, [A, B, [54, 68], [40, 68]]); fillOr(c, T, T.a2); c.strokeStyle = T.p; c.lineWidth = .45; c.stroke();
     poly(c, [A, C, [29.5, 43.5], [29.5, 54]]); fillOr(c, T, ctRgba(T.p, .25)); c.stroke();
@@ -333,6 +351,7 @@
     mathText(c, 'a²', 47, 61.5, 3.4, T.p); mathText(c, 'b²', 34.7, 48.8, 3.4, T.mono ? '#111111' : '#ffffff');
     mathText(c, 'c²', 52.2, 36.8, 3.6, T.mono ? '#111111' : '#ffffff');
     mathText(c, 'a² + b² = c²', 46, 74, 3.4, T.p);
+    });
   }
 
   // 6) باي π: أرقام π تدور حول الإطار
@@ -357,9 +376,11 @@
     function side(x0, y0, dx, dy, len, rot){ for (var d = 0; d < len; d += step){ mathText(c, PI_DIGITS.charAt(i++ % PI_DIGITS.length), x0 + dx * d, y0 + dy * d, 2.9, col, rot); } }
     side(14, 13.3, 1, 0, 270, 0); side(283.7, 14, 0, 1, 183, Math.PI / 2); side(283, 196.7, -1, 0, 270, Math.PI); side(13.3, 196, 0, -1, 183, -Math.PI / 2);
     }
+    withEm(c, function(){
     ctCircle(c, 48, 44, 16); fillOr(c, T, T.p); c.strokeStyle = T.a; c.lineWidth = .8; c.stroke();
     ctCircle(c, 48, 44, 13.8); c.strokeStyle = T.mono ? '#111111' : T.a2; c.lineWidth = .3; c.stroke();
     c.save(); c.textAlign = 'center'; c.textBaseline = 'middle'; ctFont(c, '700', 22, F_BODY); c.fillStyle = T.mono ? '#111111' : T.a2; c.fillText('π', 48, 43); c.restore();
+    });
   }
 
   // 7) الفرجار والمسطرة: دوائر متداخلة في الزوايا + منقلة
@@ -383,6 +404,7 @@
     frame(c, T, 2.6);
     c.strokeStyle = T.p; c.lineWidth = .22;
     if (!NF) for (var k = 0; k * 2.5 <= 120; k++){ var L = k % 10 === 0 ? 4 : (k % 2 ? 1.3 : 2.4); ln(c, 14.5, 45 + k * 2.5, 14.5 + L, 45 + k * 2.5); ln(c, 282.5, 45 + k * 2.5, 282.5 - L, 45 + k * 2.5); }
+    withEm(c, function(){
     var x = 48, y = 56, R = 18;
     c.beginPath(); c.arc(x, y, R, Math.PI, 2 * Math.PI); c.closePath(); fillOr(c, T, ctRgba(T.a2, .7)); c.strokeStyle = T.p; c.lineWidth = .5; c.stroke();
     c.beginPath(); c.arc(x, y, R - 6, Math.PI, 2 * Math.PI); c.lineWidth = .25; c.stroke();
@@ -390,6 +412,7 @@
     c.strokeStyle = T.mono ? '#111111' : T.a; c.lineWidth = .7; ln(c, x, y, x + (R - 2) * Math.cos(Math.PI * 4 / 3), y + (R - 2) * Math.sin(Math.PI * 4 / 3));
     ctCircle(c, x, y, 1.1); c.fillStyle = T.p; c.fill();
     mathText(c, '60°', x - 1, y - 6, 3, T.p);
+    });
   }
 
   // 8) مثلث سيربنسكي في الزوايا
@@ -409,7 +432,7 @@
     c.fillStyle = T.mono ? '#111111' : T.p;
     sier(c, 24, 128, 17, false, 4); sier(c, 273, 128, 17, false, 4);
     }
-    if (o.seal) ctSeal(c, T, 48, 44, o.seal);
+    if (o.seal) withEm(c, function(){ ctSeal(c, T, 48, 44, o.seal); });
   }
 
   // 9) الأرقام الملوّنة
@@ -423,8 +446,10 @@
     for (var y = 26; y <= 184; y += 9.5){ put(15.5, y); put(281.5, y); }
     c.strokeStyle = T.p; c.lineWidth = .5; c.setLineDash([1.6, 1]); c.strokeRect(22, 22, 253, 166); c.setLineDash([]);
     }
+    withEm(c, function(){
     ctStar(c, 48, 45, 16, 5, 7.5); fillOr(c, T, '#f59e0b'); c.strokeStyle = T.mono ? '#111111' : '#d97706'; c.lineWidth = .6; c.stroke();
     if (o.seal){ c.textAlign = 'center'; c.textBaseline = 'middle'; ctFit(c, o.seal, '700', 5.2, F_TITLE, 12); c.fillStyle = T.mono ? '#111111' : '#ffffff'; c.fillText(o.seal, 48, 46.5); c.textBaseline = 'alphabetic'; }
+    });
   }
 
   // 10) خلايا سداسية
@@ -446,9 +471,11 @@
     c.strokeStyle = T.p; c.lineWidth = T.mono ? .8 : 2.4; ln(c, 26, 10, 271, 10); ln(c, 26, 200, 271, 200);
     c.strokeStyle = T.a; c.lineWidth = .5; ln(c, 26, 14, 271, 14); ln(c, 26, 196, 271, 196);
     }
+    withEm(c, function(){
     hex(c, 48, 45, 17); fillOr(c, T, T.p); c.strokeStyle = T.a; c.lineWidth = .8; c.stroke();
     hex(c, 48, 45, 14.3); c.strokeStyle = T.mono ? '#111111' : T.a2; c.lineWidth = .3; c.stroke();
     if (o.seal){ c.textAlign = 'center'; c.textBaseline = 'middle'; ctFit(c, o.seal, '700', 8, F_TITLE, 19); c.fillStyle = T.mono ? '#111111' : T.a2; c.fillText(o.seal, 48, 45.5); c.textBaseline = 'alphabetic'; }
+    });
   }
 
   // 11) الرسم البياني: أعمدة متصاعدة وسهم نمو
@@ -459,6 +486,7 @@
       c.fillStyle = g; c.fillRect(0, 0, 297, 7); c.fillRect(0, 203, 297, 7);
     }
     if (!NF){ c.strokeStyle = T.p; c.lineWidth = T.mono ? .8 : .5; c.strokeRect(12, 12, 273, 186); }
+    withEm(c, function(){
     var base = 62, xs = [33, 40.5, 48, 55.5], hs = [9, 15, 22, 30];
     xs.forEach(function(x, i){
       c.beginPath(); c.rect(x, base - hs[i], 5.5, hs[i]);
@@ -470,6 +498,7 @@
     c.beginPath(); c.moveTo(31, base - 12); c.lineTo(41, base - 19); c.lineTo(48, base - 24); c.lineTo(60, base - 36); c.stroke();
     poly(c, [[62.5, base - 38.5], [56.2, base - 37], [60.8, base - 32.5]]); c.fillStyle = T.mono ? '#111111' : T.a; c.fill();
     mathText(c, '↑ 100%', 47, base + 5, 3.6, T.p);
+    });
   }
 
   // 12) النسبة الذهبية
@@ -497,10 +526,12 @@
       c.beginPath(); c.moveTo(q[0], q[1] + q[3] * 14); c.lineTo(q[0], q[1]); c.lineTo(q[0] + q[2] * 14, q[1]); c.stroke();
     });
     }
+    withEm(c, function(){
     ctCircle(c, 48, 44, 15.5); fillOr(c, T, T.p); c.strokeStyle = T.a; c.lineWidth = 1; c.stroke();
     ctCircle(c, 48, 44, 13); c.strokeStyle = T.mono ? '#111111' : T.a2; c.lineWidth = .3; c.stroke();
     c.save(); c.textAlign = 'center'; c.textBaseline = 'middle'; ctFont(c, '700', 17, F_BODY); c.fillStyle = T.mono ? '#111111' : T.a2; c.fillText('φ', 48, 43.5); c.restore();
     mathText(c, '1.618', 48, 64, 3.4, T.a);
+    });
   }
 
   // 13) مكعبات ثلاثية الأبعاد
@@ -527,23 +558,31 @@
     c.strokeStyle = T.p; c.lineWidth = T.mono ? .8 : 1.2; c.strokeRect(9, 9, 279, 192);
     c.strokeStyle = T.a; c.lineWidth = .5; ln(c, 9, 27, 288, 27); ln(c, 9, 183, 288, 183);
     }
+    withEm(c, function(){
     cube(c, T, 48, 48, 15, T.mono ? sh : [T.a2, T.p, ctRgba(T.p, .75)]);
     ctStar(c, 48, 40.5, 4.2, 5, 1.8); fillOr(c, T, T.a); c.strokeStyle = T.p; c.lineWidth = .3; c.stroke();
+    });
   }
 
   // 14) اللانهاية: مثلثات لونية في زاويتين + ∞
   function dInf(c, T, o){
     if (!NB){ c.fillStyle = T.mono ? '#ffffff' : T.paper; c.fillRect(0, 0, 297, 210); }
     if (!T.mono && !NF){
+      // المثلثان يتبعان الختم: أعلى اليسار عادةً، وينعكسان إن نُقل الختم لليمين
+      c.save(); if (EM.mirror){ c.translate(297, 0); c.scale(-1, 1); }
       poly(c, [[0, 0], [82, 0], [0, 58]]); c.fillStyle = T.p; c.fill();
       poly(c, [[82, 0], [90, 0], [0, 63.5], [0, 58]]); c.fillStyle = T.a; c.fill();
       poly(c, [[297, 210], [245, 210], [297, 172]]); c.fillStyle = T.p; c.fill();
       poly(c, [[245, 210], [238, 210], [297, 167], [297, 172]]); c.fillStyle = T.a; c.fill();
+      c.restore();
     }
     if (!NF){ c.strokeStyle = T.p; c.lineWidth = T.mono ? .8 : .4; c.strokeRect(10, 10, 277, 190); }
-    c.strokeStyle = T.mono ? '#111111' : (NF ? T.p : '#ffffff'); c.lineWidth = 1.6; c.beginPath();
+    withEm(c, function(){
+    if (EM.mirror) c.translate(36, 0); // يبقى ∞ فوق المثلث المنعكس (297 − 30)
+    c.strokeStyle = T.mono ? '#111111' : ((NF || EM.moved) ? T.p : '#ffffff'); c.lineWidth = 1.6; c.beginPath();
     for (var t = 0; t <= 2 * Math.PI + .01; t += .05){ var d = 1 + Math.sin(t) * Math.sin(t), px = 30 + 13 * Math.cos(t) / d, py = 24 + 13 * Math.sin(t) * Math.cos(t) / d; if (t) c.lineTo(px, py); else c.moveTo(px, py); }
     c.stroke();
+    });
   }
 
   // 15) التانجرام
@@ -563,7 +602,9 @@
     paper(c, T);
     frame(c, T, 2.6);
     if (!NF) [[15, 15], [282, 15], [15, 195], [282, 195]].forEach(function(q, i){ tangram(c, T, q[0], q[1], 11, Math.PI / 4 + i * Math.PI / 2); });
+    withEm(c, function(){
     tangram(c, T, 48, 45, 28, Math.PI / 4);
+    });
   }
 
   var DESIGNS = {

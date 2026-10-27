@@ -27,7 +27,7 @@
     if (!ctFontsP){
       ctFontsP = Promise.all(['700 20px "Aref Ruqaa"', '400 20px Amiri', '700 20px Amiri', '700 20px Cairo'].map(function(f){
         return document.fonts && document.fonts.load ? document.fonts.load(f, 'شهادة') : null;
-      })).catch(function(){});
+      }).concat([loadQrLib()])).catch(function(){});
     }
     return ctFontsP;
   }
@@ -141,6 +141,8 @@
   }
   function ctWrite(c, o, T){
     var pl = !!T.plain, cx = 148.5;
+    // باركود على أحد الجانبين: يضيق عرض النص كي لا يلامسه
+    var nar = (o.qrPos === 'ml' || o.qrPos === 'mr') ? 30 : 0;
     c.textBaseline = 'alphabetic';
     var head = !pl || o.pHeader;
     if (head && o.header.length){
@@ -175,8 +177,8 @@
         c.fillText(o.cert, cx, 84.2);
       } else { c.fillStyle = T.p; c.fillText(o.cert, cx, 84); }
     }
-    if (o.intro){ ctFit(c, o.intro, '400', 6.2, F_BODY, 230); c.fillStyle = T.ink; c.fillText(o.intro, cx, 101); }
-    ctFit(c, o.student, '700', 12.5, F_BODY, 215);
+    if (o.intro){ ctFit(c, o.intro, '400', 6.2, F_BODY, 230 - nar); c.fillStyle = T.ink; c.fillText(o.intro, cx, 101); }
+    ctFit(c, o.student, '700', 12.5, F_BODY, 215 - nar);
     c.fillStyle = T.p; c.fillText(o.student, cx, 119.5);
     if (!pl){
       var nw = Math.min(240, c.measureText(o.student).width + 24) / 2;
@@ -186,18 +188,75 @@
     }
     if (o.body){
       var size = 6, lines;
-      for (;;){ ctFont(c, '400', size, F_BODY); lines = ctWrap(c, o.body, 215); if (lines.length <= 3 || size < 4) break; size -= .3; }
+      for (;;){ ctFont(c, '400', size, F_BODY); lines = ctWrap(c, o.body, 215 - nar); if (lines.length <= 3 || size < 4) break; size -= .3; }
       c.fillStyle = T.ink;
       lines.forEach(function(l, i){ c.fillText(l, cx, 137 + i * size * 1.55); });
     }
     if (!pl || o.pSign){
-      [[238, o.tLbl, o.teacher], [cx, o.date ? 'التاريخ' : '', o.date], [59, o.pLbl, o.prin]].forEach(function(q){
+      // الباركود في زاوية سفلية يدفع عمود التوقيع المجاور نحو الوسط
+      var tX = o.qrPos === 'br' ? 207 : 238, pX = o.qrPos === 'bl' ? 90 : 59;
+      [[tX, o.tLbl, o.teacher], [cx, o.date ? 'التاريخ' : '', o.date], [pX, o.pLbl, o.prin]].forEach(function(q){
         if (!q[1] && !q[2]) return;
         ctFont(c, '700', 4.4, F_UI); c.fillStyle = T.p; c.fillText(q[1], q[0], 175);
         if (q[2]){ ctFit(c, q[2], '700', 5.4, F_BODY, 70); c.fillStyle = T.ink; c.fillText(q[2], q[0], 184); }
         else if (!pl){ c.strokeStyle = T.a; c.lineWidth = .3; c.setLineDash([.6, .9]); c.beginPath(); c.moveTo(q[0] - 22, 184); c.lineTo(q[0] + 22, 184); c.stroke(); c.setLineDash([]); }
       });
     }
+    ctQr(c, o, T);
+  }
+
+  // ===== باركود (QR) الدخول إلى منصة الفصل الدراسي الأول =====
+  // يُولَّد بمكتبة qrcode-generator (تُحمَّل مع الخطوط في ctFonts) ويُرسم مربعات متجهة فيبقى حادًّا عند الطباعة.
+  var QR_URL = 'https://ablan-math.github.io/term1.html', QRM = null;
+  function loadQrLib(){
+    if (window.qrcode) return Promise.resolve();
+    return new Promise(function(res){
+      var s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js';
+      s.onload = res; s.onerror = res;
+      document.head.appendChild(s);
+    });
+  }
+  function qrMatrix(){
+    if (QRM) return QRM;
+    if (!window.qrcode) return null;
+    var q = window.qrcode(0, 'M'); q.addData(QR_URL); q.make();
+    var n = q.getModuleCount(), m = [];
+    for (var r = 0; r < n; r++){ var row = []; for (var k = 0; k < n; k++) row.push(q.isDark(r, k)); m.push(row); }
+    return (QRM = m);
+  }
+  function lum(hex){ var n = parseInt(String(hex).slice(1), 16); return ((n >> 16 & 255) * .299 + (n >> 8 & 255) * .587 + (n & 255) * .114) / 255; }
+  // مراكز المواضع المقترحة (مم)؛ ثم يُزاح بـ qrDx/qrDy. «أعلى اليمين» تحت الترويسة مباشرة
+  var QR_POS = { tl: [46, 46], tr: [253, 64], ml: [30, 118], mr: [267, 118], bl: [40, 168], br: [257, 168] };
+  function qrModules(c, m, x0, y0, u, color){
+    c.fillStyle = color;
+    for (var r = 0; r < m.length; r++) for (var k = 0; k < m.length; k++) if (m[r][k]) c.fillRect(x0 + u * k, y0 + u * r, u + .01, u + .01);
+  }
+  function ctQr(c, o, T){
+    var pos = o.qrPos;
+    if (!pos || pos === 'none' || !QR_POS[pos]) return;
+    var m = qrMatrix(); if (!m) return;
+    var s = +o.qrSize || 24, u = s / (m.length + 2);
+    var cx = QR_POS[pos][0] + (+o.qrDx || 0), cy = QR_POS[pos][1] + (+o.qrDy || 0), x0 = cx - s / 2, y0 = cy - s / 2;
+    c.save();
+    c.fillStyle = '#ffffff'; c.fillRect(x0, y0, s, s);
+    qrModules(c, m, x0 + u, y0 + u, u, lum(T.p) < .45 ? T.p : '#111111');
+    if (!T.plain){ c.strokeStyle = T.a; c.lineWidth = .35; c.strokeRect(x0 - .8, y0 - .8, s + 1.6, s + 1.6); }
+    if (o.qrCap){
+      c.textAlign = 'center'; c.textBaseline = 'alphabetic';
+      ctFit(c, o.qrCap, '700', 2.8, F_UI, s + 8); c.fillStyle = T.plain ? T.p : T.ink;
+      c.fillText(o.qrCap, cx, y0 + s + 4.2);
+    }
+    c.restore();
+  }
+  // صورة الباركود وحده (للتنزيل أو النشر)
+  function qrCanvas(px){
+    // وحدة بعدد صحيح من البكسلات وهامش أبيض 4 وحدات، كي يُقرأ بأي ماسح
+    var m = qrMatrix(), cv = document.createElement('canvas'), n = m ? m.length + 8 : 1, u = Math.max(1, Math.floor((px || 800) / n));
+    cv.width = cv.height = u * n;
+    var c = cv.getContext('2d'); c.fillStyle = '#ffffff'; c.fillRect(0, 0, cv.width, cv.height);
+    if (m){ c.fillStyle = '#000000'; for (var r = 0; r < m.length; r++) for (var k = 0; k < m.length; k++) if (m[r][k]) c.fillRect((k + 4) * u, (r + 4) * u, u, u); }
+    return cv;
   }
   function ctGrid(c){
     c.save();
@@ -628,5 +687,5 @@
   };
   var DESIGN_LIST = Object.keys(DESIGNS).map(function(k){ return { id: k, name: DESIGNS[k].name, fixed: !!DESIGNS[k].fixed }; });
 
-  window.CertDraw = { draw: ctDraw, fonts: ctFonts, themes: CT_THEMES, designs: DESIGN_LIST };
+  window.CertDraw = { draw: ctDraw, fonts: ctFonts, themes: CT_THEMES, designs: DESIGN_LIST, qrCanvas: qrCanvas, qrUrl: QR_URL };
 })();

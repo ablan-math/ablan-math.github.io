@@ -922,7 +922,17 @@
                 <option value="maroon">عنابي وذهبي</option><option value="purple">بنفسجي وذهبي</option><option value="teal">فيروزي وذهبي</option>
               </select>
             </label>
-            <label>كلمة الختم (فارغة = بلا ختم)<input id="ctSeal" maxlength="12"></label>
+            <label>كلمة الختم<input id="ctSeal" maxlength="12"></label>
+            <label>موضع الختم / الشعار
+              <select id="ctEmPos">
+                <option value="tl">أعلى اليسار</option>
+                <option value="tr">أعلى اليمين (والترويسة لليسار)</option>
+                <option value="none">بدون ختم</option>
+              </select>
+            </label>
+            <label>تحريك الختم أفقيًا (مم) — موجب لليمين<input type="number" id="ctEmDx" step="2" value="0"></label>
+            <label>تحريك الختم رأسيًا (مم) — موجب للأسفل<input type="number" id="ctEmDy" step="2" value="0"></label>
+            <label>حجم الختم ٪<input type="number" id="ctEmScale" min="40" max="200" step="10" value="100"></label>
           </div>
           <div id="ctFrameBox" class="pc-checks" style="margin-top:10px;">
             <label><input type="checkbox" id="ctNoFrame"> بدون إطار (لورق شهادات مؤطَّر مسبقًا)</label>
@@ -2940,7 +2950,7 @@
     ctWaMsg: 'السلام عليكم ورحمة الله وبركاته\nولي أمر الطالب: {الاسم}\n\nيسعدنا أن نهنّئكم بحصول ابنكم على شهادة «{الشهادة}» في مادة الرياضيات خلال {الفترة} 🏅\nنشكر لكم متابعتكم ودعمكم، ونتمنّى له دوام التفوّق والنجاح 🌹'
   };
   var CT_FIELDS = ['ctType', 'ctCond', 'ctMin', 'ctMax', 'ctExamMode', 'ctTitle', 'ctIntro', 'ctTheme', 'ctSeal', 'ctHeader', 'ctTeacherLbl', 'ctTeacher',
-    'ctPrinLbl', 'ctPrin', 'ctYear', 'ctWaMsg', 'ctDx', 'ctDy', 'ctScale', 'ctColor', 'ctPTitle', 'ctPHeader', 'ctPSign', 'ctGrid', 'ctBgInImg', 'ctPublish', 'ctNoFrame', 'ctNoBg'];
+    'ctPrinLbl', 'ctPrin', 'ctYear', 'ctWaMsg', 'ctDx', 'ctDy', 'ctScale', 'ctColor', 'ctPTitle', 'ctPHeader', 'ctPSign', 'ctGrid', 'ctBgInImg', 'ctPublish', 'ctNoFrame', 'ctNoBg', 'ctEmPos', 'ctEmDx', 'ctEmDy', 'ctEmScale'];
 
   function ctStyle(){ var r = document.querySelector('input[name=ctStyle]:checked'); return r ? r.value : 'color'; }
   function ctType(){ return ctEl('ctType').value; }
@@ -3230,7 +3240,8 @@
       logo: ctLogo, bg: ctBg, bgInImage: ctEl('ctBgInImg').checked,
       dx: ctNum('ctDx'), dy: ctNum('ctDy'), scale: (ctNum('ctScale') || 100) / 100, color: ctEl('ctColor').value,
       pTitle: ctEl('ctPTitle').checked, pHeader: ctEl('ctPHeader').checked, pSign: ctEl('ctPSign').checked, grid: ctEl('ctGrid').checked,
-      noFrame: ctEl('ctNoFrame').checked, noBg: ctEl('ctNoBg').checked
+      noFrame: ctEl('ctNoFrame').checked, noBg: ctEl('ctNoBg').checked,
+      emPos: ctEl('ctEmPos').value, emDx: ctNum('ctEmDx'), emDy: ctNum('ctEmDy'), emScale: ctNum('ctEmScale') || 100
     };
   }
 
@@ -3383,7 +3394,8 @@
     var o = ctOpts(s);
     return { title: o.title, cert: o.cert, intro: o.intro, student: o.student, body: o.body, header: o.header,
              tLbl: o.tLbl, teacher: o.teacher, pLbl: o.pLbl, prin: o.prin, date: o.date,
-             theme: o.style === 'color' ? o.theme : 'navy', seal: o.seal, design: o.design };
+             theme: o.style === 'color' ? o.theme : 'navy', seal: o.seal, design: o.design,
+             emPos: o.emPos, emDx: o.emDx, emDy: o.emDy, emScale: o.emScale };
   }
   function ctPublishList(list){
     if (!ctEl('ctPublish').checked || !ctData || !ctEl('ctName').value.trim()) return;
@@ -3495,7 +3507,7 @@
     r.addEventListener('change', function(){ ctUi(); ctSavePrefs(); ctShareFiles = null; ctDesignsUi(); ctDrawPreview(); });
   });
   ['ctTitle', 'ctIntro', 'ctTheme', 'ctSeal', 'ctHeader', 'ctTeacherLbl', 'ctTeacher', 'ctPrinLbl', 'ctPrin', 'ctYear', 'ctDate', 'ctWaMsg',
-   'ctDx', 'ctDy', 'ctScale', 'ctColor', 'ctPTitle', 'ctPHeader', 'ctPSign', 'ctGrid', 'ctBgInImg', 'ctPublish', 'ctNoFrame', 'ctNoBg'].forEach(function(i){
+   'ctDx', 'ctDy', 'ctScale', 'ctColor', 'ctPTitle', 'ctPHeader', 'ctPSign', 'ctGrid', 'ctBgInImg', 'ctPublish', 'ctNoFrame', 'ctNoBg', 'ctEmPos', 'ctEmDx', 'ctEmDy', 'ctEmScale'].forEach(function(i){
     ctEl(i).addEventListener(ctEl(i).type === 'checkbox' || ctEl(i).tagName === 'SELECT' ? 'change' : 'input', function(){
       ctSavePrefs(); ctShareFiles = null; ctDrawPreview();
     });
@@ -3508,7 +3520,7 @@
       ctTextInput();
     });
   });
-  ['ctTheme', 'ctNoFrame', 'ctNoBg'].forEach(function(i){ ctEl(i).addEventListener('change', ctDesignsUi); });
+  ['ctTheme', 'ctNoFrame', 'ctNoBg', 'ctEmPos', 'ctEmDx', 'ctEmDy', 'ctEmScale'].forEach(function(i){ ctEl(i).addEventListener('change', ctDesignsUi); });
   ctEl('ctDesAll').addEventListener('click', function(e){ e.preventDefault(); ctDesShowAll = !ctDesShowAll; ctDesignsUi(); });
   ctEl('ctBodyReset').addEventListener('click', function(e){
     e.preventDefault();

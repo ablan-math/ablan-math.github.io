@@ -679,143 +679,150 @@
   }
 
   // ===================== شعارات الأيدي المرفوعة (للمشاركة) =====================
-  // كلها حول المركز (48، 46) ونصف قطر ≈ 17 مم، مثل الختم، فتتبع موضعه وحجمه.
+  // أيدٍ مرسومة بلا إطارات ولا نصوص، حول المركز (48، 46) مثل الختم فتتبع موضعه وحجمه.
+  // اليد: الرسغ عند (0,0) والإصبع الوسطى عند y = -1 (وحدة = طول اليد)، الكف للمشاهد والإبهام يمينًا.
   function rr(c, x, y, w, h, r){
     r = Math.min(r, w / 2, h / 2);
     c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r);
     c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath();
   }
-  // يد مرفوعة: الرسغ عند (x, y) والأصابع للأعلى بطول h، مائلة بزاوية ang. تُرسم الحدود أولًا ثم التعبئة فتبدو قطعة واحدة.
-  var HAND_PARTS = [
-    function(c){ rr(c, -0.24, -0.56, 0.48, 0.62, 0.15); },
-    function(c){ rr(c, -0.235, -0.9, 0.11, 0.52, 0.055); },
-    function(c){ rr(c, -0.115, -1.0, 0.11, 0.62, 0.055); },
-    function(c){ rr(c, 0.005, -0.96, 0.11, 0.58, 0.055); },
-    function(c){ rr(c, 0.125, -0.84, 0.105, 0.46, 0.052); },
-    function(c){ c.save(); c.translate(0.17, -0.12); c.rotate(0.78); rr(c, -0.058, -0.37, 0.116, 0.41, 0.058); c.restore(); }
+  // إصبع مستدق: قاعدته عند y = by وطرفه المستدير عند top
+  function fingerPath(c, cx, top, w, by){
+    var tw = w * .84;
+    c.moveTo(cx - w / 2, by); c.quadraticCurveTo(cx - w / 2 - .006, (by + top) / 2, cx - tw / 2, top + tw / 2);
+    c.arc(cx, top + tw / 2, tw / 2, Math.PI, 0);
+    c.quadraticCurveTo(cx + w / 2 + .006, (by + top) / 2, cx + w / 2, by); c.closePath();
+  }
+  var FINGERS = [ // الخنصر ← السبابة
+    { x: -.2, top: -.79, w: .098 }, { x: -.09, top: -.95, w: .11 }, { x: .025, top: -1, w: .114 }, { x: .138, top: -.9, w: .108 }
   ];
-  function hand(c, x, y, h, ang, fill, line, lw, sleeve){
-    c.save(); c.translate(x, y); c.rotate(ang || 0); c.scale(h, h);
-    var sl = function(c){ rr(c, -0.19, 0.03, 0.38, 0.6, 0.05); };
-    if (line){
-      c.lineJoin = 'round'; c.strokeStyle = line; c.lineWidth = 2 * (lw || .5) / h;
-      HAND_PARTS.forEach(function(p){ c.beginPath(); p(c); c.stroke(); });
-      if (sleeve){ c.beginPath(); sl(c); c.stroke(); }
+  var HAND_SHAPES = [
+    function(c){ c.moveTo(-.165, .02); c.bezierCurveTo(-.235, -.12, -.27, -.32, -.255, -.47); c.lineTo(.2, -.5); c.bezierCurveTo(.225, -.33, .235, -.17, .165, .02); c.closePath(); },
+    function(c){ c.save(); c.translate(.15, -.17); c.rotate(.62); c.moveTo(-.068, .1); c.quadraticCurveTo(-.075, -.12, -.054, -.29); c.arc(0, -.29, .054, Math.PI, 0); c.quadraticCurveTo(.075, -.12, .068, .1); c.closePath(); c.restore(); },
+    function(c){ c.ellipse(.1, -.17, .115, .15, -.35, 0, Math.PI * 2); },
+    function(c){ fingerPath(c, FINGERS[0].x, FINGERS[0].top, FINGERS[0].w, -.36); },
+    function(c){ fingerPath(c, FINGERS[1].x, FINGERS[1].top, FINGERS[1].w, -.38); },
+    function(c){ fingerPath(c, FINGERS[2].x, FINGERS[2].top, FINGERS[2].w, -.4); },
+    function(c){ fingerPath(c, FINGERS[3].x, FINGERS[3].top, FINGERS[3].w, -.38); }
+  ];
+  function wristPath(c){ rr(c, -.16, -.04, .32, .24, .04); }
+  function sleevePath(c){ c.moveTo(-.2, .15); c.lineTo(.2, .15); c.lineTo(.255, .66); c.lineTo(-.255, .66); c.closePath(); }
+  function cuffPath(c){ rr(c, -.215, .12, .43, .1, .035); }
+  function unionPath(c, list){ c.beginPath(); list.forEach(function(p){ p(c); }); }
+  function shade(hex, k){ var n = parseInt(hex.slice(1), 16), f = function(v){ return Math.max(0, Math.min(255, Math.round(v * k))); };
+    return 'rgb(' + f(n >> 16 & 255) + ',' + f(n >> 8 & 255) + ',' + f(n & 255) + ')'; }
+  var SKINS = { light: '#f6d2b0', fair: '#efc08f', medium: '#dda06b', tan: '#c07f4e', deep: '#8e5a35' };
+
+  // st: { style: cartoon|sketch|soft|gold|flat, skin, line, sleeve, sleeveLine, flip, lw }
+  function hand2(c, x, y, h, ang, st){
+    var style = st.style || 'cartoon', skin = st.skin || SKINS.fair, line = st.line || shade(skin, .45);
+    var lw = (st.lw || .5) / h;
+    c.save(); c.translate(x, y); c.rotate(ang || 0); c.scale(st.flip ? -h : h, h);
+    c.lineJoin = 'round'; c.lineCap = 'round';
+    var handParts = HAND_SHAPES.concat([wristPath]);
+    // الكم (ثوب أبيض افتراضيًا) خلف الرسغ
+    if (st.sleeve){
+      c.fillStyle = st.sleeve; c.strokeStyle = st.sleeveLine || shade(st.sleeve === '#ffffff' ? '#c9ced6' : st.sleeve, .7); c.lineWidth = lw * 1.6;
+      [sleevePath, cuffPath].forEach(function(p){ c.beginPath(); p(c); if (style !== 'soft') c.stroke(); c.fill(); });
+      c.lineWidth = lw * .7; c.beginPath(); c.moveTo(-.06, .26); c.lineTo(-.09, .6); c.moveTo(.07, .3); c.lineTo(.1, .62); c.stroke();
     }
-    c.fillStyle = fill;
-    HAND_PARTS.forEach(function(p){ c.beginPath(); p(c); c.fill(); });
-    if (sleeve){ c.fillStyle = sleeve; c.beginPath(); sl(c); c.fill(); }
+    if (style === 'sketch'){
+      // رسم بالقلم: حد خارجي واحد بالحبر، فواصل الأصابع، تظليل بخطوط مائلة، وتجاعيد خفيفة
+      var ink = st.line || '#262626', paper = st.paper || '#fffdf8';
+      c.strokeStyle = ink; c.lineWidth = lw * 1.5;
+      handParts.forEach(function(p){ c.beginPath(); p(c); c.stroke(); });
+      c.fillStyle = paper; handParts.forEach(function(p){ c.beginPath(); p(c); c.fill(); });
+      c.save(); unionPath(c, handParts); c.clip();
+      c.strokeStyle = ink; c.globalAlpha = .28; c.lineWidth = lw * .5;
+      for (var t = -1.25; t < .45; t += .05){ c.beginPath(); c.moveTo(.06, t); c.lineTo(.34, t - .2); c.stroke(); }
+      c.restore();
+      c.strokeStyle = ink; c.lineWidth = lw * .75;
+      HAND_SHAPES.slice(3).forEach(function(p){ c.beginPath(); p(c); c.stroke(); });
+      c.fillStyle = paper; unionPath(c, [HAND_SHAPES[0]]); c.fill();
+      c.save(); unionPath(c, [HAND_SHAPES[0]]); c.clip();
+      c.strokeStyle = ink; c.globalAlpha = .28; c.lineWidth = lw * .5;
+      for (t = -.6; t < .1; t += .05){ c.beginPath(); c.moveTo(.06, t); c.lineTo(.34, t - .2); c.stroke(); }
+      c.restore();
+      c.strokeStyle = ink; c.globalAlpha = .6; c.lineWidth = lw * .45;
+      FINGERS.forEach(function(f){
+        var len = (f.top < -.9 ? -.4 : -.37) - f.top;
+        [.32, .62].forEach(function(k){ var yy = f.top + len * k; c.beginPath(); c.moveTo(f.x - f.w * .24, yy); c.quadraticCurveTo(f.x, yy + .016, f.x + f.w * .24, yy); c.stroke(); });
+      });
+      c.beginPath(); c.moveTo(-.2, -.33); c.quadraticCurveTo(-.02, -.26, .13, -.34); c.stroke();
+      c.globalAlpha = 1;
+    } else {
+      var top = style === 'gold' ? '#f6e3a1' : style === 'flat' ? skin : shade(skin, 1.08);
+      var bot = style === 'gold' ? '#a87b1f' : style === 'flat' ? skin : shade(skin, .9);
+      var g = c.createLinearGradient(-.25, -1, .25, .2); g.addColorStop(0, top); g.addColorStop(.55, style === 'gold' ? '#d9b04a' : skin); g.addColorStop(1, bot);
+      // الحدود أولًا (خط عريض) ثم التعبئة فتظهر اليد قطعة واحدة بحد خارجي
+      if (style !== 'soft'){
+        c.strokeStyle = style === 'gold' ? '#7d5a12' : line; c.lineWidth = lw * 2;
+        handParts.forEach(function(p){ c.beginPath(); p(c); c.stroke(); });
+      }
+      c.fillStyle = g;
+      handParts.forEach(function(p){ c.beginPath(); p(c); c.fill(); });
+      // الفواصل بين الأصابع فوق الكف
+      c.strokeStyle = style === 'gold' ? 'rgba(125,90,18,.8)' : style === 'soft' ? shade(skin, .78) : line;
+      c.lineWidth = lw * (style === 'soft' ? .7 : .9);
+      HAND_SHAPES.slice(3).forEach(function(p){ c.beginPath(); p(c); c.stroke(); });
+      c.fillStyle = g; unionPath(c, [HAND_SHAPES[0]]); c.fill();
+      if (style !== 'flat'){
+        // ظلال ناعمة: جانب الكف وقاعدة الإبهام
+        c.save(); unionPath(c, handParts); c.clip();
+        var sg = c.createRadialGradient(-.3, -.25, .05, -.3, -.25, .35); sg.addColorStop(0, 'rgba(90,45,20,.22)'); sg.addColorStop(1, 'rgba(90,45,20,0)');
+        c.fillStyle = sg; c.fillRect(-.5, -1.1, 1, 1.3);
+        c.restore();
+      }
+      // تجاعيد المفاصل
+      c.strokeStyle = style === 'gold' ? 'rgba(125,90,18,.7)' : style === 'flat' ? 'rgba(255,255,255,.55)' : shade(skin, .62);
+      c.lineWidth = lw * .55;
+      FINGERS.forEach(function(f){
+        var len = (f.top < -.9 ? -.4 : -.37) - f.top;
+        [.32, .62].forEach(function(k){ var yy = f.top + len * k; c.beginPath(); c.moveTo(f.x - f.w * .26, yy); c.quadraticCurveTo(f.x, yy + .018, f.x + f.w * .26, yy); c.stroke(); });
+      });
+      // خطوط الكف
+      c.beginPath(); c.moveTo(-.2, -.33); c.quadraticCurveTo(-.02, -.26, .13, -.34); c.moveTo(.06, -.05); c.quadraticCurveTo(-.06, -.2, -.19, -.25); c.stroke();
+      // لمعة
+      if (style === 'cartoon' || style === 'gold'){
+        c.strokeStyle = 'rgba(255,255,255,.55)'; c.lineWidth = lw * 1.1;
+        FINGERS.forEach(function(f){ c.beginPath(); c.moveTo(f.x - f.w * .22, f.top + .07); c.lineTo(f.x - f.w * .22, f.top + .17); c.stroke(); });
+      }
+    }
     c.restore();
   }
-  // ثلاث أيدٍ (الوسطى أطول) أو أكثر، تحت مقطع دائري
-  function handsTrio(c, fill, line, lw, y, h, sleeves){
-    hand(c, 39.6, y + 1.5, h * .84, -.34, fill, line, lw, sleeves && sleeves[0]);
-    hand(c, 56.4, y + 1.5, h * .84, .34, fill, line, lw, sleeves && sleeves[2]);
-    hand(c, 48, y, h, 0, fill, line, lw, sleeves && sleeves[1]);
+  // مجموعة أيدٍ: [x, y(الرسغ), h, زاوية, خيارات إضافية]
+  function handsGroup(c, T, list, base){
+    list.forEach(function(q){
+      var st = {}; for (var k in base) st[k] = base[k]; for (k in (q[4] || {})) st[k] = q[4][k];
+      if (T.mono){ st = { style: 'sketch', line: '#111111', sleeve: base.sleeve || q[4] && q[4].sleeve ? '#ffffff' : null, sleeveLine: '#111111', flip: st.flip }; }
+      hand2(c, q[0], q[1], q[2], q[3], st);
+    });
   }
-  function clipCircle(c, r){ c.beginPath(); c.arc(48, 46, r, 0, Math.PI * 2); c.clip(); }
-  function sparkle(c, x, y, r, col){ ctStar(c, x, y, r, 4, r * .32); c.fillStyle = col; c.fill(); }
-  var SKIN = '#f1c27d', SKIN_LINE = '#9a6a3a';
-  function hc(T){ return T.mono ? { bg: '#ffffff', fill: '#ffffff', line: '#111111', gold: '#111111' } : { bg: T.p, fill: T.a2, line: T.p, gold: T.a }; }
-
+  var THOBE = '#ffffff';
+  var TRIO = [[38.5, 61, 18, -.3, { flip: true }], [57.5, 61, 18, .3], [48, 58.5, 22, 0]];
   var EMBLEMS = {
-    // 1) دائرة داكنة بثلاث أيدٍ ذهبية
-    h1: { name: 'ثلاث أيدٍ في دائرة', draw: function(c, T){
-      var k = hc(T);
-      ctCircle(c, 48, 46, 16.5); fillOr(c, T, k.bg); c.strokeStyle = k.gold; c.lineWidth = .9; c.stroke();
-      c.save(); clipCircle(c, 14.6); handsTrio(c, k.fill, k.line, .55, 64, 23); c.restore();
-      ctCircle(c, 48, 46, 14.6); c.strokeStyle = T.mono ? '#111111' : T.a2; c.lineWidth = .35; c.stroke();
+    h1: { name: 'كرتوني — ثلاث أيدٍ بثوب أبيض', draw: function(c, T){ handsGroup(c, T, TRIO, { style: 'cartoon', skin: SKINS.fair, sleeve: THOBE }); } },
+    h2: { name: 'كرتوني — أربع أيدٍ ببشرات مختلفة', draw: function(c, T){
+      handsGroup(c, T, [[35.5, 62, 16.5, -.38, { skin: SKINS.medium, flip: true }], [60.5, 62, 16.5, .38, { skin: SKINS.tan }],
+        [43, 59, 20, -.12, { skin: SKINS.light, flip: true }], [53, 59, 20, .12, { skin: SKINS.deep }]], { style: 'cartoon', sleeve: THOBE });
     } },
-    // 2) ختم ذهبي مسنن وأربع أيدٍ بيضاء
-    h2: { name: 'أربع أيدٍ في ختم ذهبي', draw: function(c, T){
-      var k = hc(T);
-      ctStar(c, 48, 46, 17.5, 24, 15.6);
-      if (T.mono) c.fillStyle = '#ffffff'; else { var g = c.createLinearGradient(31, 29, 65, 63); g.addColorStop(0, T.a2); g.addColorStop(.5, T.a); g.addColorStop(1, T.a2); c.fillStyle = g; }
-      c.fill(); c.strokeStyle = T.mono ? '#111111' : T.a; c.lineWidth = .3; c.stroke();
-      ctCircle(c, 48, 46, 13.2); fillOr(c, T, k.bg);
-      c.save(); clipCircle(c, 13.2);
-      [[38.5, 61, 15, -.3], [44.6, 60, 18, -.1], [51.4, 60, 18, .1], [57.5, 61, 15, .3]].forEach(function(q){ hand(c, q[0], q[1], q[2], q[3], '#ffffff', T.mono ? '#111111' : T.p, .45); });
-      c.restore();
-      ctCircle(c, 48, 46, 13.2); c.strokeStyle = T.mono ? '#111111' : T.a2; c.lineWidth = .4; c.stroke();
+    h3: { name: 'كرتوني — خمس أيدٍ متحمسة', draw: function(c, T){
+      handsGroup(c, T, [[33, 63, 15, -.55, { flip: true }], [63, 63, 15, .55], [39.5, 60, 18, -.26, { flip: true, skin: SKINS.medium }],
+        [56.5, 60, 18, .26, { skin: SKINS.medium }], [48, 58, 21, 0]], { style: 'cartoon', skin: SKINS.fair, sleeve: THOBE });
     } },
-    // 3) وسام بشريطين وأيدٍ داكنة على ذهبي
-    h3: { name: 'وسام بشريطين', draw: function(c, T){
-      var m = !!T.mono;
-      [-1, 1].forEach(function(s){
-        c.beginPath(); c.moveTo(48 + s * 2, 54); c.lineTo(48 + s * 11, 52); c.lineTo(48 + s * 15, 79); c.lineTo(48 + s * 10.5, 75.5); c.lineTo(48 + s * 7, 81); c.closePath();
-        c.fillStyle = m ? '#ffffff' : T.p; c.fill(); c.strokeStyle = m ? '#111111' : T.a; c.lineWidth = .4; c.stroke();
-      });
-      ctCircle(c, 48, 46, 16); fillOr(c, T, T.a2); c.strokeStyle = m ? '#111111' : T.a; c.lineWidth = 1.2; c.stroke();
-      c.save(); clipCircle(c, 14.4); handsTrio(c, m ? '#ffffff' : T.p, m ? '#111111' : T.a2, .5, 63.5, 22); c.restore();
-      ctCircle(c, 48, 46, 14.4); c.strokeStyle = m ? '#111111' : T.p; c.lineWidth = .35; c.stroke();
+    h4: { name: 'رسم بالقلم — ثلاث أيدٍ', draw: function(c, T){ handsGroup(c, T, TRIO, { style: 'sketch', sleeve: THOBE, sleeveLine: '#262626' }); } },
+    h5: { name: 'رسم بالقلم — أربع أيدٍ', draw: function(c, T){
+      handsGroup(c, T, [[36, 62, 17, -.34, { flip: true }], [60, 62, 17, .34], [43.5, 59, 20.5, -.1, { flip: true }], [52.5, 59, 20.5, .1]], { style: 'sketch', line: T.mono ? '#111111' : T.p });
     } },
-    // 4) أيدي أطفال بأكمام ملوّنة في مربع
-    h4: { name: 'أيدٍ بأكمام ملوّنة', draw: function(c, T){
-      var m = !!T.mono;
-      c.beginPath(); rr(c, 31, 29, 34, 34, 6); c.fillStyle = '#ffffff'; c.fill(); c.strokeStyle = m ? '#111111' : T.p; c.lineWidth = .8; c.stroke();
-      c.save(); c.beginPath(); rr(c, 31, 29, 34, 34, 6); c.clip();
-      [[36.5, 60, 15, -.18, '#ef4444'], [43.5, 57, 17, -.06, '#3b82f6'], [51, 58, 16.5, .06, '#10b981'], [58.5, 60.5, 15, .18, '#f59e0b']].forEach(function(q){
-        hand(c, q[0], q[1], q[2], q[3], m ? '#ffffff' : SKIN, m ? '#111111' : SKIN_LINE, .35, m ? '#ffffff' : q[4]);
-      });
-      c.restore();
+    h6: { name: 'ألوان مائية ناعمة', draw: function(c, T){ handsGroup(c, T, TRIO, { style: 'soft', skin: SKINS.fair, sleeve: '#eef1f5' }); } },
+    h7: { name: 'أيدٍ ذهبية', draw: function(c, T){ handsGroup(c, T, TRIO, { style: 'gold' }); } },
+    h8: { name: 'بلون التصميم', draw: function(c, T){ handsGroup(c, T, TRIO, { style: 'flat', skin: T.p, line: T.p, sleeve: T.a2, sleeveLine: T.a }); } },
+    h9: { name: 'كرتوني — يد قريبة ويدان خلفها', draw: function(c, T){
+      handsGroup(c, T, [[39, 58, 15, -.22, { flip: true, skin: SKINS.medium }], [57, 58, 15, .22, { skin: SKINS.tan }], [48, 63, 25, -.05]], { style: 'cartoon', skin: SKINS.fair, sleeve: THOBE });
     } },
-    // 5) فقاعة كلام «أنا!» فوق الأيدي
-    h5: { name: 'فقاعة «أنا!»', draw: function(c, T){
-      var m = !!T.mono;
-      c.beginPath(); rr(c, 35, 27, 26, 12, 5); c.moveTo(45, 38.8); c.lineTo(43, 43); c.lineTo(49, 38.8);
-      c.fillStyle = m ? '#ffffff' : T.a2; c.fill(); c.strokeStyle = m ? '#111111' : T.a; c.lineWidth = .6; c.stroke();
-      c.save(); c.textAlign = 'center'; c.textBaseline = 'middle'; ctFont(c, '700', 7, F_TITLE); c.fillStyle = m ? '#111111' : T.p; c.fillText('أنا!', 48, 33.6); c.restore();
-      [[39.5, 66, 15, -.3], [48, 64.5, 18, 0], [56.5, 66, 15, .3]].forEach(function(q){ hand(c, q[0], q[1], q[2], q[3], m ? '#ffffff' : SKIN, m ? '#111111' : SKIN_LINE, .4); });
-    } },
-    // 6) أيدٍ وأشعة وبريق
-    h6: { name: 'أيدٍ وأشعة وبريق', draw: function(c, T){
-      var m = !!T.mono;
-      c.strokeStyle = m ? '#111111' : T.a; c.lineWidth = .7; c.lineCap = 'round';
-      for (var i = 0; i < 9; i++){ var a = Math.PI + Math.PI * (i + .5) / 9; ln(c, 48 + 15 * Math.cos(a), 52 + 15 * Math.sin(a), 48 + 21 * Math.cos(a), 52 + 21 * Math.sin(a)); }
-      c.lineCap = 'butt';
-      handsTrio(c, '#ffffff', m ? '#111111' : T.p, .6, 63, 20);
-      sparkle(c, 33.5, 39, 2.6, m ? '#111111' : T.a); sparkle(c, 62.5, 37, 2.2, m ? '#111111' : T.a); sparkle(c, 60, 28.5, 1.5, m ? '#111111' : T.a2);
-    } },
-    // 7) شارة سداسية
-    h7: { name: 'شارة سداسية', draw: function(c, T){
-      var k = hc(T);
-      hex(c, 48, 46, 17.5); fillOr(c, T, k.bg); c.strokeStyle = k.gold; c.lineWidth = .9; c.stroke();
-      c.save(); hex(c, 48, 46, 15); c.clip(); handsTrio(c, k.fill, k.line, .5, 63, 22); c.restore();
-      hex(c, 48, 46, 15); c.strokeStyle = T.mono ? '#111111' : T.a2; c.lineWidth = .3; c.stroke();
-      sparkle(c, 37, 36, 1.6, T.mono ? '#111111' : T.a2); sparkle(c, 59, 34, 1.3, T.mono ? '#111111' : T.a2);
-    } },
-    // 8) درع بشريط عليه كلمة الختم
-    h8: { name: 'درع بشريط', draw: function(c, T, o){
-      var k = hc(T);
-      c.beginPath(); c.moveTo(34, 29); c.lineTo(62, 29); c.lineTo(62, 46); c.quadraticCurveTo(62, 58, 48, 65); c.quadraticCurveTo(34, 58, 34, 46); c.closePath();
-      fillOr(c, T, k.bg); c.strokeStyle = k.gold; c.lineWidth = 1; c.stroke();
-      c.save(); c.clip(); handsTrio(c, k.fill, k.line, .5, 60, 20); c.restore();
-      var txt = (o && o.seal) || 'مشاركة';
-      c.beginPath(); c.moveTo(29, 58); c.lineTo(67, 58); c.lineTo(64.5, 62.5); c.lineTo(67, 67); c.lineTo(29, 67); c.lineTo(31.5, 62.5); c.closePath();
-      fillOr(c, T, T.a); c.strokeStyle = T.mono ? '#111111' : T.p; c.lineWidth = .4; c.stroke();
-      c.save(); c.textAlign = 'center'; c.textBaseline = 'middle'; ctFit(c, txt, '700', 5, F_TITLE, 30); c.fillStyle = T.mono ? '#111111' : T.p; c.fillText(txt, 48, 62.8); c.restore();
-    } },
-    // 9) إكليل غار حول الأيدي
-    h9: { name: 'إكليل غار', draw: function(c, T){
-      var m = !!T.mono, col = m ? '#111111' : T.a;
-      [-1, 1].forEach(function(s){
-        for (var i = 0; i < 8; i++){
-          var a = Math.PI / 2 + s * (0.35 + i * 0.3), x = 48 + 16 * Math.cos(a), y = 47 + 16 * Math.sin(a);
-          c.save(); c.translate(x, y); c.rotate(a + s * 0.9); c.beginPath(); c.ellipse(0, 0, 3.1, 1.25, 0, 0, Math.PI * 2);
-          if (m){ c.strokeStyle = col; c.lineWidth = .3; c.stroke(); } else { c.fillStyle = col; c.fill(); }
-          c.restore();
-        }
-      });
-      handsTrio(c, m ? '#ffffff' : T.p, m ? '#111111' : T.a2, .45, 60, 19);
-    } },
-    // 10) مروحة خمس أيدٍ ملوّنة
-    h10: { name: 'خمس أيدٍ ملوّنة', draw: function(c, T){
-      var m = !!T.mono;
-      ctCircle(c, 48, 46, 17); c.fillStyle = '#ffffff'; c.fill();
-      c.setLineDash([1.2, .9]); c.strokeStyle = m ? '#111111' : T.p; c.lineWidth = .6; c.stroke(); c.setLineDash([]);
-      c.save(); clipCircle(c, 16.4);
-      [-.62, -.31, 0, .31, .62].forEach(function(a, i){ hand(c, 48 + a * 6, 64, 21 - Math.abs(a) * 4, a, m ? '#ffffff' : KIDS[i], m ? '#111111' : '#ffffff', .45); });
-      c.restore();
+    h10: { name: 'كرتوني — أكمام ملوّنة', draw: function(c, T){
+      handsGroup(c, T, [[36, 62, 17, -.34, { flip: true, sleeve: '#ef4444' }], [60, 62, 17, .34, { sleeve: '#f59e0b' }],
+        [43.5, 59, 20.5, -.1, { flip: true, sleeve: '#3b82f6', skin: SKINS.medium }], [52.5, 59, 20.5, .1, { sleeve: '#10b981', skin: SKINS.light }]], { style: 'cartoon', skin: SKINS.fair });
     } }
   };
   var EMBLEM_LIST = Object.keys(EMBLEMS).map(function(k){ return { id: k, name: EMBLEMS[k].name }; });

@@ -161,7 +161,7 @@
     font-family:'Cairo',sans-serif; font-size:13px; font-weight:800; cursor:pointer;
   }
   .pin-all-bar span{font-size:12px; color:var(--muted); font-weight:700;}
-  #parentBtn, #certBtn{
+  #parentBtn, #certBtn, #rankBtn{
     border:1px solid var(--line); background:var(--card); color:var(--ink);
     padding:8px 14px; border-radius:12px; font-family:'Cairo',sans-serif; font-size:12px;
     cursor:pointer; font-weight:700;
@@ -586,6 +586,15 @@
   .rc-card button{border:1.5px solid var(--line); background:var(--card); color:var(--ink); padding:5px 10px; border-radius:9px; font-family:'Cairo',sans-serif; font-weight:800; font-size:12px; cursor:pointer;}
   .rc-card button.del{color:var(--neg2);}
   #rcBig{width:100%; aspect-ratio:297/210; display:none; border-radius:10px; box-shadow:0 8px 24px -10px rgba(0,0,0,.45); background:#fff; cursor:zoom-out;}
+  #rkCanvas{width:100%; max-width:520px; margin:0 auto; aspect-ratio:210/297; display:block; border-radius:8px; box-shadow:0 8px 24px -10px rgba(0,0,0,.45); background:#fff;}
+  .rk-tiers{display:grid; gap:7px; margin-top:10px;}
+  .rk-tier{display:flex; align-items:center; gap:8px;}
+  .rk-tier input{padding:7px 9px; border-radius:9px; border:1.5px solid var(--line); background:var(--bg); color:var(--ink); font-family:'Cairo',sans-serif; font-weight:700; font-size:13px; min-width:0;}
+  .rk-tier input[id^=rkT]{flex:1;}
+  .rk-tier input[type=number]{width:64px; flex:none;}
+  .rk-tier small{font-size:11px; color:var(--muted); font-weight:700; min-width:96px;}
+  .rk-dot{width:11px; height:11px; border-radius:50%; flex:none;}
+  #rkShow{display:block; margin:0 auto 8px; padding:6px 10px; border-radius:9px; border:1.5px solid var(--line); background:var(--bg); color:var(--ink); font-family:'Cairo',sans-serif; font-weight:700;}
   .ct-sep{font-size:12px; font-weight:800; color:var(--muted); padding:12px 4px 6px; cursor:pointer; user-select:none;}
   .ct-empty{font-size:13px; color:var(--muted); padding:14px 4px; text-align:center;}
 </style>
@@ -615,6 +624,7 @@
     <span id="lockHint" style="font-size:12px;color:var(--neg2);font-weight:700;"></span>
     <button id="parentBtn" type="button" title="مراسلة أولياء الأمور عبر واتساب">📱 التواصل مع ولي الأمر</button>
     <button id="certBtn" type="button" title="إصدار شهادات شكر وتقدير للطلاب">🏅 شهادات الشكر</button>
+    <button id="rankBtn" type="button" title="طباعة ترتيب طلاب الفصل في ورقة واحدة">📊 لوحات الترتيب</button>
     <button id="settingsBtn" type="button" title="إعدادات كشف الدرجات">⚙ الإعدادات</button>
     <button id="lockBtn" type="button" title="قفل الدرجات (اضغط مطولاً لفتح القفل)">🔓 قفل الدرجات</button>
     <button id="logoutBtn">تسجيل الخروج</button>
@@ -1079,6 +1089,95 @@
   </div>
 </div>
 
+<div id="rankModal" class="modal" style="z-index:926;">
+  <div class="rec-box" style="max-width:1100px;">
+    <div class="ov-head">
+      <h3>📊 لوحات الترتيب</h3>
+      <button id="rkClose" type="button" style="border:none;background:var(--bg);color:var(--muted);width:32px;height:32px;border-radius:50%;font-size:16px;cursor:pointer;font-weight:700;">✕</button>
+    </div>
+    <div class="set-body">
+      <div class="ct-wrap">
+        <div>
+          <div class="set-grid">
+            <label>الفصل
+              <select id="rkClass">
+                <option value="3-1">ثالث / أول</option><option value="3-2">ثالث / ثاني</option>
+                <option value="3-3">ثالث / ثالث</option><option value="3-4">ثالث / رابع</option>
+                <option value="all">كل الفصول (ورقة لكل فصل)</option>
+              </select>
+            </label>
+            <label>الفترة
+              <select id="rkPeriod"><option value="1">الفترة الأولى (النصفي)</option><option value="2">الفترة الثانية (النهائي)</option></select>
+            </label>
+            <label>الترتيب حسب
+              <select id="rkMain"><option value="part">المشاركة (النقاط)</option><option value="plat">المنصة (نسبة التفاعل)</option><option value="total">المجموع (النصفي)</option></select>
+            </label>
+            <label id="rkExamBox">الاختبار في المجموع
+              <select id="rkExamMode"><option value="raw">الأصلي (قبل التحسين والإضافة)</option><option value="imp">مع التحسين</option><option value="all">مع التحسين وإضافة المنصة</option></select>
+            </label>
+          </div>
+          <div class="ct-lbl">يظهر بجانب اسم الطالب</div>
+          <div class="pc-checks">
+            <label id="rkExPartL"><input type="checkbox" id="rkExPart"> المشاركة</label>
+            <label id="rkExPlatL"><input type="checkbox" id="rkExPlat"> المنصة</label>
+            <label id="rkExTotalL"><input type="checkbox" id="rkExTotal"> المجموع</label>
+          </div>
+
+          <div class="set-sec">الفئات</div>
+          <div class="pc-checks"><label><input type="checkbox" id="rkPodium"> منصة التتويج لأول ثلاثة</label></div>
+          <div class="set-grid" style="margin-top:8px;">
+            <label>اسم فئة التتويج<input id="rkT0" list="rkNames0"></label>
+            <label>الفئات بعد التتويج
+              <select id="rkTierN"><option value="2">فئتان</option><option value="3">ثلاث فئات</option></select>
+            </label>
+            <label>تقسيم الفئات
+              <select id="rkTierBy"><option value="count">بنسبة من عدد طلاب الفصل</option><option value="score">بنسبة الدرجة</option></select>
+            </label>
+          </div>
+          <div class="rk-tiers">
+            <div class="rk-tier"><span class="rk-dot" style="background:#185FA5"></span><input id="rkT1" list="rkNames1"><input id="rkV1" type="number" min="0" max="100"><small id="rkH1"></small></div>
+            <div class="rk-tier"><span class="rk-dot" style="background:#0F6E56"></span><input id="rkT2" list="rkNames2"><input id="rkV2" type="number" min="0" max="100"><small id="rkH2"></small></div>
+            <div class="rk-tier" id="rkTier3"><span class="rk-dot" style="background:#534AB7"></span><input id="rkT3" list="rkNames3"><small>بقية الطلاب</small></div>
+          </div>
+          <div style="font-size:11px;color:var(--muted);font-weight:700;margin-top:6px;">يبدأ الترقيم من 1 داخل كل فئة. امسح اسم الفئة لتظهر الاقتراحات.</div>
+          <datalist id="rkNames0"><option value="أبطال الصدارة"><option value="فرسان القمة"><option value="منصة التتويج"><option value="النجوم الثلاثة"></datalist>
+          <datalist id="rkNames1"><option value="المتميّزون"><option value="النخبة"><option value="المتألّقون"><option value="صنّاع التميّز"><option value="الفرسان"></datalist>
+          <datalist id="rkNames2"><option value="المثابرون"><option value="المجتهدون"><option value="الطموحون"><option value="أصحاب الهمّة"></datalist>
+          <datalist id="rkNames3"><option value="نحو القمة"><option value="الصاعدون"><option value="على طريق التميّز"><option value="الواعدون"><option value="المنطلقون"></datalist>
+
+          <div class="set-sec">من يظهر في الورقة</div>
+          <div class="set-grid">
+            <label>الطلاب
+              <select id="rkWho"><option value="all">كل طلاب الفصل</option><option value="top">أعلى عدد فقط</option></select>
+            </label>
+            <label id="rkTopNL">العدد<input id="rkTopN" type="number" min="3" max="60"></label>
+          </div>
+
+          <div class="set-sec">الشكل</div>
+          <div class="pc-checks">
+            <label><input type="checkbox" id="rkBw"> أبيض وأسود</label>
+            <label><input type="checkbox" id="rkHide"> إخفاء الأرقام (للتعليق)</label>
+            <label><input type="checkbox" id="rkCmp"> مقارنة الفصول أسفل الورقة</label>
+          </div>
+          <label class="ct-lbl" for="rkTitle">العنوان (اتركه فارغًا ليُكتب تلقائيًا)</label>
+          <input id="rkTitle" class="pc-note" placeholder="ترتيب المشاركة">
+          <div class="pc-actions">
+            <button id="rkPrint" type="button" style="background:var(--accent);border-color:var(--accent);color:#fff;">🖨 طباعة</button>
+            <button id="rkImg" type="button">💾 صورة</button>
+            <button id="rkCert" type="button" title="فتح الشهادات لأول ثلاثة في هذا الفصل">🏅 شهادات لأول 3</button>
+          </div>
+          <div id="rkStatus" style="font-size:12px;font-weight:800;color:var(--muted);min-height:18px;"></div>
+          <div style="font-size:11px;color:var(--muted);font-weight:700;">الترويسة والشعار واسم المعلم تُؤخذ من إعدادات الشهادات.</div>
+        </div>
+        <div>
+          <select id="rkShow" style="display:none;"></select>
+          <canvas id="rkCanvas"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="settingsModal" class="modal" style="z-index:930;">
   <div class="rec-box" style="max-width:560px;">
     <div class="ov-head">
@@ -1209,6 +1308,7 @@
 </div>
 
 <script src="js/cert-draw.js"></script>
+<script src="js/rank-draw.js"></script>
 <script>
 (function(){
   "use strict";
@@ -3441,14 +3541,14 @@
     }).then(function(urls){ ctPrintUrls(urls, ctMsg); }).catch(function(e){ ctMsg('تعذّرت الطباعة: ' + (e && e.message || e)); });
   }
   // صفحات A4 بالعرض في إطار مخفي ثم نافذة الطباعة
-  function ctPrintUrls(urls, msg){
+  function ctPrintUrls(urls, msg, portrait){
       var fr = document.createElement('iframe');
       fr.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
       document.body.appendChild(fr);
       var d = fr.contentWindow.document;
       d.open();
-      d.write('<!doctype html><html><head><meta charset="utf-8"><title>شهادات</title><style>@page{size:A4 landscape;margin:0}html,body{margin:0;padding:0}'
-        + 'img{display:block;width:297mm;height:209.5mm;page-break-after:always;break-after:page}img:last-child{page-break-after:auto;break-after:auto}</style></head><body>'
+      d.write('<!doctype html><html><head><meta charset="utf-8"><title>' + (portrait ? 'لوحات الترتيب' : 'شهادات') + '</title><style>@page{size:A4 ' + (portrait ? 'portrait' : 'landscape') + ';margin:0}html,body{margin:0;padding:0}'
+        + 'img{display:block;' + (portrait ? 'width:210mm;height:296.5mm;' : 'width:297mm;height:209.5mm;') + 'page-break-after:always;break-after:page}img:last-child{page-break-after:auto;break-after:auto}</style></head><body>'
         + urls.map(function(u){ return '<img src="' + u + '">'; }).join('') + '</body></html>');
       d.close();
       var imgs = Array.prototype.slice.call(d.images), left = imgs.length;
@@ -3456,7 +3556,7 @@
         if (--left > 0) return;
         setTimeout(function(){
           fr.contentWindow.focus(); fr.contentWindow.print();
-          msg('✓ جاهزة للطباعة — اختر الورق A4 بالعرض وبلا هوامش (Margins: None)');
+          msg('✓ جاهزة للطباعة — اختر الورق A4 ' + (portrait ? 'بالطول' : 'بالعرض') + ' وبلا هوامش (Margins: None)');
           setTimeout(function(){ urls.forEach(function(u){ URL.revokeObjectURL(u); }); fr.remove(); }, 60000);
         }, 150);
       };
@@ -3687,6 +3787,255 @@
   ctApplyType();
   ctUi();
   ctEl('certBtn').addEventListener('click', function(){ ctOpen(); });
+  // ===== لوحات الترتيب: ورقة A4 واحدة لكل فصل =====
+  // بند أساسي يحدّد الترتيب وطول الشريط، وبندان إضافيان بجانب الاسم.
+  // أول ثلاثة على منصة التتويج، والبقية في فئات يبدأ الترقيم داخل كل منها من 1.
+  var rkModal = ctEl('rankModal'), rkCv = ctEl('rkCanvas'), rkCache = {}, rkReq = 0, rkRaf = 0;
+  var RK_KEY = 'tg_rank_v1';
+  var RK_FIELDS = ['rkMain', 'rkExPart', 'rkExPlat', 'rkExTotal', 'rkExamMode', 'rkPodium', 'rkT0', 'rkTierN', 'rkTierBy', 'rkT1', 'rkT2', 'rkT3', 'rkV1', 'rkV2',
+    'rkWho', 'rkTopN', 'rkBw', 'rkHide', 'rkCmp', 'rkTitle'];
+  var RK_DEF = { rkMain: 'part', rkExPart: true, rkExPlat: true, rkExTotal: true, rkExamMode: 'raw', rkPodium: true, rkT0: 'أبطال الصدارة', rkTierN: '3', rkTierBy: 'count',
+    rkT1: 'المتميّزون', rkT2: 'المثابرون', rkT3: 'نحو القمة', rkV1: '30', rkV2: '35', rkWho: 'all', rkTopN: '15', rkBw: false, rkHide: false, rkCmp: true, rkTitle: '' };
+  var RK_TIER_DEF = { count: ['30', '35'], score: ['85', '65'] };
+  var RK_EX = { part: 'rkExPart', plat: 'rkExPlat', total: 'rkExTotal' };
+  function rkMsg(t){ ctEl('rkStatus').textContent = t || ''; }
+  function rkLoadPrefs(){
+    var p = {};
+    try { p = JSON.parse(localStorage.getItem(RK_KEY) || '{}') || {}; } catch(e){}
+    RK_FIELDS.forEach(function(id){
+      var el = ctEl(id), v = p[id] !== undefined ? p[id] : RK_DEF[id];
+      if (el.type === 'checkbox') el.checked = !!v; else el.value = v;
+    });
+  }
+  function rkSavePrefs(){
+    var p = {};
+    RK_FIELDS.forEach(function(id){ var el = ctEl(id); p[id] = el.type === 'checkbox' ? el.checked : el.value; });
+    try { localStorage.setItem(RK_KEY, JSON.stringify(p)); } catch(e){}
+  }
+  function rkPer(){ return ctEl('rkPeriod').value; }
+  function rkMain(){ return ctEl('rkMain').value; }
+  function rkCls(){ var v = ctEl('rkClass').value; return v === 'all' ? (ctEl('rkShow').value || CT_CLASSES[0]) : v; }
+  function rkLabel(m){ return m === 'total' ? (rkPer() === '2' ? 'النهائي' : 'النصفي') : (m === 'plat' ? 'المنصة' : 'المشاركة'); }
+  function rkExtras(){ var m = rkMain(); return ['total', 'plat', 'part'].filter(function(x){ return x !== m && ctEl(RK_EX[x]).checked; }); }
+  function rkUi(){
+    var m = rkMain(), tn = ctEl('rkTierN').value, by = ctEl('rkTierBy').value;
+    for (var x in RK_EX) ctEl(RK_EX[x] + 'L').style.display = x === m ? 'none' : '';
+    ctEl('rkExamBox').style.display = (m === 'total' || ctEl('rkExTotal').checked) ? '' : 'none';
+    ctEl('rkTier3').style.display = tn === '3' ? '' : 'none';
+    ctEl('rkV2').style.display = tn === '3' ? '' : 'none';
+    var h = by === 'count' ? '٪ من طلاب الفصل' : (m === 'part' ? '٪ من أعلى طالب فأكثر' : '٪ فأعلى');
+    ctEl('rkH1').textContent = h;
+    ctEl('rkH2').textContent = tn === '3' ? h : 'بقية الطلاب';
+    ctEl('rkTopNL').style.display = ctEl('rkWho').value === 'top' ? '' : 'none';
+    var all = ctEl('rkClass').value === 'all', sh = ctEl('rkShow');
+    sh.style.display = all ? '' : 'none';
+    if (all && !sh.options.length) CT_CLASSES.forEach(function(c){ var o = document.createElement('option'); o.value = c; o.textContent = 'معاينة: ' + ctClassName(c); sh.appendChild(o); });
+  }
+
+  // ----- البيانات: لوحة الفترة + نقاط المشاركة اليومية -----
+  function rkGet(action, cid, per){
+    return fetch(SCRIPT_URL + '?action=' + action + '&classId=' + encodeURIComponent(cid) + (action === 'getPeriodBoard' ? '&period=' + per : ''))
+      .then(parseServerReply).then(function(res){
+        if (res && res.status === 'error') throw new Error(res.message);
+        return (res && res.data) ? res.data : res;
+      });
+  }
+  function rkFetch(cid){
+    var per = rkPer(), key = per + '|' + cid;
+    if (rkCache[key]) return Promise.resolve(rkCache[key]);
+    return Promise.all([rkGet('getPeriodBoard', cid, per), rkGet('getParticipationOverview', cid, per).catch(function(){ return null; })]).then(function(r){
+      var d = r[0], ov = r[1], map = {};
+      d.students = d.students || [];
+      if (ov && ov.students) ov.students.forEach(function(o){ map[String(o.id)] = o.grades || []; });
+      d.students.forEach(function(s){
+        var g = map[String(s.id)];
+        s._cls = cid; s._pts = (g && d.range) ? ctPoints(g, ov.days || 5, d.range) : null;
+      });
+      rkCache[key] = d;
+      return d;
+    });
+  }
+  // المجموع كما في الشهادات: الأصلي بلا تحسين ولا إضافة المنصة ولا ما انتقل من فائض الاختبار، أو بحسب الاختيار
+  function rkTotal(s, W){
+    var mode = ctEl('rkExamMode').value, sum = 0;
+    for (var k in PC_WEIGHT){
+      var v = pcEff(s, k);
+      if (k === 'exam' && v !== null && s.examInfo){
+        var ei = s.examInfo;
+        v = mode === 'all' ? ei.eff : (mode === 'imp' ? Math.min(W.exam, ei.raw + (ei.improve || 0)) : ei.raw);
+      }
+      if (v === null || v === undefined) continue;
+      if (k !== 'exam' && mode !== 'all' && s.add && s.add[k] > 0) v = Math.max(0, v - s.add[k]);
+      sum += v;
+    }
+    return sum;
+  }
+  function rkVal(s, d, m){
+    if (m === 'part') return s._pts || 0;
+    if (m === 'plat'){
+      var a = s.pin ? s.pin.plat : null, b = s.live ? s.live.plat : null;
+      return Math.max(a === null || a === undefined ? 0 : a, b === null || b === undefined ? 0 : b);
+    }
+    return rkTotal(s, d.weights);
+  }
+  function rkWsum(d){ var W = d.weights; return W.participation + W.homework + W.behavior + W.platform + W.exam; }
+  function rkFmt(m, v){
+    if (m === 'part') return String(v);
+    var r = m === 'plat' ? Math.floor(v * 10 + 1e-6) / 10 : Math.round(v * 10) / 10;
+    return (r % 1 ? r.toFixed(1) : String(r)) + (m === 'plat' ? '%' : '');
+  }
+
+  // ----- بناء ورقة فصل -----
+  function rkSheet(d, cid){
+    var m = rkMain(), ex = rkExtras(), list = d.students.slice(), per = rkPer();
+    list.forEach(function(s){ s._v = { part: rkVal(s, d, 'part'), plat: rkVal(s, d, 'plat'), total: rkVal(s, d, 'total') }; });
+    var mx = { part: Math.max.apply(null, list.map(function(s){ return s._v.part; }).concat([1])), plat: 100, total: rkWsum(d) || 1 };
+    // التعادل في البند الأساسي يُفصل بالبندين الآخرين ثم بالاسم
+    var ord = [m].concat(['total', 'plat', 'part'].filter(function(x){ return x !== m; }));
+    list.sort(function(a, b){
+      for (var i = 0; i < ord.length; i++){ var df = b._v[ord[i]] - a._v[ord[i]]; if (Math.abs(df) > 1e-9) return df; }
+      return String(a.name).localeCompare(String(b.name), 'ar');
+    });
+    function pct(s){ return s._v[m] / mx[m]; }
+    function row(s, rank){
+      return { rank: rank, name: displayName(s.name), pct: pct(s), val: rkFmt(m, s._v[m]),
+        vals: [m].concat(ex).map(function(x){ return rkFmt(x, s._v[x]); }),
+        extra: ex.map(function(x){ return rkLabel(x) + ' ⁦' + rkFmt(x, s._v[x]) + '⁩'; }).join('  ·  ') };
+    }
+    // الترقيم داخل المجموعة؛ المتساويان في البند الأساسي يأخذان المركز نفسه
+    function ranked(arr){
+      var r = 0;
+      return arr.map(function(s, i){ if (!i || Math.abs(s._v[m] - arr[i - 1]._v[m]) > 1e-9) r = i + 1; return row(s, r); });
+    }
+    var n = list.length, podN = ctEl('rkPodium').checked ? Math.min(3, n) : 0;
+    while (podN && list[podN - 1]._v[m] <= 0) podN--;
+    var pod = list.slice(0, podN), rest = list.slice(podN);
+    var tn = +ctEl('rkTierN').value, v1 = ctNum('rkV1'), v2 = ctNum('rkV2'), groups = [];
+    for (var i = 0; i < tn; i++) groups.push([]);
+    if (ctEl('rkTierBy').value === 'count'){
+      var c1 = Math.round(n * v1 / 100), c2 = tn > 2 ? Math.round(n * v2 / 100) : 0;
+      rest.forEach(function(s, j){ groups[j < c1 ? 0 : (tn > 2 && j < c1 + c2) ? 1 : tn - 1].push(s); });
+    } else {
+      rest.forEach(function(s){ var p = pct(s) * 100 + 1e-9; groups[p >= v1 ? 0 : (tn > 2 && p >= v2) ? 1 : tn - 1].push(s); });
+    }
+    if (ctEl('rkWho').value === 'top'){
+      var left = Math.max(0, (ctNum('rkTopN') || 10) - pod.length);
+      groups = groups.map(function(g){ var t = g.slice(0, left); left -= t.length; return t; });
+    }
+    var tnames = [ctEl('rkT1').value.trim() || 'المتميّزون', ctEl('rkT2').value.trim() || 'المثابرون', ctEl('rkT3').value.trim() || 'نحو القمة'];
+    var avg = n ? list.reduce(function(a, s){ return a + pct(s); }, 0) / n : null;
+    // مقارنة الفصول: متوسط البند الأساسي في كل فصل
+    var cls = null;
+    if (ctEl('rkCmp').checked && CT_CLASSES.every(function(q){ return rkCache[per + '|' + q]; })){
+      var av = CT_CLASSES.map(function(q){
+        var dd = rkCache[per + '|' + q], ss = dd.students, sum = 0;
+        ss.forEach(function(s){ sum += rkVal(s, dd, m); });
+        return ss.length ? sum / ss.length : 0;
+      });
+      var top = m === 'part' ? Math.max.apply(null, av.concat([1])) : mx[m];
+      cls = CT_CLASSES.map(function(q, j){ return { label: ctClassName(q), pct: av[j] / top, txt: rkFmt(m === 'plat' ? 'plat' : 'total', av[j]), me: q === cid }; });
+    }
+    var desc = m === 'part' ? 'حسب نقاط المشاركة اليومية' : (m === 'plat' ? 'حسب نسبة التفاعل في المنصة' : 'حسب المجموع من ' + mx.total);
+    var title = ctEl('rkTitle').value.trim();
+    var tl = ctEl('ctTeacher').value.trim();
+    return {
+      bw: ctEl('rkBw').checked, hideNums: ctEl('rkHide').checked,
+      title: (title || ('ترتيب ' + (m === 'total' ? 'درجات ' : '') + rkLabel(m))) + ' — ' + ctClassName(cid),
+      sub: (per === '2' ? 'الفترة الثانية' : 'الفترة الأولى') + ' · ' + desc + ' · ' + ctHijri(),
+      header: ctEl('ctHeader').value.split('\n').map(function(l){ return l.trim(); }).filter(Boolean).slice(0, 4),
+      logo: ctLogo, teacher: tl ? (ctEl('ctTeacherLbl').value.trim() || 'معلم المادة') + ': ' + tl : '',
+      cols: [m].concat(ex).map(function(x){ return x === 'total' ? rkLabel(x) + ' /' + mx.total : rkLabel(x); }),
+      podium: pod.length ? { name: ctEl('rkT0').value.trim() || 'أبطال الصدارة', rows: ranked(pod) } : null,
+      tiers: groups.map(function(g, j){ return { name: tnames[j], rows: ranked(g) }; }),
+      avg: avg, classes: cls, classTitle: 'متوسط ' + rkLabel(m) + ' في الفصول'
+    };
+  }
+  function rkDraw(){
+    if (rkRaf || !rkModal.classList.contains('open')) return;
+    rkRaf = requestAnimationFrame(function(){
+      rkRaf = 0;
+      var d = rkCache[rkPer() + '|' + rkCls()];
+      var w = rkCv.clientWidth || 460, dpr = Math.min(2, window.devicePixelRatio || 1);
+      rkCv.width = Math.round(w * dpr); rkCv.height = Math.round(rkCv.width * 297 / 210);
+      if (!d){ var c = rkCv.getContext('2d'); c.fillStyle = '#fff'; c.fillRect(0, 0, rkCv.width, rkCv.height); return; }
+      RankDraw.draw(rkCv, rkSheet(d, rkCls()));
+    });
+  }
+  function rkLoad(){
+    var my = ++rkReq, v = ctEl('rkClass').value;
+    var need = (v === 'all' || ctEl('rkCmp').checked) ? CT_CLASSES : [v];
+    rkMsg('جاري تحميل الطلاب...'); rkDraw();
+    Promise.all(need.map(rkFetch))
+      .then(function(){ if (my !== rkReq) return; rkMsg(''); return RankDraw.fonts().then(rkDraw); })
+      .catch(function(err){ if (my === rkReq) rkMsg('تعذّر التحميل: ' + err.message); });
+  }
+  function rkPagesList(){ var v = ctEl('rkClass').value; return v === 'all' ? CT_CLASSES.slice() : [v]; }
+  function rkBlob(cid){
+    var cv = document.createElement('canvas');
+    cv.width = 1680; cv.height = 2376; // 8 بكسل لكل مم
+    RankDraw.draw(cv, rkSheet(rkCache[rkPer() + '|' + cid], cid));
+    return new Promise(function(res){ cv.toBlob(res, ctEl('rkBw').checked ? 'image/png' : 'image/jpeg', .92); });
+  }
+  function rkReady(){
+    var miss = rkPagesList().filter(function(c){ return !rkCache[rkPer() + '|' + c]; });
+    if (miss.length){ rkMsg('انتظر حتى يكتمل التحميل'); return false; }
+    return true;
+  }
+  function rkOpen(){
+    ctEl('rkClass').value = classSel.value;
+    ctEl('rkPeriod').value = (mode === 'fin') ? '2' : '1';
+    rkCache = {};
+    rkModal.classList.add('open');
+    rkUi();
+    rkLoad();
+  }
+
+  rkLoadPrefs();
+  ctEl('rankBtn').addEventListener('click', rkOpen);
+  ctEl('rkClose').addEventListener('click', function(){ rkModal.classList.remove('open'); });
+  rkModal.addEventListener('click', function(e){ if (e.target === rkModal) rkModal.classList.remove('open'); });
+  ['rkClass', 'rkPeriod', 'rkCmp'].forEach(function(i){ ctEl(i).addEventListener('change', function(){ rkUi(); rkSavePrefs(); rkLoad(); }); });
+  ctEl('rkTierBy').addEventListener('change', function(){
+    var dv = RK_TIER_DEF[this.value]; ctEl('rkV1').value = dv[0]; ctEl('rkV2').value = dv[1];
+    rkUi(); rkSavePrefs(); rkDraw();
+  });
+  RK_FIELDS.filter(function(i){ return i !== 'rkCmp' && i !== 'rkTierBy'; }).forEach(function(i){
+    ctEl(i).addEventListener('input', function(){ rkUi(); rkSavePrefs(); rkDraw(); });
+    ctEl(i).addEventListener('change', function(){ rkUi(); rkSavePrefs(); rkDraw(); });
+  });
+  ctEl('rkShow').addEventListener('change', rkDraw);
+  window.addEventListener('resize', rkDraw);
+  ctEl('rkPrint').addEventListener('click', function(){
+    if (!rkReady()) return;
+    rkMsg('جاري تجهيز الطباعة...');
+    RankDraw.fonts().then(function(){
+      return ctSeq(rkPagesList(), function(c){ return rkBlob(c).then(function(b){ return URL.createObjectURL(b); }); });
+    }).then(function(urls){ ctPrintUrls(urls, rkMsg, true); }).catch(function(e){ rkMsg('تعذّرت الطباعة: ' + (e && e.message || e)); });
+  });
+  ctEl('rkImg').addEventListener('click', function(){
+    if (!rkReady()) return;
+    var ext = ctEl('rkBw').checked ? '.png' : '.jpg';
+    RankDraw.fonts().then(function(){
+      return ctSeq(rkPagesList(), function(c, i){
+        return rkBlob(c).then(function(b){
+          ctDownload(b, ('ترتيب ' + rkLabel(rkMain()) + ' - ' + ctClassName(c)).replace(/[\\\/:*?"<>|]+/g, ' ') + ext);
+          return new Promise(function(r){ setTimeout(r, 400); });
+        });
+      });
+    }).then(function(){ rkMsg('✓ تم تنزيل الصورة'); });
+  });
+  // فتح الشهادات مهيّأة لأول ثلاثة في الفصل المعروض بالبند نفسه
+  ctEl('rkCert').addEventListener('click', function(){
+    var cid = rkCls(), m = rkMain(), per = rkPer();
+    rkModal.classList.remove('open');
+    ctOpen();
+    ctEl('ctClass').value = cid; ctEl('ctPeriod').value = per;
+    ctEl('ctType').value = m; ctApplyType();
+    ctEl('ctExamMode').value = ctEl('rkExamMode').value;
+    ctEl('ctCond').value = 'top'; ctEl('ctTopN').value = 3; ctEl('ctTopScope').value = 'this';
+    ctAll = {}; ctAllPer = null;
+    ctUi(); ctSavePrefs(); ctEmblemsUi(); ctLoad();
+  });
   // ----- شهادات الطالب في سجله: الزر يظهر فقط إن كانت له شهادات مسجّلة -----
   var rcModal = ctEl('recCertModal'), rcCerts = [], rcStu = null, rcReq = 0;
   function rcLoad(stu){

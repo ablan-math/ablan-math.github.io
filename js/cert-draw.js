@@ -186,11 +186,16 @@
       c.beginPath(); c.moveTo(cx - nw, 125); c.lineTo(cx - 4, 125); c.moveTo(cx + 4, 125); c.lineTo(cx + nw, 125); c.stroke();
       ctDiamond(c, cx, 125, 1.7); c.fillStyle = T.a; c.fill();
     }
+    var by = 137;
+    if (o.classLine){
+      ctFit(c, o.classLine, '700', 5, F_BODY, 170); c.fillStyle = T.p; c.fillText(o.classLine, cx, 133);
+      by = 142;
+    }
     if (o.body){
       var size = 6, lines;
       for (;;){ ctFont(c, '400', size, F_BODY); lines = ctWrap(c, o.body, 215 - nar); if (lines.length <= 3 || size < 4) break; size -= .3; }
       c.fillStyle = T.ink;
-      lines.forEach(function(l, i){ c.fillText(l, cx, 137 + i * size * 1.55); });
+      lines.forEach(function(l, i){ c.fillText(l, cx, by + i * size * 1.55); });
     }
     if (!pl || o.pSign){
       // الباركود في زاوية سفلية يدفع عمود التوقيع المجاور نحو الوسط

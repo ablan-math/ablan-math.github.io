@@ -576,6 +576,16 @@
   #ctPub{font-size:12px; font-weight:800; color:#7c3aed; min-height:0;}
   #ctPub.err{color:var(--neg2);}
   .ct-row .pub{font-size:11px; font-weight:800; color:#7c3aed; background:#ede9fe; border-radius:8px; padding:1px 7px; cursor:pointer; white-space:nowrap;}
+  #recCertBtn{order:-1;}
+  .rc-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:12px; padding:14px 18px 18px; overflow:auto;}
+  .rc-card{border:1.5px solid var(--line); border-radius:14px; padding:8px; background:var(--bg); text-align:center;}
+  .rc-card canvas{width:100%; aspect-ratio:297/210; display:block; border-radius:8px; cursor:zoom-in; background:#fff;}
+  .rc-card b{display:block; font-size:13px; margin-top:6px;}
+  .rc-card small{display:block; font-size:11px; color:var(--muted); font-weight:700; margin:2px 0 6px;}
+  .rc-card .rc-btns{display:flex; gap:6px; justify-content:center;}
+  .rc-card button{border:1.5px solid var(--line); background:var(--card); color:var(--ink); padding:5px 10px; border-radius:9px; font-family:'Cairo',sans-serif; font-weight:800; font-size:12px; cursor:pointer;}
+  .rc-card button.del{color:var(--neg2);}
+  #rcBig{width:100%; aspect-ratio:297/210; display:none; border-radius:10px; box-shadow:0 8px 24px -10px rgba(0,0,0,.45); background:#fff; cursor:zoom-out;}
   .ct-sep{font-size:12px; font-weight:800; color:var(--muted); padding:12px 4px 6px; cursor:pointer; user-select:none;}
   .ct-empty{font-size:13px; color:var(--muted); padding:14px 4px; text-align:center;}
 </style>
@@ -749,13 +759,24 @@
   <div class="rec-box">
     <div class="ov-head">
       <h3 id="recordTitle">سجل الطالب</h3>
-      <button id="recCertBtn" type="button" style="margin-inline-start:auto;border:none;background:#b8912e;color:#fff;padding:8px 14px;border-radius:12px;font-family:'Cairo',sans-serif;font-weight:800;font-size:12px;cursor:pointer;">🏅 شهادة</button>
-      <button id="recWaBtn" type="button" style="border:none;background:#25d366;color:#fff;padding:8px 14px;border-radius:12px;font-family:'Cairo',sans-serif;font-weight:800;font-size:12px;cursor:pointer;">📱 مراسلة ولي الأمر</button>
+      <button id="recCertBtn" type="button" style="display:none;border:none;background:#b8912e;color:#fff;padding:8px 14px;border-radius:12px;font-family:'Cairo',sans-serif;font-weight:800;font-size:12px;cursor:pointer;">🏅 شهادة</button>
+      <button id="recWaBtn" type="button" style="margin-inline-start:auto;border:none;background:#25d366;color:#fff;padding:8px 14px;border-radius:12px;font-family:'Cairo',sans-serif;font-weight:800;font-size:12px;cursor:pointer;">📱 مراسلة ولي الأمر</button>
       <button id="closeRecordBtn" type="button" style="border:none;background:var(--bg);color:var(--muted);width:32px;height:32px;border-radius:50%;font-size:16px;cursor:pointer;font-weight:700;">✕</button>
     </div>
     <div class="rec-sums" id="recordSums"></div>
     <div id="recordWrap"><table id="recordTable"></table></div>
     <div class="pend-bar" style="display:none;"></div>
+  </div>
+</div>
+
+<div id="recCertModal" class="modal" style="z-index:966;">
+  <div class="rec-box" style="max-width:900px;">
+    <div class="ov-head">
+      <h3 id="rcTitle">شهادات الطالب</h3>
+      <button id="rcClose" type="button" style="border:none;background:var(--bg);color:var(--muted);width:32px;height:32px;border-radius:50%;font-size:16px;cursor:pointer;font-weight:700;">✕</button>
+    </div>
+    <div style="padding:0 18px;"><canvas id="rcBig"></canvas><div id="rcStatus" style="font-size:12px;font-weight:800;color:var(--muted);min-height:18px;margin-top:8px;"></div></div>
+    <div class="rc-grid" id="rcGrid"></div>
   </div>
 </div>
 
@@ -3417,7 +3438,10 @@
     var type = ctStyle() === 'color' ? 'image/jpeg' : 'image/png';
     ctFonts().then(function(){
       return ctSeq(list, function(s){ return ctBlob(s, 'print', type, over).then(function(b){ return URL.createObjectURL(b); }); });
-    }).then(function(urls){
+    }).then(function(urls){ ctPrintUrls(urls, ctMsg); }).catch(function(e){ ctMsg('تعذّرت الطباعة: ' + (e && e.message || e)); });
+  }
+  // صفحات A4 بالعرض في إطار مخفي ثم نافذة الطباعة
+  function ctPrintUrls(urls, msg){
       var fr = document.createElement('iframe');
       fr.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
       document.body.appendChild(fr);
@@ -3432,12 +3456,11 @@
         if (--left > 0) return;
         setTimeout(function(){
           fr.contentWindow.focus(); fr.contentWindow.print();
-          ctMsg('✓ جاهزة للطباعة — اختر الورق A4 بالعرض وبلا هوامش (Margins: None)');
+          msg('✓ جاهزة للطباعة — اختر الورق A4 بالعرض وبلا هوامش (Margins: None)');
           setTimeout(function(){ urls.forEach(function(u){ URL.revokeObjectURL(u); }); fr.remove(); }, 60000);
         }, 150);
       };
       imgs.forEach(function(im){ if (im.complete) done(); else im.onload = im.onerror = done; });
-    }).catch(function(e){ ctMsg('تعذّرت الطباعة: ' + (e && e.message || e)); });
   }
   function ctSaveImgs(list){
     if (!list.length){ ctMsg('حدّد طالبًا واحدًا على الأقل'); return; }
@@ -3664,7 +3687,91 @@
   ctApplyType();
   ctUi();
   ctEl('certBtn').addEventListener('click', function(){ ctOpen(); });
-  ctEl('recCertBtn').addEventListener('click', function(){ if (recordStu) ctOpen(recordStu.id); });
+  // ----- شهادات الطالب في سجله: الزر يظهر فقط إن كانت له شهادات مسجّلة -----
+  var rcModal = ctEl('recCertModal'), rcCerts = [], rcStu = null, rcReq = 0;
+  function rcLoad(stu){
+    var btn = ctEl('recCertBtn'), my = ++rcReq;
+    btn.style.display = 'none'; rcCerts = []; rcStu = stu;
+    fetch(SCRIPT_URL + '?action=getStudentData&studentId=' + encodeURIComponent(stu.id) + '&classId=' + encodeURIComponent(classSel.value))
+      .then(parseServerReply)
+      .then(function(res){
+        if (my !== rcReq) return;
+        var d = res && res.data;
+        rcCerts = (d && Array.isArray(d.certificates)) ? d.certificates : [];
+        if (rcCerts.length){ btn.textContent = '🏅 شهاداته (' + rcCerts.length + ')'; btn.style.display = ''; }
+      })
+      .catch(function(){});
+  }
+  // بيانات الرسم المحفوظة في الشيت هي نفسها خيارات الرسم؛ الشعار المحلي يُضاف للطباعة
+  function rcOpts(c){
+    var d = c.data || {}, o = {};
+    for (var k in d) o[k] = d[k];
+    o.style = 'color'; o.header = d.header || []; o.logo = ctLogo;
+    o.student = d.student || (rcStu && rcStu.name) || ''; o.cert = d.cert || c.cert;
+    o.title = d.title || 'شهادة شكر وتقدير'; o.theme = d.theme || 'navy'; o.design = d.design || 'classic';
+    if (o.seal === undefined) o.seal = 'تميّز';
+    return o;
+  }
+  function rcDraw(cv, c, w){ cv.width = w; cv.height = Math.round(w * 210 / 297); CertDraw.draw(cv, rcOpts(c), 'image'); }
+  function rcBlob(c){ return ctFonts().then(function(){ return new Promise(function(res){ var cv = document.createElement('canvas'); rcDraw(cv, c, 2376); cv.toBlob(res, 'image/jpeg', .92); }); }); }
+  function rcMsg(t){ ctEl('rcStatus').textContent = t || ''; }
+  function rcRender(){
+    var g = ctEl('rcGrid'); g.innerHTML = '';
+    ctEl('rcTitle').textContent = 'شهادات ' + (rcStu ? displayName(rcStu.name) : '') + ' (' + rcCerts.length + ')';
+    if (!rcCerts.length){ g.innerHTML = '<div class="ct-empty">لا توجد شهادات</div>'; return; }
+    var cvs = [];
+    rcCerts.forEach(function(c){
+      var card = document.createElement('div'), cv = document.createElement('canvas'), d = new Date(c.issued);
+      card.className = 'rc-card';
+      card.appendChild(cv);
+      card.insertAdjacentHTML('beforeend', '<b></b><small></small><div class="rc-btns"></div>');
+      card.querySelector('b').textContent = c.cert;
+      card.querySelector('small').textContent = (c.period === 2 ? 'الفترة الثانية' : 'الفترة الأولى')
+        + (isNaN(d) ? '' : ' — ' + d.toLocaleDateString('ar-SA-u-ca-islamic-umalqura-nu-latn', { day: 'numeric', month: 'long', year: 'numeric' }));
+      var bx = card.querySelector('.rc-btns');
+      [['🖨 طباعة', '', function(){
+          rcMsg('جاري تجهيز الطباعة...');
+          rcBlob(c).then(function(b){ ctPrintUrls([URL.createObjectURL(b)], rcMsg); });
+        }],
+       ['💾 صورة', '', function(){
+          rcBlob(c).then(function(b){ ctDownload(b, ('شهادة ' + c.cert + ' - ' + (rcStu ? rcStu.name : '')).replace(/[\\\/:*?"<>|]+/g, ' ') + '.jpg'); rcMsg('✓ تم تنزيل الصورة'); });
+        }],
+       ['🗑', 'del', function(){
+          if (!window.confirm('حذف شهادة «' + c.cert + '» من صفحة الطالب؟')) return;
+          rcMsg('جاري الحذف...');
+          fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'deleteCertificate', key: c.key }) })
+            .then(parseServerReply)
+            .then(function(res){
+              if (res && res.status === 'error') throw new Error(res.message);
+              rcCerts = rcCerts.filter(function(x){ return x !== c; });
+              rcMsg('حُذفت الشهادة من صفحة الطالب'); rcRender();
+              var btn = ctEl('recCertBtn');
+              if (rcCerts.length) btn.textContent = '🏅 شهاداته (' + rcCerts.length + ')'; else btn.style.display = 'none';
+            })
+            .catch(function(err){ rcMsg('تعذّر الحذف: ' + err.message); });
+        }]].forEach(function(q){
+        var b = document.createElement('button'); b.type = 'button'; b.textContent = q[0]; if (q[1]) b.className = q[1];
+        if (q[1] === 'del') b.title = 'حذف من صفحة الطالب';
+        b.addEventListener('click', q[2]); bx.appendChild(b);
+      });
+      cv.title = 'تكبير';
+      cv.addEventListener('click', function(){
+        var big = ctEl('rcBig'); big.style.display = 'block';
+        ctFonts().then(function(){ rcDraw(big, c, Math.round((big.clientWidth || 800) * Math.min(2, window.devicePixelRatio || 1))); });
+        big.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      });
+      g.appendChild(card); cvs.push([cv, c]);
+    });
+    ctFonts().then(function(){ cvs.forEach(function(q){ rcDraw(q[0], q[1], 480); }); });
+  }
+  ctEl('recCertBtn').addEventListener('click', function(){
+    if (!rcCerts.length) return;
+    ctEl('rcBig').style.display = 'none'; rcMsg('');
+    rcModal.classList.add('open'); rcRender();
+  });
+  ctEl('rcBig').addEventListener('click', function(){ this.style.display = 'none'; });
+  ctEl('rcClose').addEventListener('click', function(){ rcModal.classList.remove('open'); });
+  rcModal.addEventListener('click', function(e){ if (e.target === rcModal) rcModal.classList.remove('open'); });
   ctEl('closeCertBtn').addEventListener('click', function(){ ctModal.classList.remove('open'); });
   ctModal.addEventListener('click', function(e){ if (e.target === ctModal) ctModal.classList.remove('open'); });
   ['ctClass', 'ctPeriod'].forEach(function(i){ ctEl(i).addEventListener('change', ctLoad); });
@@ -4095,6 +4202,7 @@
   function openRecord(stu){
     var classId = classSel.value;
     recordModal.classList.add('open');
+    rcLoad(stu);
     recordTitle.textContent = 'سجل ' + displayName(stu.name);
     recordSums.textContent = 'جاري التحميل...';
     recordTable.innerHTML = '';
@@ -4511,6 +4619,7 @@
       recordStu = ovData.students[parseInt(nt.getAttribute('data-si'), 10)];
       recordTitle.textContent = 'سجل ' + displayName(recordStu.name);
       recordModal.classList.add('open');
+      rcLoad(recordStu);
       renderRecord();
     }
   });

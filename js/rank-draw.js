@@ -188,6 +188,7 @@
       });
     }
 
+    if (!L && !pod && o.empty){ font(c, 700, 4.2); txt(c, o.empty, PW / 2, y0 + 30, 'center', P.mute); }
     // ----- مقارنة الفصول -----
     // مقارنة الفصول تلي آخر صف مباشرة فيبقى الفراغ (إن وُجد) أسفل الصفحة
     var fy = L ? Math.min(y2, y0 + 5 + L.items.reduce(function(a, it){ return Math.max(a, it.y + (it.i < 0 ? L.hd : L.rh)); }, 0) + 4) : y2;

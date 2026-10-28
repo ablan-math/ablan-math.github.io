@@ -1110,12 +1110,14 @@
               <select id="rkPeriod"><option value="1">الفترة الأولى (النصفي)</option><option value="2">الفترة الثانية (النهائي)</option></select>
             </label>
             <label>الترتيب حسب
-              <select id="rkMain"><option value="part">المشاركة (النقاط)</option><option value="plat">المنصة (نسبة التفاعل)</option><option value="total">المجموع (النصفي)</option></select>
+              <select id="rkMain"><option value="part">المشاركة (النقاط)</option><option value="plat">المنصة (نسبة التفاعل)</option><option value="total">المجموع (النصفي)</option>
+                <option value="imp">الأكثر تقدّمًا في المشاركة</option><option value="impT">الأكثر تقدّمًا في المجموع (الثانية عن الأولى)</option></select>
             </label>
             <label id="rkExamBox">الاختبار في المجموع
               <select id="rkExamMode"><option value="raw">الأصلي (قبل التحسين والإضافة)</option><option value="imp">مع التحسين</option><option value="all">مع التحسين وإضافة المنصة</option></select>
             </label>
           </div>
+          <div id="rkImpNote" style="display:none;font-size:11px;color:var(--muted);font-weight:700;margin-top:6px;line-height:1.7;"></div>
           <div class="ct-lbl">يظهر بجانب اسم الطالب</div>
           <div class="pc-checks">
             <label id="rkExPartL"><input type="checkbox" id="rkExPart"> المشاركة</label>
@@ -3815,12 +3817,24 @@
   function rkPer(){ return ctEl('rkPeriod').value; }
   function rkMain(){ return ctEl('rkMain').value; }
   function rkCls(){ var v = ctEl('rkClass').value; return v === 'all' ? (ctEl('rkShow').value || CT_CLASSES[0]) : v; }
-  function rkLabel(m){ return m === 'total' ? (rkPer() === '2' ? 'النهائي' : 'النصفي') : (m === 'plat' ? 'المنصة' : 'المشاركة'); }
+  function rkLabel(m){ if (m === 'imp' || m === 'impT') return 'التقدّم'; return m === 'total' ? (rkPer() === '2' ? 'النهائي' : 'النصفي') : (m === 'plat' ? 'المنصة' : 'المشاركة'); }
   function rkExtras(){ var m = rkMain(); return ['total', 'plat', 'part'].filter(function(x){ return x !== m && ctEl(RK_EX[x]).checked; }); }
   function rkUi(){
     var m = rkMain(), tn = ctEl('rkTierN').value, by = ctEl('rkTierBy').value;
     for (var x in RK_EX) ctEl(RK_EX[x] + 'L').style.display = x === m ? 'none' : '';
-    ctEl('rkExamBox').style.display = (m === 'total' || ctEl('rkExTotal').checked) ? '' : 'none';
+    // التقدّم في المجموع يقارن الفترتين فلا يصحّ في الفترة الأولى
+    var tOpt = ctEl('rkMain').querySelector('option[value=impT]');
+    tOpt.disabled = rkPer() !== '2';
+    if (m === 'impT' && rkPer() !== '2'){ ctEl('rkMain').value = m = 'imp'; }
+    var imp = m === 'imp' || m === 'impT';
+    ctEl('rkExamBox').style.display = (m === 'total' || m === 'impT' || ctEl('rkExTotal').checked) ? '' : 'none';
+    ctEl('rkCert').style.display = imp ? 'none' : '';
+    var nt = ctEl('rkImpNote'), dd = rkCache[rkPer() + '|' + rkCls()];
+    nt.style.display = imp ? '' : 'none';
+    if (m === 'imp') nt.textContent = 'التقدّم = نقاط المشاركة في النصف الثاني من الفترة ناقص النصف الأول'
+      + (dd && dd._halves ? ' (الأسابيع ' + dd._halves[2] + '–' + dd._halves[3] + ' مقابل ' + dd._halves[0] + '–' + dd._halves[1] + ')' : '')
+      + '. تظهر في الورقة أسماء من تقدّموا فقط.';
+    else if (m === 'impT') nt.textContent = 'التقدّم = نسبة المجموع في الفترة الثانية ناقص نسبته في الفترة الأولى. تظهر في الورقة أسماء من تقدّموا فقط.';
     ctEl('rkTier3').style.display = tn === '3' ? '' : 'none';
     ctEl('rkV2').style.display = tn === '3' ? '' : 'none';
     var h = by === 'count' ? '٪ من طلاب الفصل' : (m === 'part' ? '٪ من أعلى طالب فأكثر' : '٪ فأعلى');
@@ -3840,8 +3854,9 @@
         return (res && res.data) ? res.data : res;
       });
   }
-  function rkFetch(cid){
-    var per = rkPer(), key = per + '|' + cid;
+  function rkFetch(cid, per){
+    per = per || rkPer();
+    var key = per + '|' + cid;
     if (rkCache[key]) return Promise.resolve(rkCache[key]);
     return Promise.all([rkGet('getPeriodBoard', cid, per), rkGet('getParticipationOverview', cid, per).catch(function(){ return null; })]).then(function(r){
       var d = r[0], ov = r[1], map = {};
@@ -3850,7 +3865,14 @@
       d.students.forEach(function(s){
         var g = map[String(s.id)];
         s._cls = cid; s._pts = (g && d.range) ? ctPoints(g, ov.days || 5, d.range) : null;
+        // التقدّم: نقاط النصف الثاني من أسابيع الفترة مقابل النصف الأول
+        if (g && d.range){
+          var mid = d.range.from + Math.floor((d.range.to - d.range.from + 1) / 2) - 1;
+          s._h1 = ctPoints(g, ov.days || 5, { from: d.range.from, to: mid });
+          s._h2 = ctPoints(g, ov.days || 5, { from: mid + 1, to: d.range.to });
+        } else { s._h1 = s._h2 = null; }
       });
+      if (d.range){ var md = d.range.from + Math.floor((d.range.to - d.range.from + 1) / 2) - 1; d._halves = [d.range.from, md, md + 1, d.range.to]; }
       rkCache[key] = d;
       return d;
     });
@@ -3872,6 +3894,13 @@
   }
   function rkVal(s, d, m){
     if (m === 'part') return s._pts || 0;
+    if (m === 'imp') return (s._h1 === null || s._h1 === undefined) ? 0 : s._h2 - s._h1;
+    if (m === 'impT'){
+      // نسبة المجموع في الفترة الثانية ناقص نسبته في الأولى
+      var d1 = rkCache['1|' + s._cls], s1 = d1 && d1.students.filter(function(x){ return String(x.id) === String(s.id); })[0];
+      if (!s1) return 0;
+      return rkTotal(s, d.weights) / (rkWsum(d) || 1) * 100 - rkTotal(s1, d1.weights) / (rkWsum(d1) || 1) * 100;
+    }
     if (m === 'plat'){
       var a = s.pin ? s.pin.plat : null, b = s.live ? s.live.plat : null;
       return Math.max(a === null || a === undefined ? 0 : a, b === null || b === undefined ? 0 : b);
@@ -3881,6 +3910,10 @@
   function rkWsum(d){ var W = d.weights; return W.participation + W.homework + W.behavior + W.platform + W.exam; }
   function rkFmt(m, v){
     if (m === 'part') return String(v);
+    if (m === 'imp' || m === 'impT'){
+      var q = Math.round(v * 10) / 10;
+      return (q > 0 ? '+' : '') + (q % 1 ? q.toFixed(1) : String(q)) + (m === 'impT' ? '%' : '');
+    }
     var r = m === 'plat' ? Math.floor(v * 10 + 1e-6) / 10 : Math.round(v * 10) / 10;
     return (r % 1 ? r.toFixed(1) : String(r)) + (m === 'plat' ? '%' : '');
   }
@@ -3888,8 +3921,12 @@
   // ----- بناء ورقة فصل -----
   function rkSheet(d, cid){
     var m = rkMain(), ex = rkExtras(), list = d.students.slice(), per = rkPer();
-    list.forEach(function(s){ s._v = { part: rkVal(s, d, 'part'), plat: rkVal(s, d, 'plat'), total: rkVal(s, d, 'total') }; });
+    list.forEach(function(s){ s._v = { part: rkVal(s, d, 'part'), plat: rkVal(s, d, 'plat'), total: rkVal(s, d, 'total') }; if (m === 'imp' || m === 'impT') s._v[m] = rkVal(s, d, m); });
+    var isImp = m === 'imp' || m === 'impT';
+    // «الأكثر تقدّمًا» يعرض من تقدّموا فقط، فلا يظهر أحد بتراجعه
+    if (isImp) list = list.filter(function(s){ return s._v[m] > 1e-9; });
     var mx = { part: Math.max.apply(null, list.map(function(s){ return s._v.part; }).concat([1])), plat: 100, total: rkWsum(d) || 1 };
+    if (isImp) mx[m] = Math.max.apply(null, list.map(function(s){ return s._v[m]; }).concat([isImp && m === 'impT' ? 1 : 1]));
     // التعادل في البند الأساسي يُفصل بالبندين الآخرين ثم بالاسم
     var ord = [m].concat(['total', 'plat', 'part'].filter(function(x){ return x !== m; }));
     list.sort(function(a, b){
@@ -3914,7 +3951,13 @@
     for (var i = 0; i < tn; i++) groups.push([]);
     if (ctEl('rkTierBy').value === 'count'){
       var c1 = Math.round(n * v1 / 100), c2 = tn > 2 ? Math.round(n * v2 / 100) : 0;
-      rest.forEach(function(s, j){ groups[j < c1 ? 0 : (tn > 2 && j < c1 + c2) ? 1 : tn - 1].push(s); });
+      // المتساويان لا يفصل بينهما حدّ فئة: يبقى المساوي مع من قبله
+      var pg = 0;
+      rest.forEach(function(s, j){
+        var g = j < c1 ? 0 : (tn > 2 && j < c1 + c2) ? 1 : tn - 1;
+        if (j && Math.abs(s._v[m] - rest[j - 1]._v[m]) < 1e-9) g = pg;
+        groups[g].push(s); pg = g;
+      });
     } else {
       rest.forEach(function(s){ var p = pct(s) * 100 + 1e-9; groups[p >= v1 ? 0 : (tn > 2 && p >= v2) ? 1 : tn - 1].push(s); });
     }
@@ -3926,28 +3969,30 @@
     var avg = n ? list.reduce(function(a, s){ return a + pct(s); }, 0) / n : null;
     // مقارنة الفصول: متوسط البند الأساسي في كل فصل
     var cls = null;
-    if (ctEl('rkCmp').checked && CT_CLASSES.every(function(q){ return rkCache[per + '|' + q]; })){
+    if (ctEl('rkCmp').checked && CT_CLASSES.every(function(q){ return rkCache[per + '|' + q] && (m !== 'impT' || rkCache['1|' + q]); })){
       var av = CT_CLASSES.map(function(q){
         var dd = rkCache[per + '|' + q], ss = dd.students, sum = 0;
         ss.forEach(function(s){ sum += rkVal(s, dd, m); });
         return ss.length ? sum / ss.length : 0;
       });
-      var top = m === 'part' ? Math.max.apply(null, av.concat([1])) : mx[m];
-      cls = CT_CLASSES.map(function(q, j){ return { label: ctClassName(q), pct: av[j] / top, txt: rkFmt(m === 'plat' ? 'plat' : 'total', av[j]), me: q === cid }; });
+      var top = (m === 'part' || isImp) ? Math.max.apply(null, av.concat([1])) : mx[m];
+      cls = CT_CLASSES.map(function(q, j){ return { label: ctClassName(q), pct: av[j] / top, txt: rkFmt(isImp ? m : (m === 'plat' ? 'plat' : 'total'), av[j]), me: q === cid }; });
     }
-    var desc = m === 'part' ? 'حسب نقاط المشاركة اليومية' : (m === 'plat' ? 'حسب نسبة التفاعل في المنصة' : 'حسب المجموع من ' + mx.total);
+    var hv = d._halves, desc = m === 'part' ? 'حسب نقاط المشاركة اليومية' : (m === 'plat' ? 'حسب نسبة التفاعل في المنصة'
+      : m === 'imp' ? 'زيادة نقاط المشاركة' + (hv ? ' في الأسابيع ' + hv[2] + '–' + hv[3] + ' عن ' + hv[0] + '–' + hv[1] : '')
+      : m === 'impT' ? 'زيادة نسبة المجموع في الفترة الثانية عن الأولى' : 'حسب المجموع من ' + mx.total);
     var title = ctEl('rkTitle').value.trim();
     var tl = ctEl('ctTeacher').value.trim();
     return {
       bw: ctEl('rkBw').checked, hideNums: ctEl('rkHide').checked,
-      title: (title || ('ترتيب ' + (m === 'total' ? 'درجات ' : '') + rkLabel(m))) + ' — ' + ctClassName(cid),
+      title: (title || (m === 'imp' ? 'الأكثر تقدّمًا في المشاركة' : m === 'impT' ? 'الأكثر تقدّمًا في المجموع' : ('ترتيب ' + (m === 'total' ? 'درجات ' : '') + rkLabel(m)))) + ' — ' + ctClassName(cid),
       sub: (per === '2' ? 'الفترة الثانية' : 'الفترة الأولى') + ' · ' + desc + ' · ' + ctHijri(),
       header: ctEl('ctHeader').value.split('\n').map(function(l){ return l.trim(); }).filter(Boolean).slice(0, 4),
       logo: ctLogo, teacher: tl ? (ctEl('ctTeacherLbl').value.trim() || 'معلم المادة') + ': ' + tl : '',
       cols: [m].concat(ex).map(function(x){ return x === 'total' ? rkLabel(x) + ' /' + mx.total : rkLabel(x); }),
       podium: pod.length ? { name: ctEl('rkT0').value.trim() || 'أبطال الصدارة', rows: ranked(pod) } : null,
       tiers: groups.map(function(g, j){ return { name: tnames[j], rows: ranked(g) }; }),
-      avg: avg, classes: cls, classTitle: 'متوسط ' + rkLabel(m) + ' في الفصول'
+      avg: avg, classes: cls, empty: isImp ? 'لا يوجد طلاب تقدّموا في هذه المقارنة بعد' : 'لا يوجد طلاب', classTitle: 'متوسط ' + rkLabel(m) + ' في الفصول'
     };
   }
   function rkDraw(){
@@ -3965,8 +4010,10 @@
     var my = ++rkReq, v = ctEl('rkClass').value;
     var need = (v === 'all' || ctEl('rkCmp').checked) ? CT_CLASSES : [v];
     rkMsg('جاري تحميل الطلاب...'); rkDraw();
-    Promise.all(need.map(rkFetch))
-      .then(function(){ if (my !== rkReq) return; rkMsg(''); return RankDraw.fonts().then(rkDraw); })
+    var jobs = need.map(function(c){ return rkFetch(c); });
+    if (rkMain() === 'impT' && rkPer() === '2') jobs = jobs.concat(need.map(function(c){ return rkFetch(c, '1'); }));
+    Promise.all(jobs)
+      .then(function(){ if (my !== rkReq) return; rkMsg(''); rkUi(); return RankDraw.fonts().then(rkDraw); })
       .catch(function(err){ if (my === rkReq) rkMsg('تعذّر التحميل: ' + err.message); });
   }
   function rkPagesList(){ var v = ctEl('rkClass').value; return v === 'all' ? CT_CLASSES.slice() : [v]; }
@@ -3977,7 +4024,7 @@
     return new Promise(function(res){ cv.toBlob(res, ctEl('rkBw').checked ? 'image/png' : 'image/jpeg', .92); });
   }
   function rkReady(){
-    var miss = rkPagesList().filter(function(c){ return !rkCache[rkPer() + '|' + c]; });
+    var miss = rkPagesList().filter(function(c){ return !rkCache[rkPer() + '|' + c] || (rkMain() === 'impT' && !rkCache['1|' + c]); });
     if (miss.length){ rkMsg('انتظر حتى يكتمل التحميل'); return false; }
     return true;
   }
@@ -3994,12 +4041,12 @@
   ctEl('rankBtn').addEventListener('click', rkOpen);
   ctEl('rkClose').addEventListener('click', function(){ rkModal.classList.remove('open'); });
   rkModal.addEventListener('click', function(e){ if (e.target === rkModal) rkModal.classList.remove('open'); });
-  ['rkClass', 'rkPeriod', 'rkCmp'].forEach(function(i){ ctEl(i).addEventListener('change', function(){ rkUi(); rkSavePrefs(); rkLoad(); }); });
+  ['rkClass', 'rkPeriod', 'rkCmp', 'rkMain'].forEach(function(i){ ctEl(i).addEventListener('change', function(){ rkUi(); rkSavePrefs(); rkLoad(); }); });
   ctEl('rkTierBy').addEventListener('change', function(){
     var dv = RK_TIER_DEF[this.value]; ctEl('rkV1').value = dv[0]; ctEl('rkV2').value = dv[1];
     rkUi(); rkSavePrefs(); rkDraw();
   });
-  RK_FIELDS.filter(function(i){ return i !== 'rkCmp' && i !== 'rkTierBy'; }).forEach(function(i){
+  RK_FIELDS.filter(function(i){ return i !== 'rkCmp' && i !== 'rkTierBy' && i !== 'rkMain'; }).forEach(function(i){
     ctEl(i).addEventListener('input', function(){ rkUi(); rkSavePrefs(); rkDraw(); });
     ctEl(i).addEventListener('change', function(){ rkUi(); rkSavePrefs(); rkDraw(); });
   });

@@ -936,6 +936,10 @@
             <div class="ct-lbl" style="display:flex;justify-content:space-between;gap:8px;"><span>التصميم — اضغط ☆ لإضافته إلى مفضّلتك فلا يظهر غيرها</span><a href="#" id="ctDesAll" style="color:var(--accent);font-weight:800;"></a></div>
             <div class="ct-designs" id="ctDesigns"></div>
           </div>
+          <div id="ctEmBox">
+            <div class="ct-lbl">الشعار في الزاوية (بدل الختم) — مثل الأيدي المرفوعة لشهادات المشاركة</div>
+            <div class="ct-designs" id="ctEmblems" style="grid-template-columns:repeat(auto-fill,minmax(74px,1fr));"></div>
+          </div>
           <div id="ctColorBox" class="set-grid" style="margin-top:10px;">
             <label id="ctThemeL">لون التصميم
               <select id="ctTheme">
@@ -2966,7 +2970,7 @@
   var ctModal = ctEl('certModal'), ctCv = ctEl('ctCanvas');
   var ctData = null, ctSel = {}, ctSent = {}, ctPrevId = null, ctOnlyId = null, ctShowRest = false, ctReq = 0;
   var ctLogo = null, ctBg = null, ctShareFiles = null, ctTexts = {};
-  var ctDesign = 'classic', ctFavs = [], ctDesShowAll = false;
+  var ctDesign = 'classic', ctFavs = [], ctDesShowAll = false, ctEmblem = '';
   var CT_KEY = 'tg_cert_v1';
   var CT_END = 'متمنّين له دوام التفوّق والنجاح.';
   var CT_TYPES = {
@@ -3010,14 +3014,14 @@
       if (el.type === 'checkbox') el.checked = !!v; else el.value = v;
     });
     ctTexts = p.texts || {};
-    ctDesign = p.design || 'classic'; ctFavs = Array.isArray(p.favs) ? p.favs : [];
+    ctDesign = p.design || 'classic'; ctFavs = Array.isArray(p.favs) ? p.favs : []; ctEmblem = p.emblem || '';
     var st = p.style || 'color';
     document.querySelectorAll('input[name=ctStyle]').forEach(function(r){ r.checked = r.value === st; });
     try { var lg = localStorage.getItem('tg_cert_logo'); if (lg) ctImg(lg, function(i){ ctLogo = i; ctDrawPreview(); }); } catch(e){}
     try { var bg = localStorage.getItem('tg_cert_bg'); if (bg) ctImg(bg, function(i){ ctBg = i; ctDrawPreview(); }); } catch(e){}
   }
   function ctSavePrefs(){
-    var p = { texts: ctTexts, style: ctStyle(), design: ctDesign, favs: ctFavs };
+    var p = { texts: ctTexts, style: ctStyle(), design: ctDesign, favs: ctFavs, emblem: ctEmblem };
     CT_FIELDS.forEach(function(id){ var el = ctEl(id); p[id] = el.type === 'checkbox' ? el.checked : el.value; });
     try { localStorage.setItem(CT_KEY, JSON.stringify(p)); } catch(e){}
   }
@@ -3150,6 +3154,7 @@
     document.querySelectorAll('#ctStyles label').forEach(function(l){ l.classList.toggle('on', l.querySelector('input').checked); });
     ctEl('ctColorBox').style.display = st === 'pre' ? 'none' : '';
     ctEl('ctDesignBox').style.display = st === 'pre' ? 'none' : '';
+    ctEl('ctEmBox').style.display = st === 'pre' ? 'none' : '';
     var dz = CertDraw.designs.filter(function(d){ return d.id === ctDesign; })[0];
     ctEl('ctThemeL').style.display = (st === 'color' && !(dz && dz.fixed)) ? '' : 'none';
     ctEl('ctPreBox').style.display = st === 'pre' ? '' : 'none';
@@ -3282,7 +3287,7 @@
         if (i >= 0) ctFavs.splice(i, 1); else ctFavs.push(d.id);
         ctSavePrefs(); ctDesignsUi();
       });
-      b.addEventListener('click', function(){ ctDesign = d.id; ctSavePrefs(); ctShareFiles = null; ctDesignsUi(); ctUi(); ctDrawPreview(); });
+      b.addEventListener('click', function(){ ctDesign = d.id; ctSavePrefs(); ctShareFiles = null; ctDesignsUi(); ctEmblemsUi(); ctUi(); ctDrawPreview(); });
       b.appendChild(cv); b.appendChild(nm); b.appendChild(f);
       box.appendChild(b);
       thumbs.push([cv, d.id]);
@@ -3294,6 +3299,33 @@
         var o = ctOpts(ctPrevStu());
         o.design = t[1]; o.style = ctStyle() === 'bw' ? 'bw' : 'color'; o.logo = null;
         CertDraw.draw(t[0], o, 'image');
+      });
+    });
+  }
+
+  // ----- اختيار الشعار في الزاوية: شعار التصميم أو أحد شعارات الأيدي المرفوعة -----
+  function ctEmblemsUi(){
+    var box = ctEl('ctEmblems'), tiles = [];
+    var list = [{ id: '', name: 'شعار التصميم' }].concat(CertDraw.emblems);
+    box.innerHTML = '';
+    list.forEach(function(e, i){
+      var b = document.createElement('div'), cv = document.createElement('canvas'), nm = document.createElement('div');
+      b.className = 'ct-des' + (e.id === ctEmblem ? ' on' : ''); b.title = e.name;
+      cv.width = cv.height = 140; cv.style.aspectRatio = '1';
+      nm.textContent = i ? String(i) : 'الأصلي';
+      b.addEventListener('click', function(){ ctEmblem = e.id; ctSavePrefs(); ctShareFiles = null; ctEmblemsUi(); ctDrawPreview(); });
+      b.appendChild(cv); b.appendChild(nm); box.appendChild(b);
+      tiles.push([cv, e.id]);
+    });
+    ctFonts().then(function(){
+      var big = document.createElement('canvas'); big.width = 1188; big.height = 840;
+      tiles.forEach(function(t){
+        var o = ctOpts(ctPrevStu());
+        o.emblem = t[1]; o.emPos = 'tl'; o.emDx = 0; o.emDy = 0; o.emScale = 100; o.qrPos = 'none'; o.logo = null;
+        o.style = ctStyle() === 'bw' ? 'bw' : 'color'; o.header = []; o.title = '';
+        CertDraw.draw(big, o, 'image');
+        var x = t[0].getContext('2d'); x.clearRect(0, 0, 140, 140);
+        x.drawImage(big, (48 - 22) * 4, (46 - 21) * 4, 44 * 4, 44 * 4, 0, 0, 140, 140);
       });
     });
   }
@@ -3321,7 +3353,7 @@
   function ctOpts(s){
     var v = ctVals(s);
     return {
-      style: ctStyle(), theme: ctEl('ctTheme').value, seal: ctEl('ctSeal').value.trim(), design: ctDesign,
+      style: ctStyle(), theme: ctEl('ctTheme').value, seal: ctEl('ctSeal').value.trim(), design: ctDesign, emblem: ctEmblem,
       title: ctEl('ctTitle').value.trim(), cert: v.cert, intro: ctFill(ctEl('ctIntro').value, v).trim(),
       student: v.name, body: ctFill(ctEl('ctBody').value, v).trim(),
       classLine: ctEl('ctClassLine').value === 'grade' ? 'الصف ' + v.grade
@@ -3487,7 +3519,7 @@
     var o = ctOpts(s);
     return { title: o.title, cert: o.cert, intro: o.intro, student: o.student, body: o.body, header: o.header,
              tLbl: o.tLbl, teacher: o.teacher, pLbl: o.pLbl, prin: o.prin, date: o.date,
-             theme: o.style === 'color' ? o.theme : 'navy', seal: o.seal, design: o.design,
+             theme: o.style === 'color' ? o.theme : 'navy', seal: o.seal, design: o.design, emblem: o.emblem,
              emPos: o.emPos, emDx: o.emDx, emDy: o.emDy, emScale: o.emScale,
              qrPos: o.qrPos, qrSize: o.qrSize, qrDx: o.qrDx, qrDy: o.qrDy, qrCap: o.qrCap, classLine: o.classLine };
   }
@@ -3605,6 +3637,7 @@
     ctModal.classList.add('open');
     ctUi();
     ctDesignsUi();
+    ctEmblemsUi();
     ctFonts().then(ctDrawPreview);
     ctLoad();
   }
@@ -3639,7 +3672,7 @@
   });
   ['ctName', 'ctBody'].forEach(function(i){ ctEl(i).addEventListener('input', ctTextInput); });
   document.querySelectorAll('input[name=ctStyle]').forEach(function(r){
-    r.addEventListener('change', function(){ ctUi(); ctSavePrefs(); ctShareFiles = null; ctDesignsUi(); ctDrawPreview(); });
+    r.addEventListener('change', function(){ ctUi(); ctSavePrefs(); ctShareFiles = null; ctDesignsUi(); ctEmblemsUi(); ctDrawPreview(); });
   });
   ['ctTitle', 'ctIntro', 'ctTheme', 'ctSeal', 'ctHeader', 'ctTeacherLbl', 'ctTeacher', 'ctPrinLbl', 'ctPrin', 'ctYear', 'ctDate', 'ctWaMsg',
    'ctDx', 'ctDy', 'ctScale', 'ctColor', 'ctPTitle', 'ctPHeader', 'ctPSign', 'ctGrid', 'ctBgInImg', 'ctPublish', 'ctNoFrame', 'ctNoBg', 'ctEmPos', 'ctEmDx', 'ctEmDy', 'ctEmScale', 'ctQrPos', 'ctQrSize', 'ctQrDx', 'ctQrDy', 'ctQrCap', 'ctGrade', 'ctClassLine'].forEach(function(i){
@@ -3656,6 +3689,7 @@
     });
   });
   ['ctTheme', 'ctNoFrame', 'ctNoBg', 'ctEmPos', 'ctEmDx', 'ctEmDy', 'ctEmScale', 'ctQrPos', 'ctQrSize', 'ctQrDx', 'ctQrDy', 'ctQrCap'].forEach(function(i){ ctEl(i).addEventListener('change', ctDesignsUi); });
+  ['ctTheme', 'ctSeal'].forEach(function(i){ ctEl(i).addEventListener('change', ctEmblemsUi); });
   ctEl('ctQrDl').addEventListener('click', function(){
     ctFonts().then(function(){ CertDraw.qrCanvas(1000).toBlob(function(b){ ctDownload(b, 'باركود منصة الرياضيات - الفصل الأول.png'); }, 'image/png'); });
   });

@@ -394,6 +394,9 @@
     text-align:start; font-weight:700; padding-inline-start:12px; box-shadow:2px 0 6px -3px rgba(0,0,0,.15);
     max-width:150px; overflow:hidden; text-overflow:ellipsis;
   }
+  .ov-scope{display:flex; flex-wrap:wrap; align-items:center; gap:6px; padding:8px 18px 0; font-size:12px; color:var(--muted);}
+  .ov-scope button{border:1px solid var(--line); background:var(--card); color:var(--ink); border-radius:14px; padding:4px 12px; font:inherit; font-weight:700; cursor:pointer;}
+  .ov-scope button.on{background:var(--accent, #5b6ef5); border-color:var(--accent, #5b6ef5); color:#fff;}
   #overviewTable thead th.ov-name-col{z-index:5;}
   #overviewTable thead tr.ov-period-row th.ov-period{font-size:12px; padding:6px 7px; color:#fff;}
   #overviewTable thead th.ov-period.p1{background:#5b6ef5;}
@@ -762,6 +765,12 @@
       <span><span class="dot" style="background:var(--neg1)"></span>ملاحظة -1</span>
       <span><span class="dot" style="background:var(--neg2)"></span>ملاحظة -2</span>
       <span>(اضغط أي خانة لتعديلها، أو اسم الطالب لعرض سجله)</span>
+    </div>
+    <div class="ov-scope" id="ovScope">
+      <span>المجاميع (＋ − ✓ ✗ 😊 ☹) تُحسب لـ:</span>
+      <button type="button" data-s="1">الفترة الأولى</button>
+      <button type="button" data-s="2">الفترة الثانية</button>
+      <button type="button" data-s="all">الفصل كله</button>
     </div>
     <div id="overviewStatus"></div>
     <div id="overviewTableWrap">
@@ -4562,7 +4571,18 @@
     overviewModal.classList.remove('open');
   }
 
+  // نطاق مجاميع الجدول الشامل: يبدأ بفترة الأسبوع المختار حالياً
+  var ovScope = '1';
+  document.getElementById('ovScope').addEventListener('click', function(e){
+    var b = e.target.closest('button[data-s]');
+    if (!b) return;
+    ovScope = b.getAttribute('data-s');
+    rerenderOverviewIfOpen();
+  });
+
   function openOverview(){
+    var pwOpen = (gradeSettings && gradeSettings.periodWeeks) || 8;
+    ovScope = ((parseInt(weekSel.value, 10) || 1) > pwOpen) ? '2' : '1';
     overviewModal.classList.add('open');
     var opt = classSel.options[classSel.selectedIndex];
     overviewTitle.textContent = 'جدول شامل — ' + (opt ? opt.textContent : classSel.value);
@@ -4948,6 +4968,10 @@
     });
     var pw = (gradeSettings && gradeSettings.periodWeeks) || 8;
     if (pw >= weeks) pw = weeks;
+    // نطاق أسابيع المجاميع بحسب اختيار الزر (الفترة الأولى/الثانية/الكل)
+    var sFrom = 1, sTo = weeks;
+    if (ovScope === '1') sTo = pw; else if (ovScope === '2') sFrom = pw + 1;
+    document.querySelectorAll('#ovScope button').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-s') === ovScope); });
     [[1, pw, 'الفترة الأولى (النصفي)', 'p1'], [pw + 1, weeks, 'الفترة الثانية (النهائي)', 'p2']].forEach(function(p){
       if (p[0] > p[1]) return;
       var pth = document.createElement('th');
@@ -4987,11 +5011,11 @@
       nameTd.setAttribute('data-si', String(si));
       nameTd.classList.add('nm-click');
       tr.appendChild(nameTd);
-      var sm = sumsOf(stu.grades);
+      var sm = sumsOf((stu.grades || []).slice((sFrom - 1) * days, sTo * days));
       var ptd = document.createElement('td'); ptd.textContent = sm.pos; ptd.style.color = 'var(--green)'; ptd.style.fontWeight = '800';
       var ntd = document.createElement('td'); ntd.textContent = sm.neg; ntd.style.color = 'var(--neg2)'; ntd.style.fontWeight = '800';
       tr.appendChild(ptd); tr.appendChild(ntd);
-      var hs2 = hwSum(allTokens(stu.homework)), bs2 = bhSum(allTokens(stu.behavior));
+      var hs2 = hwSum(allTokens((stu.homework || []).slice(sFrom - 1, sTo))), bs2 = bhSum(allTokens((stu.behavior || []).slice(sFrom - 1, sTo)));
       [[hs2.pos, 0], [hs2.neg, 1], [bs2.pos, 0], [bs2.neg, 1]].forEach(function(c){
         var x = document.createElement('td');
         x.textContent = c[0] || '';

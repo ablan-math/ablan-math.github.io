@@ -1,0 +1,3202 @@
+// =================================================================
+//  CONFIGURATION
+// =================================================================
+const G_STUDENT_ID_COL = 1;
+const G_STUDENT_NAME_COL = 2;
+const G_ITEM_ID_COL = 3;
+const G_GRADE_COL = 4;
+const G_ATTEMPTS_COL = 5;
+const G_TIMESTAMP_COL = 6;
+const G_METRIC_VALUE_COL = 7;
+const CONTROL_SHEET_NAME = "التحكم بالدروس";
+const DEBUG_SHEET_NAME = "سجل التصحيح"; 
+const WHATSAPP_URL = "https://wa.me/";
+
+// =================================================================
+//  ATTEMPTS CONFIGURATION (نظام محاولات اختبارات الدروس)
+// =================================================================
+const ATTEMPTS_SHEET_NAME = "المحاولات";   // تُنشأ تلقائياً عند أول استخدام
+const INITIAL_ATTEMPTS = 3;                // المحاولات الأولى
+const REFILL_HOURS = 24;                   // بعد استنفاد الأولى: محاولة إضافية كل كم ساعة (لا تتراكم)
+const OPEN_ATTEMPT_MAX_MINUTES = 180;      // أقصى مدة بين بدء الاختبار وتسليمه
+const RESUME_WINDOW_SECONDS = 120;         // إعادة إرسال نفس طلب البدء (انقطاع الرد) لا تستهلك محاولة أخرى
+// مرحلة الانتقال: false = تقبل الصفحات القديمة التي لا ترسل رمز محاولة.
+// بعد تحديث كل صفحات الدروس غيّرها إلى true ثم أعد النشر.
+const REQUIRE_ATTEMPT_TOKEN = false;
+// true  = تُسجَّل أعلى درجة في اختبار الدرس فقط (المعتمد).
+// false = السلوك القديم: تُسجَّل آخر درجة حتى لو كانت أقل.
+const KEEP_BEST_LESSON_GRADE = true;
+// نفس الفكرة للألعاب: تُسجَّل أفضل نتيجة (الدرجة أولاً ثم المقياس: الوقت الأقل أفضل، والنجوم الأكثر أفضل).
+const KEEP_BEST_GAME_GRADE = true;
+// عدد الأبطال في كل لوحة داخل اللعبة
+const GAME_BOARD_SIZE = 5;
+
+// =================================================================
+//  MAPPING
+// =================================================================
+const ITEM_ID_TO_NAME_MAP = {
+  "d_algebra_easy": "الجبر (سهل)", "d_algebra_medium": "الجبر (متوسط)", "d_algebra_hard": "الجبر (صعب)",
+  "d_arithmetic_easy": "الحساب (سهل)", "d_arithmetic_medium": "الحساب (متوسط)", "d_arithmetic_hard": "الحساب (صعب)",
+  "d_geometry_easy": "الهندسة (سهل)", "d_geometry_medium": "الهندسة (متوسط)", "d_geometry_hard": "الهندسة (صعب)",
+  "d_percentages_easy": "النسب (سهل)", "d_percentages_medium": "النسب (متوسط)", "d_percentages_hard": "النسب (صعب)",
+  "d_statistics_easy": "الإحصاء (سهل)", "d_statistics_medium": "الإحصاء (متوسط)", "d_statistics_hard": "الإحصاء (صعب)",
+  "d_measurement_easy": "القياس (سهل)", "d_measurement_medium": "القياس (متوسط)", "d_measurement_hard": "القياس (صعب)"
+};
+
+const LESSON_ID_TO_TITLE_MAP = {
+  "c1_l1": "الدرس ١-١: المعادلات",
+  "c1_l2": "الدرس ١-٢: حل المعادلات ذات الخطوة الواحدة",
+  "c1_l3": "الدرس ١-٣: حل المعادلات المتعددة الخطوات",
+  "c1_l4": "الدرس ١-٤: حل المعادلات التي تحتوي متغيراً في طرفيها",
+  "c1_l5": "الدرس ١-٥: حل المعادلات التي تتضمن القيمة المطلقة",
+  "c2_l1": "الدرس ٢-١: العلاقات",
+  "c2_l2": "الدرس ٢-٢: الدوال",
+  "c2_l3": "الدرس ٢-٣: تمثيل المعادلات الخطية بيانياً",
+  "c2_l4": "الدرس ٢-٤: حل المعادلات الخطية بيانياً",
+  "c2_l5": "الدرس ٢-٥: معدل التغير والميل",
+  "c2_l6": "الدرس ٢-٦: المتتابعات الحسابية كدوال خطية",
+  "c3_l1": "الدرس ٣-١: تمثيل المعادلات المكتوبة بصيغة الميل والمقطع بيانياً",
+  "c3_l2": "الدرس ٣-٢: كتابة المعادلات بصيغة الميل والمقطع",
+  "c3_l3": "الدرس ٣-٣: كتابة المعادلات بصيغة الميل ونقطة",
+  "c3_l4": "الدرس ٣-٤: المستقيمات المتوازية والمتعامدة",
+  "c4_l1": "الدرس ٤-١: حل المتباينات بالجمع أو بالطرح",
+  "c4_l2": "الدرس ٤-٢: حل المتباينات بالضرب أو بالقسمة",
+  "c4_l3": "الدرس ٤-٣: حل المتباينات المتعددة الخطوات",
+  "c4_l4": "الدرس ٤-٤: حل المتباينات المركبة",
+  "c4_l5": "الدرس ٤-٥: حل المتباينات التي تتضمن القيمة المطلقة",
+  "c5_l1": "الدرس ٥-١: حل نظام من معادلتين خطيتين بيانياً",
+  "c5_l2": "الدرس ٥-٢: حل نظام من معادلتين خطيتين بالتعويض",
+  "c5_l3": "الدرس ٥-٣: الحل بالحذف (الجمع أو الطرح)",
+  "c5_l4": "الدرس ٥-٤: الحل بالحذف (الضرب)",
+  "c5_l5": "الدرس ٥-٥: تطبيقات على النظام الخطي"
+};
+
+// =================================================================
+//  CUSTOM MENU
+// =================================================================
+function onOpen() {
+  SpreadsheetApp.getUi()
+      .createMenu('أدوات المعلم')
+      .addSubMenu(SpreadsheetApp.getUi().createMenu('تحديث التقرير الشامل')
+          .addItem('تحديث تقرير فصل 3-1 (العادي)', 'generateReportFor3_1')
+          .addItem('تحديث تقرير فصل 3-2 (العادي)', 'generateReportFor3_2')
+          .addItem('تحديث تقرير فصل 3-3 (العادي)', 'generateReportFor3_3')
+          .addItem('تحديث تقرير فصل 3-4 (العادي)', 'generateReportFor3_4')
+          .addSeparator()
+          .addItem('⚠️ تحديث 3-1 (مع إجبار إعادة التثبيت)', 'generateReportFor3_1_Force')
+          .addItem('⚠️ تحديث 3-2 (مع إجبار إعادة التثبيت)', 'generateReportFor3_2_Force')
+          .addItem('⚠️ تحديث 3-3 (مع إجبار إعادة التثبيت)', 'generateReportFor3_3_Force')
+          .addItem('⚠️ تحديث 3-4 (مع إجبار إعادة التثبيت)', 'generateReportFor3_4_Force')
+      )
+      .addItem('تطبيق تنسيق الأسابيع على صفحات الطلاب', 'setupStudentSheetsLayout')
+      .addSeparator()
+      .addItem('منح طالب محاولة إضافية في درس', 'grantExtraAttemptPrompt')
+      .addItem('إعادة ضبط محاولات طالب في درس', 'resetAttemptsPrompt')
+      .addSeparator()
+      .addItem('إعداد التنظيف التلقائي للسجل', 'setupLogCleanupTrigger')
+      .addItem('إعداد التحديث التلقائي للتقارير (يومياً)', 'setupDailyReportTrigger')
+      .addToUi();
+}
+
+// Regular Updates (Safe Mode)
+function generateReportFor3_1() { generateClassReport('3-1', false, false); }
+function generateReportFor3_2() { generateClassReport('3-2', false, false); }
+function generateReportFor3_3() { generateClassReport('3-3', false, false); }
+function generateReportFor3_4() { generateClassReport('3-4', false, false); }
+
+// Forced Updates (Overwrite Frozen Grades)
+function generateReportFor3_1_Force() { 
+    const ui = SpreadsheetApp.getUi();
+    const response = ui.alert('تحذير', 'هل أنت متأكد؟ سيقوم هذا الخيار بمسح وتحديث درجة الختام. (درجة الإتقان القديمة لن تتأثر).', ui.ButtonSet.YES_NO);
+    if (response == ui.Button.YES) {
+        generateClassReport('3-1', false, true); 
+    }
+}
+function generateReportFor3_2_Force() { 
+    const ui = SpreadsheetApp.getUi();
+    const response = ui.alert('تحذير', 'هل أنت متأكد؟ سيقوم هذا الخيار بمسح وتحديث درجة الختام. (درجة الإتقان القديمة لن تتأثر).', ui.ButtonSet.YES_NO);
+    if (response == ui.Button.YES) {
+        generateClassReport('3-2', false, true); 
+    }
+}
+function generateReportFor3_3_Force() { 
+    const ui = SpreadsheetApp.getUi();
+    const response = ui.alert('تحذير', 'هل أنت متأكد؟ سيقوم هذا الخيار بمسح وتحديث درجة الختام. (درجة الإتقان القديمة لن تتأثر).', ui.ButtonSet.YES_NO);
+    if (response == ui.Button.YES) {
+        generateClassReport('3-3', false, true); 
+    }
+}
+function generateReportFor3_4_Force() { 
+    const ui = SpreadsheetApp.getUi();
+    const response = ui.alert('تحذير', 'هل أنت متأكد؟ سيقوم هذا الخيار بمسح وتحديث درجة الختام. (درجة الإتقان القديمة لن تتأثر).', ui.ButtonSet.YES_NO);
+    if (response == ui.Button.YES) {
+        generateClassReport('3-4', false, true); 
+    }
+}
+
+// =================================================================
+// FUNCTION FOR AUTOMATION
+// =================================================================
+function autoUpdateAllReports() {
+    console.log("بدء التحديث التلقائي لجميع الفصول...");
+
+    // 1. Update Class 3-1 (Safe Mode - No Force)
+    // 3. Update Class 3-3
+    try {
+        generateClassReport('3-3', true, false);
+        console.log("تم تحديث 3-3 بنجاح.");
+    } catch (e) {
+        console.error("خطأ أثناء تحديث 3-3: " + e.message);
+        logToDebugSheet("AutoUpdate_Error_3-3", e.message);
+    }
+    
+    SpreadsheetApp.flush();
+    Utilities.sleep(8000);
+
+    // 4. Update Class 3-4
+    try {
+        generateClassReport('3-4', true, false);
+        console.log("تم تحديث 3-4 بنجاح.");
+    } catch (e) {
+        console.error("خطأ أثناء تحديث 3-4: " + e.message);
+        logToDebugSheet("AutoUpdate_Error_3-4", e.message);
+    }
+    
+    console.log("انتهت عملية التحديث التلقائي.");
+}
+
+function setupDailyReportTrigger() {
+    const triggers = ScriptApp.getProjectTriggers();
+    let triggerExists = false;
+    for (const trigger of triggers) {
+        if (trigger.getHandlerFunction() === 'autoUpdateAllReports') {
+            triggerExists = true; break;
+        }
+    }
+    if (!triggerExists) {
+        ScriptApp.newTrigger('autoUpdateAllReports').timeBased().everyDays(1).atHour(1).create();
+        SpreadsheetApp.getUi().alert('نجاح', 'تم إعداد التحديث التلقائي للتقارير. سيتم تحديث الدرجات وتثبيتها يومياً الساعة 1 صباحاً.', SpreadsheetApp.getUi().ButtonSet.OK);
+    } else {
+        SpreadsheetApp.getUi().alert('ملاحظة', 'التحديث التلقائي مفعل مسبقاً.', SpreadsheetApp.getUi().ButtonSet.OK);
+    }
+}
+
+function cleanDebugLog() {
+    try {
+        const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(DEBUG_SHEET_NAME);
+        if (!sheet) return;
+        const data = sheet.getDataRange().getValues();
+        const twelveHoursAgo = new Date().getTime() - (12 * 60 * 60 * 1000);
+        let rowsToDelete = 0;
+        for (let i = data.length - 1; i >= 1; i--) {
+            const timestamp = new Date(data[i][0]);
+            const logType = data[i][1] || '';
+            if (logType.includes('_Success') && timestamp.getTime() < twelveHoursAgo) {
+                sheet.deleteRow(i + 1); rowsToDelete++;
+            }
+        }
+    } catch (e) {
+        Logger.log(`حدث خطأ أثناء تنظيف سجل التصحيح: ${e.message}`);
+    }
+}
+
+// =================================================================
+// STUDENT SHEETS LAYOUT
+// =================================================================
+function setupStudentSheetsLayout() {
+  const ui = SpreadsheetApp.getUi();
+  const response = ui.alert('تأكيد', 'هل أنت متأكد أنك تريد تطبيق تنسيق الأسابيع على صفحات الطلاب؟ سيؤدي هذا إلى حذف أي بيانات موجودة في الأعمدة من F فصاعداً.', ui.ButtonSet.YES_NO);
+
+  if (response == ui.Button.NO) {
+    return;
+  }
+
+  const sheetNames = ['Students_3-1', 'Students_3-2', 'Students_3-3', 'Students_3-4'];
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  sheetNames.forEach(sheetName => {
+    const sheet = ss.getSheetByName(sheetName);
+    if (sheet) {
+      const lastCol = sheet.getMaxColumns();
+      if (lastCol > 5) {
+        sheet.getRange(1, 6, sheet.getMaxRows(), lastCol - 5).clear();
+        sheet.setColumnWidths(6, lastCol - 5, 100);
+      }
+      if(sheet.getRange("A2").getValue() === "StudentID" || sheet.getRange("A1").getValue() !== "StudentID") {
+         if (sheet.getRange("A2").getValue() === "StudentID") sheet.deleteRow(1);
+         sheet.insertRowBefore(1);
+      }
+      
+      const weekHeaders = [], dayHeaders = [];
+      const totalWeeks = 18, daysPerWeek = 5;
+
+      for (let i = 1; i <= totalWeeks; i++) {
+        weekHeaders.push(`الأسبوع ${i}`);
+        for (let j = 1; j < daysPerWeek; j++) weekHeaders.push('');
+        for (let k = 1; k <= daysPerWeek; k++) dayHeaders.push(k);
+      }
+
+      const startCol = 6;
+      sheet.getRange(1, startCol, 1, weekHeaders.length).setValues([weekHeaders]);
+      sheet.getRange(2, startCol, 1, dayHeaders.length).setValues([dayHeaders]);
+      sheet.getRange(1, startCol, 2, dayHeaders.length).setFontWeight('bold').setHorizontalAlignment('center');
+      
+      for (let i = 0; i < totalWeeks; i++) {
+        sheet.getRange(1, startCol + (i * daysPerWeek), 1, daysPerWeek).merge();
+      }
+      sheet.setColumnWidths(startCol, totalWeeks * daysPerWeek, 30);
+    }
+  });
+  ui.alert('اكتملت العملية', 'تم تطبيق تنسيق الأسابيع بنجاح وتجهيز الصفوف.', ui.ButtonSet.OK);
+}
+
+// =================================================================
+//  MAIN ROUTER
+// =================================================================
+function doGet(e) {
+  try {
+    const action = e.parameter.action;
+    if (!action) throw new Error("Action parameter is missing.");
+    const params = e.parameter;
+    if (action === 'lessonDecision') {
+      try { return createJsonResponse({ status: 'success', data: lessonDecisionJson_(params) }); }
+      catch (err) { return createJsonResponse({ status: 'error', message: err.message }); }
+    }
+    let result;
+    // إجراءات صفحة المعلم محمية بجلسة: بدون جلسة صالحة تُرفض، وبجلسة «وهمية» تُعاد بيانات مزيفة.
+    if (TEACHER_ACTIONS_[action]) {
+      if (teacherSessionMode_(params.token) === 'decoy') {
+        return createJsonResponse({ status: "success", data: decoyResponse_(action, params) });
+      }
+    }
+    switch (action) {
+      case "findStudentById":
+        if (!params.studentId) throw new Error("studentId is required.");
+        result = findStudentById(params.studentId);
+        break;
+      case "getStudentData":
+        if (!params.studentId || !params.classId) throw new Error("studentId and classId are required.");
+        result = getStudentData(params.studentId, params.classId);
+        break;
+      case "saveGrade":
+        result = saveGrade(params);
+        break;
+      case "pingOpen":
+        if (!params.studentId) throw new Error("studentId is required.");
+        result = actPingOpen_(params);
+        break;
+      case "getAttemptStatus":
+        if (!params.studentId || !params.classId || !params.itemId) throw new Error("studentId, classId and itemId are required.");
+        result = getAttemptStatus(params);
+        break;
+      case "startAttempt":
+        if (!params.studentId || !params.classId || !params.itemId) throw new Error("studentId, classId and itemId are required.");
+        result = startAttempt(params);
+        break;
+      case "getGameBoards":
+        if (!params.gameId || !params.classId) throw new Error("gameId and classId are required.");
+        result = getGameBoards(params);
+        break;
+      case "getLeaderboardData":
+        if (!params.studentId || !params.classId) throw new Error("studentId and classId are required.");
+        result = getLeaderboardData(params.studentId, params.classId);
+        break;
+      case "getLeaderboard":
+        if (!params.gameId || !params.classId) throw new Error("gameId and classId are required.");
+        result = getGameLeaderboard(params.gameId, params.classId, params.metricType);
+        break;
+      case "getParticipationGrid":
+        result = getParticipationGrid(params);
+        break;
+      case "getParticipationOverview":
+        result = getParticipationOverview(params);
+        break;
+      case "getDaySnapshot":
+        result = getDaySnapshot(params);
+        break;
+      case "getGradeSettings":
+        result = getGradeSettings(params);
+        break;
+      case "getPlatformStats":
+        result = getPlatformStats(params);
+        break;
+      case "getExamGrades":
+        result = getExamGrades(params);
+        break;
+      case "getWeekExtras":
+        result = getWeekExtras(params);
+        break;
+      case "getPeriodBoard":
+        result = getPeriodBoard(params);
+        break;
+      default:
+        throw new Error("Invalid action specified: " + action);
+    }
+    return createJsonResponse({ status: "success", data: result });
+  } catch (error) {
+    Logger.log(error.stack);
+    return createJsonResponse({ status: "error", message: error.message });
+  }
+}
+
+// =================================================================
+// DEBUGGING HELPER
+// =================================================================
+function logToDebugSheet(dataType, data) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let debugSheet = ss.getSheetByName(DEBUG_SHEET_NAME);
+    if (!debugSheet) {
+      debugSheet = ss.insertSheet(DEBUG_SHEET_NAME, 0);
+      debugSheet.appendRow(["Timestamp", "Type", "Data"]);
+      debugSheet.getRange("A1:C1").setFontWeight("bold");
+    }
+    const dataString = typeof data === 'object' ? JSON.stringify(data) : data;
+    debugSheet.appendRow([new Date(), dataType, dataString]);
+  } catch(e) { }
+}
+
+// =================================================================
+//  SAVE GRADE
+// =================================================================
+function saveGrade(gradeData) {
+  logToDebugSheet("saveGrade_Request", gradeData);
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000); 
+  try {
+    const itemId = gradeData.itemId || gradeData.lessonId;
+    const { studentId, grade, metricValue, classId } = gradeData;
+    
+    if (!studentId || !itemId || grade === undefined || !classId) {
+      throw new Error("بيانات ناقصة (studentId, itemId, grade, classId).");
+    }
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheetNames = getSheetNames(classId);
+    const gradesSheet = ss.getSheetByName(sheetNames.gradesSheetName);
+    if (!gradesSheet) throw new Error(`Grades sheet not found: ${sheetNames.gradesSheetName}`);
+
+    let studentName = "اسم غير معروف";
+    const studentsSheet = ss.getSheetByName(sheetNames.studentsSheetName);
+    if (studentsSheet) {
+      const lastRow = studentsSheet.getLastRow();
+      if (lastRow >= 3) { 
+        const studentsData = studentsSheet.getRange(3, 1, lastRow - 2, 2).getValues();
+        for (const row of studentsData) {
+          if (row && row[0] && row[0].toString().trim() === studentId.trim()) {
+            studentName = row[1];
+            break;
+          }
+        }
+      }
+    }
+
+    // --- NEW: التحكم بمحاولات اختبارات الدروس (يشمل الدروس فقط، لا الألعاب) ---
+    const isLesson = isLessonItem_(itemId);
+    let attemptCtx = null;
+    if (isLesson) {
+      attemptCtx = checkAttemptForSave_(ss, String(studentId).trim(), String(itemId).trim(), classId, gradeData.attemptId);
+      if (attemptCtx.duplicate) return "تم حفظ الدرجة بنجاح.";   // وصل هذا الطلب سابقاً
+    }
+
+    const gradesData = gradesSheet.getDataRange().getValues();
+    let rowToUpdate = -1;
+    for (let i = 1; i < gradesData.length; i++) {
+      if (gradesData[i][G_STUDENT_ID_COL - 1] && gradesData[i][G_ITEM_ID_COL - 1] &&
+          gradesData[i][G_STUDENT_ID_COL - 1].toString().trim() === studentId.trim() && 
+          gradesData[i][G_ITEM_ID_COL - 1].toString().trim() === itemId.trim()) {
+        rowToUpdate = i + 1; break;
+      }
+    }
+
+    const gradeToSave = "'" + parseFloat(grade).toString();
+    const pointsToSave = (metricValue !== undefined && metricValue !== null) ? parseInt(metricValue) : "";
+
+    if (rowToUpdate !== -1) {
+      const currentAttempts = parseInt(gradesSheet.getRange(rowToUpdate, G_ATTEMPTS_COL).getValue() || 0);
+      let keepOldGrade = false;
+      const isGame = isGameItem_(itemId);
+      if ((KEEP_BEST_LESSON_GRADE && isLesson) || (KEEP_BEST_GAME_GRADE && isGame)) {
+        const oldGrade = parseFloat(String(gradesSheet.getRange(rowToUpdate, G_GRADE_COL).getValue()).replace("'", ""));
+        const oldMetric = parseFloat(gradesSheet.getRange(rowToUpdate, G_METRIC_VALUE_COL).getValue());
+        if (!isNaN(oldGrade)) {
+          keepOldGrade = isLesson
+            ? parseFloat(grade) < oldGrade
+            : !isBetterGameResult_(parseFloat(grade), parseFloat(metricValue), oldGrade, oldMetric, gradeData.metricType);
+        }
+      }
+      gradesSheet.getRange(rowToUpdate, G_STUDENT_NAME_COL).setValue(studentName);
+      if (!keepOldGrade) {
+        gradesSheet.getRange(rowToUpdate, G_GRADE_COL).setValue(gradeToSave);
+        gradesSheet.getRange(rowToUpdate, G_METRIC_VALUE_COL).setValue(pointsToSave);
+      }
+      gradesSheet.getRange(rowToUpdate, G_ATTEMPTS_COL).setValue(currentAttempts + 1);
+      gradesSheet.getRange(rowToUpdate, G_TIMESTAMP_COL).setValue(now_());
+    } else {
+      const newRowData = [studentId, studentName, itemId, gradeToSave, 1, now_(), pointsToSave];
+      gradesSheet.appendRow(newRowData);
+    }
+    if (isLesson) commitAttemptAfterSave_(attemptCtx);
+    actRecordFromSave_(String(studentId).trim(), classId, itemId, grade, rowToUpdate === -1);   // الأوسمة: لا يرمي أبدًا
+    logToDebugSheet("saveGrade_Success", `Successfully saved ${itemId} for ${studentId}`);
+    return "تم حفظ الدرجة بنجاح.";
+  } catch (error) {
+    logToDebugSheet("saveGrade_Error", error.stack); throw error;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// =================================================================
+//  LESSON ATTEMPTS  (٣ محاولات أولى ثم محاولة إضافية كل ٢٤ ساعة، لا تتراكم)
+//  الحساب لكل طالب ولكل درس. تُحتسب المحاولة عند بدء الاختبار.
+// =================================================================
+const A_STUDENT_COL = 1, A_ITEM_COL = 2, A_CLASS_COL = 3, A_USED_COL = 4,
+      A_LAST_START_COL = 5, A_OPEN_ID_COL = 6, A_OPEN_AT_COL = 7,
+      A_OPEN_NONCE_COL = 8, A_LAST_CONSUMED_COL = 9;
+
+function now_() { return new Date(); }   // دالة مستقلة ليسهل اختبار الزمن
+
+function isLessonItem_(itemId) {
+  return /^c\d+_l\d+$/i.test(String(itemId || '').trim());
+}
+
+function toDate_(v) {
+  if (v instanceof Date) return isNaN(v.getTime()) ? null : v;
+  if (v === null || v === undefined || v === '') return null;
+  const d = new Date(v);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function getAttemptsSheet_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sh = ss.getSheetByName(ATTEMPTS_SHEET_NAME);
+  const headers = ["StudentID", "ItemID", "ClassID", "Used", "LastStart", "OpenAttemptId", "OpenAttemptStartedAt", "OpenNonce", "LastConsumedId"];
+  if (!sh) {
+    sh = ss.insertSheet(ATTEMPTS_SHEET_NAME);
+    sh.appendRow(headers);
+    sh.getRange("A1:I1").setFontWeight("bold");
+    sh.setFrozenRows(1);
+    sh.getRange("A:C").setNumberFormat("@");   // نص، حتى لا تفقد الهويات أصفارها
+  } else if (!String(sh.getRange(1, A_OPEN_NONCE_COL).getValue() || '').trim()) {
+    // ترقية الصفحة القديمة (٧ أعمدة) إلى ٩ أعمدة
+    sh.getRange(1, A_OPEN_NONCE_COL, 1, 2).setValues([[headers[7], headers[8]]]);
+    sh.getRange("A1:I1").setFontWeight("bold");
+  }
+  return sh;
+}
+
+function findAttemptRow_(sh, studentId, itemId) {
+  const last = sh.getLastRow();
+  if (last < 2) return null;
+  const data = sh.getRange(2, 1, last - 1, 9).getValues();
+  for (let i = 0; i < data.length; i++) {
+    if (String(data[i][A_STUDENT_COL - 1]).trim() === studentId && String(data[i][A_ITEM_COL - 1]).trim() === itemId) {
+      return { row: i + 2, values: data[i] };
+    }
+  }
+  return null;
+}
+
+// الطلاب الذين أدّوا الاختبار قبل هذا التحديث: نأخذ عدد محاولاتهم وآخر وقت من جدول الدرجات
+function readLegacyAttempts_(ss, classId, studentId, itemId) {
+  try {
+    const names = getSheetNames(classId);
+    const g = ss.getSheetByName(names.gradesSheetName);
+    if (!g) return { used: 0, lastStart: null };
+    const data = g.getDataRange().getValues();
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][G_STUDENT_ID_COL - 1] && String(data[i][G_STUDENT_ID_COL - 1]).trim() === studentId &&
+          String(data[i][G_ITEM_ID_COL - 1]).trim() === itemId) {
+        return { used: parseInt(data[i][G_ATTEMPTS_COL - 1]) || 0, lastStart: toDate_(data[i][G_TIMESTAMP_COL - 1]) };
+      }
+    }
+  } catch (e) { logToDebugSheet("readLegacyAttempts_Error", e.message); }
+  return { used: 0, lastStart: null };
+}
+
+function getAttemptState_(ss, sh, studentId, itemId, classId) {
+  const found = findAttemptRow_(sh, studentId, itemId);
+  if (found) {
+    const v = found.values;
+    return {
+      row: found.row,
+      used: parseInt(v[A_USED_COL - 1]) || 0,
+      lastStart: toDate_(v[A_LAST_START_COL - 1]),
+      openId: String(v[A_OPEN_ID_COL - 1] || '').trim(),
+      openAt: toDate_(v[A_OPEN_AT_COL - 1]),
+      openNonce: String(v[A_OPEN_NONCE_COL - 1] || '').trim(),
+      lastConsumedId: String(v[A_LAST_CONSUMED_COL - 1] || '').trim()
+    };
+  }
+  const legacy = readLegacyAttempts_(ss, classId, studentId, itemId);
+  return { row: null, used: legacy.used, lastStart: legacy.lastStart, openId: '', openAt: null, openNonce: '', lastConsumedId: '' };
+}
+
+function writeAttemptState_(sh, state, studentId, itemId, classId) {
+  const rowValues = [studentId, itemId, classId, state.used, state.lastStart || '', state.openId || '', state.openAt || '',
+                     state.openNonce || '', state.lastConsumedId || ''];
+  if (state.row) {
+    sh.getRange(state.row, 1, 1, 9).setValues([rowValues]);
+  } else {
+    sh.appendRow(rowValues);
+    state.row = sh.getLastRow();
+  }
+}
+
+// القاعدة: أول ٣ محاولات متاحة. بعد استنفادها تُفتح محاولة واحدة بعد ٢٤ ساعة من آخر بدء.
+// المحاولة الإضافية لا تتراكم: المتاح دائماً واحدة على الأكثر.
+function computeAttemptStatus_(used, lastStart, now) {
+  if (used < INITIAL_ATTEMPTS) {
+    return { canStart: true, remainingInitial: INITIAL_ATTEMPTS - used, bonus: false, nextAt: null };
+  }
+  const nextAtMs = (lastStart ? lastStart.getTime() : 0) + REFILL_HOURS * 3600 * 1000;
+  if (now.getTime() >= nextAtMs) {
+    return { canStart: true, remainingInitial: 0, bonus: true, nextAt: null };
+  }
+  return { canStart: false, remainingInitial: 0, bonus: false, nextAt: new Date(nextAtMs) };
+}
+
+function buildAttemptResponse_(used, lastStart, now, extra) {
+  const st = computeAttemptStatus_(used, lastStart, now);
+  return Object.assign({
+    used: used,
+    initialMax: INITIAL_ATTEMPTS,
+    remainingInitial: st.remainingInitial,
+    canStart: st.canStart,
+    bonusAvailable: st.bonus,
+    refillHours: REFILL_HOURS,
+    nextAt: st.nextAt ? st.nextAt.toISOString() : null,
+    serverNow: now.toISOString()
+  }, extra || {});
+}
+
+function assertStudentExists_(ss, classId, studentId) {
+  const names = getSheetNames(classId);
+  const studentsSheet = ss.getSheetByName(names.studentsSheetName);
+  if (!studentsSheet) throw new Error("لم يتم العثور على صفحة الطلاب.");
+  const data = studentsSheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] && String(data[i][0]).trim() === studentId) return;
+  }
+  throw new Error("رقم الهوية غير مسجل في هذا الفصل.");
+}
+
+function assertLessonItem_(itemId) {
+  if (!isLessonItem_(itemId)) throw new Error("هذا العنصر ليس درساً: " + itemId);
+}
+
+// حالة المحاولات لدرس (للقراءة فقط)
+function getAttemptStatus(params) {
+  const studentId = String(params.studentId).trim();
+  const itemId = String(params.itemId).trim();
+  assertLessonItem_(itemId);
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  assertStudentExists_(ss, params.classId, studentId);
+  const sh = getAttemptsSheet_();
+  const state = getAttemptState_(ss, sh, studentId, itemId, params.classId);
+  return buildAttemptResponse_(state.used, state.lastStart, now_());
+}
+
+// بدء اختبار: يستهلك محاولة ويعيد رمزاً يُرسَل مع الدرجة عند التسليم.
+// nonce: معرّف يولّده المتصفح لكل ضغطة على «ابدأ». إن انقطع الرد وأعادت الصفحة إرسال الطلب نفسه
+// خلال RESUME_WINDOW_SECONDS يعيد الخادم المحاولة ذاتها دون أن يستهلك محاولة أخرى.
+function startAttempt(params) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    const studentId = String(params.studentId).trim();
+    const itemId = String(params.itemId).trim();
+    const nonce = params.nonce ? String(params.nonce).trim() : '';
+    assertLessonItem_(itemId);
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    assertStudentExists_(ss, params.classId, studentId);
+    const sh = getAttemptsSheet_();
+    const state = getAttemptState_(ss, sh, studentId, itemId, params.classId);
+    const now = now_();
+
+    if (nonce && state.openId && state.openNonce === nonce && state.openAt &&
+        (now.getTime() - state.openAt.getTime()) <= RESUME_WINDOW_SECONDS * 1000) {
+      return buildAttemptResponse_(state.used, state.lastStart, now, { started: true, attemptId: state.openId, resumed: true });
+    }
+
+    const st = computeAttemptStatus_(state.used, state.lastStart, now);
+    if (!st.canStart) {
+      return buildAttemptResponse_(state.used, state.lastStart, now, { started: false });
+    }
+    state.used += 1;
+    state.lastStart = now;
+    state.openId = Utilities.getUuid();
+    state.openAt = now;
+    state.openNonce = nonce;
+    writeAttemptState_(sh, state, studentId, itemId, params.classId);
+    logToDebugSheet("startAttempt", `${studentId} ${itemId} used=${state.used}`);
+    return buildAttemptResponse_(state.used, state.lastStart, now, { started: true, attemptId: state.openId });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// قبل حفظ درجة درس: يتحقق من رمز المحاولة (دون استهلاكه). يُستدعى من saveGrade وهي تحمل القفل.
+// إن كان الرمز قد استُهلك سابقاً (رد ضاع في الطريق ثم أعادت الصفحة الإرسال) يُعلَّم duplicate
+// فتعيد saveGrade نجاحاً دون أن تكتب شيئاً مرة ثانية.
+function checkAttemptForSave_(ss, studentId, itemId, classId, attemptId) {
+  const sh = getAttemptsSheet_();
+  const state = getAttemptState_(ss, sh, studentId, itemId, classId);
+  const now = now_();
+  const ctx = { sh: sh, state: state, studentId: studentId, itemId: itemId, classId: classId,
+                attemptId: attemptId ? String(attemptId).trim() : '', duplicate: false, legacy: false };
+
+  if (ctx.attemptId) {
+    if (state.lastConsumedId && state.lastConsumedId === ctx.attemptId) { ctx.duplicate = true; return ctx; }
+    if (!state.openId || state.openId !== ctx.attemptId) {
+      throw new Error("رمز المحاولة غير صالح. ابدأ الاختبار من جديد.");
+    }
+    const ageMin = state.openAt ? (now.getTime() - state.openAt.getTime()) / 60000 : Infinity;
+    if (ageMin > OPEN_ATTEMPT_MAX_MINUTES) {
+      state.openId = ''; state.openAt = null; state.openNonce = '';
+      writeAttemptState_(sh, state, studentId, itemId, classId);
+      throw new Error("انتهت مهلة هذه المحاولة، ولم تُحفظ الدرجة. ابدأ الاختبار من جديد.");
+    }
+    return ctx;
+  }
+
+  // صفحة قديمة لا ترسل رمزاً
+  if (REQUIRE_ATTEMPT_TOKEN) {
+    throw new Error("لا توجد محاولة نشطة. ابدأ الاختبار أولاً ثم أعد المحاولة.");
+  }
+  ctx.legacy = true;
+  return ctx;
+}
+
+// بعد كتابة الدرجة بنجاح: يستهلك الرمز (أو يحسب المحاولة في الصفحات القديمة)
+function commitAttemptAfterSave_(ctx) {
+  const state = ctx.state;
+  if (ctx.legacy) {
+    state.used += 1;          // نحسبها كمحاولة حتى لا يفلت العدّ أثناء الانتقال
+    state.lastStart = now_();
+  } else {
+    state.lastConsumedId = ctx.attemptId;
+    state.openId = ''; state.openAt = null; state.openNonce = '';   // الرمز يُستخدم مرة واحدة فقط
+  }
+  writeAttemptState_(ctx.sh, state, ctx.studentId, ctx.itemId, ctx.classId);
+}
+
+// ---------------- أدوات المعلم ----------------
+function findStudentClassId_(ss, studentId) {
+  const sheets = ss.getSheets();
+  for (const sheet of sheets) {
+    const name = sheet.getName();
+    if (name.indexOf("Students_") === 0) {
+      const data = sheet.getDataRange().getValues();
+      for (let i = 1; i < data.length; i++) {
+        if (data[i][0] && String(data[i][0]).trim() === studentId) return name.split('_')[1];
+      }
+    }
+  }
+  return null;
+}
+
+// mode: 'grant' = يمنح محاولة واحدة إضافية فوراً | 'reset' = يعيد العدّ من الصفر
+function adjustAttempts_(studentId, itemId, mode) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    studentId = String(studentId).trim(); itemId = String(itemId).trim();
+    assertLessonItem_(itemId);
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const classId = findStudentClassId_(ss, studentId);
+    if (!classId) throw new Error("لم يتم العثور على الطالب: " + studentId);
+    const sh = getAttemptsSheet_();
+    const state = getAttemptState_(ss, sh, studentId, itemId, classId);
+    state.used = (mode === 'reset') ? 0 : Math.max(0, state.used - 1);
+    if (mode === 'reset') { state.lastStart = null; }
+    state.openId = ''; state.openAt = null; state.openNonce = '';
+    writeAttemptState_(sh, state, studentId, itemId, classId);
+    return buildAttemptResponse_(state.used, state.lastStart, now_());
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function adjustAttemptsPrompt_(mode) {
+  const ui = SpreadsheetApp.getUi();
+  const r1 = ui.prompt('رقم هوية الطالب', ui.ButtonSet.OK_CANCEL);
+  if (r1.getSelectedButton() !== ui.Button.OK) return;
+  const r2 = ui.prompt('رمز الدرس (مثال: c1_l1)', ui.ButtonSet.OK_CANCEL);
+  if (r2.getSelectedButton() !== ui.Button.OK) return;
+  try {
+    const res = adjustAttempts_(r1.getResponseText(), r2.getResponseText(), mode);
+    ui.alert('تم', `المحاولات المستخدمة الآن: ${res.used} من ${res.initialMax} (المتاح للبدء: ${res.canStart ? 'نعم' : 'لا'})`, ui.ButtonSet.OK);
+  } catch (e) {
+    ui.alert('تعذّر التنفيذ', e.message, ui.ButtonSet.OK);
+  }
+}
+function grantExtraAttemptPrompt() { adjustAttemptsPrompt_('grant'); }
+function resetAttemptsPrompt() { adjustAttemptsPrompt_('reset'); }
+
+// =================================================================
+//  GAMES: أفضل نتيجة + لوحتا الأبطال (فصلك / جميع الفصول)
+// =================================================================
+function isGameItem_(itemId) {
+  return /^g\d+[_-]/i.test(String(itemId || '').trim());
+}
+
+// هل النتيجة الجديدة أفضل من المحفوظة؟ الدرجة أولاً، وعند التساوي يُنظر للمقياس بحسب نوعه.
+// إن لم تُرسل الصفحة نوع المقياس (صفحة قديمة) تبقى النتيجة القديمة عند التساوي.
+function isBetterGameResult_(newGrade, newMetric, oldGrade, oldMetric, metricType) {
+  if (isNaN(newGrade)) return false;
+  if (newGrade > oldGrade + 1e-9) return true;
+  if (newGrade < oldGrade - 1e-9) return false;
+  if (!metricType || isNaN(newMetric)) return false;
+  const om = isNaN(oldMetric) ? 0 : oldMetric;
+  if (metricType === 'time') return newMetric > 0 && (om <= 0 || newMetric < om);
+  if (metricType === 'errors') return newMetric < om;
+  return newMetric > om;                     // stars وغيرها: الأكثر أفضل
+}
+
+// مقارنة للترتيب: سالب = a أفضل من b
+function compareGameScores_(a, b, metricType) {
+  if (Math.abs(b.grade - a.grade) > 1e-9) return b.grade - a.grade;
+  const lower = (metricType === 'time' || metricType === 'errors');
+  const val = (s) => (metricType === 'time' && !(s.metricValue > 0)) ? Infinity : s.metricValue;
+  if (lower) { const va = val(a), vb = val(b); return va === vb ? 0 : (va < vb ? -1 : 1); }
+  return b.metricValue - a.metricValue;
+}
+
+// لوحتان: أبطال فصل الطالب، وأبطال جميع الفصول. تُعرضان في بداية اللعبة ونهايتها.
+function getGameBoards(params) {
+  const gameId = String(params.gameId).trim();
+  const metricType = params.metricType || '';
+  const myId = params.studentId ? String(params.studentId).trim() : '';
+  const myClass = getClassIdentifier(params.classId) || String(params.classId).trim();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const all = [];
+
+  ss.getSheets().forEach(sheet => {
+    const name = sheet.getName();
+    if (name.indexOf('Students_') !== 0) return;
+    const classId = name.split('_')[1];
+    const gradesSheet = ss.getSheetByName('Grades_' + classId);
+    if (!gradesSheet) return;
+
+    const names = {}, classLabel = {};
+    const sData = sheet.getDataRange().getValues();
+    for (let i = 1; i < sData.length; i++) {
+      if (!sData[i][0]) continue;
+      const sid = String(sData[i][0]).trim();
+      names[sid] = sData[i][1];
+      classLabel[sid] = sData[i][2];
+    }
+    const gData = gradesSheet.getDataRange().getValues();
+    for (let i = 1; i < gData.length; i++) {
+      if (String(gData[i][G_ITEM_ID_COL - 1]).trim() !== gameId) continue;
+      const sid = String(gData[i][G_STUDENT_ID_COL - 1]).trim();
+      if (!names.hasOwnProperty(sid)) continue;
+      const grade = parseFloat(String(gData[i][G_GRADE_COL - 1]).replace("'", ""));
+      if (isNaN(grade)) continue;
+      all.push({ studentId: sid, name: names[sid], className: classLabel[sid], classId: classId,
+                 grade: grade, metricValue: parseFloat(gData[i][G_METRIC_VALUE_COL - 1]) || 0 });
+    }
+  });
+
+  const sorter = (a, b) => compareGameScores_(a, b, metricType);
+  const build = (list) => {
+    const sorted = list.slice().sort(sorter);
+    const top = sorted.slice(0, GAME_BOARD_SIZE).map(s => ({
+      name: s.name, className: s.className, grade: s.grade, metricValue: s.metricValue, isMe: s.studentId === myId
+    }));
+    let myRank = 0;
+    const me = sorted.find(s => s.studentId === myId);
+    if (me) myRank = 1 + sorted.filter(s => sorter(s, me) < 0).length;
+    return { top: top, myRank: myRank, total: sorted.length };
+  };
+
+  return {
+    classBoard: build(all.filter(s => s.classId === myClass)),
+    allBoard: build(all),
+    metricType: metricType
+  };
+}
+
+// =================================================================
+//  REPORT GENERATION
+// =================================================================
+function parseItemId(itemId) {
+    const lessonGameRegex = /^([cg])(\d+)[_-]l?(\d+)[_-]?(\d+)?/;
+    const match = itemId.match(lessonGameRegex);
+    if (match) {
+        return { type: match[1] === 'c' ? 1 : 2, chapter: parseInt(match[2]), lesson: parseInt(match[3]), sub: parseInt(match[4] || 0) };
+    }
+    if (itemId.startsWith('d_')) return { type: 3, chapter: 99, lesson: 0, sub: 0, original: itemId }; 
+    return { type: 4, chapter: 100, lesson: 0, sub: 0, original: itemId }; 
+}
+
+function getRequiredLessons() {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const controlSheet = ss.getSheetByName(CONTROL_SHEET_NAME);
+    if (!controlSheet) return [];
+    const data = controlSheet.getRange("A2:C" + controlSheet.getLastRow()).getValues();
+    const requiredLessons = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    for (const row of data) {
+        const lessonId = row[0];
+        const status = (row[1] || '').toString().trim();
+        const dateValue = row[2];
+        let shouldInclude = false;
+        if (status === 'مفتوح' || status === 'يدوي') { shouldInclude = true; } 
+        else if (dateValue instanceof Date && dateValue <= today) { shouldInclude = true; }
+        if (lessonId && shouldInclude) {
+            if (lessonId.toString().startsWith('star_')) continue; 
+            requiredLessons.push(lessonId.toString().trim());
+        }
+    }
+    return requiredLessons;
+}
+
+function generateClassReport(classId, silentMode, forceFreeze) {
+    silentMode = (typeof silentMode !== 'undefined') ? silentMode : false;
+    forceFreeze = (typeof forceFreeze !== 'undefined') ? forceFreeze : false;
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheetNames = getSheetNames(classId);
+    const studentsSheet = ss.getSheetByName(sheetNames.studentsSheetName);
+    const gradesSheet = ss.getSheetByName(sheetNames.gradesSheetName);
+    const reportSheetName = `التقرير الشامل ${classId}`;
+    let reportSheet = ss.getSheetByName(reportSheetName);
+
+    if (!studentsSheet || !gradesSheet) {
+        if (!silentMode) SpreadsheetApp.getUi().alert(`الرجاء التأكد من وجود ورقتي '${sheetNames.studentsSheetName}' و '${sheetNames.gradesSheetName}'.`);
+        return;
+    }
+
+    const sLastCol = studentsSheet.getLastColumn();
+    const sHeaders = studentsSheet.getRange(2, 1, 1, sLastCol).getValues()[0];
+    let masteryFrozenColIdx = sHeaders.indexOf("MasteryFrozen") + 1; 
+    let completionFrozenColIdx = sHeaders.indexOf("CompletionFrozen") + 1;
+    let finalFrozenColIdx = sHeaders.indexOf("FinalFrozen") + 1; 
+
+    let currentLastCol = sLastCol;
+    if (masteryFrozenColIdx === 0) {
+        currentLastCol++; masteryFrozenColIdx = currentLastCol; studentsSheet.getRange(2, masteryFrozenColIdx).setValue("MasteryFrozen");
+    }
+    if (completionFrozenColIdx === 0) {
+        currentLastCol++; completionFrozenColIdx = currentLastCol; studentsSheet.getRange(2, completionFrozenColIdx).setValue("CompletionFrozen");
+    }
+    if (finalFrozenColIdx === 0) {
+        currentLastCol++; finalFrozenColIdx = currentLastCol; studentsSheet.getRange(2, finalFrozenColIdx).setValue("FinalFrozen");
+    }
+
+    if (reportSheet) { ss.deleteSheet(reportSheet); }
+    reportSheet = ss.insertSheet(reportSheetName, 0);
+
+    const studentDataStartRow = 3;
+    const studentDataRange = studentsSheet.getRange(studentDataStartRow, 1, studentsSheet.getLastRow() - (studentDataStartRow - 1), studentsSheet.getLastColumn());
+    const studentsAllData = studentDataRange.getValues();
+    const gradesData = gradesSheet.getDataRange().getValues();
+    const requiredLessons = getRequiredLessons();
+    const controlRules = getLessonControlRules();
+    const sheetTimeZone = ss.getSpreadsheetTimeZone();
+    const todayStr = Utilities.formatDate(new Date(), sheetTimeZone, "yyyy-MM-dd");
+
+    const isDateOpen = (key) => {
+        if (!controlRules[key]) return false; 
+        if (controlRules[key].method === 'مفتوح' || controlRules[key].method === 'يدوي') return true;
+        const dateStr = controlRules[key].value; 
+        if (!dateStr) return false;
+        return todayStr >= dateStr;
+    };
+    
+    const studentsMap = new Map();
+    const allActiveWeeks = new Set();
+    const frozenUpdates = [];
+
+    studentsAllData.forEach((row, rIndex) => {
+        const studentId = row[0] ? row[0].toString().trim() : "";
+        if (studentId && studentId.toLowerCase() !== 'studentid') {
+            const weeklySummaries = {};
+            let totalWeeksScore = 0; 
+            // كل أسبوع 7 أعمدة (5 أيام مشاركة + سلوك + واجبات)؛ نجمع أعمدة الأيام فقط (انظر weekStartCol_).
+            for (let week = 0; week < PARTICIPATION_NUM_WEEKS; week++) {
+                let weekSum = 0; let hasValue = false;
+                const startColIndex = weekStartCol_(week + 1) - 1;
+                if (startColIndex >= row.length) break;
+                for (let day = 0; day < PARTICIPATION_DAYS_PER_WEEK; day++) {
+                    const colIndex = startColIndex + day;
+                    const value = row[colIndex];
+                    if (typeof value === 'number') {
+                        if (Math.abs(value) > 200) continue; 
+                        weekSum += value; hasValue = true;
+                    }
+                }
+                if (weekSum !== 0 || hasValue) {
+                    const weekKey = `الأسبوع ${week + 1}`;
+                    weeklySummaries[weekKey] = weekSum;
+                    allActiveWeeks.add(weekKey);
+                    totalWeeksScore += weekSum;
+                }
+            }
+            const existingMasteryFrozen = (masteryFrozenColIdx - 1 < row.length) ? row[masteryFrozenColIdx - 1] : "";
+            const existingCompletionFrozen = (completionFrozenColIdx - 1 < row.length) ? row[completionFrozenColIdx - 1] : "";
+            const existingFinalFrozen = (finalFrozenColIdx - 1 < row.length) ? row[finalFrozenColIdx - 1] : ""; 
+
+            studentsMap.set(studentId, {
+                name: row[1], phone: row[3] || '', data: {}, weeklySummaries: weeklySummaries, totalWeeksScore: totalWeeksScore, 
+                rowIndex: rIndex + studentDataStartRow, existingMasteryFrozen: existingMasteryFrozen, existingCompletionFrozen: existingCompletionFrozen, existingFinalFrozen: existingFinalFrozen
+            });
+        }
+    });
+
+    for (let i = 1; i < gradesData.length; i++) {
+        if (gradesData[i] && gradesData[i][G_STUDENT_ID_COL - 1]) {
+            const studentId = gradesData[i][G_STUDENT_ID_COL - 1].toString().trim();
+            const itemId = gradesData[i][G_ITEM_ID_COL - 1].toString().trim();
+            const grade = parseFloat(String(gradesData[i][G_GRADE_COL - 1]).replace("'", "") || 0);
+            if (studentsMap.has(studentId)) { studentsMap.get(studentId).data[itemId] = grade; }
+        }
+    }
+
+    const lessonAndGameGroups = new Map();
+    const allRequiredItemIds = [];
+    const diagnosticIds = new Set();
+
+    requiredLessons.forEach(lessonId => {
+        const parsed = parseItemId(lessonId);
+        const groupKey = `c${parsed.chapter}_l${parsed.lesson}`;
+        if (!lessonAndGameGroups.has(groupKey)) lessonAndGameGroups.set(groupKey, []);
+        const groupItems = lessonAndGameGroups.get(groupKey);
+        if (!groupItems.includes(lessonId)) groupItems.push(lessonId);
+        const game1Id = `g${parsed.chapter}_${parsed.lesson}_1`, game2Id = `g${parsed.chapter}_${parsed.lesson}_2`;
+        if (!groupItems.includes(game1Id)) groupItems.push(game1Id);
+        if (!groupItems.includes(game2Id)) groupItems.push(game2Id);
+    });
+
+    for (const student of studentsMap.values()) {
+        Object.keys(student.data).forEach(itemId => {
+            if (itemId.startsWith('d_') && itemId !== 'd_best_weighted') diagnosticIds.add(itemId);
+        });
+    }
+    const sortedDiagnosticIds = [...diagnosticIds].sort();
+    const summaryHeaders = ["مجموع الدروس", "نسبة الدروس %", "مجموع الألعاب", "نسبة الألعاب %", "الدرجة التشخيصية الموزونة", "نسبة التفاعل %", "نجمة التشخيص", "نجمة الإتقان", "درجة الإتقان (المثبتة)", "نجمة الختام", "درجة الختام (المثبتة)"];
+    const communicationHeaders = ["تواصل واتساب"]; 
+    const sortedActiveWeeks = [...allActiveWeeks].sort((a, b) => parseInt(a.split(' ')[1]) - parseInt(b.split(' ')[1]));
+    const topHeaders = ["", ""], secondHeaders = ["رقم الطالب", "اسم الطالب"];
+
+    const sortedGroupKeys = [...lessonAndGameGroups.keys()].sort((a,b) => {
+        const parsedA = parseItemId(a), parsedB = parseItemId(b);
+        if (parsedA.chapter !== parsedB.chapter) return parsedA.chapter - parsedB.chapter;
+        return parsedA.lesson - parsedB.lesson;
+    });
+
+    sortedGroupKeys.forEach(groupKey => {
+        const items = lessonAndGameGroups.get(groupKey).sort((a, b) => (parseItemId(a).type - parseItemId(b).type) || (parseItemId(a).sub - parseItemId(b).sub));
+        topHeaders.push(LESSON_ID_TO_TITLE_MAP[groupKey] || groupKey);
+        for (let i = 1; i < items.length; i++) topHeaders.push("");
+        items.forEach(item => { secondHeaders.push(item); allRequiredItemIds.push(item); });
+    });
+
+    sortedDiagnosticIds.forEach(header => {
+        secondHeaders.push(ITEM_ID_TO_NAME_MAP[header] || header);
+        topHeaders.push("الاختبارات التشخيصية");
+        allRequiredItemIds.push(header);
+    });
+    
+    let finalHeadersCount = summaryHeaders.length + communicationHeaders.length + 1 + sortedActiveWeeks.length; 
+    topHeaders.push("الملخص والمتابعة");
+    for(let i=1; i < finalHeadersCount; i++) topHeaders.push("");
+    
+    secondHeaders.push(...summaryHeaders, ...communicationHeaders, "مجموع درجات الأسابيع", ...sortedActiveWeeks);
+    const report = [topHeaders, secondHeaders];
+
+    for (const [studentId, studentInfo] of studentsMap.entries()) {
+        const studentRow = [studentId, studentInfo.name];
+        let lessonSum = 0, gameSum = 0, lessonCount = 0, gameCount = 0;
+
+        allRequiredItemIds.forEach(id => { 
+            const grade = studentInfo.data[id]; 
+            studentRow.push(grade !== undefined ? grade : ''); 
+             if (id.startsWith('c')) { lessonSum += (grade || 0); lessonCount++; }
+             else if (id.startsWith('g')) { gameSum += (grade || 0); gameCount++; }
+        });
+        
+        const lessonPercentage = lessonCount > 0 ? (lessonSum / (lessonCount * 10)) : 0;
+        const gamePercentage = gameCount > 0 ? (gameSum / (gameCount * 5)) : 0;
+        const bestWeightedDiagnostic = studentInfo.data['d_best_weighted'] || 0;
+        const interactionPercentage = (lessonPercentage + gamePercentage) / 2;
+
+        let star1 = "";
+        if (bestWeightedDiagnostic >= 95) { star1 = "🥇 ذهبية"; }
+        else if (bestWeightedDiagnostic >= 75) { star1 = "🥈 فضية"; }
+        else if (bestWeightedDiagnostic >= 50) { star1 = "🥉 برونزية"; }
+
+        let masteryScoreUsed = interactionPercentage; 
+        const dateOpenMastery = isDateOpen('star_mastery');
+
+        if (dateOpenMastery) {
+            if (studentInfo.existingMasteryFrozen !== "" && studentInfo.existingMasteryFrozen !== undefined) {
+                masteryScoreUsed = parseFloat(studentInfo.existingMasteryFrozen);
+            } else {
+                frozenUpdates.push({row: studentInfo.rowIndex, col: masteryFrozenColIdx, val: interactionPercentage});
+                masteryScoreUsed = interactionPercentage;
+            }
+        } else {
+            masteryScoreUsed = null; 
+        }
+
+        let star2 = ""; let masteryDisplay = "";
+        if (masteryScoreUsed !== null) {
+             masteryDisplay = (masteryScoreUsed * 100).toFixed(2) + '%';
+             if (masteryScoreUsed >= 0.85) { star2 = "🥇 ذهبية"; }
+             else if (masteryScoreUsed >= 0.55) { star2 = "🥈 فضية"; }
+        }
+
+        let finalScoreUsed = interactionPercentage; 
+        const dateOpenFinal = isDateOpen('star_final') || isDateOpen('star_completion'); 
+
+        if (dateOpenFinal) {
+            if (!forceFreeze && studentInfo.existingFinalFrozen !== "" && studentInfo.existingFinalFrozen !== undefined) {
+                finalScoreUsed = parseFloat(studentInfo.existingFinalFrozen);
+            } else {
+                frozenUpdates.push({row: studentInfo.rowIndex, col: finalFrozenColIdx, val: interactionPercentage});
+                finalScoreUsed = interactionPercentage;
+            }
+        } else {
+            finalScoreUsed = null; 
+            if (forceFreeze && studentInfo.existingFinalFrozen !== "") {
+                 frozenUpdates.push({row: studentInfo.rowIndex, col: finalFrozenColIdx, val: ""});
+            }
+        }
+
+        let starFinal = ""; let finalDisplay = "";
+        if (finalScoreUsed !== null) {
+             finalDisplay = (finalScoreUsed * 100).toFixed(2) + '%';
+             if (finalScoreUsed >= 0.95) { starFinal = "🥇 ذهبية"; }
+             else if (finalScoreUsed >= 0.85) { starFinal = "🥈 فضية"; }
+        }
+
+        studentRow.push(
+          lessonSum.toFixed(2), (lessonPercentage * 100).toFixed(2) + '%', 
+          gameSum.toFixed(2), (gamePercentage * 100).toFixed(2) + '%', 
+          bestWeightedDiagnostic.toFixed(2) + '%',
+          (interactionPercentage * 100).toFixed(2) + '%', 
+          star1, star2, masteryDisplay, starFinal, finalDisplay
+        );
+        
+        const phone = studentInfo.phone ? studentInfo.phone.toString().replace(/\D/g, '') : "";
+        const whatsappLink = phone ? `=HYPERLINK("${WHATSAPP_URL}${phone}"; "تواصل")` : "لا يوجد رقم";
+        
+        studentRow.push(whatsappLink);
+        studentRow.push(studentInfo.totalWeeksScore);
+        sortedActiveWeeks.forEach(weekKey => { studentRow.push(studentInfo.weeklySummaries[weekKey] || 0); });
+        report.push(studentRow);
+    }
+
+    if (frozenUpdates.length > 0) {
+        frozenUpdates.forEach(update => { studentsSheet.getRange(update.row, update.col).setValue(update.val); });
+    }
+    
+    if (report.length > 2) { 
+        reportSheet.getRange(1, 1, report.length, secondHeaders.length).setValues(report);
+        reportSheet.getRange(1, 1, 2, secondHeaders.length).setFontWeight("bold").setHorizontalAlignment("center").setVerticalAlignment("middle");
+        reportSheet.getRange(3, 1, report.length - 2, secondHeaders.length).setVerticalAlignment("middle");
+        reportSheet.getRange(1, 1, 1, secondHeaders.length).setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
+        reportSheet.setFrozenRows(2); reportSheet.setFrozenColumns(2);
+        
+        let currentCol = 3;
+        sortedGroupKeys.forEach(groupKey => {
+            const groupSize = lessonAndGameGroups.get(groupKey).length;
+            if (groupSize > 0) { reportSheet.getRange(1, currentCol, 1, groupSize).merge(); currentCol += groupSize; }
+        });
+        if (sortedDiagnosticIds.length > 0) {
+            reportSheet.getRange(1, currentCol, 1, sortedDiagnosticIds.length).merge(); currentCol += sortedDiagnosticIds.length;
+        }
+        if(finalHeadersCount > 0) { reportSheet.getRange(1, currentCol, 1, finalHeadersCount).merge(); }
+
+        const groupColors = ["#e0f2f1", "#fff3e0"];
+        currentCol = 3; let colorIndex = 0;
+        sortedGroupKeys.forEach(groupKey => {
+            const groupSize = lessonAndGameGroups.get(groupKey).length;
+            if (groupSize > 0) {
+                reportSheet.getRange(2, currentCol, report.length - 1, groupSize).setBackground(groupColors[colorIndex % 2]);
+                currentCol += groupSize; colorIndex++;
+            }
+        });
+
+        if (sortedDiagnosticIds.length > 0) {
+            reportSheet.getRange(2, currentCol, report.length - 1, sortedDiagnosticIds.length).setBackground("#e8f5e9");
+            currentCol += sortedDiagnosticIds.length;
+        }
+        reportSheet.getRange(2, currentCol, report.length - 1, summaryHeaders.length).setBackground("#f3e5f5");
+        currentCol += summaryHeaders.length;
+        reportSheet.getRange(2, currentCol, report.length - 1, communicationHeaders.length).setBackground("#e3f2fd");
+        currentCol += communicationHeaders.length;
+        reportSheet.getRange(2, currentCol, report.length - 1, 1).setBackground("#ffecb3"); 
+        currentCol += 1;
+        if (sortedActiveWeeks.length > 0) { reportSheet.getRange(2, currentCol, report.length - 1, sortedActiveWeeks.length).setBackground("#fce8b2"); }
+        reportSheet.setColumnWidth(1, 120); reportSheet.setColumnWidth(2, 180); 
+
+        const itemColumnCount = allRequiredItemIds.length;
+        if (itemColumnCount > 0) { reportSheet.setColumnWidths(3, itemColumnCount, 85); }
+        const summaryStartColumn = 3 + itemColumnCount;
+        reportSheet.setColumnWidths(summaryStartColumn, summaryHeaders.length, 120);
+        const commStartColumn = summaryStartColumn + summaryHeaders.length;
+        reportSheet.setColumnWidth(commStartColumn, 70); 
+        reportSheet.setColumnWidth(commStartColumn + 1, 100);
+        
+        const weeklySummaryStartCol = commStartColumn + 1 + 1; 
+        if (sortedActiveWeeks.length > 0) { reportSheet.setColumnWidths(weeklySummaryStartCol, sortedActiveWeeks.length, 100); }
+    }
+    if (!silentMode) SpreadsheetApp.getUi().alert(`تم تحديث التقرير الشامل المطور لفصل ${classId} بنجاح!`);
+}
+
+// =================================================================
+//  UNCHANGED HELPER FUNCTIONS
+// =================================================================
+function findStudentById(studentId) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const allSheets = ss.getSheets();
+  for (const sheet of allSheets) {
+    if (sheet.getName().startsWith("Students_")) {
+      const studentsData = sheet.getDataRange().getValues();
+      for (let i = 1; i < studentsData.length; i++) {
+        if (studentsData[i][0].toString().trim() === studentId.toString().trim()) {
+          return getStudentData(studentId, studentsData[i][2]);
+        }
+      }
+    }
+  }
+  return null;
+}
+
+function getStudentData(studentId, className) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheetNames = getSheetNames(className);
+  const studentsSheet = ss.getSheetByName(sheetNames.studentsSheetName);
+  if (!studentsSheet) return null;
+
+  const studentsData = studentsSheet.getDataRange().getValues();
+  let studentInfo = null;
+  const sLastCol = studentsSheet.getLastColumn();
+  const sHeaders = studentsSheet.getRange(2, 1, 1, sLastCol).getValues()[0];
+  const masteryFrozenColIdx = sHeaders.indexOf("MasteryFrozen");
+  const completionFrozenColIdx = sHeaders.indexOf("CompletionFrozen");
+
+  for (let i = 1; i < studentsData.length; i++) {
+    if (studentsData[i][0].toString().trim() === studentId.toString().trim()) {
+      studentInfo = { 
+        id: studentsData[i][0], name: studentsData[i][1], class: studentsData[i][2], phone: studentsData[i][3],
+        masteryFrozen: (masteryFrozenColIdx > -1) ? studentsData[i][masteryFrozenColIdx] : null,
+        completionFrozen: (completionFrozenColIdx > -1) ? studentsData[i][completionFrozenColIdx] : null
+      };
+      break;
+    }
+  }
+  if (!studentInfo) return null;
+
+  const gradesSheet = ss.getSheetByName(sheetNames.gradesSheetName);
+  const lessonsData = {}, gamesData = {}, diagnosticsData = {};
+  if (gradesSheet) {
+    const gradesData = gradesSheet.getDataRange().getValues();
+    for (let i = 1; i < gradesData.length; i++) {
+      if (gradesData[i][G_STUDENT_ID_COL - 1].toString().trim() === studentId.toString().trim()) {
+        const itemId = gradesData[i][G_ITEM_ID_COL - 1].toString().trim();
+        const itemData = {
+          grade: parseFloat(String(gradesData[i][G_GRADE_COL - 1]).replace("'", "")),
+          attempts: parseInt(gradesData[i][G_ATTEMPTS_COL - 1]) || 0,
+          metricValue: parseInt(gradesData[i][G_METRIC_VALUE_COL - 1]) || 0,
+          timestamp: gradesData[i][G_TIMESTAMP_COL - 1]
+        };
+        if (itemId.startsWith('g')) gamesData[itemId] = itemData;
+        else if (itemId.startsWith('c')) lessonsData[itemId] = itemData;
+        else if (itemId.startsWith('d_')) diagnosticsData[itemId] = itemData;
+      }
+    }
+  }
+  studentInfo.lessons = lessonsData; studentInfo.games = gamesData; studentInfo.diagnostics = diagnosticsData;
+  studentInfo.lessonRules = getLessonControlRules();
+  try {
+    studentInfo.pins = getStudentPins_(sheetNames.studentsSheetName.replace('Students_', ''), String(studentInfo.id).trim());
+  } catch (e) { studentInfo.pins = null; }
+  try { studentInfo.certificates = certsForStudent_(String(studentInfo.id).trim()); } catch (e) { studentInfo.certificates = []; }
+  try { studentInfo.activity = activityForStudent_(String(studentInfo.id).trim()); } catch (e) { studentInfo.activity = null; }
+  return studentInfo;
+}
+
+function getGameLeaderboard(gameId, classId, metricType) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheetNames = getSheetNames(classId);
+  const gradesSheet = ss.getSheetByName(sheetNames.gradesSheetName);
+  if (!gradesSheet) throw new Error(`Grades sheet '${sheetNames.gradesSheetName}' not found.`);
+
+  const studentsSheet = ss.getSheetByName(sheetNames.studentsSheetName);
+  if (!studentsSheet) throw new Error(`Students sheet '${sheetNames.studentsSheetName}' not found.`);
+
+  const studentNames = {};
+  const studentsData = studentsSheet.getDataRange().getValues();
+  for (let i = 1; i < studentsData.length; i++) {
+    studentNames[studentsData[i][0].toString().trim()] = studentsData[i][1];
+  }
+
+  const gradesData = gradesSheet.getDataRange().getValues();
+  const gameScores = [];
+  for (let i = 1; i < gradesData.length; i++) {
+    if (gradesData[i][G_ITEM_ID_COL - 1].toString().trim() === gameId) {
+      gameScores.push({
+        studentId: gradesData[i][G_STUDENT_ID_COL - 1].toString().trim(),
+        grade: parseFloat(String(gradesData[i][G_GRADE_COL - 1]).replace("'", "") || 0),
+        metricValue: parseInt(gradesData[i][G_METRIC_VALUE_COL - 1] || 0)
+      });
+    }
+  }
+
+  gameScores.sort((a, b) => {
+    if (b.grade !== a.grade) { return b.grade - a.grade; }
+    if (metricType === 'time' || metricType === 'errors') { return a.metricValue - b.metricValue; }
+    return b.metricValue - a.metricValue;
+  });
+  const topScores = gameScores.slice(0, 5);
+  return topScores.map(score => ({ name: studentNames[score.studentId] || "غير معروف", grade: score.grade, metricValue: score.metricValue }));
+}
+
+function getLeaderboardData(currentStudentId, currentStudentClassId) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const allSheets = ss.getSheets();
+  const allStudents = [];
+  const lbRules = getLessonControlRules(), lbToday = todayStr_();
+
+  for (const sheet of allSheets) {
+    const sheetName = sheet.getName();
+    if (sheetName.startsWith("Students_")) {
+      const classId = sheetName.split('_')[1];
+      const studentsData = sheet.getDataRange().getValues();
+      const gradesSheet = ss.getSheetByName(`Grades_${classId}`);
+      if (!gradesSheet) continue;
+
+      const gradesData = gradesSheet.getDataRange().getValues();
+      const gradesMap = {};
+
+      for(let i = 1; i < gradesData.length; i++) {
+        const studentId = gradesData[i][G_STUDENT_ID_COL - 1].toString().trim();
+        if (!gradesMap[studentId]) { gradesMap[studentId] = []; }
+        gradesMap[studentId].push({
+          itemId: gradesData[i][G_ITEM_ID_COL - 1].toString().trim(),
+          grade: parseFloat(String(gradesData[i][G_GRADE_COL - 1]).replace("'", "") || 0),
+          metricValue: parseFloat(gradesData[i][G_METRIC_VALUE_COL - 1] || 0)
+        });
+      }
+
+      for (let i = 1; i < studentsData.length; i++) {
+        const studentId = studentsData[i][0].toString().trim();
+        const studentGrades = gradesMap[studentId] || [];
+        let totalScore = 0, diagnosticGrade = 0, diagnosticPoints = 0;
+        studentGrades.forEach(item => {
+          // درس مغلق حالياً لا تُحسب نقاطه (ولا نقاط ألعابه) حتى يُفتح
+          const lbLesson = lessonOfItem_(item.itemId);
+          if (lbLesson && !isLessonOpenNow_(lbLesson, lbRules, lbToday)) return;
+          if (!item.itemId.startsWith('d_')) { totalScore += item.grade; }
+          if (item.itemId === 'd_best_weighted') { diagnosticGrade = item.grade; diagnosticPoints = item.metricValue; }
+        });
+        allStudents.push({ id: studentId, name: studentsData[i][1], class: studentsData[i][2], totalScore: totalScore, diagnosticGrade: diagnosticGrade, diagnosticPoints: diagnosticPoints });
+      }
+    }
+  }
+
+  const overallLeaderboard = [...allStudents].sort((a, b) => b.totalScore - a.totalScore);
+  const classLeaderboard = allStudents.filter(s => getClassIdentifier(s.class) === currentStudentClassId).sort((a, b) => b.totalScore - a.totalScore);
+  const diagnosticLeaderboard = [...allStudents].sort((a, b) => {
+    if (b.diagnosticGrade !== a.diagnosticGrade) return b.diagnosticGrade - a.diagnosticGrade;
+    return b.diagnosticPoints - a.diagnosticPoints;
+  });
+
+  const overallRank = overallLeaderboard.findIndex(s => s.id === currentStudentId) + 1;
+  const classRank = classLeaderboard.findIndex(s => s.id === currentStudentId) + 1;
+  const diagnosticRank = diagnosticLeaderboard.findIndex(s => s.id === currentStudentId) + 1;
+
+  return {
+    overallTop10: overallLeaderboard.slice(0, 100), 
+    classTop10: classLeaderboard.slice(0, 10),
+    diagnosticTop10: diagnosticLeaderboard.slice(0, 10),
+    ranks: { overall: overallRank, class: classRank, diagnostic: diagnosticRank }
+  };
+}
+
+function getLessonControlRules() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const controlSheet = ss.getSheetByName(CONTROL_SHEET_NAME);
+  if (!controlSheet) return {};
+  const data = controlSheet.getDataRange().getValues();
+  const rules = {};
+  const timeZone = ss.getSpreadsheetTimeZone();
+
+  for (let i = 1; i < data.length; i++) {
+    const lessonId = data[i][0].toString().trim();
+    const method = data[i][1].toString().trim();
+    let value = data[i][2];
+    if (lessonId && method) {
+      if (value instanceof Date) value = Utilities.formatDate(value, timeZone, "yyyy-MM-dd");
+      rules[lessonId] = { method: method, value: value.toString().trim(), status: String(data[i][3] || '').trim() };
+    }
+  }
+  return rules;
+}
+
+function getClassIdentifier(fullClassName) {
+  if (!fullClassName) return null;
+  
+  const normalized = String(fullClassName).trim();
+  
+  const classMap = { 
+      "ثالث / أول": "3-1", 
+      "ثالث / ثاني": "3-2", 
+      "ثالث / ثالث": "3-3",
+      "ثالث / رابع": "3-4",
+      "ثالث/رابع": "3-4" 
+  };
+  
+  return classMap[normalized] || null;
+}
+
+function getSheetNames(className) {
+  const identifier = getClassIdentifier(className);
+  if (!identifier) {
+    if (/^\d+-\d+$/.test(String(className).trim())) {
+      const id = String(className).trim();
+      return { studentsSheetName: `Students_${id}`, gradesSheetName: `Grades_${id}` };
+    }
+    throw new Error("Could not determine a valid class identifier from: " + className);
+  }
+  return { studentsSheetName: `Students_${identifier}`, gradesSheetName: `Grades_${identifier}` };
+}
+
+function createJsonResponse(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}
+
+// =================================================================
+//  PARTICIPATION GRID (صفحة تسجيل درجات المشاركة اليومية للمعلم)
+//  إضافة جديدة ومستقلة تماماً عن جداول الدروس والألعاب (Grades_X-Y).
+//  تقرأ وتكتب فقط في أعمدة الأسابيع (F فما بعد) داخل صفحة Students_X-Y.
+// =================================================================
+
+// عدد أسابيع الفصل الدراسي وعدد أيام الأسبوع الدراسية — غيّرهما هنا فقط إن تغيّرت خطة الفصل.
+const PARTICIPATION_NUM_WEEKS = 17;
+const PARTICIPATION_DAYS_PER_WEEK = 5;
+
+// كل أسبوع = 7 أعمدة: 5 أيام (مشاركة) + عمود سلوك + عمود واجبات. الأسبوع الأول يبدأ من العمود F (رقم 6).
+const PARTICIPATION_WEEK_COLS = PARTICIPATION_DAYS_PER_WEEK + 2;
+
+// الغياب: يُكتب في خانة اليوم حرف «غ»، ويُنقل بين الصفحة والخادم كرقم -999 (لا يدخل في أي مجموع).
+const ABSENT_MARK_ = 'غ';
+const ABSENT_NUM_ = -999;
+function cellToGrade_(raw) {
+  if (raw === "" || raw === null || raw === undefined) return 0;
+  if (String(raw).trim() === ABSENT_MARK_) return ABSENT_NUM_;
+  return parseInt(raw, 10) || 0;
+}
+function gradeToCell_(g) {
+  g = parseInt(g, 10) || 0;
+  if (g === ABSENT_NUM_) return ABSENT_MARK_;
+  return g !== 0 ? g : "";
+}
+
+function weekStartCol_(week) {
+  return 5 + PARTICIPATION_WEEK_COLS * (week - 1) + 1;
+}
+function participationColumn_(week, day) {
+  return weekStartCol_(week) + day - 1;
+}
+function behaviorColumn_(week) {
+  return weekStartCol_(week) + PARTICIPATION_DAYS_PER_WEEK;
+}
+function homeworkColumn_(week) {
+  return weekStartCol_(week) + PARTICIPATION_DAYS_PER_WEEK + 1;
+}
+
+// قراءة درجات يوم معيّن لكل طلاب الفصل، بترتيبهم في الشيت.
+function getParticipationGrid(params) {
+  const classId = String(params.classId || '').trim();
+  const week = parseInt(params.week, 10);
+  const day = parseInt(params.day, 10);
+  if (!classId || !week || !day || week < 1 || week > PARTICIPATION_NUM_WEEKS || day < 1 || day > PARTICIPATION_DAYS_PER_WEEK) {
+    throw new Error("classId, week (1-" + PARTICIPATION_NUM_WEEKS + ") and day (1-" + PARTICIPATION_DAYS_PER_WEEK + ") are required.");
+  }
+  const col = participationColumn_(week, day);
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheetNames = getSheetNames(classId);
+  const sheet = ss.getSheetByName(sheetNames.studentsSheetName);
+  if (!sheet) throw new Error("لم يتم العثور على صفحة الطلاب: " + sheetNames.studentsSheetName);
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 3) return { students: [], column: col };
+  const data = sheet.getRange(3, 1, lastRow - 2, Math.max(col, 4)).getValues();
+  const students = [];
+  for (let i = 0; i < data.length; i++) {
+    const id = data[i][0];
+    if (!id) continue;
+    const name = data[i][1] || "";
+    const raw = data[i][col - 1];
+    const grade = cellToGrade_(raw);
+    students.push({ id: String(id).trim(), name: String(name).trim(), grade: grade });
+  }
+  return { students: students, column: col };
+}
+
+// حفظ درجات يوم معيّن لكل الطلاب دفعة واحدة. grade=0 يعني خلية فارغة (بلا درجة).
+function saveParticipationGrid(body) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    const classId = String(body.classId || "").trim();
+    const week = parseInt(body.week, 10);
+    const day = parseInt(body.day, 10);
+    const entries = body.entries;
+    if (!classId || !week || !day || !Array.isArray(entries)) {
+      throw new Error("classId, week, day, entries are required.");
+    }
+    if (week < 1 || week > PARTICIPATION_NUM_WEEKS || day < 1 || day > PARTICIPATION_DAYS_PER_WEEK) {
+      throw new Error("week must be 1-" + PARTICIPATION_NUM_WEEKS + " and day must be 1-" + PARTICIPATION_DAYS_PER_WEEK + ".");
+    }
+    const col = participationColumn_(week, day);
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheetNames = getSheetNames(classId);
+    const sheet = ss.getSheetByName(sheetNames.studentsSheetName);
+    if (!sheet) throw new Error("لم يتم العثور على صفحة الطلاب: " + sheetNames.studentsSheetName);
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 3) throw new Error("لا يوجد طلاب في هذا الفصل.");
+    const ids = sheet.getRange(3, 1, lastRow - 2, 1).getValues();
+    const idToRow = {};
+    for (let i = 0; i < ids.length; i++) {
+      if (ids[i][0]) idToRow[String(ids[i][0]).trim()] = 3 + i;
+    }
+    let updated = 0, skipped = 0;
+    // نقرأ عمود اليوم كاملاً ونكتبه مرة واحدة (بدل كتابة خلية خلية).
+    const colRng = sheet.getRange(3, col, lastRow - 2, 1);
+    const colVals = colRng.getValues();
+    entries.forEach(function (en) {
+      const r = idToRow[String(en.id).trim()];
+      if (!r) { skipped++; return; }
+      // 0 يعني "بلا درجة" فتُفرَّغ الخلية؛ -999 غياب فيُكتب «غ»؛ أي قيمة أخرى تُكتب كما هي.
+      colVals[r - 3][0] = gradeToCell_(en.grade);
+      updated++;
+    });
+    colRng.setValues(colVals);
+    logToDebugSheet("saveParticipationGrid", classId + " w" + week + "d" + day + " updated=" + updated + " skipped=" + skipped);
+    return { updated: updated, skipped: skipped, column: col, totals: totalsMap_(sheet) };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// نظرة شاملة: كل درجات المشاركة لكل الأسابيع/الأيام لفصل معيّن دفعة واحدة (للعرض فقط، بلا تعديل).
+function getParticipationOverview(params) {
+  const classId = String(params.classId || '').trim();
+  if (!classId) throw new Error("classId is required.");
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheetNames = getSheetNames(classId);
+  const sheet = ss.getSheetByName(sheetNames.studentsSheetName);
+  if (!sheet) throw new Error("لم يتم العثور على صفحة الطلاب: " + sheetNames.studentsSheetName);
+  const lastRow = sheet.getLastRow();
+  const totalCols = homeworkColumn_(PARTICIPATION_NUM_WEEKS);
+  if (lastRow < 3) {
+    return { students: [], weeks: PARTICIPATION_NUM_WEEKS, days: PARTICIPATION_DAYS_PER_WEEK };
+  }
+  const data = sheet.getRange(3, 1, lastRow - 2, totalCols).getValues();
+  const students = [];
+  for (let i = 0; i < data.length; i++) {
+    const id = data[i][0];
+    if (!id) continue;
+    const name = data[i][1] || "";
+    const grades = [];
+    for (let w = 1; w <= PARTICIPATION_NUM_WEEKS; w++) {
+      for (let d = 1; d <= PARTICIPATION_DAYS_PER_WEEK; d++) {
+        const raw = data[i][participationColumn_(w, d) - 1];
+        grades.push(cellToGrade_(raw));
+      }
+    }
+    const behavior = [], homework = [];
+    for (let w2 = 1; w2 <= PARTICIPATION_NUM_WEEKS; w2++) {
+      behavior.push(String(data[i][behaviorColumn_(w2) - 1] || "").trim());
+      homework.push(String(data[i][homeworkColumn_(w2) - 1] || "").trim());
+    }
+    students.push({ id: String(id).trim(), name: String(name).trim(), grades: grades, behavior: behavior, homework: homework });
+  }
+  return { students: students, weeks: PARTICIPATION_NUM_WEEKS, days: PARTICIPATION_DAYS_PER_WEEK };
+}
+
+// =================================================================
+//  السلوك والواجبات — خانة واحدة لكل أسبوع لكل نوع، تحوي رموزاً مفصولة بمسافة.
+//  السلوك (رموز عربية قصيرة تُترجمها الصفحة إلى وجوه):
+//    ن = نوم/شرود (-1)   ز = إزعاج (-2)   ت = تنمر/قلة أدب (-3)   ج = سلوك جيد (+1)
+//  الواجبات: ✓ = حلّ الواجب   ✗ = لم يحلّ
+//  الصفحة هي التي تحسب المجاميع من الرموز، فتبقى الأسباب محفوظة في الشيت.
+// =================================================================
+
+// ---- المجاميع تُحسب في الخادم وتُرسل صغيرة (بدل نقل الجدول الشامل كله مع كل تحميل/حفظ) ----
+const BEHAVIOR_VALUES_ = { 'ن': -1, 'ز': -2, 'ت': -3, 'ج': 1 };
+
+// رمز السلوك قد يحمل وقت التسجيل (بالدقائق منذ 1970) وعلامة إلغاء: «ن@29412345» أو «ن@29412345!» (ملغى يدويًا).
+// الملاحظة السالبة تنتهي تلقائيًا بعد (درجتها + 1) أيام: −1 = يومان، −2 = 3 أيام، −3 = 4 أيام. الملغاة تُحسب صفرًا.
+// الرمز القديم بلا وقت (مثل «ن») لا ينتهي أبدًا.
+function nowMin_() { return Math.floor(Date.now() / 60000); }
+function behTokVal_(t, nowMin) {
+  const m = /^([نزتج])(?:@(\d+))?(!?)$/.exec(t);
+  if (!m) return 0;
+  const v = BEHAVIOR_VALUES_[m[1]];
+  if (m[3]) return 0;
+  if (v < 0 && m[2] && nowMin >= parseInt(m[2], 10) + (1 - v) * 1440) return 0;
+  return v;
+}
+
+// مجاميع الصف كاملة (part/hw/beh) + مجاميع كل فترة (p1, p2) وطول الفترة pw كي تختار الصفحة بحسب الأسبوع المعروض.
+function rowTotals_(row, pw) {
+  pw = pw || loadGradeSettings_().periodWeeks;
+  const all = rowTotalsRange_(row, 1, PARTICIPATION_NUM_WEEKS);
+  all.p1 = rowTotalsRange_(row, 1, pw);
+  all.p2 = rowTotalsRange_(row, pw + 1, PARTICIPATION_NUM_WEEKS);
+  all.pw = pw;
+  return all;
+}
+
+function rowTotalsRange_(row, from, to) {
+  let pp = 0, pn = 0, hd = 0, hm = 0, bg = 0, bb = 0;
+  for (let w = from; w <= to; w++) {
+    for (let d = 1; d <= PARTICIPATION_DAYS_PER_WEEK; d++) {
+      const g = parseInt(row[participationColumn_(w, d) - 1], 10) || 0;
+      if (g > 0) pp += g; else if (g < 0) pn += -g;
+    }
+    String(row[behaviorColumn_(w) - 1] || "").split(/\s+/).forEach(function (t) {
+      const v = behTokVal_(t, nowMin_());
+      if (v > 0) bg += v; else if (v < 0) bb += -v;
+    });
+    String(row[homeworkColumn_(w) - 1] || "").split(/\s+/).forEach(function (t) {
+      if (t === '✓') hd++; else if (t === '✗') hm++;
+    });
+  }
+  return { part: { pos: pp, neg: pn }, hw: { pos: hd, neg: hm }, beh: { pos: bg, neg: bb } };
+}
+
+function totalsMap_(sheet) {
+  const lastRow = sheet.getLastRow();
+  const map = {};
+  if (lastRow < 3) return map;
+  const data = sheet.getRange(3, 1, lastRow - 2, homeworkColumn_(PARTICIPATION_NUM_WEEKS)).getValues();
+  const pw = loadGradeSettings_().periodWeeks;
+  data.forEach(function (row) {
+    if (row[0]) map[String(row[0]).trim()] = rowTotals_(row, pw);
+  });
+  return map;
+}
+
+// طلب واحد يكفي لتحميل الشاشة: درجات اليوم + واجب/سلوك الأسبوع + مجاميع كل طالب.
+function getDaySnapshot(params) {
+  const classId = String(params.classId || '').trim();
+  const week = parseInt(params.week, 10);
+  const day = parseInt(params.day, 10) || 1;
+  if (!classId || !week || week < 1 || week > PARTICIPATION_NUM_WEEKS || day < 1 || day > PARTICIPATION_DAYS_PER_WEEK) {
+    throw new Error("classId, week, day are required.");
+  }
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(getSheetNames(classId).studentsSheetName);
+  if (!sheet) throw new Error("لم يتم العثور على صفحة الطلاب.");
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 3) return { students: [] };
+  const data = sheet.getRange(3, 1, lastRow - 2, homeworkColumn_(PARTICIPATION_NUM_WEEKS)).getValues();
+  const gc = participationColumn_(week, day), bc = behaviorColumn_(week), hc = homeworkColumn_(week);
+  const students = [];
+  const pw = loadGradeSettings_().periodWeeks;
+  data.forEach(function (row) {
+    if (!row[0]) return;
+    students.push({
+      id: String(row[0]).trim(),
+      name: String(row[1] || "").trim(),
+      grade: cellToGrade_(row[gc - 1]),
+      behavior: String(row[bc - 1] || "").trim(),
+      homework: String(row[hc - 1] || "").trim(),
+      totals: rowTotals_(row, pw)
+    });
+  });
+  return { students: students };
+}
+
+// تعديل درجة مشاركة واحدة لطالب واحد (بدون قراءة الشبكة كاملة). grade=0 يفرّغ الخلية.
+function saveParticipationCell(body) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    const classId = String(body.classId || "").trim();
+    const week = parseInt(body.week, 10), day = parseInt(body.day, 10);
+    const id = String(body.id || "").trim();
+    const g = parseInt(body.grade, 10) || 0;
+    if (!classId || !id || !week || !day || week < 1 || week > PARTICIPATION_NUM_WEEKS || day < 1 || day > PARTICIPATION_DAYS_PER_WEEK) {
+      throw new Error("classId, id, week, day are required.");
+    }
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(getSheetNames(classId).studentsSheetName);
+    if (!sheet) throw new Error("لم يتم العثور على صفحة الطلاب.");
+    const lastRow = sheet.getLastRow();
+    const ids = sheet.getRange(3, 1, Math.max(lastRow - 2, 1), 1).getValues();
+    let r = 0;
+    for (let i = 0; i < ids.length; i++) if (String(ids[i][0]).trim() === id) { r = 3 + i; break; }
+    if (!r) throw new Error("الطالب غير موجود.");
+    sheet.getRange(r, participationColumn_(week, day)).setValue(gradeToCell_(g));
+    return { totals: totalsMap_(sheet) };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// حفظ دفعة تعديلات من سجل طالب/عدة طلاب بطلب واحد:
+// body.students = [{id, cells:[{week,day,grade}], extras:[{week,behavior,homework}]}]
+// لكل طالب نقرأ جزء صفه (من F إلى آخر عمود) مرة واحدة ونكتبه مرة واحدة.
+function saveRecordsBatch(body) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    const classId = String(body.classId || "").trim();
+    const list = body.students;
+    if (!classId || !Array.isArray(list)) throw new Error("classId and students are required.");
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(getSheetNames(classId).studentsSheetName);
+    if (!sheet) throw new Error("لم يتم العثور على صفحة الطلاب.");
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 3) throw new Error("لا يوجد طلاب في هذا الفصل.");
+    const ids = sheet.getRange(3, 1, lastRow - 2, 1).getValues();
+    const idToRow = {};
+    for (let i = 0; i < ids.length; i++) if (ids[i][0]) idToRow[String(ids[i][0]).trim()] = 3 + i;
+    const firstCol = 6, lastCol = homeworkColumn_(PARTICIPATION_NUM_WEEKS);
+    const clean = function (s) { return String(s).replace(/\s+/g, " ").trim(); };
+    let updated = 0, skipped = 0;
+    list.forEach(function (st) {
+      const r = idToRow[String(st.id).trim()];
+      if (!r) { skipped++; return; }
+      const rng = sheet.getRange(r, firstCol, 1, lastCol - firstCol + 1);
+      const vals = rng.getValues();
+      (st.cells || []).forEach(function (c) {
+        const w = parseInt(c.week, 10), d = parseInt(c.day, 10), g = parseInt(c.grade, 10) || 0;
+        if (!w || !d || w < 1 || w > PARTICIPATION_NUM_WEEKS || d < 1 || d > PARTICIPATION_DAYS_PER_WEEK) return;
+        vals[0][participationColumn_(w, d) - firstCol] = gradeToCell_(g);
+      });
+      (st.extras || []).forEach(function (x) {
+        const w = parseInt(x.week, 10);
+        if (!w || w < 1 || w > PARTICIPATION_NUM_WEEKS) return;
+        if (x.behavior !== undefined) vals[0][behaviorColumn_(w) - firstCol] = clean(x.behavior);
+        if (x.homework !== undefined) vals[0][homeworkColumn_(w) - firstCol] = clean(x.homework);
+      });
+      rng.setValues(vals);
+      updated++;
+    });
+    logToDebugSheet("saveRecordsBatch", classId + " updated=" + updated + " skipped=" + skipped);
+    return { updated: updated, skipped: skipped, totals: totalsMap_(sheet) };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// قراءة سلوك وواجبات أسبوع معيّن لكل طلاب الفصل.
+function getWeekExtras(params) {
+  const classId = String(params.classId || '').trim();
+  const week = parseInt(params.week, 10);
+  if (!classId || !week || week < 1 || week > PARTICIPATION_NUM_WEEKS) {
+    throw new Error("classId and week (1-" + PARTICIPATION_NUM_WEEKS + ") are required.");
+  }
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(getSheetNames(classId).studentsSheetName);
+  if (!sheet) throw new Error("لم يتم العثور على صفحة الطلاب.");
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 3) return { students: [] };
+  const bc = behaviorColumn_(week), hc = homeworkColumn_(week);
+  const data = sheet.getRange(3, 1, lastRow - 2, hc).getValues();
+  const students = [];
+  data.forEach(function (row) {
+    if (!row[0]) return;
+    students.push({
+      id: String(row[0]).trim(),
+      name: String(row[1] || "").trim(),
+      behavior: String(row[bc - 1] || "").trim(),
+      homework: String(row[hc - 1] || "").trim()
+    });
+  });
+  return { students: students };
+}
+
+// حفظ سلوك وواجبات أسبوع معيّن. كل entry = {id, behavior, homework}؛ الحقل غير المرسل لا يُمسّ.
+function saveWeekExtras(body) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    const classId = String(body.classId || "").trim();
+    const week = parseInt(body.week, 10);
+    const entries = body.entries;
+    if (!classId || !week || week < 1 || week > PARTICIPATION_NUM_WEEKS || !Array.isArray(entries)) {
+      throw new Error("classId, week (1-" + PARTICIPATION_NUM_WEEKS + "), entries are required.");
+    }
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(getSheetNames(classId).studentsSheetName);
+    if (!sheet) throw new Error("لم يتم العثور على صفحة الطلاب.");
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 3) throw new Error("لا يوجد طلاب في هذا الفصل.");
+    const ids = sheet.getRange(3, 1, lastRow - 2, 1).getValues();
+    const idToRow = {};
+    for (let i = 0; i < ids.length; i++) if (ids[i][0]) idToRow[String(ids[i][0]).trim()] = 3 + i;
+    const bc = behaviorColumn_(week), hc = homeworkColumn_(week);
+    const clean = function (s) { return String(s).replace(/\s+/g, " ").trim(); };
+    let updated = 0, skipped = 0;
+    // عمودا السلوك والواجبات متجاوران: نقرأ العمودين لكل الصفوف مرة واحدة ونكتبهما مرة واحدة (أسرع بكثير من خلية خلية).
+    const rng = sheet.getRange(3, bc, lastRow - 2, 2);
+    const vals = rng.getValues();
+    entries.forEach(function (en) {
+      const r = idToRow[String(en.id).trim()];
+      if (!r) { skipped++; return; }
+      const i = r - 3;
+      if (en.behavior !== undefined) vals[i][0] = clean(en.behavior);
+      if (en.homework !== undefined) vals[i][1] = clean(en.homework);
+      updated++;
+    });
+    rng.setNumberFormat("@").setValues(vals);
+    return { updated: updated, skipped: skipped, totals: totalsMap_(sheet) };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// =================================================================
+//  ترحيل لمرة واحدة: إضافة عمودي «سلوك» و«واجبات» بعد أيام كل أسبوع.
+//  شغّلها يدوياً من محرر Apps Script (migrateAddBehaviorHomeworkColumns) بعد أخذ نسخة احتياطية من الملف.
+//  تُدخل عمودين فارغين بعد كل أسبوع فتبقى درجات المشاركة الحالية كما هي ومزاحة تلقائياً.
+//  آمنة ضد التشغيل المكرر: تتوقف إن وجدت عمود «سلوك» مسبقاً في الأسبوع الأول.
+// =================================================================
+function migrateAddBehaviorHomeworkColumns() {
+  // لا نستخدم getUi() لأنها تفشل عند التشغيل من محرر Apps Script؛ النتيجة تظهر في «سجل التنفيذ».
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const report = [];
+  ['3-1', '3-2', '3-3', '3-4'].forEach(function (cid) {
+    const sheet = ss.getSheetByName(getSheetNames(cid).studentsSheetName);
+    if (!sheet) { report.push(cid + ': الصفحة غير موجودة'); return; }
+    if (String(sheet.getRange(2, behaviorColumn_(1)).getValue()).trim() === 'سلوك') {
+      report.push(cid + ': سبق ترحيلها، تم التخطي'); return;
+    }
+    const N = PARTICIPATION_NUM_WEEKS, D = PARTICIPATION_DAYS_PER_WEEK;
+    // من الأسبوع الأخير إلى الأول كي لا تتغير مواضع الأسابيع السابقة أثناء الإدراج.
+    for (let w = N; w >= 1; w--) {
+      sheet.insertColumnsAfter(5 + D * w, 2);
+    }
+    for (let w = 1; w <= N; w++) {
+      const start = weekStartCol_(w);
+      sheet.getRange(1, start, 1, PARTICIPATION_WEEK_COLS).breakApart();
+      sheet.getRange(1, start).setValue('الأسبوع ' + w);
+      sheet.getRange(1, start, 1, PARTICIPATION_WEEK_COLS).merge();
+      sheet.getRange(2, behaviorColumn_(w)).setValue('سلوك');
+      sheet.getRange(2, homeworkColumn_(w)).setValue('واجبات');
+      sheet.setColumnWidth(behaviorColumn_(w), 70);
+      sheet.setColumnWidth(homeworkColumn_(w), 70);
+      sheet.getRange(1, start, 2, PARTICIPATION_WEEK_COLS).setFontWeight('bold').setHorizontalAlignment('center');
+    }
+    report.push(cid + ': تم');
+  });
+  Logger.log('نتيجة الترحيل:\n' + report.join('\n'));
+  try { ss.toast(report.join(' | '), 'نتيجة الترحيل', 20); } catch (e) {}
+}
+
+// =================================================================
+//  حماية صفحة المعلم: رمز اليوم + الزر المخفي + جلسة تنتهي بعد 20 دقيقة بلا استخدام
+//  (الصفحة نفسها تُقفل بعد 15 دقيقة بلا استخدام، وكل طلب أو «teacherPing» يجدّد المدة)
+//  الرمز الصحيح = (رقم اليوم من الشهر بتوقيت الرياض) + الرقم السري المحفوظ في خصائص السكريبت.
+//  مثال: الرقم السري XXXX واليوم 31 → يُكتب 31XXXX. الرقم السري لا يوجد في هذا الملف إطلاقاً:
+//  أضفه من «إعدادات المشروع» ثم «خصائص السكريبت» باسم TEACHER_PIN.
+//  الرمز صحيح + الزر المخفي مضغوط → جلسة حقيقية. الرمز صحيح بدون الزر → جلسة وهمية (بيانات مزيفة، والحفظ يُتجاهل).
+// =================================================================
+const TEACHER_SESSION_SECONDS = 20 * 60;
+const TEACHER_MAX_FAILS = 5;
+const TEACHER_LOCK_SECONDS = 10 * 60;
+const TEACHER_ACTIONS_ = {
+  getParticipationGrid: 1, getParticipationOverview: 1, getDaySnapshot: 1, getWeekExtras: 1,
+  saveParticipationGrid: 1, saveWeekExtras: 1, saveParticipationCell: 1, saveRecordsBatch: 1,
+  getGradeSettings: 1, saveGradeSettings: 1, getPlatformStats: 1, getExamGrades: 1, saveExamGrades: 1,
+  getPeriodBoard: 1, pinPeriod: 1, saveExamSpill: 1, saveCertificates: 1, deleteCertificate: 1
+};
+
+function teacherLogin_(body) {
+  const cache = CacheService.getScriptCache();
+  const fails = parseInt(cache.get('tl_fails') || '0', 10);
+  if (fails >= TEACHER_MAX_FAILS) throw new Error("محاولات كثيرة خاطئة. انتظر بضع دقائق ثم أعد المحاولة.");
+  const pin = PropertiesService.getScriptProperties().getProperty('TEACHER_PIN');
+  if (!pin) throw new Error("لم يُضبط الرقم السري في خصائص السكريبت بعد.");
+  const day = Utilities.formatDate(new Date(), 'Asia/Riyadh', 'd'); // 1..31 بدون صفر
+  const day2 = ('0' + day).slice(-2);
+  const code = String(body.code || '').trim();
+  if (code !== day + pin && code !== day2 + pin) {
+    cache.put('tl_fails', String(fails + 1), TEACHER_LOCK_SECONDS);
+    throw new Error("الرمز غير صحيح، حاول مرة أخرى");
+  }
+  cache.remove('tl_fails');
+  const real = body.hidden === true;
+  const token = Utilities.getUuid();
+  cache.put('ts_' + token, real ? 'real' : 'decoy', TEACHER_SESSION_SECONDS);
+  if (!real) logToDebugSheet("teacherLogin-decoy", "دخول وهمي (بدون الزر المخفي)");
+  return { token: token, ttl: TEACHER_SESSION_SECONDS, scold: !real };
+}
+
+// يعيد 'real' أو 'decoy'، أو يرمي SESSION_EXPIRED إن لم توجد جلسة صالحة.
+// كل استخدام للجلسة يجدّد مدتها (مدة عدم الاستخدام، لا مدة ثابتة من الدخول).
+function teacherSessionMode_(token) {
+  const cache = CacheService.getScriptCache();
+  const m = token ? cache.get('ts_' + String(token)) : null;
+  if (m !== 'real' && m !== 'decoy') throw new Error("SESSION_EXPIRED");
+  cache.put('ts_' + String(token), m, TEACHER_SESSION_SECONDS);
+  return m;
+}
+
+// بيانات مزيفة للجلسة الوهمية: شكل الرد مطابق للحقيقي، والحفظ يُتجاهل.
+function decoyResponse_(action, params) {
+  const names = ['أحمد', 'خالد', 'سعد', 'فهد', 'ناصر', 'عمر', 'يوسف', 'سلمان', 'بدر', 'ماجد', 'راشد', 'تركي'];
+  const students = [];
+  for (let i = 1; i <= 30; i++) {
+    students.push({
+      id: 'x' + i, name: names[i % names.length] + ' ' + names[(i * 5) % names.length],
+      grade: (i * 7) % 4, behavior: '', homework: '',
+      totals: { part: { pos: (i * 3) % 17, neg: i % 3 }, hw: { pos: (i * 2) % 9, neg: i % 4 }, beh: { pos: i % 3, neg: (i * 2) % 5 } }
+    });
+  }
+  if (action === 'getParticipationOverview') {
+    const grades = [];
+    for (let k = 0; k < PARTICIPATION_NUM_WEEKS * PARTICIPATION_DAYS_PER_WEEK; k++) grades.push(0);
+    return { students: students.map(function (s) { return { id: s.id, name: s.name, grades: grades, behavior: [], homework: [] }; }), weeks: PARTICIPATION_NUM_WEEKS, days: PARTICIPATION_DAYS_PER_WEEK };
+  }
+  if (action === 'getDaySnapshot' || action === 'getWeekExtras' || action === 'getParticipationGrid') return { students: students };
+  if (action === 'getExamGrades') {
+    return { max: 20, students: students.map(function (s, i) { return { id: s.id, name: s.name, exams: [i % 3 === 0 ? null : 10 + (i % 11), null] }; }) };
+  }
+  if (action === 'getPlatformStats') {
+    return {
+      open: { lessons: 5, games: 10, poss: 75 },
+      students: students.map(function (s, i) {
+        const m = (i * 7) % 60, n = (i * 3) % 25;
+        return { id: s.id, name: s.name, gain: m, att: m + n, mastery: m, needs: n, pending: Math.max(0, 100 - m - n),
+                 lessonsDone: i % 5, gamesDone: i % 9, frozenMastery: null, frozenFinal: null };
+      })
+    };
+  }
+  if (action === 'getPeriodBoard') {
+    return {
+      weights: GRADE_DEFAULTS_.weights, period: parseInt(params.period, 10) || 1, range: { from: 1, to: 8 },
+      students: students.map(function (s, i) {
+        const m = (i * 7) % 60, n = (i * 3) % 25, e = engOf_(m, n);
+        return { id: s.id, name: s.name, phone: '', exam: null,
+                 live: { part: (i * 3) % 16, hw: (i * 2) % 11, beh: 5 - (i % 4), plat: e, platGrade: engGrade_(e) }, pin: null };
+      })
+    };
+  }
+  if (action === 'getGradeSettings' || action === 'saveGradeSettings') {
+    return { settings: GRADE_DEFAULTS_, dates: { mastery: { key: 'star_mastery', method: '', value: '' }, final: { key: 'star_final', method: '', value: '' } } };
+  }
+  return { updated: 0, skipped: 0, totals: {} };
+}
+
+// =================================================================
+//  درجات الاختبار (إدخال يدوي): فترتان + معدلهما. ثلاثة أعمدة تُضاف في **آخر الورقة** بعد كل ما فيها
+//  (بدون إدراج بين الأعمدة، فلا ينزاح شيء): «اختبار الفترة 1» و«اختبار الفترة 2» و«معدل الاختبارين».
+//  يُعثر عليها بعنوانها في الصف الثاني، فلا يهم موضعها. تُنشأ تلقائياً عند أول استخدام أو بتشغيل migrateAddExamColumns.
+//  المعدل = صيغة في الشيت: متوسط الفترتين إن وُجدت درجتاهما، وإلا فارغ.
+// =================================================================
+const EXAM_PERIODS = 2;
+const EXAM_HEADERS_ = ['اختبار الفترة 1', 'اختبار الفترة 2'];
+const EXAM_AVG_HEADER_ = 'معدل الاختبارين';
+
+// يعيد {cols:[c1,c2,avg], created:bool} ويُنشئ الأعمدة الناقصة في آخر الورقة.
+function examColumns_(sheet) {
+  const find = function () {
+    const lc = sheet.getLastColumn();
+    const headers = lc > 0 ? sheet.getRange(2, 1, 1, lc).getValues()[0].map(function (h) { return String(h).trim(); }) : [];
+    return EXAM_HEADERS_.concat([EXAM_AVG_HEADER_]).map(function (h) { return headers.indexOf(h) + 1; });
+  };
+  let cols = find();
+  if (cols.every(function (c) { return c > 0; })) return { cols: cols, created: false };
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    cols = find();
+    let created = false;
+    const names = EXAM_HEADERS_.concat([EXAM_AVG_HEADER_]);
+    for (let i = 0; i < names.length; i++) {
+      if (cols[i] > 0) continue;
+      // توافق مع نسخة سابقة أنشأت «اختبار الفترة 3»: إن كان فارغاً نعيد تسميته إلى «معدل الاختبارين» بدل عمود جديد.
+      if (i === 2) {
+        const lc2 = sheet.getLastColumn();
+        const hdrs = lc2 > 0 ? sheet.getRange(2, 1, 1, lc2).getValues()[0].map(function (h) { return String(h).trim(); }) : [];
+        const old3 = hdrs.indexOf('اختبار الفترة 3') + 1;
+        if (old3 > 0) {
+          const lr = sheet.getLastRow();
+          const body = lr >= 3 ? sheet.getRange(3, old3, lr - 2, 1).getValues() : [];
+          const empty = body.every(function (r) { return r[0] === '' || r[0] === null; });
+          if (empty) {
+            sheet.getRange(2, old3).setValue(names[2]);
+            cols[2] = old3;
+            created = true;
+            continue;
+          }
+        }
+      }
+      const c = sheet.getLastColumn() + 1;
+      sheet.getRange(2, c).setValue(names[i]).setFontWeight('bold').setHorizontalAlignment('center');
+      sheet.setColumnWidth(c, 100);
+      cols[i] = c;
+      created = true;
+    }
+    if (created) refreshExamAverage_(sheet, cols);
+    return { cols: cols, created: created };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// صيغة المعدل لكل صفوف الطلاب (تُعاد كتابتها لتشمل أي طالب أُضيف لاحقاً).
+function refreshExamAverage_(sheet, cols) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 3) return;
+  const f = '=IF(COUNT(RC' + cols[0] + ',RC' + cols[1] + ')=2,AVERAGE(RC' + cols[0] + ',RC' + cols[1] + '),"")';
+  sheet.getRange(3, cols[2], lastRow - 2, 1).setFormulaR1C1(f);
+}
+
+function migrateAddExamColumns() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const report = [];
+  ['3-1', '3-2', '3-3', '3-4'].forEach(function (cid) {
+    const sheet = ss.getSheetByName(getSheetNames(cid).studentsSheetName);
+    if (!sheet) { report.push(cid + ': الصفحة غير موجودة'); return; }
+    report.push(cid + (examColumns_(sheet).created ? ': تم' : ': موجودة مسبقاً'));
+  });
+  Logger.log('نتيجة إضافة أعمدة الاختبار:\n' + report.join('\n'));
+  try { ss.toast(report.join(' | '), 'أعمدة الاختبار', 20); } catch (e) {}
+}
+
+function getExamGrades(params) {
+  const classId = String(params.classId || '').trim();
+  if (!classId) throw new Error('classId is required.');
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(getSheetNames(classId).studentsSheetName);
+  if (!sheet) throw new Error('لم يتم العثور على صفحة الطلاب.');
+  const cols = examColumns_(sheet).cols;
+  const icols = improveColumns_(sheet);
+  const lastRow = sheet.getLastRow();
+  const max = loadGradeSettings_().weights.exam;
+  if (lastRow < 3) return { students: [], max: max };
+  const n = lastRow - 2;
+  const basic = sheet.getRange(3, 1, n, 2).getValues();
+  const c1 = sheet.getRange(3, cols[0], n, 1).getValues();
+  const c2 = sheet.getRange(3, cols[1], n, 1).getValues();
+  const i1 = sheet.getRange(3, icols[0], n, 1).getValues();
+  const i2 = sheet.getRange(3, icols[1], n, 1).getValues();
+  const num = function (v) { const x = parseFloat(v); return (v === '' || isNaN(x)) ? null : x; };
+  // إضافة المنصة لكل طالب في الفترة المطلوبة (إن أُرسلت period)، من نسبة التفاعل المثبّتة أو الحالية.
+  const period = parseInt(params.period, 10);
+  let bonusOf = {};
+  if (period === 1 || period === 2) {
+    try {
+      const pins = pinMap_();
+      periodLive_(period, [classId], true).byClass[classId].forEach(function (s) {
+        const p = pins[classId + '|' + s.id + '|' + period];
+        const eng = (p && p.plat !== null) ? p.plat : s.plat;
+        bonusOf[s.id] = { bonus: platBonus_(eng), eng: eng };
+      });
+    } catch (e) { bonusOf = {}; }
+  }
+  const students = [];
+  for (let i = 0; i < n; i++) {
+    if (!basic[i][0]) continue;
+    const id = String(basic[i][0]).trim();
+    students.push({
+      id: id, name: String(basic[i][1] || '').trim(),
+      exams: [num(c1[i][0]), num(c2[i][0])],
+      improves: [num(i1[i][0]), num(i2[i][0])],
+      bonus: bonusOf[id] ? bonusOf[id].bonus : 0,
+      eng: bonusOf[id] ? bonusOf[id].eng : null
+    });
+  }
+  return { students: students, max: max };
+}
+
+// =================================================================
+//  اختبار التحسين + إضافة المنصة + الفائض
+//  • عمودا «تحسين الفترة 1/2» يُضافان في آخر ورقة الطلاب (بدون إدراج) ويُعثر عليهما بالعنوان.
+//  • إضافة المنصة: نسبة التفاعل ≥ 90٪ → +2، ≥ 95٪ → +3 (تُحسب ولا تُكتب).
+//  • درجة الاختبار = الاختبار + التحسين + إضافة المنصة، بسقف وزن الاختبار. ما زاد يُوزَّع تلقائياً على
+//    الواجبات ثم المشاركة ثم السلوك بقدر ما ينقصها عن وزنها، ويستطيع المعلم تعديله (يُحفظ في ورقة التثبيت).
+//    وما لم يجد مكاناً يظهر بعلامة «+» أمام المجموع.
+// =================================================================
+const IMPROVE_HEADERS_ = ['تحسين الفترة 1', 'تحسين الفترة 2'];
+const BONUS_TIERS_ = [{ min: 95, pts: 3 }, { min: 90, pts: 2 }];
+const SPILL_ORDER_ = ['hw', 'part', 'beh'];
+const SPILL_WEIGHT_KEY_ = { hw: 'homework', part: 'participation', beh: 'behavior' };
+
+function platBonus_(eng) {
+  if (eng === null || eng === undefined) return 0;
+  for (let i = 0; i < BONUS_TIERS_.length; i++) if (eng >= BONUS_TIERS_[i].min) return BONUS_TIERS_[i].pts;
+  return 0;
+}
+
+function improveColumns_(sheet) {
+  const find = function () {
+    const lc = sheet.getLastColumn();
+    const headers = lc > 0 ? sheet.getRange(2, 1, 1, lc).getValues()[0].map(function (h) { return String(h).trim(); }) : [];
+    return IMPROVE_HEADERS_.map(function (h) { return headers.indexOf(h) + 1; });
+  };
+  let cols = find();
+  if (cols.every(function (c) { return c > 0; })) return cols;
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    cols = find();
+    for (let i = 0; i < IMPROVE_HEADERS_.length; i++) {
+      if (cols[i] > 0) continue;
+      const c = sheet.getLastColumn() + 1;
+      sheet.getRange(2, c).setValue(IMPROVE_HEADERS_[i]).setFontWeight('bold').setHorizontalAlignment('center');
+      sheet.setColumnWidth(c, 100);
+      cols[i] = c;
+    }
+    return cols;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function migrateAddImproveColumns() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const report = [];
+  ['3-1', '3-2', '3-3', '3-4'].forEach(function (cid) {
+    const sheet = ss.getSheetByName(getSheetNames(cid).studentsSheetName);
+    if (!sheet) { report.push(cid + ': الصفحة غير موجودة'); return; }
+    improveColumns_(sheet);
+    report.push(cid + ': تم');
+  });
+  try { ss.toast(report.join(' | '), 'أعمدة التحسين', 20); } catch (e) {}
+}
+
+// قراءة درجات التحسين لفترة (للقراءة فقط، لا تُنشئ أعمدة).
+function improveMapFor_(classId, period) {
+  const out = {};
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(getSheetNames(classId).studentsSheetName);
+  if (!sheet || sheet.getLastRow() < 3) return out;
+  const headers = sheet.getRange(2, 1, 1, sheet.getLastColumn()).getValues()[0].map(function (h) { return String(h).trim(); });
+  const col = headers.indexOf(IMPROVE_HEADERS_[period - 1]) + 1;
+  if (col < 1) return out;
+  const n = sheet.getLastRow() - 2;
+  const ids = sheet.getRange(3, 1, n, 1).getValues(), vs = sheet.getRange(3, col, n, 1).getValues();
+  for (let i = 0; i < n; i++) if (ids[i][0]) out[String(ids[i][0]).trim()] = pinNum_(vs[i][0]);
+  return out;
+}
+
+// تفصيل درجة الاختبار. cur = القيم الحالية (المثبّتة أو الحية) لـ hw/part/beh. pin = صف التثبيت (فيه xh/xp/xb إن عدّل المعلم).
+// يعيد null إن لم تُرصد درجة الاختبار.
+function examCalc_(W, exam, improve, eng, cur, pin) {
+  if (exam === null || exam === undefined) return null;
+  const bonus = platBonus_(eng);
+  const total = round2_(exam + (improve || 0) + bonus);
+  const eff = Math.min(total, W.exam);
+  const over = round2_(Math.max(0, total - W.exam));
+  const room = {}, sug = { hw: 0, part: 0, beh: 0 };
+  let left = over;
+  SPILL_ORDER_.forEach(function (k) {
+    const have = (cur[k] === null || cur[k] === undefined) ? 0 : cur[k];
+    room[k] = round2_(Math.max(0, W[SPILL_WEIGHT_KEY_[k]] - have));
+    const t = Math.min(left, room[k]);
+    sug[k] = round2_(t);
+    left = round2_(left - t);
+  });
+  const set = (pin && (pin.xh !== null || pin.xp !== null || pin.xb !== null))
+    ? { hw: pin.xh || 0, part: pin.xp || 0, beh: pin.xb || 0 } : null;
+  const add = {};
+  SPILL_ORDER_.forEach(function (k) {
+    const v = set ? set[k] : sug[k];
+    add[k] = round2_(Math.max(0, Math.min(v, room[k])));
+  });
+  const used = round2_(add.hw + add.part + add.beh);
+  return {
+    raw: exam, improve: improve === undefined ? null : improve, bonus: bonus, eng: eng,
+    total: total, eff: eff, over: over, add: add, sug: sug, room: room,
+    rest: round2_(Math.max(0, over - used)), custom: !!set
+  };
+}
+
+// يضيف الفائض إلى قيمة مجال بسقف وزنه.
+function withAdd_(v, add, w) {
+  if (v === null || v === undefined) return v;
+  return round2_(Math.min(w, v + (add || 0)));
+}
+
+// body: {classId, period (1..2), entries:[{id, grade}]} — grade فارغ/null يمسح الخانة.
+function saveExamGrades(body) {
+  // درجات التحسين تأتي مع نفس الطلب (improveEntries) فتُحفظ في عمود «تحسين الفترة N» أولاً.
+  if (Array.isArray(body.improveEntries)) {
+    saveExamGrades({ classId: body.classId, period: body.period, field: 'improve', entries: body.improveEntries });
+  }
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    const classId = String(body.classId || '').trim();
+    const period = parseInt(body.period, 10);
+    if (!classId || !period || period < 1 || period > EXAM_PERIODS || !Array.isArray(body.entries)) {
+      throw new Error('classId, period (1-' + EXAM_PERIODS + '), entries are required.');
+    }
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(getSheetNames(classId).studentsSheetName);
+    if (!sheet) throw new Error('لم يتم العثور على صفحة الطلاب.');
+    const cols = examColumns_(sheet).cols;
+    const targetCol = (body.field === 'improve') ? improveColumns_(sheet)[period - 1] : cols[period - 1];
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 3) throw new Error('لا يوجد طلاب في هذا الفصل.');
+    const ids = sheet.getRange(3, 1, lastRow - 2, 1).getValues();
+    const idToIdx = {};
+    for (let i = 0; i < ids.length; i++) if (ids[i][0]) idToIdx[String(ids[i][0]).trim()] = i;
+    const rng = sheet.getRange(3, targetCol, lastRow - 2, 1);
+    const vals = rng.getValues();
+    let updated = 0, skipped = 0;
+    body.entries.forEach(function (en) {
+      const i = idToIdx[String(en.id).trim()];
+      if (i === undefined) { skipped++; return; }
+      const raw = en.grade;
+      if (raw === null || raw === undefined || raw === '') { vals[i][0] = ''; updated++; return; }
+      const g = Number(raw);
+      if (!isFinite(g) || g < 0 || g > 1000) { skipped++; return; }
+      vals[i][0] = Math.round(g * 100) / 100;
+      updated++;
+    });
+    rng.setValues(vals);
+    refreshExamAverage_(sheet, cols);
+    logToDebugSheet('saveExamGrades', classId + ' p' + period + (body.field === 'improve' ? ' improve' : '') + ' updated=' + updated + ' skipped=' + skipped);
+    return { updated: updated, skipped: skipped };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// =================================================================
+//  سجل المنصة: نسبة كل طالب بنفس معادلة صفحة الطالب (مستوى التقدم والإتقان)
+//  الدرس = 10، واللعبة = 5. المحسوب فقط الدروس المفتوحة وألعابها:
+//   إتقان = ما حصل عليه ÷ المجموع الممكن، تحتاج تحسين = ما فقده في المحلول ÷ الممكن، بانتظارك = الباقي.
+//  فتح الدرس يطابق منطق الصفحة (lockInfo): لا قاعدة = مفتوح، «يدوي/مفتوح» = مفتوح، «تاريخ» = بعد حلول التاريخ.
+// =================================================================
+function getPlatformStats(params) {
+  const classId = String(params.classId || '').trim();
+  if (!classId) throw new Error('classId is required.');
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const names = getSheetNames(classId);
+  const stSheet = ss.getSheetByName(names.studentsSheetName);
+  const gSheet = ss.getSheetByName(names.gradesSheetName);
+  if (!stSheet || !gSheet) throw new Error('لم يتم العثور على ورقتي الطلاب والدرجات لهذا الفصل.');
+
+  const rules = getLessonControlRules();
+  const today = Utilities.formatDate(new Date(), ss.getSpreadsheetTimeZone(), 'yyyy-MM-dd');
+  const items = [];
+  let openLessons = 0;
+  Object.keys(LESSON_ID_TO_TITLE_MAP).forEach(function (lid) {
+    const open = isLessonOpenNow_(lid, rules, today);
+    if (!open) return;
+    const m = lid.match(/^c(\d+)_l(\d+)$/);
+    if (!m) return;
+    openLessons++;
+    items.push({ id: lid, max: 10, game: false });
+    items.push({ id: 'g' + m[1] + '_' + m[2] + '_1', max: 5, game: true });
+    items.push({ id: 'g' + m[1] + '_' + m[2] + '_2', max: 5, game: true });
+  });
+  let poss = 0;
+  items.forEach(function (it) { poss += it.max; });
+
+  const gradeMap = {};
+  const gData = gSheet.getDataRange().getValues();
+  for (let i = 1; i < gData.length; i++) {
+    const sid = String(gData[i][G_STUDENT_ID_COL - 1] || '').trim();
+    const iid = String(gData[i][G_ITEM_ID_COL - 1] || '').trim();
+    if (!sid || !iid) continue;
+    const g = parseFloat(String(gData[i][G_GRADE_COL - 1]).replace("'", ""));
+    if (!isNaN(g)) { (gradeMap[sid] = gradeMap[sid] || {})[iid] = g; }
+  }
+
+  const lastRow = stSheet.getLastRow();
+  const students = [];
+  if (lastRow >= 3) {
+    const pinned = pinMap_();   // «مثبّت» = نسبة المنصة المثبّتة في النصفي (فترة 1) والنهائي (فترة 2)
+    const data = stSheet.getRange(3, 1, lastRow - 2, stSheet.getLastColumn()).getValues();
+    data.forEach(function (row) {
+      const sid = String(row[0] || '').trim();
+      if (!sid || sid.toLowerCase() === 'studentid') return;
+      const mine = gradeMap[sid] || {};
+      let gain = 0, att = 0, lDone = 0, gDone = 0;
+      items.forEach(function (it) {
+        const g = mine[it.id];
+        if (g === undefined) return;
+        gain += Math.min(g, it.max); att += it.max;
+        if (it.game) gDone++; else lDone++;
+      });
+      const mastery = poss > 0 ? Math.round(gain / poss * 100) : 0;
+      const needs = poss > 0 ? Math.round((att - gain) / poss * 100) : 0;
+      const frozen = function (period) {
+        const p = pinned[classId + '|' + sid + '|' + period];
+        return p ? p.plat : null;
+      };
+      students.push({
+        id: sid, name: String(row[1] || '').trim(),
+        gain: gain, att: att, mastery: mastery, needs: needs, pending: Math.max(0, 100 - mastery - needs),
+        lessonsDone: lDone, gamesDone: gDone,
+        frozenMastery: frozen(1), frozenFinal: frozen(2)
+      });
+    });
+  }
+  return { open: { lessons: openLessons, games: openLessons * 2, poss: poss }, students: students };
+}
+
+// =================================================================
+//  إعدادات «كشف الدرجات» (الترس في صفحة المعلم)
+//  تُحفظ في خصائص السكريبت (GRADE_SETTINGS) كنص JSON. أما تاريخا تثبيت المنصة فيُكتبان في ورقة
+//  «التحكم بالدروس» (المفتاحان star_mastery و star_final) لأن المنصة تقرؤهما من هناك.
+// =================================================================
+const GRADE_SETTINGS_KEY = 'GRADE_SETTINGS';
+const CEILING_MODES_ = ['top1_all', 'top1_class', 'top3_all', 'top3_class', 'manual'];
+const GRADE_DEFAULTS_ = {
+  week1Start: '2026-08-30',      // أحد الأسبوع الأول (ميلادي)
+  periodWeeks: 8,                // طول الفترة بالأسابيع
+  weights: { exam: 20, participation: 15, homework: 10, behavior: 5, platform: 10 },
+  ceiling: {                     // سقف تحويل المشاركة والواجبات إلى درجة
+    participation: { mode: 'top3_all', manual: 0 },
+    homework: { mode: 'top3_all', manual: 0 }
+  },
+  behaviorPointValue: 0.5,       // قيمة نقطة الخصم الواحدة من درجة السلوك
+  homeworkMissPenalty: 1         // عدد النقاط التي تنقصها ✗ واحدة من الواجبات
+};
+
+function loadGradeSettings_() {
+  let saved = {};
+  try { saved = JSON.parse(PropertiesService.getScriptProperties().getProperty(GRADE_SETTINGS_KEY) || '{}'); } catch (e) { saved = {}; }
+  return mergeGradeSettings_(GRADE_DEFAULTS_, saved);
+}
+
+// يدمج الإعدادات المرسلة مع الافتراضية مع التحقق من كل قيمة (قيم غير صالحة تُهمل وتبقى السابقة).
+function mergeGradeSettings_(base, inc) {
+  const out = JSON.parse(JSON.stringify(base));
+  inc = inc || {};
+  const num = function (v, min, max) { const n = Number(v); return (isFinite(n) && n >= min && n <= max) ? n : null; };
+  if (typeof inc.week1Start === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(inc.week1Start)) out.week1Start = inc.week1Start;
+  let n = num(inc.periodWeeks, 1, PARTICIPATION_NUM_WEEKS);
+  if (n !== null) out.periodWeeks = Math.round(n);
+  if (inc.weights) Object.keys(out.weights).forEach(function (k) {
+    const w = num(inc.weights[k], 0, 100);
+    if (w !== null) out.weights[k] = w;
+  });
+  if (inc.ceiling) ['participation', 'homework'].forEach(function (k) {
+    const c = inc.ceiling[k];
+    if (!c) return;
+    if (CEILING_MODES_.indexOf(c.mode) !== -1) out.ceiling[k].mode = c.mode;
+    const m = num(c.manual, 0, 100000);
+    if (m !== null) out.ceiling[k].manual = m;
+  });
+  n = num(inc.behaviorPointValue, 0, 10); if (n !== null) out.behaviorPointValue = n;
+  n = num(inc.homeworkMissPenalty, 0, 10); if (n !== null) out.homeworkMissPenalty = n;
+  return out;
+}
+
+// يقرأ تاريخ مفتاح من ورقة التحكم: {key, method, value} (القيمة نص yyyy-MM-dd أو فارغ).
+function readControlDate_(keys) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sh = ss.getSheetByName(CONTROL_SHEET_NAME);
+  const tz = ss.getSpreadsheetTimeZone();
+  const empty = { key: keys[0], method: '', value: '' };
+  if (!sh || sh.getLastRow() < 2) return empty;
+  const data = sh.getRange(2, 1, sh.getLastRow() - 1, 3).getValues();
+  for (let k = 0; k < keys.length; k++) {
+    for (let i = 0; i < data.length; i++) {
+      if (String(data[i][0]).trim() === keys[k]) {
+        let v = data[i][2];
+        if (v instanceof Date) v = Utilities.formatDate(v, tz, 'yyyy-MM-dd');
+        return { key: keys[k], method: String(data[i][1] || '').trim(), value: String(v || '').trim() };
+      }
+    }
+  }
+  return empty;
+}
+
+function writeControlDate_(keys, dateStr) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sh = ss.getSheetByName(CONTROL_SHEET_NAME);
+  if (!sh) throw new Error('ورقة «' + CONTROL_SHEET_NAME + '» غير موجودة.');
+  const last = sh.getLastRow();
+  if (last >= 2) {
+    const data = sh.getRange(2, 1, last - 1, 1).getValues();
+    for (let k = 0; k < keys.length; k++) {
+      for (let i = 0; i < data.length; i++) {
+        if (String(data[i][0]).trim() === keys[k]) {
+          const r = 2 + i;
+          sh.getRange(r, 2).setValue('تاريخ');
+          sh.getRange(r, 3).setNumberFormat('@').setValue(dateStr);
+          return keys[k];
+        }
+      }
+    }
+  }
+  sh.appendRow([keys[0], 'تاريخ', '']);
+  sh.getRange(sh.getLastRow(), 3).setNumberFormat('@').setValue(dateStr);
+  return keys[0];
+}
+
+function getGradeSettings(params) {
+  return {
+    settings: loadGradeSettings_(),
+    dates: {
+      mastery: readControlDate_(['star_mastery']),
+      final: readControlDate_(['star_final', 'star_completion'])
+    }
+  };
+}
+
+// body: {settings:{...}, dates:{mastery:'yyyy-MM-dd', final:'yyyy-MM-dd'}} — التاريخ يُكتب فقط إن أُرسل (أي تغيّر).
+function saveGradeSettings(body) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    const merged = mergeGradeSettings_(loadGradeSettings_(), body.settings || {});
+    PropertiesService.getScriptProperties().setProperty(GRADE_SETTINGS_KEY, JSON.stringify(merged));
+    const d = body.dates || {};
+    const isDate = function (s) { return typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s); };
+    if (isDate(d.mastery)) writeControlDate_(['star_mastery'], d.mastery);
+    if (isDate(d.final)) writeControlDate_(['star_final', 'star_completion'], d.final);
+    logToDebugSheet('saveGradeSettings', 'updated');
+    return getGradeSettings({});
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// =================================================================
+//  تثبيت الدرجات: «النصفي» (الفترة 1) و«النهائي» (الفترة 2)
+//  ورقة «تثبيت الدرجات»: صف لكل (فصل، طالب، فترة) فيه درجات المشاركة والواجبات والسلوك (مثبّتة من الوزن)
+//  ونسبة التفاعل المثبّتة للمنصة. المنصة لا تنزل أبداً عند التحديث (الأعلى بين القديم والجديد)،
+//  لأن فتح دروس جديدة يخفض النسبة دون أن يقصّر الطالب.
+//  نسبة التفاعل = الإتقان + نصف «تحتاج تحسين»؛ ودرجتها من 10: 50٪ = 6 ثم +1 لكل 5٪ حتى 70٪ = 10.
+// =================================================================
+const PIN_SHEET_NAME_ = 'تثبيت الدرجات';
+const PIN_HEADERS_ = ['ClassId', 'StudentId', 'Period', 'Part', 'Hw', 'Beh', 'Plat', 'UpdatedAt', 'ExtraHw', 'ExtraPart', 'ExtraBeh'];
+const PIN_CLASSES_ = ['3-1', '3-2', '3-3', '3-4'];
+const PIN_FIELD_IDX_ = { part: 3, hw: 4, beh: 5, plat: 6 };   // موضع العمود (من الصفر) في صف التثبيت
+
+function engOf_(m, n) { return Math.min(100, Math.round(m + n / 2)); }
+function engGrade_(e) { return Math.max(0, Math.min(10, Math.floor((e - 50) / 5) + 6)); }
+function round2_(x) { return Math.round(x * 100) / 100; }
+function pinNum_(v) { const x = parseFloat(v); return (v === '' || v === null || v === undefined || isNaN(x)) ? null : x; }
+
+function pinSheet_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sh = ss.getSheetByName(PIN_SHEET_NAME_);
+  if (!sh) {
+    sh = ss.insertSheet(PIN_SHEET_NAME_);
+    sh.getRange(1, 1, 1, PIN_HEADERS_.length).setValues([PIN_HEADERS_]).setFontWeight('bold');
+    sh.setFrozenRows(1);
+  } else if (sh.getLastColumn() < PIN_HEADERS_.length) {
+    // ورقة قديمة بلا أعمدة الفائض: نضيف العناوين الناقصة فقط
+    if (sh.getMaxColumns() < PIN_HEADERS_.length) sh.insertColumnsAfter(sh.getMaxColumns(), PIN_HEADERS_.length - sh.getMaxColumns());
+    sh.getRange(1, 1, 1, PIN_HEADERS_.length).setValues([PIN_HEADERS_]).setFontWeight('bold');
+  }
+  return sh;
+}
+function readPinRows_() {
+  const sh = pinSheet_();
+  const lr = sh.getLastRow();
+  return lr < 2 ? [] : sh.getRange(2, 1, lr - 1, PIN_HEADERS_.length).getValues();
+}
+// مفتاح: فصل|طالب|فترة  ←  {part, hw, beh, plat}
+function pinMap_() {
+  const map = {};
+  readPinRows_().forEach(function (r) {
+    if (!r[0] || !r[1]) return;
+    map[String(r[0]).trim() + '|' + String(r[1]).trim() + '|' + parseInt(r[2], 10)] =
+      { part: pinNum_(r[3]), hw: pinNum_(r[4]), beh: pinNum_(r[5]), plat: pinNum_(r[6]), xh: pinNum_(r[8]), xp: pinNum_(r[9]), xb: pinNum_(r[10]) };
+  });
+  return map;
+}
+
+function periodRange_(period) {
+  const pw = loadGradeSettings_().periodWeeks;
+  return { from: (period - 1) * pw + 1, to: Math.min(PARTICIPATION_NUM_WEEKS, period * pw) };
+}
+
+// المجاميع الخام لكل طالب ضمن أسابيع الفترة.
+function periodRaw_(sheet, rng, S) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 3) return [];
+  const data = sheet.getRange(3, 1, lastRow - 2, homeworkColumn_(PARTICIPATION_NUM_WEEKS)).getValues();
+  const out = [];
+  data.forEach(function (row) {
+    if (!row[0]) return;
+    let pp = 0, pn = 0, hd = 0, hm = 0, bg = 0, bb = 0;
+    for (let w = rng.from; w <= rng.to; w++) {
+      for (let d = 1; d <= PARTICIPATION_DAYS_PER_WEEK; d++) {
+        const g = parseInt(row[participationColumn_(w, d) - 1], 10) || 0;
+        if (g > 0) pp += g; else if (g < 0) pn += -g;
+      }
+      String(row[behaviorColumn_(w) - 1] || '').split(/\s+/).forEach(function (t) {
+        const v = behTokVal_(t, nowMin_());
+        if (v > 0) bg += v; else if (v < 0) bb += -v;
+      });
+      String(row[homeworkColumn_(w) - 1] || '').split(/\s+/).forEach(function (t) {
+        if (t === '✓') hd++; else if (t === '✗') hm++;
+      });
+    }
+    out.push({
+      id: String(row[0]).trim(), name: String(row[1] || '').trim(), phone: String(row[3] || '').trim(),
+      part: Math.max(0, pp - pn),
+      hw: Math.max(0, hd - S.homeworkMissPenalty * hm),
+      behNet: Math.max(0, bb - bg)
+    });
+  });
+  return out;
+}
+
+function ceilingOf_(cfg, allVals, clsVals) {
+  if (cfg.mode === 'manual') return Number(cfg.manual) || 0;
+  const vals = (cfg.mode.slice(-4) === '_all' ? allVals : clsVals).slice().sort(function (a, b) { return b - a; });
+  if (!vals.length) return 0;
+  if (cfg.mode.indexOf('top1') === 0) return vals[0];
+  const top = vals.slice(0, 3);
+  return top.reduce(function (a, b) { return a + b; }, 0) / top.length;
+}
+
+// الدرجات الحية لفترة معيّنة: {S, rng, byClass:{cid:[{id,name,phone,part,hw,beh,plat,platGrade}]}}
+function periodLive_(period, targets, needPlat) {
+  const S = loadGradeSettings_(), W = S.weights, rng = periodRange_(period);
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const raw = {}, allPart = [], allHw = [];
+  PIN_CLASSES_.forEach(function (cid) {
+    const sh = ss.getSheetByName(getSheetNames(cid).studentsSheetName);
+    raw[cid] = sh ? periodRaw_(sh, rng, S) : [];
+    raw[cid].forEach(function (s) { allPart.push(s.part); allHw.push(s.hw); });
+  });
+  const byClass = {};
+  targets.forEach(function (cid) {
+    const list = raw[cid] || [];
+    const cp = ceilingOf_(S.ceiling.participation, allPart, list.map(function (s) { return s.part; }));
+    const ch = ceilingOf_(S.ceiling.homework, allHw, list.map(function (s) { return s.hw; }));
+    const plat = {};
+    if (needPlat) getPlatformStats({ classId: cid }).students.forEach(function (p) { plat[p.id] = p; });
+    byClass[cid] = list.map(function (s) {
+      const p = plat[s.id];
+      const eng = p ? engOf_(p.mastery, p.needs) : null;
+      return {
+        id: s.id, name: s.name, phone: s.phone,
+        part: cp > 0 ? round2_(Math.min(W.participation, s.part / cp * W.participation)) : 0,
+        hw: ch > 0 ? round2_(Math.min(W.homework, s.hw / ch * W.homework)) : 0,
+        beh: round2_(Math.max(0, Math.min(W.behavior, W.behavior - S.behaviorPointValue * s.behNet))),
+        plat: eng, platGrade: eng === null ? null : round2_(engGrade_(eng) * W.platform / 10)
+      };
+    });
+  });
+  return { S: S, rng: rng, byClass: byClass };
+}
+
+// قراءة درجة الاختبار لطالب/فصل دون إنشاء أعمدة (للقراءة فقط).
+function examMapFor_(classId, period) {
+  const out = {};
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(getSheetNames(classId).studentsSheetName);
+  if (!sheet || sheet.getLastRow() < 3) return out;
+  const headers = sheet.getRange(2, 1, 1, sheet.getLastColumn()).getValues()[0].map(function (h) { return String(h).trim(); });
+  const col = headers.indexOf(EXAM_HEADERS_[period - 1]) + 1;
+  if (col < 1) return out;
+  const n = sheet.getLastRow() - 2;
+  const ids = sheet.getRange(3, 1, n, 1).getValues(), ex = sheet.getRange(3, col, n, 1).getValues();
+  for (let i = 0; i < n; i++) if (ids[i][0]) out[String(ids[i][0]).trim()] = pinNum_(ex[i][0]);
+  return out;
+}
+
+// شاشة «النصفي/النهائي» للمعلم: الحي + المثبّت + الاختبار + أرقام الهواتف.
+function getPeriodBoard(params) {
+  const classId = String(params.classId || '').trim();
+  const period = parseInt(params.period, 10);
+  if (!classId || (period !== 1 && period !== 2)) throw new Error('classId and period (1-2) are required.');
+  const live = periodLive_(period, [classId], true);
+  const pins = pinMap_();
+  const exams = examMapFor_(classId, period);
+  const improves = improveMapFor_(classId, period);
+  const W = live.S.weights;
+  const students = (live.byClass[classId] || []).map(function (s) {
+    const p = pins[classId + '|' + s.id + '|' + period] || null;
+    const curOf = function (k) { return (p && p[k] !== null && p[k] !== undefined) ? p[k] : s[k]; };
+    const eng = (p && p.plat !== null) ? p.plat : s.plat;
+    const calc = examCalc_(W, exams[s.id] === undefined ? null : exams[s.id], improves[s.id],
+      eng, { hw: curOf('hw'), part: curOf('part'), beh: curOf('beh') }, p);
+    const add = calc ? calc.add : { hw: 0, part: 0, beh: 0 };
+    return {
+      id: s.id, name: s.name, phone: s.phone,
+      live: { part: withAdd_(s.part, add.part, W.participation), hw: withAdd_(s.hw, add.hw, W.homework),
+              beh: withAdd_(s.beh, add.beh, W.behavior), plat: s.plat, platGrade: s.platGrade },
+      pin: p ? { part: withAdd_(p.part, add.part, W.participation), hw: withAdd_(p.hw, add.hw, W.homework),
+                 beh: withAdd_(p.beh, add.beh, W.behavior), plat: p.plat,
+                 platGrade: p.plat === null ? null : round2_(engGrade_(p.plat) * W.platform / 10) } : null,
+      exam: calc ? calc.eff : null,
+      examInfo: calc, add: add
+    };
+  });
+  return { weights: W, period: period, range: live.rng, students: students };
+}
+
+// body: {classId | 'all', period, field: part|hw|beh|plat}
+function pinPeriod(body) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    const period = parseInt(body.period, 10);
+    const field = String(body.field || '');
+    const cls = String(body.classId || '').trim();
+    if ((period !== 1 && period !== 2) || PIN_FIELD_IDX_[field] === undefined || !cls) {
+      throw new Error('classId, period (1-2) and field are required.');
+    }
+    const targets = cls === 'all' ? PIN_CLASSES_ : [cls];
+    const live = periodLive_(period, targets, field === 'plat');
+    const sh = pinSheet_();
+    const rows = readPinRows_();
+    const idx = {};
+    rows.forEach(function (r, i) { idx[String(r[0]).trim() + '|' + String(r[1]).trim() + '|' + parseInt(r[2], 10)] = i; });
+    const now = new Date();
+    let updated = 0;
+    targets.forEach(function (cid) {
+      (live.byClass[cid] || []).forEach(function (s) {
+        const val = s[field];
+        if (val === null || val === undefined) return;
+        const key = cid + '|' + s.id + '|' + period;
+        let i = idx[key];
+        if (i === undefined) { rows.push([cid, s.id, period, '', '', '', '', now, '', '', '']); i = rows.length - 1; idx[key] = i; }
+        const c = PIN_FIELD_IDX_[field];
+        if (field === 'plat') {
+          const old = pinNum_(rows[i][c]);
+          rows[i][c] = (old !== null && old > val) ? old : val;   // المنصة ترتفع فقط
+        } else {
+          rows[i][c] = val;
+        }
+        rows[i][7] = now;
+        updated++;
+      });
+    });
+    if (rows.length) {
+      sh.getRange(2, 1, rows.length, 2).setNumberFormat('@');
+      sh.getRange(2, 1, rows.length, PIN_HEADERS_.length).setValues(rows);
+    }
+    logToDebugSheet('pinPeriod', cls + ' p' + period + ' ' + field + ' updated=' + updated);
+    return { updated: updated, period: period, field: field };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// body: {classId, period, studentId, hw, part, beh} — توزيع المعلم للفائض (يحل محل المقترح). reset:true يعيده للتلقائي.
+function saveExamSpill(body) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    const classId = String(body.classId || '').trim();
+    const sid = String(body.studentId || '').trim();
+    const period = parseInt(body.period, 10);
+    if (!classId || !sid || (period !== 1 && period !== 2)) throw new Error('classId, studentId and period (1-2) are required.');
+    const sh = pinSheet_();
+    const rows = readPinRows_();
+    let i = -1;
+    rows.forEach(function (r, k) { if (String(r[0]).trim() === classId && String(r[1]).trim() === sid && parseInt(r[2], 10) === period) i = k; });
+    if (!body.reset) {
+      // التحقق: كل قيمة ≥ 0 وفي حدود ما ينقص المجال، ومجموعها ≤ الفائض
+      const board = getPeriodBoard({ classId: classId, period: period });
+      const st = board.students.filter(function (x) { return x.id === sid; })[0];
+      if (!st || !st.examInfo) throw new Error('لا توجد درجة اختبار لهذا الطالب.');
+      const info = st.examInfo;
+      const vals = {};
+      let sum = 0;
+      SPILL_ORDER_.forEach(function (k) {
+        const v = Number(body[k] || 0);
+        if (!isFinite(v) || v < 0) throw new Error('قيمة غير صالحة.');
+        if (v > info.room[k] + 1e-9) throw new Error('القيمة أكبر مما ينقص هذا المجال (' + info.room[k] + ').');
+        vals[k] = round2_(v); sum += v;
+      });
+      if (sum > info.over + 1e-9) throw new Error('المجموع أكبر من الفائض (' + info.over + ').');
+      if (i < 0) { rows.push([classId, sid, period, '', '', '', '', new Date(), '', '', '']); i = rows.length - 1; }
+      rows[i][8] = vals.hw; rows[i][9] = vals.part; rows[i][10] = vals.beh;
+    } else if (i >= 0) {
+      rows[i][8] = ''; rows[i][9] = ''; rows[i][10] = '';
+    }
+    if (rows.length) {
+      sh.getRange(2, 1, rows.length, 2).setNumberFormat('@');
+      sh.getRange(2, 1, rows.length, PIN_HEADERS_.length).setValues(rows);
+    }
+    try { CacheService.getScriptCache().remove('lv2_' + classId + '_' + period); } catch (e) {}
+    logToDebugSheet('saveExamSpill', classId + ' ' + sid + ' p' + period + (body.reset ? ' reset' : ''));
+    return { saved: true };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// الدرجات الحية لطالب (مخزّنة مؤقتاً 10 دقائق لكل فصل/فترة كي لا تُحسب مع كل دخول).
+function liveForStudent_(classId, studentId, period) {
+  const cache = CacheService.getScriptCache();
+  const key = 'lv2_' + classId + '_' + period;
+  let list = null;
+  try { const c = cache.get(key); if (c) list = JSON.parse(c); } catch (e) { list = null; }
+  if (!list) {
+    list = periodLive_(period, [classId], true).byClass[classId] || [];
+    try { cache.put(key, JSON.stringify(list), 600); } catch (e) {}
+  }
+  for (let i = 0; i < list.length; i++) {
+    if (list[i].id === studentId) {
+      return { part: list[i].part, hw: list[i].hw, beh: list[i].beh, plat: list[i].plat, platGrade: list[i].platGrade };
+    }
+  }
+  return null;
+}
+
+// هل بدأت الفترة؟ (أحد الأسبوع الأول + (أول أسبوع في الفترة − 1) × 7 أيام ≤ اليوم)
+function periodStarted_(S, period) {
+  const p = String(S.week1Start).split('-');
+  const from = periodRange_(period).from;
+  const start = new Date(+p[0], +p[1] - 1, +p[2] + (from - 1) * 7);
+  const tz = 'Asia/Riyadh';
+  return Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd') >= Utilities.formatDate(start, tz, 'yyyy-MM-dd');
+}
+
+// ما يراه الطالب لكل فترة: المثبّت + الحي (إن بدأت الفترة) + الاختبار + الأوزان.
+function getStudentPins_(classId, studentId) {
+  const S = loadGradeSettings_(), W = S.weights;
+  const map = pinMap_();
+  const periods = {};
+  [1, 2].forEach(function (period) {
+    const p = map[classId + '|' + studentId + '|' + period] || null;
+    const ex = examMapFor_(classId, period)[studentId];
+    const rawExam = (ex === undefined) ? null : ex;
+    const imp = improveMapFor_(classId, period)[studentId];
+    const live = periodStarted_(S, period) ? liveForStudent_(classId, studentId, period) : null;
+    if (!p && rawExam === null && !live) { periods[period] = null; return; }
+    const curOf = function (k) {
+      if (p && p[k] !== null && p[k] !== undefined) return p[k];
+      return live ? live[k] : null;
+    };
+    const eng = (p && p.plat !== null) ? p.plat : (live ? live.plat : null);
+    const calc = examCalc_(W, rawExam, imp === undefined ? null : imp, eng,
+      { hw: curOf('hw'), part: curOf('part'), beh: curOf('beh') }, p);
+    const add = calc ? calc.add : { hw: 0, part: 0, beh: 0 };
+    periods[period] = {
+      part: p ? withAdd_(p.part, add.part, W.participation) : null,
+      hw: p ? withAdd_(p.hw, add.hw, W.homework) : null,
+      beh: p ? withAdd_(p.beh, add.beh, W.behavior) : null,
+      plat: p ? p.plat : null,
+      platGrade: (p && p.plat !== null) ? round2_(engGrade_(p.plat) * W.platform / 10) : null,
+      exam: calc ? calc.eff : null,
+      examInfo: calc ? { raw: calc.raw, improve: calc.improve, bonus: calc.bonus, over: calc.over, rest: calc.rest, add: add } : null,
+      live: live ? { part: withAdd_(live.part, add.part, W.participation), hw: withAdd_(live.hw, add.hw, W.homework),
+                     beh: withAdd_(live.beh, add.beh, W.behavior), plat: live.plat, platGrade: live.platGrade } : null
+    };
+  });
+  return { weights: W, periods: periods };
+}
+
+// =================================================================
+//  فتح الدروس باستئذان المعلم (واتساب آلي عبر UltraMsg)
+//  الفكرة: ورقة «التحكم بالدروس» تبقى كما هي (رقم الدرس | تاريخ | yyyy-MM-dd) والتاريخ هو الموعد المقترح.
+//  عمود جديد D «الاعتماد»: فارغ = كما كان (يُفتح بحلول التاريخ)، «بانتظار» = مغلق حتى تُوافق، «معتمد» = مفتوح.
+//  مشغّل يومي صباحاً: قبل موعد الدرس بيوم يضع «بانتظار» (فيبقى مغلقاً)، وفي صباح الموعد يرسل لك رسالة برابط واحد
+//  فيه أزرار: فتح الآن / تأجيل يوم / يومين / ثلاثة. إن لم تردّ يبقى مغلقاً ويصلك تذكير كل صباح.
+//  الدروس المفتوحة سابقاً (تاريخها مضى) لا تتأثر. وإن تعطّل المشغّل يعود السلوك القديم (الفتح بالتاريخ) تلقائياً.
+//  خصائص السكريبت المطلوبة: ULTRAMSG_INSTANCE و ULTRAMSG_TOKEN و TEACHER_WHATSAPP (رقمك). السر APPROVAL_SECRET يُنشأ تلقائياً.
+// =================================================================
+const APPROVAL_PENDING_ = 'بانتظار';
+const APPROVAL_OK_ = 'معتمد';
+const APPROVAL_LINK_TTL_MS_ = 14 * 24 * 3600 * 1000;
+
+// رقم الدرس الذي يتبعه عنصر (درس cN_lM أو لعبة gN_M_k)، أو null لما لا يرتبط بدرس (كالتشخيصي).
+function lessonOfItem_(itemId) {
+  const s = String(itemId || '').trim();
+  let m = s.match(/^c(\d+)_l(\d+)$/i);
+  if (m) return 'c' + m[1] + '_l' + m[2];
+  m = s.match(/^g(\d+)_(\d+)_\d+$/i);
+  return m ? 'c' + m[1] + '_l' + m[2] : null;
+}
+
+function todayStr_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  return Utilities.formatDate(new Date(), ss.getSpreadsheetTimeZone(), 'yyyy-MM-dd');
+}
+function addDaysStr_(dateStr, n) {
+  const p = String(dateStr).split('-');
+  const d = new Date(Date.UTC(+p[0], +p[1] - 1, +p[2] + n));
+  return Utilities.formatDate(d, 'UTC', 'yyyy-MM-dd');
+}
+
+// هل الدرس مفتوح الآن للطلاب؟ (لا قاعدة = مفتوح؛ يدوي/مفتوح؛ تاريخ مع الاعتماد؛ غير ذلك مغلق)
+function isLessonOpenNow_(lessonId, rules, today) {
+  const r = rules[lessonId];
+  if (!r) return true;
+  if (r.method === 'يدوي' && r.value === 'مفتوح') return true;
+  if (r.method === 'تاريخ') {
+    if (r.status === APPROVAL_OK_) return true;
+    if (r.status === APPROVAL_PENDING_) return false;
+    return today >= r.value;
+  }
+  return false;
+}
+
+function approvalSecret_() {
+  const p = PropertiesService.getScriptProperties();
+  let s = p.getProperty('APPROVAL_SECRET');
+  if (!s) { s = Utilities.getUuid() + Utilities.getUuid(); p.setProperty('APPROVAL_SECRET', s); }
+  return s;
+}
+function signApproval_(lessonId, planned, exp) {
+  const raw = Utilities.computeHmacSha256Signature(lessonId + '|' + planned + '|' + exp, approvalSecret_());
+  return Utilities.base64EncodeWebSafe(raw).replace(/=+$/, '');
+}
+
+function sendUltraWhatsApp_(phone, message) {
+  const p = PropertiesService.getScriptProperties();
+  const instance = p.getProperty('ULTRAMSG_INSTANCE'), token = p.getProperty('ULTRAMSG_TOKEN');
+  if (!instance || !token) throw new Error('ULTRAMSG_INSTANCE / ULTRAMSG_TOKEN غير مضبوطين في خصائص السكريبت.');
+  let to = String(phone || '').replace(/[٠-٩]/g, function (c) { return '٠١٢٣٤٥٦٧٨٩'.indexOf(c); }).replace(/\D/g, '');
+  if (to.indexOf('00') === 0) to = to.slice(2); else if (to.charAt(0) === '0') to = '966' + to.slice(1);
+  if (to.length < 11) throw new Error('رقم الواتساب غير صالح.');
+  const resp = UrlFetchApp.fetch('https://api.ultramsg.com/' + instance + '/messages/chat', {
+    method: 'post', contentType: 'application/json',
+    payload: JSON.stringify({ token: token, to: to, body: message }), muteHttpExceptions: true
+  });
+  const code = resp.getResponseCode();
+  if (code < 200 || code >= 300) throw new Error('فشل إرسال الواتساب (' + code + ')');
+  const body = JSON.parse(resp.getContentText());
+  if (body && body.error) throw new Error('UltraMsg: ' + body.error);
+  return true;
+}
+
+// رابط تطبيق الويب المنشور (/exec). لا نستخدم ScriptApp.getService().getUrl() لأنه يعيد رابط الاختبار (/dev) عند التشغيل من المحرر أو المشغّل،
+// وهذا الرابط لا يفتحه إلا مالك المشروع فيظهر «يتعذر فتح الملف». يمكن تغييره من خاصية WEBAPP_URL.
+function webAppBase_() {
+  const p = PropertiesService.getScriptProperties().getProperty('WEBAPP_URL');
+  return p || 'https://script.google.com/macros/s/AKfycbzrf1-At3Pq7i39bGV3F1iD3-b0G-WWyRi5cgpKeQjyn_N5fh2EmGhoyRKUsbLd-F_UJQ/exec';
+}
+
+// لإعادة تجربة الإرسال في نفس اليوم: تمسح علامات «أُرسل اليوم».
+function resetApprovalSent() {
+  const p = PropertiesService.getScriptProperties();
+  Object.keys(p.getProperties()).forEach(function (k) { if (k.indexOf('APPROVAL_SENT_') === 0) p.deleteProperty(k); });
+  Logger.log('تم مسح علامات الإرسال');
+}
+
+function lessonNumLabel_(lessonId) {
+  const m = String(lessonId).match(/^c(\d+)_l(\d+)$/);
+  return m ? m[1] + '-' + m[2] : lessonId;
+}
+
+// المشغّل اليومي صباحاً
+function lessonApprovalDaily() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(CONTROL_SHEET_NAME);
+  if (!sheet || sheet.getLastRow() < 2) return;
+  if (!String(sheet.getRange(1, 4).getValue() || '').trim()) sheet.getRange(1, 4).setValue('الاعتماد');
+  const tz = ss.getSpreadsheetTimeZone();
+  const today = todayStr_(), tomorrow = addDaysStr_(today, 1);
+  const props = PropertiesService.getScriptProperties();
+  const phone = props.getProperty('TEACHER_WHATSAPP');
+  const base = webAppBase_();
+  const rng = sheet.getRange(2, 1, sheet.getLastRow() - 1, 4);
+  const vals = rng.getValues();
+  vals.forEach(function (r, i) {
+    const id = String(r[0] || '').trim(), method = String(r[1] || '').trim();
+    if (!id || method !== 'تاريخ') return;
+    let date = r[2];
+    if (date instanceof Date) date = Utilities.formatDate(date, tz, 'yyyy-MM-dd');
+    date = String(date || '').trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
+    let status = String(r[3] || '').trim();
+    if (status === APPROVAL_OK_) return;
+    if (status === '' && date >= today && date <= tomorrow) {
+      sheet.getRange(i + 2, 4).setValue(APPROVAL_PENDING_);
+      status = APPROVAL_PENDING_;
+    }
+    if (status === APPROVAL_PENDING_ && date <= today) {
+      const key = 'APPROVAL_SENT_' + id;
+      if (props.getProperty(key) === today) return;
+      const exp = Date.now() + APPROVAL_LINK_TTL_MS_;
+      const link = approvalPageBase_() + '?l=' + encodeURIComponent(id) + '&d=' + date + '&e=' + exp + '&s=' + signApproval_(id, date, exp);
+      const title = LESSON_ID_TO_TITLE_MAP[id] || id;
+      const NL = String.fromCharCode(10);
+      const msg = 'السلام عليكم أستاذ عبدالعزيز 🌹' + NL + NL + 'حان موعد فتح الدرس ' + lessonNumLabel_(id) + ' — ' + title + NL + 'الموعد المقرر: ' + date +
+        NL + NL + 'اضغط الرابط لاختيار: فتح الآن أو تأجيل يوم أو يومين أو ثلاثة:' + NL + link + NL + NL + '(الدرس يبقى مغلقاً على الطلاب حتى توافق)';
+      try {
+        sendUltraWhatsApp_(phone, msg);
+        props.setProperty(key, today);
+        logToDebugSheet('lessonApproval', 'أُرسل استئذان ' + id);
+      } catch (err) {
+        logToDebugSheet('lessonApproval-error', id + ': ' + err.message);
+      }
+    }
+  });
+}
+
+// عنوان صفحة القرار (على GitHub Pages). صفحات HtmlService تفشل على الجوال («يتعذر فتح الملف») عند تعدد حسابات Google،
+// لذلك تُعرض الصفحة من الموقع وتتصل بالسكريبت عبر JSON كبقية صفحات المنصة. يمكن تغييره من خاصية APPROVAL_PAGE_URL.
+function approvalPageBase_() {
+  return PropertiesService.getScriptProperties().getProperty('APPROVAL_PAGE_URL') || 'https://ablan-math.github.io/approve.html';
+}
+
+// قرار المعلم كـ JSON: بلا a يعيد {state:'ask'} فقط (لا يغيّر شيئاً)، ومع a=open|p1|p2|p3 ينفّذ.
+function lessonDecisionJson_(p) {
+  const id = String(p.l || '').trim(), planned = String(p.d || '').trim(), exp = parseInt(p.e, 10);
+  if (!id || !planned || !exp) return { state: 'invalid' };
+  if (Date.now() > exp) return { state: 'expired' };
+  if (signApproval_(id, planned, exp) !== String(p.s || '')) return { state: 'invalid' };
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName(CONTROL_SHEET_NAME);
+    const tz = ss.getSpreadsheetTimeZone();
+    const vals = sheet.getRange(2, 1, Math.max(sheet.getLastRow() - 1, 1), 4).getValues();
+    let row = -1;
+    for (let i = 0; i < vals.length; i++) {
+      if (String(vals[i][0] || '').trim() !== id) continue;
+      let d = vals[i][2];
+      if (d instanceof Date) d = Utilities.formatDate(d, tz, 'yyyy-MM-dd');
+      if (String(vals[i][1] || '').trim() === 'تاريخ' && String(d).trim() === planned && String(vals[i][3] || '').trim() === APPROVAL_PENDING_) { row = i + 2; break; }
+    }
+    const label = 'الدرس ' + lessonNumLabel_(id) + ' — ' + (LESSON_ID_TO_TITLE_MAP[id] || '');
+    if (row < 0) return { state: 'decided', label: label };
+    const a = String(p.a || '');
+    if (!a) return { state: 'ask', label: label, planned: planned };
+    if (a === 'open') {
+      sheet.getRange(row, 4).setValue(APPROVAL_OK_);
+      logToDebugSheet('lessonApproval', 'فُتح ' + id);
+      return { state: 'opened', label: label };
+    }
+    const n = { p1: 1, p2: 2, p3: 3 }[a];
+    if (!n) return { state: 'invalid' };
+    const nd = addDaysStr_(todayStr_(), n);
+    sheet.getRange(row, 3).setNumberFormat('@').setValue(nd);
+    sheet.getRange(row, 4).setValue('');
+    logToDebugSheet('lessonApproval', 'أُجّل ' + id + ' إلى ' + nd);
+    return { state: 'postponed', label: label, newDate: nd };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function approvalPage_(title, body, buttons) {
+  const btn = (buttons || []).map(function (b) {
+    return '<a target="_top" href="' + b.url + '" style="display:block;margin:10px 0;padding:14px;border-radius:12px;background:' + b.color + ';color:#fff;text-decoration:none;font-weight:800;font-size:17px">' + b.text + '</a>';
+  }).join('');
+  const html = '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>' +
+    '<body style="font-family:Tahoma,Arial,sans-serif;background:#f3f5fb;margin:0;padding:18px"><div style="max-width:440px;margin:30px auto;background:#fff;border-radius:18px;padding:22px;text-align:center;box-shadow:0 6px 24px rgba(0,0,0,.08)">' +
+    '<h2 style="margin:0 0 10px;font-size:20px">' + title + '</h2><div style="color:#475569;line-height:1.8;font-size:15px">' + body + '</div>' + btn + '</div></body></html>';
+  return HtmlService.createHtmlOutput(html).setTitle('فتح الدروس');
+}
+
+// صفحة القرار: بلا a تعرض الأزرار فقط (لا تغيّر شيئاً، فمعاينة الروابط في واتساب لا تفتح الدرس)، ومع a تنفّذ.
+function lessonDecisionPage_(p) {
+  const id = String(p.l || '').trim(), planned = String(p.d || '').trim(), exp = parseInt(p.e, 10);
+  if (!id || !planned || !exp) return approvalPage_('رابط غير صالح', '', []);
+  if (Date.now() > exp) return approvalPage_('انتهت صلاحية الرابط', 'سيصلك استئذان جديد صباح الغد.', []);
+  if (signApproval_(id, planned, exp) !== String(p.s || '')) return approvalPage_('رابط غير صالح', '', []);
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName(CONTROL_SHEET_NAME);
+    const tz = ss.getSpreadsheetTimeZone();
+    const vals = sheet.getRange(2, 1, Math.max(sheet.getLastRow() - 1, 1), 4).getValues();
+    let row = -1;
+    for (let i = 0; i < vals.length; i++) {
+      if (String(vals[i][0] || '').trim() !== id) continue;
+      let d = vals[i][2];
+      if (d instanceof Date) d = Utilities.formatDate(d, tz, 'yyyy-MM-dd');
+      if (String(vals[i][1] || '').trim() === 'تاريخ' && String(d).trim() === planned && String(vals[i][3] || '').trim() === APPROVAL_PENDING_) { row = i + 2; break; }
+    }
+    const label = 'الدرس ' + lessonNumLabel_(id) + ' — ' + (LESSON_ID_TO_TITLE_MAP[id] || '');
+    if (row < 0) return approvalPage_('تم البتّ في هذا الطلب', 'سبق أن اتخذت قراراً بشأن ' + label + '.', []);
+    const a = String(p.a || '');
+    const mk = function (action, text, color) {
+      return { url: webAppBase_() + '?action=lessonDecision&l=' + encodeURIComponent(id) + '&d=' + planned + '&e=' + exp + '&s=' + p.s + '&a=' + action, text: text, color: color };
+    };
+    if (!a) {
+      return approvalPage_('استئذان فتح درس', label + '<br>الموعد المقرر: ' + planned,
+        [mk('open', '✅ فتح الآن', '#15803d'), mk('p1', '⏳ تأجيل يوم', '#b45309'), mk('p2', '⏳ تأجيل يومين', '#b45309'), mk('p3', '⏳ تأجيل ثلاثة أيام', '#b45309')]);
+    }
+    if (a === 'open') {
+      sheet.getRange(row, 4).setValue(APPROVAL_OK_);
+      logToDebugSheet('lessonApproval', 'فُتح ' + id);
+      return approvalPage_('✅ تم فتح الدرس', label + '<br>أصبح مفتوحاً للطلاب الآن.', []);
+    }
+    const n = { p1: 1, p2: 2, p3: 3 }[a];
+    if (!n) return approvalPage_('اختيار غير صالح', '', []);
+    const nd = addDaysStr_(todayStr_(), n);
+    sheet.getRange(row, 3).setNumberFormat('@').setValue(nd);
+    sheet.getRange(row, 4).setValue('');
+    logToDebugSheet('lessonApproval', 'أُجّل ' + id + ' إلى ' + nd);
+    return approvalPage_('⏳ تم التأجيل', label + '<br>الموعد الجديد: ' + nd + '<br>سيصلك استئذان جديد صباح ذلك اليوم.', []);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// شغّلها مرة واحدة بعد لصق الكود: تُنشئ السر وتضبط المشغّل اليومي (السابعة صباحاً) وتتحقق من الخصائص.
+function setupLessonApproval() {
+  approvalSecret_();
+  ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === 'lessonApprovalDaily') ScriptApp.deleteTrigger(t); });
+  ScriptApp.newTrigger('lessonApprovalDaily').timeBased().everyDays(1).atHour(7).create();
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CONTROL_SHEET_NAME);
+  if (sheet && !String(sheet.getRange(1, 4).getValue() || '').trim()) sheet.getRange(1, 4).setValue('الاعتماد');
+  const p = PropertiesService.getScriptProperties();
+  const missing = ['ULTRAMSG_INSTANCE', 'ULTRAMSG_TOKEN', 'TEACHER_WHATSAPP'].filter(function (k) { return !p.getProperty(k); });
+  const msg = missing.length ? 'تم إنشاء المشغّل، لكن ينقص في «خصائص السكريبت»: ' + missing.join('، ') : 'تم الإعداد ✓ — شغّل sendApprovalTest للتجربة.';
+  Logger.log(msg);
+  try { SpreadsheetApp.getActiveSpreadsheet().toast(msg, 'استئذان فتح الدروس', 20); } catch (e) {}
+}
+
+// رسالة تجربة إلى رقمك للتأكد من الاتصال بـ UltraMsg.
+function sendApprovalTest() {
+  sendUltraWhatsApp_(PropertiesService.getScriptProperties().getProperty('TEACHER_WHATSAPP'), 'تجربة: نظام استئذان فتح الدروس يعمل ✅');
+  Logger.log('أُرسلت رسالة التجربة');
+}
+
+// =================================================================
+//  شهادات الشكر والتقدير: كل شهادة يطبعها المعلم أو يحفظها أو يرسلها تُسجَّل هنا
+//  وتظهر للطالب في صفحته (term1.html). ورقة «Certificates» تُنشأ تلقائياً.
+//  المفتاح = فصل|طالب|نوع|اسم الشهادة|فترة: إعادة طباعة الشهادة نفسها تحدّثها ولا تكرّرها.
+//  لإخفاء شهادة عن الطالب: احذف صفّها من الورقة، أو من زر الحذف في صفحة المعلم.
+// =================================================================
+const CERT_SHEET_NAME_ = 'Certificates';
+const CERT_HEADERS_ = ['المفتاح', 'تاريخ الإصدار', 'الفصل', 'رقم الطالب', 'اسم الطالب', 'النوع', 'اسم الشهادة', 'النسبة', 'الفترة', 'بيانات الرسم'];
+
+function certSheet_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sh = ss.getSheetByName(CERT_SHEET_NAME_);
+  if (!sh) {
+    sh = ss.insertSheet(CERT_SHEET_NAME_);
+    sh.getRange(1, 1, 1, CERT_HEADERS_.length).setValues([CERT_HEADERS_]).setFontWeight('bold');
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+function readCertRows_() {
+  const sh = certSheet_();
+  const lr = sh.getLastRow();
+  return lr < 2 ? [] : sh.getRange(2, 1, lr - 1, CERT_HEADERS_.length).getValues();
+}
+
+function saveCertificates(body) {
+  const items = Array.isArray(body.items) ? body.items : [];
+  if (!items.length) return { saved: 0 };
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    const sh = certSheet_();
+    const rows = readCertRows_();
+    const rowOf = {};
+    rows.forEach(function (r, i) { if (r[0]) rowOf[String(r[0])] = i + 2; });
+    const now = new Date(), add = [];
+    items.forEach(function (it) {
+      const classId = String(it.classId || '').trim(), sid = String(it.studentId || '').trim();
+      if (!classId || !sid || !it.cert) return;
+      const period = parseInt(it.period, 10) || 1;
+      const key = [classId, sid, String(it.type || ''), String(it.cert).trim(), period].join('|');
+      const row = [key, now, classId, sid, String(it.name || ''), String(it.type || ''), String(it.cert).trim(),
+                   it.pct === null || it.pct === undefined ? '' : it.pct, period, JSON.stringify(it.data || {})];
+      if (rowOf[key] > 0) sh.getRange(rowOf[key], 1, 1, row.length).setValues([row]);
+      else if (rowOf[key] < 0) add[-rowOf[key] - 1] = row; // تكررت في الدفعة نفسها
+      else { add.push(row); rowOf[key] = -add.length; }
+    });
+    if (add.length) sh.getRange(sh.getLastRow() + 1, 1, add.length, CERT_HEADERS_.length).setValues(add);
+    return { saved: items.length };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function deleteCertificate(body) {
+  const key = String(body.key || '');
+  if (!key) throw new Error('مفتاح الشهادة مفقود');
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    const sh = certSheet_();
+    const rows = readCertRows_();
+    for (let i = rows.length - 1; i >= 0; i--) if (String(rows[i][0]) === key) sh.deleteRow(i + 2);
+    return { deleted: true };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// شهادات الطالب، الأحدث أولاً
+function certsForStudent_(studentId) {
+  const out = [];
+  readCertRows_().forEach(function (r) {
+    if (String(r[3]).trim() !== studentId) return;
+    let data = {};
+    try { data = JSON.parse(r[9] || '{}'); } catch (e) {}
+    const d = r[1] instanceof Date ? r[1] : new Date(r[1]);
+    out.push({ key: String(r[0]), issued: isNaN(d) ? '' : d.toISOString(), type: String(r[5]), cert: String(r[6]),
+               pct: r[7] === '' ? null : r[7], period: parseInt(r[8], 10) || 1, data: data });
+  });
+  out.sort(function (a, b) { return a.issued < b.issued ? 1 : -1; });
+  return out;
+}
+
+// ───────── الأوسمة: سجل النشاط (مواظبة + درجة كاملة من أول محاولة) ─────────
+// شيت «Activity»: صف لكل طالب. لا يؤثر في أي درجة؛ يُقرأ للعرض فقط.
+const ACT_SHEET_NAME_ = 'Activity';
+const ACT_HEADERS_ = ['رقم الطالب', 'الفصل', 'آخر فتح', 'تتابع الفتح', 'أفضل تتابع فتح', 'آخر نشاط', 'تتابع النشاط', 'أفضل تتابع نشاط', 'أيام النشاط', 'كاملة-دروس', 'كاملة-ألعاب'];
+const ACT_TZ_ = 'Asia/Riyadh';
+const ACT_LESSON_MAX_ = 10;   // سلم درجة الدرس
+const ACT_GAME_MAX_ = 5;      // سلم درجة اللعبة
+const ACT_GRACE_ = 1;         // عدد أيام الدراسة المسموح تفويتها دون انقطاع التتابع
+
+function actSheet_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sh = ss.getSheetByName(ACT_SHEET_NAME_);
+  if (!sh) {
+    sh = ss.insertSheet(ACT_SHEET_NAME_);
+    sh.getRange(1, 1, 1, ACT_HEADERS_.length).setValues([ACT_HEADERS_]).setFontWeight('bold');
+    sh.setFrozenRows(1);
+    sh.getRange(2, 3, 1000, 1).setNumberFormat('@');
+    sh.getRange(2, 6, 1000, 1).setNumberFormat('@');
+  }
+  return sh;
+}
+function actToday_() { return Utilities.formatDate(now_(), ACT_TZ_, 'yyyy-MM-dd'); }
+function actDayStr_(v) {
+  if (!v) return '';
+  if (v instanceof Date) return Utilities.formatDate(v, ACT_TZ_, 'yyyy-MM-dd');
+  return String(v).trim();
+}
+function actUtc_(s) { const p = String(s).split('-'); return Date.UTC(+p[0], +p[1] - 1, +p[2]); }
+// عدد أيام الدراسة (غير الجمعة والسبت) بين التاريخين، دون طرفيهما
+function actSchoolGap_(fromS, toS) {
+  let t = actUtc_(fromS) + 86400000;
+  const end = actUtc_(toS);
+  let n = 0, guard = 0;
+  while (t < end && guard++ < 90) {
+    const wd = new Date(t).getUTCDay();
+    if (wd !== 5 && wd !== 6) n++;
+    t += 86400000;
+  }
+  return n;
+}
+function actNextStreak_(last, streak, today) {
+  if (!last) return 1;
+  if (last === today) return Math.max(1, streak);
+  return actSchoolGap_(last, today) <= ACT_GRACE_ ? streak + 1 : 1;
+}
+function actAlive_(last, streak, today) {
+  if (!last) return 0;
+  if (last === today) return streak;
+  return actSchoolGap_(last, today) <= ACT_GRACE_ ? streak : 0;
+}
+function actFindRow_(sh, sid) {
+  const lr = sh.getLastRow();
+  if (lr < 2) return -1;
+  const ids = sh.getRange(2, 1, lr - 1, 1).getValues();
+  for (let i = 0; i < ids.length; i++) if (String(ids[i][0]).trim() === sid) return i + 2;
+  return -1;
+}
+function actReadRow_(sh, rowNo) {
+  return sh.getRange(rowNo, 1, 1, ACT_HEADERS_.length).getValues()[0];
+}
+function actParseList_(v) { try { const a = JSON.parse(v || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
+
+// kind: 'open' | 'act'. بدون قفل؛ المستدعي مسؤول عنه.
+function actTouch_(studentId, classId, kind, extra) {
+  const sid = String(studentId || '').trim();
+  if (!sid || sid.length > 40) return;
+  const sh = actSheet_();
+  let rowNo = actFindRow_(sh, sid);
+  let r;
+  if (rowNo < 0) {
+    r = [sid, String(classId || ''), '', 0, 0, '', 0, 0, 0, '[]', '[]'];
+    rowNo = sh.getLastRow() + 1;
+  } else r = actReadRow_(sh, rowNo);
+  const today = actToday_();
+  if (kind === 'open') {
+    const last = actDayStr_(r[2]);
+    if (last !== today) {
+      const s = actNextStreak_(last, +r[3] || 0, today);
+      r[2] = "'" + today; r[3] = s; r[4] = Math.max(+r[4] || 0, s);
+    }
+  } else {
+    const last = actDayStr_(r[5]);
+    if (last !== today) {
+      const s = actNextStreak_(last, +r[6] || 0, today);
+      r[5] = "'" + today; r[6] = s; r[7] = Math.max(+r[7] || 0, s); r[8] = (+r[8] || 0) + 1;
+    }
+    if (extra && extra.perfectLesson) { const a = actParseList_(r[9]); if (a.indexOf(extra.perfectLesson) < 0) { a.push(extra.perfectLesson); r[9] = JSON.stringify(a); } }
+    if (extra && extra.perfectGame) { const a = actParseList_(r[10]); if (a.indexOf(extra.perfectGame) < 0) { a.push(extra.perfectGame); r[10] = JSON.stringify(a); } }
+    // النشاط يعني أن الطالب فتح المنصة أيضًا
+    const lastO = actDayStr_(r[2]);
+    if (lastO !== today) { const so = actNextStreak_(lastO, +r[3] || 0, today); r[2] = "'" + today; r[3] = so; r[4] = Math.max(+r[4] || 0, so); }
+  }
+  if (classId) r[1] = String(classId);
+  sh.getRange(rowNo, 1, 1, ACT_HEADERS_.length).setValues([r]);
+}
+
+// يُستدعى من saveGrade بعد نجاح الحفظ. لا يرمي أبدًا.
+function actRecordFromSave_(studentId, classId, itemId, grade, isNewRow) {
+  try {
+    const id = String(itemId || '').trim();
+    const g = parseFloat(grade);
+    const extra = {};
+    if (isNewRow && !isNaN(g)) {
+      if (isLessonItem_(id) && g >= ACT_LESSON_MAX_ - 1e-9) extra.perfectLesson = id;
+      else if (isGameItem_(id) && g >= ACT_GAME_MAX_ - 1e-9) extra.perfectGame = id;
+    }
+    actTouch_(studentId, classId, 'act', extra);
+  } catch (e) { try { logToDebugSheet('actRecord_Error', String(e && e.stack || e)); } catch (e2) {} }
+}
+
+// طلب «فتح المنصة» من صفحة الطالب (مرة يوميًا لكل جهاز)
+function actPingOpen_(params) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try { actTouch_(params.studentId, params.classId, 'open', null); return { ok: true }; }
+  finally { lock.releaseLock(); }
+}
+
+// ما يراه الطالب (للعرض فقط)
+function activityForStudent_(studentId) {
+  const empty = { open: { cur: 0, best: 0 }, act: { cur: 0, best: 0, days: 0 }, perfectLessons: 0, perfectGames: 0 };
+  const sid = String(studentId || '').trim();
+  const sh = actSheet_();
+  const rowNo = actFindRow_(sh, sid);
+  if (rowNo < 0) return empty;
+  const r = actReadRow_(sh, rowNo), today = actToday_();
+  return {
+    open: { cur: actAlive_(actDayStr_(r[2]), +r[3] || 0, today), best: +r[4] || 0 },
+    act: { cur: actAlive_(actDayStr_(r[5]), +r[6] || 0, today), best: +r[7] || 0, days: +r[8] || 0 },
+    perfectLessons: actParseList_(r[9]).length,
+    perfectGames: actParseList_(r[10]).length
+  };
+}
+
+// نقطة الحفظ (POST) لدرجات المشاركة. هذا الملف لا يحتوي على doPost أخرى،
+// فهذه أول وحيدة نقطة دخول POST في المشروع.
+function doPost(e) {
+  try {
+    const body = JSON.parse(e.postData.contents);
+    let data;
+    if (body.action === "teacherLogin") {
+      return createJsonResponse({ status: "success", data: teacherLogin_(body) });
+    }
+    if (body.action === "teacherPing") {
+      teacherSessionMode_(body.token); // يجدّد المدة أو يرمي SESSION_EXPIRED
+      return createJsonResponse({ status: "success", data: { ok: true } });
+    }
+    if (body.action === "teacherLogout") {
+      if (body.token) CacheService.getScriptCache().remove('ts_' + String(body.token));
+      return createJsonResponse({ status: "success", data: { ok: true } });
+    }
+    if (TEACHER_ACTIONS_[body.action]) {
+      if (teacherSessionMode_(body.token) === 'decoy') {
+        return createJsonResponse({ status: "success", data: decoyResponse_(body.action, body) });
+      }
+    }
+    if (body.action === "saveParticipationGrid") data = saveParticipationGrid(body);
+    else if (body.action === "saveWeekExtras") data = saveWeekExtras(body);
+    else if (body.action === "saveParticipationCell") data = saveParticipationCell(body);
+    else if (body.action === "saveRecordsBatch") data = saveRecordsBatch(body);
+    else if (body.action === "saveGradeSettings") data = saveGradeSettings(body);
+    else if (body.action === "saveExamGrades") data = saveExamGrades(body);
+    else if (body.action === "pinPeriod") data = pinPeriod(body);
+    else if (body.action === "saveExamSpill") data = saveExamSpill(body);
+    else if (body.action === "saveCertificates") data = saveCertificates(body);
+    else if (body.action === "deleteCertificate") data = deleteCertificate(body);
+    else throw new Error("إجراء غير معروف: " + body.action);
+    return createJsonResponse({ status: "success", data: data });
+  } catch (err) {
+    return createJsonResponse({ status: "error", message: err.message });
+  }
+}

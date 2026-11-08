@@ -439,6 +439,9 @@
   /* اليد المقلوبة (سلوك) */
   .thd{display:inline-flex; width:24px; height:24px; border-radius:7px; align-items:center; justify-content:center; vertical-align:middle;}
   .xb .thd{width:26px; height:26px;}
+  /* أثر الملاحظة الملغاة: وجه بلا ألوان وخفيف الظهور */
+  .ghost{display:inline-block; opacity:.3; filter:grayscale(1);}
+  .tkf{cursor:pointer; display:inline-block;}
 
   /* ===== سجلا الواجبات والسلوك ===== */
   #grid.wide{grid-template-columns:repeat(auto-fill,minmax(172px,1fr));}
@@ -1925,13 +1928,45 @@
     else { el.textContent = g !== 0 ? String(g) : ''; }
   }
   function tokArr(s){ return String(s || '').split(/\s+/).filter(Boolean); }
-  function faceOf(t){ return BEH[t] ? BEH[t].face : t; }
-  function facesStr(arr){ return arr.map(faceOf).join(' '); }
+  // رمز السلوك السالب يحمل وقت تسجيله: «ن@29412345» (دقائق منذ 1970)، وعلامة «!» = ملغى يدويًا.
+  // ينتهي تلقائيًا بعد (درجته + 1) أيام: −1 يومان، −2 ثلاثة، −3 أربعة. الرمز القديم بلا وقت لا ينتهي.
+  // الملغى (تلقائيًا أو يدويًا) يبقى «أثرًا» باهتًا بلا ألوان ولا يُحسب، ولا يزول إلا بالضغط عليه.
+  function nowMin(){ return Math.floor(Date.now() / 60000); }
+  function tokInfo(t){
+    var m = /^([^@!]+)(?:@(\d+))?(!?)$/.exec(t);
+    if (!m || !BEH[m[1]]) return null;
+    var b = BEH[m[1]], ts = m[2] ? parseInt(m[2], 10) : null, state = 'ok';
+    if (m[3]) state = 'off';
+    else if (b.v < 0 && ts !== null && nowMin() >= ts + (1 - b.v) * 1440) state = 'exp';
+    return { k: m[1], ts: ts, state: state, v: b.v };
+  }
+  function newTok(k){ return (BEH[k] && BEH[k].v < 0) ? k + '@' + nowMin() : k; }
+  // أول ضغطة على ملاحظة سارية = إلغاؤها (تتحول أثرًا)؛ الضغط على الأثر = حذفه. يعيد true إن تغيّر شيء.
+  function stepTok(arr, i){
+    var info = tokInfo(arr[i]);
+    if (!info){ arr.splice(i, 1); return true; }
+    if (info.state !== 'ok'){ arr.splice(i, 1); return true; }
+    if (info.v < 0){ arr[i] = info.k + (info.ts !== null ? '@' + info.ts : '') + '!'; return true; }
+    return false;
+  }
+  function undoTok(arr){ if (arr.length) stepTok(arr, arr.length - 1); }
+  function faceOf(t){
+    var info = tokInfo(t);
+    if (!info) return t;
+    var f = BEH[info.k].face;
+    return info.state === 'ok' ? f : '<span class="ghost" title="ملاحظة ملغاة — اضغط لحذف الأثر">' + f + '</span>';
+  }
+  // تحويل الرموز إلى HTML؛ withIdx = كل رمز في عنصر قابل للضغط (data-i) لإلغاء الملاحظة/حذف أثرها.
+  function facesStr(arr, withIdx){
+    return arr.map(function(t, i){
+      return withIdx ? '<span class="tkf" data-i="' + i + '">' + faceOf(t) + '</span>' : faceOf(t);
+    }).join(' ');
+  }
   function bhSum(arr){
     var good = 0, bad = 0;
     arr.forEach(function(t){
-      var b = BEH[t]; if (!b) return;
-      if (b.v > 0) good += b.v; else bad += -b.v;
+      var info = tokInfo(t); if (!info || info.state !== 'ok') return;
+      if (info.v > 0) good += info.v; else bad += -info.v;
     });
     return { pos: good, neg: bad };
   }
@@ -2093,7 +2128,7 @@
       bb.addEventListener('click', function(){
         if (locked){ flashLockHint('الدرجات مقفولة'); return; }
         gridDirty = true;
-        students.forEach(function(s){ s[key].push(t[0]); });
+        students.forEach(function(s){ s[key].push(newTok(t[0])); });
         renderExtras();
       });
       bulkExtras.appendChild(bb);
@@ -2103,7 +2138,7 @@
     bu.addEventListener('click', function(){
       if (locked){ flashLockHint('الدرجات مقفولة'); return; }
       gridDirty = true;
-      students.forEach(function(s){ s[key].pop(); });
+      students.forEach(function(s){ undoTok(s[key]); });
       renderExtras();
     });
     bulkExtras.appendChild(bu);
@@ -2117,19 +2152,23 @@
       nm.addEventListener('click', function(){ openRecord(stu); });
       var tk = document.createElement('div');
       tk.className = 'tk';
-      function upd(){ tk.innerHTML = stu[key].length ? facesStr(stu[key]) : '—'; }
+      function upd(){ tk.innerHTML = stu[key].length ? facesStr(stu[key], key === 'bh') : '—'; }
       upd();
+      if (key === 'bh') tk.addEventListener('click', function(e){
+        var f = e.target.closest('.tkf'); if (!f || locked) return;
+        if (stepTok(stu[key], parseInt(f.getAttribute('data-i'), 10))){ gridDirty = true; upd(); }
+      });
       var row = document.createElement('div');
       row.className = 'xrow';
       types.forEach(function(t){
         var b = document.createElement('button');
         b.type = 'button'; b.className = 'xb'; b.innerHTML = t[1]; b.title = t[2];
-        b.addEventListener('click', function(){ if (locked) return; gridDirty = true; stu[key].push(t[0]); upd(); });
+        b.addEventListener('click', function(){ if (locked) return; gridDirty = true; stu[key].push(newTok(t[0])); upd(); });
         row.appendChild(b);
       });
       var undo = document.createElement('button');
       undo.type = 'button'; undo.className = 'xb'; undo.textContent = '↶'; undo.title = 'تراجع عن آخر رمز';
-      undo.addEventListener('click', function(){ if (locked) return; gridDirty = true; stu[key].pop(); upd(); });
+      undo.addEventListener('click', function(){ if (locked) return; gridDirty = true; undoTok(stu[key]); upd(); });
       row.appendChild(undo);
       var tots = document.createElement('div');
       tots.className = 'tots';
@@ -2341,19 +2380,23 @@
 
   function exRender(){
     exHwTk.innerHTML = exCtx.hw.length ? facesStr(exCtx.hw) : '—';
-    exBhTk.innerHTML = exCtx.bh.length ? facesStr(exCtx.bh) : '—';
+    exBhTk.innerHTML = exCtx.bh.length ? facesStr(exCtx.bh, true) : '—';
   }
+  exBhTk.addEventListener('click', function(e){
+    var f = e.target.closest('.tkf'); if (!f || !exCtx) return;
+    if (stepTok(exCtx.bh, parseInt(f.getAttribute('data-i'), 10))) exRender();
+  });
   function exMakeBtns(host, key, types){
     host.innerHTML = '';
     types.forEach(function(t){
       var b = document.createElement('button');
       b.type = 'button'; b.className = 'xb'; b.innerHTML = t[1]; b.title = t[2];
-      b.addEventListener('click', function(){ exCtx[key].push(t[0]); exRender(); });
+      b.addEventListener('click', function(){ exCtx[key].push(newTok(t[0])); exRender(); });
       host.appendChild(b);
     });
     var u = document.createElement('button');
     u.type = 'button'; u.className = 'xb'; u.textContent = '↶'; u.title = 'تراجع';
-    u.addEventListener('click', function(){ exCtx[key].pop(); exRender(); });
+    u.addEventListener('click', function(){ undoTok(exCtx[key]); exRender(); });
     host.appendChild(u);
   }
   exMakeBtns(exHwBtns, 'hw', [['✓', '✓', 'حلّ الواجب'], ['✗', '✗', 'لم يحلّ']]);

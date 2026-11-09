@@ -635,6 +635,9 @@
             <p class="text-sm text-gray-300 mb-6">
                 فكرة وتصميم: الأستاذ عبدالعزيز خالد العبلان
             </p>
+            <p class="text-sm mb-6" style="color:#fde68a;">
+                🌟 شكر خاص للطالب سلطان العمودي على اكتشافه خطأً في رصد الدرجات وإبلاغنا به، فتم إصلاحه.
+            </p>
             <button id="start-button" class="cta-button confirm-button px-8 py-3 text-lg">
                 ابدأ اللعبة!
             </button>
@@ -929,6 +932,7 @@
                 
                 currentQuestion = questionBank[category][questionIndex];
                 currentQuestion.category = category; // حفظ الفئة للعودة
+                categoryPoints[category] = 0; // أمان: لا تتراكم النقاط إن أُعيدت الفئة
                 loadQuestion(currentQuestion);
             });
         });
@@ -1199,7 +1203,7 @@
             gTimerDisplay.classList.add('hidden'); // إخفاء العداد
             
             // بدء عداد العودة للقائمة (8 ثوانٍ)
-            startBackTimer(gBackButton, 8, showMainScreen);
+            startBackTimer(gBackButton, 8, finishCategory);
         });
 
         gExplainButton.addEventListener('click', () => {
@@ -1258,11 +1262,15 @@
         }
 
 
-        gBackButton.addEventListener('click', () => {
+        // تسجيل الفئة كمكتملة (للزر وللعداد التلقائي معاً) حتى لا تُعاد وتتكرر نقاطها
+        function finishCategory() {
             stopBackTimer();
-            completedCategories.push(currentQuestion.category);
+            if (currentQuestion && !completedCategories.includes(currentQuestion.category)) {
+                completedCategories.push(currentQuestion.category);
+            }
             showMainScreen();
-        });
+        }
+        gBackButton.addEventListener('click', finishCategory);
 
         function resetGraphScreen() {
             graphAnswered = false;
@@ -1392,7 +1400,7 @@
                 const finalPoints = parseFloat(points) || 0;
                 const finalMetric = parseFloat(metricValue) || 0;
                 const maxPoints = parseFloat(GAME_MAX_POINTS) || 1;
-                const finalGrade = (finalPoints / maxPoints) * PLATFORM_MAX_GRADE;
+                const finalGrade = Math.min(PLATFORM_MAX_GRADE, (finalPoints / maxPoints) * PLATFORM_MAX_GRADE);
 
                 const resultDisplay = document.getElementById('final-result-display');
                 if (resultDisplay) {

@@ -147,6 +147,9 @@
   table.board td.bn{text-align:start; font-size:13px; cursor:pointer; text-decoration:underline dotted; text-underline-offset:3px; min-width:120px;}
   table.board td small{display:block; font-size:10.5px; color:var(--muted); font-weight:700;}
   table.board td.unp b{color:var(--muted);}
+  table.board thead th.tt{background:#b45309;}
+  table.board td.tt{background:#fef3c7; color:#92400e;}
+  table.board td.tt small{color:#b45309;}
   table.board td .pinned-tag{color:var(--bc);}
   .bd-btns{display:flex; gap:4px; justify-content:center; margin-top:6px; flex-wrap:wrap;}
   .bd-btns button{
@@ -2733,14 +2736,16 @@
 
   // مجموع الطالب = المثبّت أو الحالي لكل مجال + الاختبار؛ المجال الذي بلا درجة لا يُحسب ويُشار إليه بـ«جزئي»
   function boardTotal(s){
-    var W = boardData.weights, t = 0, miss = 0, max = W.participation + W.homework + W.behavior + W.platform + W.exam;
+    var W = boardData.weights, t = 0, o = 0, miss = 0, max = W.participation + W.homework + W.behavior + W.platform + W.exam;
     ['part', 'hw', 'beh', 'plat'].forEach(function(k){
       var v = (k === 'plat') ? ((s.pin && s.pin.platGrade !== null && s.pin.platGrade !== undefined) ? s.pin.platGrade : s.live.platGrade)
         : ((s.pin && s.pin[k] !== null && s.pin[k] !== undefined) ? s.pin[k] : s.live[k]);
-      if (v === null || v === undefined) miss++; else t += v;
+      if (v === null || v === undefined) miss++;
+      else { t += v; o += (k !== 'plat' && s.add && s.add[k] > 0) ? Math.max(0, v - s.add[k]) : v; }
     });
-    if (s.exam === null || s.exam === undefined) miss++; else t += s.exam;
-    return { t: t, miss: miss, max: max };
+    if (s.exam === null || s.exam === undefined) miss++;
+    else { t += s.exam; o += s.examInfo ? s.examInfo.raw : s.exam; }
+    return { t: t, orig: o, miss: miss, max: max };
   }
   function renderBoard(){
     gridEl.innerHTML = '';
@@ -2758,14 +2763,14 @@
     var head = '<thead><tr><th style="text-align:start;min-width:120px">' + (mode === 'fin' ? 'النهائي' : 'النصفي')
       + '<small>الأسابيع ' + boardData.range.from + '–' + boardData.range.to + '</small>'
       + '<div class="bd-btns" style="justify-content:flex-start"><button type="button" data-all="class" title="تثبيت المشاركة والواجبات والسلوك وتحديث المنصة لهذا الصف">📌 تثبيت الكل</button></div></th>';
-    head += '<th>المجموع<small>من ' + (W.participation + W.homework + W.behavior + W.platform + W.exam) + '</small></th>';
+    head += '<th class="tt">المجموع</th>';
     BOARD_COLS.forEach(function(c){
       var n = students.filter(function(s){ return s.pin && s.pin[c.k] !== null && s.pin[c.k] !== undefined; }).length;
       head += '<th>' + c.t + '<small>الدرجة العظمى ' + W[c.w] + '</small><small>تم تثبيت ' + n + ' من ' + students.length + ' طالبًا</small>'
         + '<div class="bd-btns"><button type="button" data-f="' + c.k + '" data-sc="class">' + (c.k === 'plat' ? 'تحديث' : 'تثبيت') + '</button>'
         + '<button type="button" data-f="' + c.k + '" data-sc="all">كل الصفوف</button></div></th>';
     });
-    head += '<th>الاختبار<small>من ' + W.exam + '</small></th></tr></thead>';
+    head += '<th>الاختبار</th></tr></thead>';
     tbl.innerHTML = head;
     var tb = document.createElement('tbody');
     var sorted = document.getElementById('sortSel').value !== 'orig';
@@ -2776,9 +2781,11 @@
       nm.addEventListener('click', function(){ openRecord(s); });
       tr.appendChild(nm);
       var tt = boardTotal(s), tdT = document.createElement('td');
-      tdT.innerHTML = '<span style="font-size:17px">' + fmtG(tt.t) + '</span>'
+      tdT.className = 'tt';
+      tdT.innerHTML = '<span style="font-size:19px">' + fmtG(tt.t) + '</span>'
         + (s.examInfo && s.examInfo.rest > 0 ? '<span class="plus-mark" title="درجة زائدة لم يجد لها مكانًا">+' + fmtG(s.examInfo.rest) + '</span>' : '')
-        + '<small>' + (tt.miss ? 'جزئي (' + tt.miss + ' بلا درجة)' : 'من ' + tt.max) + '</small>';
+        + (Math.abs(tt.t - tt.orig) > 0.004 ? '<small title="قبل التحسين وإضافة المنصة وفائض الاختبار">' + fmtG(tt.orig) + '</small>' : '')
+        + (tt.miss ? '<small>جزئي (' + tt.miss + ' بلا درجة)</small>' : '');
       tr.appendChild(tdT);
       BOARD_COLS.forEach(function(c){ tr.appendChild(boardCell(c, s)); });
       var ex = document.createElement('td');

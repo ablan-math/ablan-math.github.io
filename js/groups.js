@@ -10,7 +10,7 @@ window.initGroups = function (TG) {
   var ROLE_ICON = { 'قائد': '👑', 'متحدث': '🎤', 'مقرر': '✍️', 'ضابط الوقت': '⏱️', 'مدقق': '🔍' };
   var DEF_ROLES = ['قائد', 'متحدث', 'مقرر', 'ضابط الوقت', 'مدقق'];
 
-  var S = null, CLS = '', roster = [], saveTimer = null, edOk = null;
+  var S = null, CLS = '', roster = [], saveTimer = null, edOk = null, tool = null, sel = null;
   function $(id) { return document.getElementById(id); }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function fmt(v) { return String(Math.round(v * 100) / 100); }
@@ -54,7 +54,9 @@ window.initGroups = function (TG) {
     '.gp-tools label{display:flex;flex-direction:column;font-size:11px;font-weight:700;color:var(--muted);gap:3px}' +
     '.gp-tools select,.gp-tools input,.gp-fm select,.gp-fm input,.gp-fm textarea{font-family:inherit;font-size:13px;padding:6px 8px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink)}' +
     '.gp-btn{font-family:inherit;font-size:12.5px;font-weight:700;padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);cursor:pointer}' +
-    '.gp-btn.pri{background:#0d9488;border-color:#0d9488;color:#fff}.gp-btn.dng{color:#b3263e;border-color:#e5484d}' +
+    '.gp-btn.pri{background:#0d9488;border-color:#0d9488;color:#fff}.gp-btn.dng{color:#b3263e;border-color:#e5484d}.gp-btn.on{background:#f59e0b;border-color:#f59e0b;color:#fff}' +
+    '.gp-hint{background:#fef3c7;color:#92400e;border-radius:10px;padding:8px 12px;font-size:12.5px;font-weight:700;margin-bottom:10px}' +
+    '.gp-m.gp-sel,.gp-seat.gp-sel{background:#fde68a;outline:2px solid #f59e0b;transform:scale(1.07);font-weight:800;z-index:2;border-radius:10px}.gp-seat.gp-sel{border-radius:99px}' +
     '.gp-tabs{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}.gp-tabs button{border:0;background:var(--card);color:var(--ink);font-family:inherit;font-size:12.5px;font-weight:700;padding:8px 12px;cursor:pointer}' +
     '.gp-tabs button.on{background:#0d9488;color:#fff}' +
     '.gp-st{font-size:11.5px;color:var(--muted);font-weight:700;margin-inline-start:auto}' +
@@ -91,7 +93,9 @@ window.initGroups = function (TG) {
     '<label>درجات الفترة<select id="gpPer"><option value="1">الأولى (النصفي)</option><option value="2">الثانية (النهائي)</option></select></label>' +
     '<label>عدد المجموعات<select id="gpN"></select></label>' +
     '<button class="gp-btn pri" id="gpDist" type="button">🎲 توزيع تلقائي</button>' +
-    '<button class="gp-btn" id="gpLead" type="button">👑 تعيين القادة</button>' +
+    '<button class="gp-btn" id="gpLeadM" type="button">👑 قائد يدوي</button>' +
+    '<button class="gp-btn" id="gpLead" type="button">👑 قائد تلقائي</button>' +
+    '<button class="gp-btn" id="gpSwap" type="button">🔄 تعديل الأفراد</button>' +
     '<button class="gp-btn" id="gpAdd" type="button">+ مجموعة</button>' +
     '<button class="gp-btn" id="gpCfg" type="button">⚙ المعاملات والأدوار</button>' +
     '<div class="gp-tabs" id="gpTabs"><button data-v="cards" type="button">بطاقات</button><button data-v="tables" type="button">طاولات</button><button data-v="points" type="button">النقاط</button></div>' +
@@ -134,7 +138,8 @@ window.initGroups = function (TG) {
 
   // ===== التحميل =====
   function load() {
-    CLS = clsSel.value; S = null; roster = [];
+    CLS = clsSel.value; S = null; roster = []; tool = null; sel = null;
+    $('gpLeadM').classList.remove('on'); $('gpSwap').classList.remove('on');
     $('gpBody').innerHTML = '<div class="gp-empty">جارٍ التحميل…</div>'; setSt('');
     var enc = encodeURIComponent;
     var pBoard = TG.fetch(TG.URL + '?action=getPeriodBoard&classId=' + enc(CLS) + '&period=' + $('gpPer').value).then(TG.parse)
@@ -163,7 +168,7 @@ window.initGroups = function (TG) {
   // ===== العرض =====
   function memberRow(gi, mi, m) {
     var lv = level(m), ld = m.role && m.role === S.cfg.roles[0];
-    return '<div class="gp-m' + (ld ? ' ld' : '') + '" data-a="em" data-g="' + gi + '" data-i="' + mi + '"><span class="gp-ri">' + roleIcon(m.role) + '</span><span class="gp-mn">' + esc(dn(m.name)) + '</span>' +
+    return '<div class="gp-m' + (ld ? ' ld' : '') + (isSel(gi, mi) ? ' gp-sel' : '') + '" data-a="em" data-g="' + gi + '" data-i="' + mi + '"><span class="gp-ri">' + roleIcon(m.role) + '</span><span class="gp-mn">' + esc(dn(m.name)) + '</span>' +
       (m.role ? '<span class="gp-rl">' + esc(m.role) + '</span>' : '') +
       (S.showCoef ? '<span class="gp-cf l' + lv + '" title="' + LEVELS[lv - 1] + '">×' + coef(m) + '</span>' : '') + '</div>';
   }
@@ -180,7 +185,7 @@ window.initGroups = function (TG) {
       var h = '<div class="gp-tb"><div class="gp-ctr" data-a="eg" data-g="' + gi + '" style="background:' + c[0] + ';color:' + c[1] + '">' + esc(g.name) + '<b>' + fmt(g.pts) + '</b></div>';
       g.m.forEach(function (m, mi) {
         var a = -Math.PI / 2 + mi * 2 * Math.PI / Math.max(n, 1), x = 125 + R * Math.cos(a) - 42, y = 125 + R * Math.sin(a) - 12, ld = m.role && m.role === S.cfg.roles[0];
-        h += '<span class="gp-seat' + (ld ? ' ld' : '') + '" data-a="em" data-g="' + gi + '" data-i="' + mi + '" style="left:' + Math.round(x) + 'px;top:' + Math.round(y) + 'px;' + (ld ? 'border-color:' + c[1] : '') + '" title="' + esc(m.name + (m.role ? ' — ' + m.role : '')) + '">' + (m.role ? roleIcon(m.role) + ' ' : '') + esc(dn(m.name)) + '</span>';
+        h += '<span class="gp-seat' + (ld ? ' ld' : '') + (isSel(gi, mi) ? ' gp-sel' : '') + '" data-a="em" data-g="' + gi + '" data-i="' + mi + '" style="left:' + Math.round(x) + 'px;top:' + Math.round(y) + 'px;' + (ld ? 'border-color:' + c[1] : '') + '" title="' + esc(m.name + (m.role ? ' — ' + m.role : '')) + '">' + (m.role ? roleIcon(m.role) + ' ' : '') + esc(dn(m.name)) + '</span>';
       });
       return h + '</div>';
     }).join('') + '</div>';
@@ -201,7 +206,44 @@ window.initGroups = function (TG) {
       b.innerHTML = '<div class="gp-empty">لا توجد مجموعات لهذا الفصل بعد.<br>اختر عدد المجموعات ثم اضغط «توزيع تلقائي» (يوزّع الطلاب بالتوازن من درجات الفترة)، أو أضف مجموعات وأعضاء يدويًا.</div>';
       return;
     }
-    b.innerHTML = S.view === 'tables' ? vTables() : S.view === 'points' ? vPoints() : vCards();
+    var hint = '';
+    if (S.view !== 'points') {
+      if (tool === 'lead') hint = '<div class="gp-hint">👑 وضع القائد اليدوي: اضغط على الطالب الذي تريده قائدًا لمجموعته (وبضغطة ثانية عليه يُلغى). اضغط «قائد يدوي» مرة أخرى للخروج.</div>';
+      else if (tool === 'swap') hint = '<div class="gp-hint">🔄 وضع تعديل الأفراد: اضغط على طالب ثم على طالب آخر ليتبدّلا (حتى بين مجموعتين). واضغط اسم مجموعة بعد اختيار طالب لنقله إليها.</div>';
+    }
+    b.innerHTML = hint + (S.view === 'tables' ? vTables() : S.view === 'points' ? vPoints() : vCards());
+  }
+  function isSel(gi, mi) { return tool === 'swap' && sel && sel.g === gi && sel.i === mi; }
+  function setTool(t) {
+    tool = (tool === t) ? null : t; sel = null;
+    $('gpLeadM').classList.toggle('on', tool === 'lead'); $('gpSwap').classList.toggle('on', tool === 'swap');
+    if (S) render();
+  }
+  function pickLeader(gi, mi) {
+    var r0 = S.cfg.roles[0];
+    if (!r0) { alert('لا يوجد دور قائد في قائمة الأدوار.'); return; }
+    var g = S.groups[gi], m = g.m[mi], was = m.role === r0;
+    g.m.forEach(function (x) { if (x.role === r0) x.role = ''; });
+    if (!was) m.role = r0;
+    save(); render();
+  }
+  function swapPick(gi, mi) {
+    if (!sel) { sel = { g: gi, i: mi }; render(); return; }
+    if (sel.g === gi && sel.i === mi) { sel = null; render(); return; }
+    var a = S.groups[sel.g].m, b = S.groups[gi].m, t = a[sel.i];
+    a[sel.i] = b[mi]; b[mi] = t;
+    if (sel.g !== gi) { oneLeader(S.groups[sel.g], a[sel.i]); oneLeader(S.groups[gi], b[mi]); }
+    sel = null; save(); render();
+  }
+  function moveSel(gi) {
+    if (!sel || sel.g === gi) return;
+    var m = S.groups[sel.g].m.splice(sel.i, 1)[0];
+    S.groups[gi].m.push(m); oneLeader(S.groups[gi], m); sel = null; save(); render();
+  }
+  // إن صار في المجموعة قائدان بعد النقل، يفقد القادم دوره (القائد يبقى واحدًا)
+  function oneLeader(g, incoming) {
+    var r0 = S.cfg.roles[0];
+    if (r0 && incoming && incoming.role === r0 && g.m.filter(function (x) { return x.role === r0; }).length > 1) incoming.role = '';
   }
 
   // ===== التوزيع =====
@@ -306,8 +348,9 @@ window.initGroups = function (TG) {
   $('gpBody').addEventListener('click', function (e) {
     var t = e.target.closest('[data-a]'); if (!t || !S) return;
     var a = t.getAttribute('data-a'), gi = parseInt(t.getAttribute('data-g'), 10), mi = parseInt(t.getAttribute('data-i'), 10);
-    if (a === 'em') editMember(gi, mi);
-    else if (a === 'eg') editGroup(gi);
+    var inPts = S.view === 'points';
+    if (a === 'em') { if (tool === 'lead') pickLeader(gi, mi); else if (tool === 'swap') swapPick(gi, mi); else editMember(gi, mi); }
+    else if (a === 'eg') { if (tool === 'swap' && !inPts) moveSel(gi); else if (tool !== 'lead') editGroup(gi); }
     else if (a === 'pt') {
       var m = S.groups[gi].m[mi], p = coef(m);
       S.groups[gi].pts += p; S.log.push({ g: gi, p: p }); save(); render();
@@ -331,6 +374,8 @@ window.initGroups = function (TG) {
   $('gpShowCf').addEventListener('change', function () { if (!S) return; S.showCoef = this.checked; render(); save(); });
   $('gpDist').addEventListener('click', function () { if (S) distribute(); });
   $('gpLead').addEventListener('click', function () { if (S) assignLeaders(); });
+  $('gpLeadM').addEventListener('click', function () { if (S) setTool('lead'); });
+  $('gpSwap').addEventListener('click', function () { if (S) setTool('swap'); });
   $('gpAdd').addEventListener('click', function () {
     if (!S) return;
     var i = S.groups.length;

@@ -18,8 +18,10 @@ window.initGroups = function (TG) {
   function LK() { return 'tg_groups_' + CLS; }
 
   function blank() {
-    return { n: 6, view: 'cards', showCoef: true, cfg: { cut: [50, 35, 20], coef: [1, 2, 3, 5], roles: DEF_ROLES.slice() }, groups: [], log: [] };
+    return { n: 6, view: 'cards', showCoef: true, cfg: { cut: [50, 35, 20], coef: [1, 2, 3, 5], roles: DEF_ROLES.slice() }, groups: [], free: [], log: [] };
   }
+  // قائمة أعضاء المجموعة، أو قائمة «المتبقون» حين gi = -1
+  function L(gi) { return gi < 0 ? S.free : S.groups[gi].m; }
   function level(m) {
     if (m.ov) return m.ov;
     if (m.sc === null || m.sc === undefined) return 2;
@@ -67,6 +69,8 @@ window.initGroups = function (TG) {
     '.gp-cb{padding:6px 10px}.gp-m{display:flex;align-items:center;gap:6px;padding:5px 2px;font-size:13px;cursor:pointer;border-bottom:1px dashed var(--line)}.gp-m:last-child{border:0}' +
     '.gp-m.ld .gp-mn{font-weight:800}.gp-ri{width:18px;text-align:center}.gp-mn{flex:1}.gp-rl{font-size:10.5px;color:var(--muted);font-weight:700}' +
     '.gp-cf{font-size:11px;font-weight:800;border-radius:8px;padding:0 6px;background:var(--bg);color:var(--muted)}.gp-cf.l3{background:#fef3c7;color:#b45309}.gp-cf.l4{background:#fee2e2;color:#b91c1c}.gp-cf.l2{background:#e0f2fe;color:#0369a1}' +
+    '.gp-pin{border:0;background:transparent;cursor:pointer;font-size:14px;opacity:.3;padding:0 3px;filter:grayscale(1)}.gp-pin.on{opacity:1;filter:none}' +
+    '.gp-card.pinned{border:2px solid #f59e0b}.gp-free{border:2px dashed #9ca3af}' +
     '.gp-none{font-size:12px;color:var(--muted);padding:8px 0}' +
     '.gp-tbls{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px;justify-items:center}.gp-tb{position:relative;width:250px;height:250px}' +
     '.gp-ctr{position:absolute;left:75px;top:75px;width:100px;height:100px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;font-weight:800;font-size:13px;padding:6px;cursor:pointer;box-sizing:border-box}' +
@@ -155,7 +159,12 @@ window.initGroups = function (TG) {
       if (!S || !S.groups) S = blank();
       if (board && board.students && board.weights) roster = board.students.map(function (s) { return { id: String(s.id), name: s.name, sc: origScore(s, board.weights) }; });
       var by = {}; roster.forEach(function (r) { by[r.id] = r; });
-      S.groups.forEach(function (g) { g.m.forEach(function (m) { if (!m.cu && by[m.id]) { m.sc = by[m.id].sc; m.name = by[m.id].name; } }); });
+      if (!S.free) S.free = [];
+      var inUse = {};
+      S.groups.forEach(function (g) { g.m.forEach(function (m) { if (!m.cu) inUse[m.id] = 1; if (!m.cu && by[m.id]) { m.sc = by[m.id].sc; m.name = by[m.id].name; } }); });
+      S.free.forEach(function (m) { inUse[m.id] = 1; if (by[m.id]) { m.sc = by[m.id].sc; m.name = by[m.id].name; } });
+      // كل طالب في الفصل ليس في أي مجموعة يظهر في «المتبقون»
+      roster.forEach(function (r) { if (!inUse[r.id]) S.free.push({ id: r.id, name: r.name, sc: r.sc, ov: null, role: '' }); });
       syncUi(); render();
       setSt(board ? '' : 'تعذّر تحميل الدرجات: لن تُحسب المستويات');
     });
@@ -172,17 +181,26 @@ window.initGroups = function (TG) {
       (m.role ? '<span class="gp-rl">' + esc(m.role) + '</span>' : '') +
       (S.showCoef ? '<span class="gp-cf l' + lv + '" title="' + LEVELS[lv - 1] + '">×' + coef(m) + '</span>' : '') + '</div>';
   }
+  function pinBtn(gi, g, extra) {
+    return '<button type="button" class="gp-pin' + (g.pin ? ' on' : '') + '" data-a="pin" data-g="' + gi + '" title="' + (g.pin ? 'مثبّتة: لا يشملها التوزيع التلقائي (اضغط لإلغاء التثبيت)' : 'تثبيت المجموعة حتى لا يشملها التوزيع التلقائي') + '"' + (extra ? ' style="' + extra + '"' : '') + '>📌</button>';
+  }
+  // «المتبقون»: الطلاب الذين لا مجموعة لهم بعد
+  function freeCard() {
+    if (!S.free.length) return '';
+    return '<div class="gp-card gp-free"><div class="gp-ch" style="background:#e5e7eb;color:#374151" data-a="eg" data-g="-1"><span class="gp-gn">الطلاب المتبقون</span><span class="gp-pts">' + S.free.length + '<small>طالب</small></span></div>' +
+      '<div class="gp-cb">' + S.free.map(function (m, mi) { return memberRow(-1, mi, m); }).join('') + '</div></div>';
+  }
   function vCards() {
-    return '<div class="gp-grid">' + S.groups.map(function (g, gi) {
+    return '<div class="gp-grid">' + freeCard() + S.groups.map(function (g, gi) {
       var c = COLORS[g.c % 7];
-      return '<div class="gp-card"><div class="gp-ch" style="background:' + c[0] + ';color:' + c[1] + '" data-a="eg" data-g="' + gi + '"><span class="gp-gn">' + esc(g.name) + '</span><span class="gp-pts">' + fmt(g.pts) + '<small>نقطة</small></span></div>' +
+      return '<div class="gp-card' + (g.pin ? ' pinned' : '') + '"><div class="gp-ch" style="background:' + c[0] + ';color:' + c[1] + '" data-a="eg" data-g="' + gi + '"><span class="gp-gn">' + esc(g.name) + ' ' + pinBtn(gi, g) + '</span><span class="gp-pts">' + fmt(g.pts) + '<small>نقطة</small></span></div>' +
         '<div class="gp-cb">' + (g.m.length ? g.m.map(function (m, mi) { return memberRow(gi, mi, m); }).join('') : '<div class="gp-none">لا يوجد أعضاء</div>') + '</div></div>';
     }).join('') + '</div>';
   }
   function vTables() {
-    return '<div class="gp-tbls">' + S.groups.map(function (g, gi) {
+    return '<div class="gp-tbls">' + (S.free.length ? '<div class="gp-tb" style="width:250px;height:auto">' + freeCard() + '</div>' : '') + S.groups.map(function (g, gi) {
       var c = COLORS[g.c % 7], n = g.m.length, R = n > 6 ? 104 : 98;
-      var h = '<div class="gp-tb"><div class="gp-ctr" data-a="eg" data-g="' + gi + '" style="background:' + c[0] + ';color:' + c[1] + '">' + esc(g.name) + '<b>' + fmt(g.pts) + '</b></div>';
+      var h = '<div class="gp-tb">' + pinBtn(gi, g, 'position:absolute;left:4px;top:4px;z-index:3') + '<div class="gp-ctr" data-a="eg" data-g="' + gi + '" style="background:' + c[0] + ';color:' + c[1] + '">' + esc(g.name) + '<b>' + fmt(g.pts) + '</b></div>';
       g.m.forEach(function (m, mi) {
         var a = -Math.PI / 2 + mi * 2 * Math.PI / Math.max(n, 1), x = 125 + R * Math.cos(a) - 42, y = 125 + R * Math.sin(a) - 12, ld = m.role && m.role === S.cfg.roles[0];
         h += '<span class="gp-seat' + (ld ? ' ld' : '') + (isSel(gi, mi) ? ' gp-sel' : '') + '" data-a="em" data-g="' + gi + '" data-i="' + mi + '" style="left:' + Math.round(x) + 'px;top:' + Math.round(y) + 'px;' + (ld ? 'border-color:' + c[1] : '') + '" title="' + esc(m.name + (m.role ? ' — ' + m.role : '')) + '">' + (m.role ? roleIcon(m.role) + ' ' : '') + esc(dn(m.name)) + '</span>';
@@ -202,11 +220,13 @@ window.initGroups = function (TG) {
   }
   function render() {
     var b = $('gpBody');
-    if (!S.groups.length) {
+    if (!S.groups.length && !S.free.length) {
       b.innerHTML = '<div class="gp-empty">لا توجد مجموعات لهذا الفصل بعد.<br>اختر عدد المجموعات ثم اضغط «توزيع تلقائي» (يوزّع الطلاب بالتوازن من درجات الفترة)، أو أضف مجموعات وأعضاء يدويًا.</div>';
       return;
     }
     var hint = '';
+    if (!S.groups.length) hint = '<div class="gp-hint">لا توجد مجموعات بعد: الطلاب كلهم في «المتبقون». اختر عدد المجموعات ثم اضغط «توزيع تلقائي».</div>';
+    if (S.view === 'points' && !S.groups.length) hint = '';
     if (S.view !== 'points') {
       if (tool === 'lead') hint = '<div class="gp-hint">👑 وضع القائد اليدوي: اضغط على الطالب الذي تريده قائدًا لمجموعته (وبضغطة ثانية عليه يُلغى). اضغط «قائد يدوي» مرة أخرى للخروج.</div>';
       else if (tool === 'swap') hint = '<div class="gp-hint">🔄 وضع تعديل الأفراد: اضغط على طالب ثم على طالب آخر ليتبدّلا (حتى بين مجموعتين). واضغط اسم مجموعة بعد اختيار طالب لنقله إليها.</div>';
@@ -222,6 +242,7 @@ window.initGroups = function (TG) {
   function pickLeader(gi, mi) {
     var r0 = S.cfg.roles[0];
     if (!r0) { alert('لا يوجد دور قائد في قائمة الأدوار.'); return; }
+    if (gi < 0) { alert('القائد يُعيَّن لمن هو داخل مجموعة. انقل الطالب إلى مجموعة أولًا.'); return; }
     var g = S.groups[gi], m = g.m[mi], was = m.role === r0;
     g.m.forEach(function (x) { if (x.role === r0) x.role = ''; });
     if (!was) m.role = r0;
@@ -230,49 +251,55 @@ window.initGroups = function (TG) {
   function swapPick(gi, mi) {
     if (!sel) { sel = { g: gi, i: mi }; render(); return; }
     if (sel.g === gi && sel.i === mi) { sel = null; render(); return; }
-    var a = S.groups[sel.g].m, b = S.groups[gi].m, t = a[sel.i];
+    var a = L(sel.g), b = L(gi), t = a[sel.i];
     a[sel.i] = b[mi]; b[mi] = t;
-    if (sel.g !== gi) { oneLeader(S.groups[sel.g], a[sel.i]); oneLeader(S.groups[gi], b[mi]); }
+    if (sel.g !== gi) { oneLeader(sel.g, a[sel.i]); oneLeader(gi, b[mi]); }
     sel = null; save(); render();
   }
   function moveSel(gi) {
     if (!sel || sel.g === gi) return;
-    var m = S.groups[sel.g].m.splice(sel.i, 1)[0];
-    S.groups[gi].m.push(m); oneLeader(S.groups[gi], m); sel = null; save(); render();
+    var m = L(sel.g).splice(sel.i, 1)[0];
+    L(gi).push(m); oneLeader(gi, m); sel = null; save(); render();
   }
-  // إن صار في المجموعة قائدان بعد النقل، يفقد القادم دوره (القائد يبقى واحدًا)
-  function oneLeader(g, incoming) {
+  // إن صار في المجموعة قائدان بعد النقل، يفقد القادم دوره (القائد يبقى واحدًا). و«المتبقون» بلا أدوار.
+  function oneLeader(gi, incoming) {
     var r0 = S.cfg.roles[0];
-    if (r0 && incoming && incoming.role === r0 && g.m.filter(function (x) { return x.role === r0; }).length > 1) incoming.role = '';
+    if (!incoming) return;
+    if (gi < 0) { incoming.role = ''; return; }
+    if (r0 && incoming.role === r0 && L(gi).filter(function (x) { return x.role === r0; }).length > 1) incoming.role = '';
   }
 
   // ===== التوزيع =====
   function distribute() {
-    if (!roster.length) { alert('لا توجد درجات للطلاب لهذا الفصل. تأكد من تحميل الدرجات أو أضف الأعضاء يدويًا.'); return; }
-    if (S.groups.length && !confirm('سيُعاد توزيع جميع الطلاب (تبقى أسماء المجموعات ونقاطها). متابعة؟')) return;
-    var n = parseInt(nSel.value, 10) || 6, old = S.groups, groups = [];
-    for (var i = 0; i < n; i++) {
-      var o = old[i];
-      groups.push({ id: 'g' + Date.now() + i, name: o ? o.name : NAMES[i % NAMES.length], c: o ? o.c : i % 7, pts: o ? o.pts : 0, m: [] });
+    var n = parseInt(nSel.value, 10) || 6;
+    while (S.groups.length < n) {
+      var i = S.groups.length, used = S.groups.map(function (g) { return g.name; }), nm = NAMES.filter(function (x) { return used.indexOf(x) < 0; })[0] || ('مجموعة ' + (i + 1));
+      S.groups.push({ id: 'g' + Date.now() + i, name: nm, c: i % 7, pts: 0, m: [] });
     }
-    var oldRole = {}, oldOv = {};
-    old.forEach(function (g) { g.m.forEach(function (m) { if (!m.cu) { oldOv[m.id] = m.ov || null; } }); });
-    var pool = roster.map(function (r) { return { id: r.id, name: r.name, sc: r.sc, ov: oldOv[r.id] || null, role: '', rnd: Math.random() }; });
-    function key(m) { return (m.ov ? [0, 55, 40, 15][m.ov - 1] : (m.sc === null ? 30 : m.sc)) + m.rnd * 0.01; }
+    var targets = S.groups.filter(function (g) { return !g.pin; });
+    if (!targets.length) { alert('كل المجموعات مثبّتة. ألغِ تثبيت مجموعة واحدة على الأقل ليشملها التوزيع.'); return; }
+    // المثبّتة لا تُمسّ: يُوزَّع فقط «المتبقون» وأعضاء المجموعات غير المثبّتة
+    var pool = S.free.slice(), k = targets.length;
+    targets.forEach(function (g) { pool = pool.concat(g.m.filter(function (m) { return !m.cu; })); });
+    if (!pool.length) { alert('لا يوجد طلاب ليُوزَّعوا (كلهم في مجموعات مثبّتة).'); return; }
+    if (targets.some(function (g) { return g.m.length; }) && !confirm('سيُعاد توزيع المتبقين وأعضاء المجموعات غير المثبّتة فقط (' + k + ' مجموعات)، وتبقى المثبّتة كما هي. متابعة؟')) return;
+    targets.forEach(function (g) { g.m = g.m.filter(function (m) { return m.cu; }); }); // الأعضاء المضافون يدويًا يبقون
+    S.free = [];
+    pool.forEach(function (m) { m.role = ''; m.rnd = Math.random(); });
+    function key(m) { return (m.ov ? [0, 55, 40, 15][m.ov - 1] : (m.sc === null || m.sc === undefined ? 30 : m.sc)) + m.rnd * 0.01; }
     pool.sort(function (a, b) { return key(b) - key(a); });
     pool.forEach(function (m, idx) {
-      var round = Math.floor(idx / n), pos = idx % n, g = (round % 2) ? n - 1 - pos : pos;
-      delete m.rnd; groups[g].m.push(m);
+      var round = Math.floor(idx / k), pos = idx % k, g = (round % 2) ? k - 1 - pos : pos;
+      delete m.rnd; targets[g].m.push(m);
     });
-    // الأعضاء المضافون يدويًا يبقون في مجموعاتهم
-    old.forEach(function (g, gi) { g.m.forEach(function (m) { if (m.cu && groups[gi]) groups[gi].m.push(m); }); });
-    S.n = n; S.groups = groups; S.log = [];
-    save(); render();
+    S.n = Math.max(n, S.groups.length); S.log = [];
+    syncUi(); save(); render();
   }
   function assignLeaders() {
     var r0 = S.cfg.roles[0];
     if (!r0) { alert('لا يوجد دور قائد في قائمة الأدوار.'); return; }
     S.groups.forEach(function (g) {
+      if (g.pin) return; // المثبّتة تبقى بقائدها
       var best = null;
       g.m.forEach(function (m) { if (m.role === r0) m.role = ''; });
       g.m.forEach(function (m) { if (!best || (m.sc || 0) > (best.sc || 0)) best = m; });
@@ -292,10 +319,10 @@ window.initGroups = function (TG) {
   }
   function closeEd() { ed.classList.remove('open'); edOk = null; }
   function val(id) { return $(id).value; }
-  function groupOptions(sel) { return S.groups.map(function (g, i) { return '<option value="' + i + '"' + (i === sel ? ' selected' : '') + '>' + esc(g.name) + '</option>'; }).join(''); }
+  function groupOptions(sel) { return '<option value="-1"' + (sel < 0 ? ' selected' : '') + '>الطلاب المتبقون (بلا مجموعة)</option>' + S.groups.map(function (g, i) { return '<option value="' + i + '"' + (i === sel ? ' selected' : '') + '>' + esc(g.name) + '</option>'; }).join(''); }
 
   function editMember(gi, mi) {
-    var g = S.groups[gi], m = g.m[mi];
+    var m = L(gi)[mi];
     var roles = '<option value="">بدون دور</option>' + S.cfg.roles.map(function (r) { return '<option' + (m.role === r ? ' selected' : '') + '>' + esc(r) + '</option>'; }).join('');
     var lv = '<option value="">تلقائي (' + LEVELS[level({ sc: m.sc, ov: null }) - 1] + ')</option>' + LEVELS.map(function (t, i) { return '<option value="' + (i + 1) + '"' + (m.ov === i + 1 ? ' selected' : '') + '>' + t + ' ×' + S.cfg.coef[i] + '</option>'; }).join('');
     var info = m.sc !== null && m.sc !== undefined ? 'درجته الأصلية ' + fmt(m.sc) + ' من 60' : 'لا توجد درجة له';
@@ -307,9 +334,10 @@ window.initGroups = function (TG) {
         if (m.cu && val('gpf-name').trim()) m.name = val('gpf-name').trim();
         m.role = val('gpf-role'); m.ov = val('gpf-lv') ? parseInt(val('gpf-lv'), 10) : null;
         var ng = parseInt(val('gpf-g'), 10);
-        if (ng !== gi) { g.m.splice(mi, 1); S.groups[ng].m.push(m); }
+        if (ng !== gi) { L(gi).splice(mi, 1); L(ng).push(m); oneLeader(ng, m); }
         closeEd(); save(); render();
-      } }, { t: 'حذف من المجموعة', cls: 'dng', f: function () { g.m.splice(mi, 1); closeEd(); save(); render(); } }]);
+      } }].concat(m.cu ? [{ t: 'حذف العضو', cls: 'dng', f: function () { L(gi).splice(mi, 1); closeEd(); save(); render(); } }]
+        : (gi >= 0 ? [{ t: 'إلى المتبقين', cls: '', f: function () { L(gi).splice(mi, 1); m.role = ''; S.free.push(m); closeEd(); save(); render(); } }] : [])));
   }
   function editGroup(gi) {
     var g = S.groups[gi];
@@ -323,7 +351,8 @@ window.initGroups = function (TG) {
         if (nn) g.m.push({ id: 'c' + Date.now(), name: nn, sc: null, ov: null, role: '', cu: true });
         closeEd(); save(); render();
       } }, { t: 'حذف المجموعة', cls: 'dng', f: function () {
-        if (!confirm('حذف المجموعة وأعضائها؟')) return;
+        if (!confirm('حذف المجموعة؟ ينتقل طلابها إلى «المتبقون» (ويُحذف من أضفتهم يدويًا).')) return;
+        g.m.forEach(function (m) { if (!m.cu) { m.role = ''; S.free.push(m); } });
         S.groups.splice(gi, 1); S.n = Math.max(S.groups.length, 1); closeEd(); save(); syncUi(); render();
       } }]);
   }
@@ -350,7 +379,8 @@ window.initGroups = function (TG) {
     var a = t.getAttribute('data-a'), gi = parseInt(t.getAttribute('data-g'), 10), mi = parseInt(t.getAttribute('data-i'), 10);
     var inPts = S.view === 'points';
     if (a === 'em') { if (tool === 'lead') pickLeader(gi, mi); else if (tool === 'swap') swapPick(gi, mi); else editMember(gi, mi); }
-    else if (a === 'eg') { if (tool === 'swap' && !inPts) moveSel(gi); else if (tool !== 'lead') editGroup(gi); }
+    else if (a === 'pin') { var pg = S.groups[gi]; pg.pin = !pg.pin; save(); render(); }
+    else if (a === 'eg') { if (tool === 'swap' && !inPts) moveSel(gi); else if (tool !== 'lead' && gi >= 0) editGroup(gi); }
     else if (a === 'pt') {
       var m = S.groups[gi].m[mi], p = coef(m);
       S.groups[gi].pts += p; S.log.push({ g: gi, p: p }); save(); render();

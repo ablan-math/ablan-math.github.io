@@ -1,4 +1,4 @@
-/* مجموعات التعلم التعاوني — تُحمَّل من teacher-grades.html وتستعمل جلسة المعلم نفسها عبر initGroups(TG).
+/* v2 — مجموعات التعلم التعاوني — تُحمَّل من teacher-grades.html وتستعمل جلسة المعلم نفسها عبر initGroups(TG).
    التخزين: ورقة «Groups» عبر getGroups/saveGroups، ونسخة احتياطية في localStorage. */
 window.initGroups = function (TG) {
   'use strict';

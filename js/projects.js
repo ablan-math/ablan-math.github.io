@@ -17,5 +17,19 @@ window.STUDENT_PROJECTS = [
     color: '#285e5a',
     featured: true,
     published: '2026-11'
+  },
+  {
+    id: 'sp_02',
+    title: 'صيّاد التقاطع',
+    creator: 'فارس أكرم بامشموس',
+    classLabel: 'الصف الثالث المتوسط / ٢',
+    topic: 'الفصل ٥: أنظمة المعادلات الخطية — مرتبطة بالدرس ٥-١',
+    lessons: ['c5_l1'],
+    desc: 'مستقيمان على المستوى الإحداثي: اضغط على نقطة تقاطعهما، أو حدّد عدد حلول النظام. ٣ مستويات، و٤ أسئلة في كل مستوى.',
+    path: 'projects/sp_02/index.html',
+    icon: '🎯',
+    color: '#4f46e5',
+    featured: false,
+    published: '2026-11'
   }
 ];

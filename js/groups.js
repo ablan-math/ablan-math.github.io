@@ -10,7 +10,7 @@ window.initGroups = function (TG) {
   var ROLE_ICON = { 'قائد': '👑', 'متحدث': '🎤', 'مقرر': '✍️', 'ضابط الوقت': '⏱️', 'مدقق': '🔍' };
   var DEF_ROLES = ['قائد', 'متحدث', 'مقرر', 'ضابط الوقت', 'مدقق'];
 
-  var S = null, CLS = '', roster = [], saveTimer = null, edOk = null, tool = null, sel = null;
+  var S = null, CLS = '', roster = [], saveTimer = null, edOk = null, tool = null, sel = null, roleSel = 0;
   function $(id) { return document.getElementById(id); }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function fmt(v) { return String(Math.round(v * 100) / 100); }
@@ -97,8 +97,8 @@ window.initGroups = function (TG) {
     '<label>درجات الفترة<select id="gpPer"><option value="1">الأولى (النصفي)</option><option value="2">الثانية (النهائي)</option></select></label>' +
     '<label>عدد المجموعات<select id="gpN"></select></label>' +
     '<button class="gp-btn pri" id="gpDist" type="button">🎲 توزيع تلقائي</button>' +
-    '<button class="gp-btn" id="gpLeadM" type="button">👑 قائد يدوي</button>' +
-    '<button class="gp-btn" id="gpLead" type="button">👑 قائد تلقائي</button>' +
+    '<button class="gp-btn" id="gpLeadM" type="button">🎭 أدوار يدوي</button>' +
+    '<button class="gp-btn" id="gpLead" type="button">🎭 أدوار تلقائي</button>' +
     '<button class="gp-btn" id="gpSwap" type="button">🔄 تعديل الأفراد</button>' +
     '<button class="gp-btn" id="gpAdd" type="button">+ مجموعة</button>' +
     '<button class="gp-btn" id="gpCfg" type="button">⚙ المعاملات والأدوار</button>' +
@@ -228,7 +228,11 @@ window.initGroups = function (TG) {
     if (!S.groups.length) hint = '<div class="gp-hint">لا توجد مجموعات بعد: الطلاب كلهم في «المتبقون». اختر عدد المجموعات ثم اضغط «توزيع تلقائي».</div>';
     if (S.view === 'points' && !S.groups.length) hint = '';
     if (S.view !== 'points') {
-      if (tool === 'lead') hint = '<div class="gp-hint">👑 وضع القائد اليدوي: اضغط على الطالب الذي تريده قائدًا لمجموعته (وبضغطة ثانية عليه يُلغى). اضغط «قائد يدوي» مرة أخرى للخروج.</div>';
+      if (tool === 'role') {
+        hint = '<div class="gp-hint">🎭 وضع الأدوار اليدوي: اختر الدور ثم اضغط على الطالب فيأخذه مباشرة، ويُسحب من حامله السابق في المجموعة (وبضغطة ثانية على صاحب الدور يُلغى). اضغط «أدوار يدوي» مرة أخرى للخروج.<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px">' +
+          S.cfg.roles.map(function (r, i) { return '<button type="button" class="gp-btn' + (roleSel === i ? ' on' : '') + '" data-a="rs" data-i="' + i + '">' + roleIcon(r) + ' ' + esc(r) + '</button>'; }).join('') +
+          '<button type="button" class="gp-btn' + (roleSel === -1 ? ' on' : '') + '" data-a="rs" data-i="-1">✖ بلا دور</button></div></div>';
+      }
       else if (tool === 'swap') hint = '<div class="gp-hint">🔄 وضع تعديل الأفراد: اضغط على طالب ثم على طالب آخر ليتبدّلا (حتى بين مجموعتين). واضغط اسم مجموعة بعد اختيار طالب لنقله إليها.</div>';
     }
     b.innerHTML = hint + (S.view === 'tables' ? vTables() : S.view === 'points' ? vPoints() : vCards());
@@ -236,16 +240,17 @@ window.initGroups = function (TG) {
   function isSel(gi, mi) { return tool === 'swap' && sel && sel.g === gi && sel.i === mi; }
   function setTool(t) {
     tool = (tool === t) ? null : t; sel = null;
-    $('gpLeadM').classList.toggle('on', tool === 'lead'); $('gpSwap').classList.toggle('on', tool === 'swap');
+    $('gpLeadM').classList.toggle('on', tool === 'role'); $('gpSwap').classList.toggle('on', tool === 'swap');
     if (S) render();
   }
-  function pickLeader(gi, mi) {
-    var r0 = S.cfg.roles[0];
-    if (!r0) { alert('لا يوجد دور قائد في قائمة الأدوار.'); return; }
-    if (gi < 0) { alert('القائد يُعيَّن لمن هو داخل مجموعة. انقل الطالب إلى مجموعة أولًا.'); return; }
-    var g = S.groups[gi], m = g.m[mi], was = m.role === r0;
-    g.m.forEach(function (x) { if (x.role === r0) x.role = ''; });
-    if (!was) m.role = r0;
+  // الدور الواحد لا يكون إلا عند طالب واحد في المجموعة
+  function pickRole(gi, mi) {
+    if (!S.cfg.roles.length) { alert('لا توجد أدوار في القائمة. أضفها من «المعاملات والأدوار».'); return; }
+    if (gi < 0) { alert('الأدوار تُعيَّن لمن هو داخل مجموعة. انقل الطالب إلى مجموعة أولًا.'); return; }
+    var g = S.groups[gi], m = g.m[mi], r = roleSel >= 0 ? S.cfg.roles[roleSel] : '';
+    if (!r) { m.role = ''; }
+    else if (m.role === r) { m.role = ''; }
+    else { g.m.forEach(function (x) { if (x.role === r) x.role = ''; }); m.role = r; }
     save(); render();
   }
   function swapPick(gi, mi) {
@@ -261,12 +266,11 @@ window.initGroups = function (TG) {
     var m = L(sel.g).splice(sel.i, 1)[0];
     L(gi).push(m); oneLeader(gi, m); sel = null; save(); render();
   }
-  // إن صار في المجموعة قائدان بعد النقل، يفقد القادم دوره (القائد يبقى واحدًا). و«المتبقون» بلا أدوار.
+  // إن صار الدور عند طالبين بعد النقل، يفقده القادم (الدور واحد في المجموعة). و«المتبقون» بلا أدوار.
   function oneLeader(gi, incoming) {
-    var r0 = S.cfg.roles[0];
     if (!incoming) return;
     if (gi < 0) { incoming.role = ''; return; }
-    if (r0 && incoming.role === r0 && L(gi).filter(function (x) { return x.role === r0; }).length > 1) incoming.role = '';
+    if (incoming.role && L(gi).filter(function (x) { return x.role === incoming.role; }).length > 1) incoming.role = '';
   }
 
   // ===== التوزيع =====
@@ -295,15 +299,15 @@ window.initGroups = function (TG) {
     S.n = Math.max(n, S.groups.length); S.log = [];
     syncUi(); save(); render();
   }
-  function assignLeaders() {
-    var r0 = S.cfg.roles[0];
-    if (!r0) { alert('لا يوجد دور قائد في قائمة الأدوار.'); return; }
+  // الأدوار الثلاثة الأولى في القائمة (القائد والمتحدث والمقرر) تُوزَّع على أعلى ثلاثة في كل مجموعة بحسب درجاتهم
+  function assignRoles() {
+    var top = S.cfg.roles.slice(0, 3);
+    if (!top.length) { alert('لا توجد أدوار في القائمة. أضفها من «المعاملات والأدوار».'); return; }
+    function rank(m) { return m.ov ? [0, 55, 40, 15][m.ov - 1] : (m.sc === null || m.sc === undefined ? -1 : m.sc); }
     S.groups.forEach(function (g) {
-      if (g.pin) return; // المثبّتة تبقى بقائدها
-      var best = null;
-      g.m.forEach(function (m) { if (m.role === r0) m.role = ''; });
-      g.m.forEach(function (m) { if (!best || (m.sc || 0) > (best.sc || 0)) best = m; });
-      if (best) best.role = r0;
+      if (g.pin) return; // المثبّتة تبقى بأدوارها
+      g.m.forEach(function (m) { if (top.indexOf(m.role) >= 0) m.role = ''; });
+      g.m.slice().sort(function (a, b) { return rank(b) - rank(a); }).slice(0, top.length).forEach(function (m, i) { m.role = top[i]; });
     });
     save(); render();
   }
@@ -378,9 +382,10 @@ window.initGroups = function (TG) {
     var t = e.target.closest('[data-a]'); if (!t || !S) return;
     var a = t.getAttribute('data-a'), gi = parseInt(t.getAttribute('data-g'), 10), mi = parseInt(t.getAttribute('data-i'), 10);
     var inPts = S.view === 'points';
-    if (a === 'em') { if (tool === 'lead') pickLeader(gi, mi); else if (tool === 'swap') swapPick(gi, mi); else editMember(gi, mi); }
+    if (a === 'rs') { roleSel = mi; render(); }
+    else if (a === 'em') { if (tool === 'role') pickRole(gi, mi); else if (tool === 'swap') swapPick(gi, mi); else editMember(gi, mi); }
     else if (a === 'pin') { var pg = S.groups[gi]; pg.pin = !pg.pin; save(); render(); }
-    else if (a === 'eg') { if (tool === 'swap' && !inPts) moveSel(gi); else if (tool !== 'lead' && gi >= 0) editGroup(gi); }
+    else if (a === 'eg') { if (tool === 'swap' && !inPts) moveSel(gi); else if (tool !== 'role' && gi >= 0) editGroup(gi); }
     else if (a === 'pt') {
       var m = S.groups[gi].m[mi], p = coef(m);
       S.groups[gi].pts += p; S.log.push({ g: gi, p: p }); save(); render();
@@ -403,8 +408,8 @@ window.initGroups = function (TG) {
   });
   $('gpShowCf').addEventListener('change', function () { if (!S) return; S.showCoef = this.checked; render(); save(); });
   $('gpDist').addEventListener('click', function () { if (S) distribute(); });
-  $('gpLead').addEventListener('click', function () { if (S) assignLeaders(); });
-  $('gpLeadM').addEventListener('click', function () { if (S) setTool('lead'); });
+  $('gpLead').addEventListener('click', function () { if (S) assignRoles(); });
+  $('gpLeadM').addEventListener('click', function () { if (S) setTool('role'); });
   $('gpSwap').addEventListener('click', function () { if (S) setTool('swap'); });
   $('gpAdd').addEventListener('click', function () {
     if (!S) return;

@@ -76,6 +76,12 @@ h2{font-size:19px;font-weight:900;margin:26px 0 10px}
 .pl-bar .msg{flex:1;min-width:180px}
 .thank{border:0;border-radius:12px;padding:9px 16px;font-size:15px;font-weight:900;color:#fff;background:var(--heart)}
 .thank[disabled]{opacity:.6;cursor:default}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}
+.chip{border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:999px;padding:5px 14px;font-size:13.5px;font-weight:800}
+.chip[aria-pressed="true"]{background:var(--ac);border-color:var(--ac);color:#fff}
+.flag.own{background:#16a34a;color:#fff;right:auto;left:10px}
+.card.own{border:2px solid #16a34a}
+.ownbox{background:color-mix(in srgb,#16a34a 12%,transparent);border:1px solid color-mix(in srgb,#16a34a 40%,transparent);border-radius:12px;padding:8px 12px;font-size:13.5px;font-weight:800;color:var(--ok)}
 .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:300;background:#111827;color:#fff;padding:10px 16px;border-radius:12px;font-size:14px;font-weight:700;max-width:92vw;text-align:center;opacity:0;pointer-events:none;transition:opacity .2s}
 .toast.on{opacity:1}
 </style>
@@ -107,6 +113,12 @@ h2{font-size:19px;font-weight:900;margin:26px 0 10px}
 
   <h2>الألعاب المنشورة</h2>
   <div class="note" id="note" hidden></div>
+  <div class="chips" id="chips" role="group" aria-label="تصفية الألعاب" hidden>
+    <button class="chip" type="button" data-f="all" aria-pressed="true">الكل</button>
+    <button class="chip" type="button" data-f="new" aria-pressed="false">🆕 لم ألعبها بعد</button>
+    <button class="chip" type="button" data-f="done" aria-pressed="false">✔ لعبتها</button>
+    <button class="chip" type="button" data-f="mine" aria-pressed="false">✍️ ألعابي</button>
+  </div>
   <div class="grid" id="grid"></div>
 
   <h2>كيف تصبح من المبدعين؟</h2>
@@ -147,7 +159,7 @@ h2{font-size:19px;font-weight:900;margin:26px 0 10px}
   try { student = JSON.parse(localStorage.getItem('currentStudent') || 'null'); } catch (e) { student = null; }
   var isTeacher = !!(student && student.role === 'teacher');
   var canSave = !!(student && student.id && student.classIdentifier && !isTeacher);
-  var board = null, current = null, savedThisRound = false;
+  var board = null, current = null, savedThisRound = false, filter = 'all';
 
   function toast(t) { var el = $('toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toast._t); toast._t = setTimeout(function () { el.classList.remove('on'); }, 3200); }
 
@@ -199,17 +211,26 @@ h2{font-size:19px;font-weight:900;margin:26px 0 10px}
 
   function renderGrid() {
     var stats = (board && board.projects) || {}, mine = (board && board.me && board.me.played) || {};
-    var list = PROJECTS.slice().sort(function (a, b) { return (b.featured ? 1 : 0) - (a.featured ? 1 : 0); });
+    var created = (board && board.me && board.me.created) || [];
+    $('chips').hidden = !(canSave && board);
+    var list = PROJECTS.slice().filter(function (p) {
+      if (filter === 'new') return !mine[p.id];
+      if (filter === 'done') return !!mine[p.id];
+      if (filter === 'mine') return created.indexOf(p.id) >= 0;
+      return true;
+    }).sort(function (a, b) { return (b.featured ? 1 : 0) - (a.featured ? 1 : 0); });
     $('grid').innerHTML = list.map(function (p) {
       var s = stats[p.id] || { players: 0, thanks: 0 }, m = mine[p.id];
+      var own = created.indexOf(p.id) >= 0;
       var nums = board ? '<div class="nums"><span>🎮 ' + playersText(s.players) + '</span><span class="h">❤️ ' + AR(s.thanks) + '</span></div>' : '';
-      var my = m ? '<div class="mine">✔ أفضل نتيجتك: ' + fmt(m.best) + ' من ٥' + (m.own ? ' (لعبتك)' : '') + '</div>' : '';
-      return '<article class="card' + (p.featured ? ' feat' : '') + '">' +
-        '<div class="cover" style="background:linear-gradient(135deg,' + esc(p.color || '#7c3aed') + ',#1e1b4b)">' + (p.featured ? '<span class="flag">⭐ لعبة الأسبوع</span>' : '') + '<span aria-hidden="true">' + esc(p.icon || '🎮') + '</span></div>' +
+      var my = own ? '<div class="ownbox">✍️ هذه لعبتك! لعبها ' + AR(s.players) + ' من زملائك، ووصلك ' + AR(s.thanks) + ' شكر ❤️</div>'
+        : (m ? '<div class="mine">✔ أفضل نتيجتك: ' + fmt(m.best) + ' من ٥</div>' : '');
+      return '<article class="card' + (own ? ' own' : (p.featured ? ' feat' : '')) + '">' +
+        '<div class="cover" style="background:linear-gradient(135deg,' + esc(p.color || '#7c3aed') + ',#1e1b4b)">' + (own ? '<span class="flag own">✍️ لعبتك</span>' : '') + (p.featured ? '<span class="flag">⭐ لعبة الأسبوع</span>' : '') + '<span aria-hidden="true">' + esc(p.icon || '🎮') + '</span></div>' +
         '<div class="body"><h3>' + esc(p.title) + '</h3><div class="by">' + esc(creatorText(p)) + '</div><div class="topic">' + esc(p.topic || '') + '</div>' +
         '<p class="desc">' + esc(p.desc || '') + '</p>' + nums + my +
-        '<button class="play" type="button" data-id="' + esc(p.id) + '">العب الآن</button></div></article>';
-    }).join('') || '<div class="note">لا توجد ألعاب منشورة بعد. كن أول المبدعين!</div>';
+        '<button class="play" type="button" data-id="' + esc(p.id) + '">' + (own ? 'جرّب لعبتك' : (m ? 'العب مرة أخرى' : 'العب الآن')) + '</button></div></article>';
+    }).join('') || '<div class="note">' + (filter === 'all' ? 'لا توجد ألعاب منشورة بعد. كن أول المبدعين!' : 'لا توجد ألعاب في هذا التصنيف.') + '</div>';
     Array.prototype.forEach.call(document.querySelectorAll('.play'), function (b) { b.addEventListener('click', function () { openPlayer(b.getAttribute('data-id')); }); });
   }
 
@@ -222,7 +243,8 @@ h2{font-size:19px;font-weight:900;margin:26px 0 10px}
     $('pl-title').textContent = p.title;
     $('pl-by').textContent = creatorText(p) + ' — شكراً للمبدع';
     $('pl-thank').hidden = true;
-    setMsg(canSave ? 'العب حتى النهاية لتُحسب نقاط الزمالة.' : (isTeacher ? 'وضع المعلم: النتائج لا تُحفظ.' : 'أنت زائر: سجّل الدخول من المنصة لتُحسب نقاطك.'));
+    var isOwn = !!(board && board.me && (board.me.created || []).indexOf(p.id) >= 0);
+    setMsg(isOwn ? 'هذه لعبتك — يمكنك تجربتها، لكن لا تُحسب لك نقاط زمالة منها.' : canSave ? 'العب حتى النهاية لتُحسب نقاط الزمالة.' : (isTeacher ? 'وضع المعلم: النتائج لا تُحفظ.' : 'أنت زائر: سجّل الدخول من المنصة لتُحسب نقاطك.'));
     $('pl-f').src = p.path + '?gameId=' + encodeURIComponent(p.id);
     $('pl').hidden = false;
     document.body.style.overflow = 'hidden';
@@ -265,6 +287,13 @@ h2{font-size:19px;font-weight:900;margin:26px 0 10px}
     api('thankProject', { studentId: student.id, classId: student.classIdentifier, projectId: current.id })
       .then(function (data) { board = Object.assign({}, board || {}, { me: data.me, projects: data.projects }); b.textContent = '❤️ شكرتَ المبدع'; toast('وصل شكرك إلى زميلك ❤️'); })
       .catch(function (e) { b.disabled = false; toast((e && e.message) || 'تعذّر إرسال الشكر'); });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('.chip'), function (c) {
+    c.addEventListener('click', function () {
+      filter = c.getAttribute('data-f');
+      Array.prototype.forEach.call(document.querySelectorAll('.chip'), function (x) { x.setAttribute('aria-pressed', x === c ? 'true' : 'false'); });
+      renderGrid();
+    });
   });
   $('pl-x').addEventListener('click', closePlayer);
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !$('pl').hidden) closePlayer(); });

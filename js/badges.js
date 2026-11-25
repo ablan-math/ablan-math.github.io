@@ -38,10 +38,27 @@
       id: 'cert', icon: '🏅', name: 'حاصل على شهادة', th: [1, 3],
       value: function (s) { return Array.isArray(s.certificates) ? s.certificates.length : 0; },
       need: function (t) { return t === 1 ? 'احصل على شهادة شكر' : 'اجمع ' + AR(t) + ' شهادات'; }
+    },
+    // ركن المبدعين (من student.projects): لا يغيّر أي درجة
+    {
+      id: 'peer', icon: '🤝', name: 'الزميل الداعم', th: [1, 3, 5], show: hasProjects,
+      value: function (s) { return n(s.projects && s.projects.peerCount); },
+      need: function (t) { return t === 1 ? 'العب لعبة من تصميم زميلك في «ركن المبدعين»' : 'العب ' + AR(t) + ' ألعاب من تصميم زملائك'; }
+    },
+    {
+      id: 'creator', icon: '💡', name: 'المبدع', th: [1, 10, 25], show: hasProjects,
+      value: function (s) {
+        var p = s.projects;
+        if (!p || !Array.isArray(p.created) || !p.created.length) return 0;
+        return Math.max(1, n(p.reach));
+      },
+      need: function (t) { return t === 1 ? 'صمّم لعبة تُنشر في «ركن المبدعين»' : 'يلعب لعبتك ' + AR(t) + ' من زملائك'; }
     }
   ];
 
   function n(v) { v = +v; return isNaN(v) || v < 0 ? 0 : v; }
+  // أوسمة ركن المبدعين تظهر فقط بعد تحديث الخلفية (حين يصل student.projects)
+  function hasProjects(s) { return !!(s && s.projects); }
   function AR(x) {
     if (typeof window.AR === 'function') { try { return window.AR(x); } catch (e) {} }
     return String(x).replace(/\d/g, function (d) { return '٠١٢٣٤٥٦٧٨٩'[d]; });
@@ -56,6 +73,7 @@
     if (!student) return out;
     DEFS.forEach(function (d) {
       try {
+        if (d.show && !d.show(student)) return;
         var v = d.value(student), tier = -1;
         for (var i = 0; i < d.th.length; i++) if (v >= d.th[i]) tier = i;
         var nextT = tier + 1 < d.th.length ? d.th[tier + 1] : null;

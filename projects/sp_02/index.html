@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>صيّاد التقاطع: حل نظام معادلتين خطيتين بيانيًا</title>
+<style>
+:root{--bg:#f3f4fb;--card:#fff;--tx:#1c2333;--mu:#5d6783;--bd:#dadef0;--pr:#4f46e5;--pr2:#7c3aed;--l1:#2563eb;--l2:#ea580c;--ok:#16a34a;--bad:#dc2626;--grid:#e6e9f5;--axis:#44506e;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f121b;--card:#192031;--tx:#eef1fa;--mu:#9aa5c4;--bd:#2c3550;--pr:#818cf8;--pr2:#a78bfa;--l1:#60a5fa;--l2:#fb923c;--ok:#4ade80;--bad:#f87171;--grid:#252d44;--axis:#9aa5c4}}
+:root[data-theme="dark"]{--bg:#0f121b;--card:#192031;--tx:#eef1fa;--mu:#9aa5c4;--bd:#2c3550;--pr:#818cf8;--pr2:#a78bfa;--l1:#60a5fa;--l2:#fb923c;--ok:#4ade80;--bad:#f87171;--grid:#252d44;--axis:#9aa5c4}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--tx);font-family:"Segoe UI",Tahoma,"Noto Naskh Arabic",Arial,sans-serif}
+.wrap{max-width:560px;margin:0 auto;padding:14px}
+.hero{background:linear-gradient(135deg,var(--pr),var(--pr2));color:#fff;border-radius:18px;padding:14px;text-align:center;margin-bottom:12px}
+.hero h1{margin:0;font-size:1.3rem}.hero div{opacity:.9;font-size:.88rem;margin-top:2px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:18px;padding:14px;margin-bottom:12px;box-shadow:0 2px 10px rgba(0,0,0,.05)}
+.bar{display:flex;justify-content:space-between;font-weight:700;margin-bottom:8px}
+.pill{background:var(--bg);border-radius:20px;padding:2px 10px;font-size:.9rem}
+.prog{height:8px;background:var(--grid);border-radius:8px;overflow:hidden;margin-bottom:12px}
+.prog i{display:block;height:100%;background:linear-gradient(90deg,var(--pr),var(--pr2));transition:width .4s}
+.eqs{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:10px;direction:rtl}
+.eq{padding:8px 14px;border-radius:12px;font-weight:700;font-size:1.05rem;border:2px solid;background:var(--card)}
+.e1{color:var(--l1);border-color:var(--l1)}.e2{color:var(--l2);border-color:var(--l2)}
+.task{text-align:center;margin:6px 0 10px;font-weight:600}
+canvas{width:100%;height:auto;aspect-ratio:1;display:block;border-radius:14px;border:1px solid var(--bd);background:var(--card);touch-action:manipulation;cursor:crosshair}
+.opts{display:grid;gap:8px;margin-top:10px}
+button{font:inherit;font-weight:700;border:0;border-radius:12px;padding:12px;cursor:pointer;background:var(--pr);color:#fff;transition:transform .08s}
+button:active{transform:scale(.97)}
+button.o{background:var(--card);color:var(--tx);border:2px solid var(--bd)}
+button.o:hover{border-color:var(--pr)}
+button:disabled{opacity:.55;cursor:default}
+.fb{min-height:48px;margin-top:10px;padding:10px;border-radius:12px;text-align:center;font-weight:600;line-height:1.8;animation:pop .25s}
+@keyframes pop{from{transform:scale(.95);opacity:.5}to{transform:none;opacity:1}}
+.fb.ok{background:color-mix(in srgb,var(--ok) 15%,transparent);color:var(--ok)}
+.fb.bad{background:color-mix(in srgb,var(--bad) 15%,transparent);color:var(--bad)}
+.fb.info{color:var(--mu)}
+.big{font-size:3rem;text-align:center}.center{text-align:center}
+.tip{color:var(--mu);font-size:.92rem;line-height:1.9}
+.lv{display:flex;align-items:center;gap:12px;text-align:right;padding:12px;margin-top:8px;background:var(--card);color:var(--tx);border:2px solid var(--bd);width:100%}
+.lv:hover{border-color:var(--pr)}.lv b{display:block}.lv small{color:var(--mu);font-weight:400}.lv .em{font-size:1.8rem}
+.stars{font-size:2rem;letter-spacing:4px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hero"><h1>🎯 صيّاد التقاطع</h1><div>حل نظام من معادلتين خطيتين بيانيًا</div></div>
+  <div id="app"></div>
+</div>
+<script>
+const N=4,S=30,C=240,R=8;            // ٤ أسئلة في كل مستوى (كانت ١٠)
+const CAP=[3,4,5];                    // أعلى درجة في ركن المبدعين لكل مستوى (من ٥)
+const AR=s=>String(s).replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]);
+// تحويل أي أرقام تظهر في الصفحة إلى أرقام عربية (النص فقط، ولا يمس الأكواد)
+new MutationObserver(ms=>ms.forEach(m=>{
+  const w=document.createTreeWalker(m.target,NodeFilter.SHOW_TEXT);let n;
+  const f=t=>{if(/\d/.test(t.data))t.data=AR(t.data)};
+  if(m.target.nodeType===3)return f(m.target);
+  while(n=w.nextNode())f(n);
+})).observe(document.getElementById('app'),{childList:true,subtree:true,characterData:true});
+const LV=[
+ {n:'سهل',e:'🌱',d:'ص = م س + ب، وحلول قريبة من نقطة الأصل',xr:4,mr:2,br:6},
+ {n:'متوسط',e:'🔥',d:'ميول أكبر وحلول أبعد',xr:5,mr:3,br:7},
+ {n:'صعب',e:'🚀',d:'الصيغة العامة أ س + ب ص = ج',xr:5}];
+let lv=0,st={},hov=null,ctx=null;
+const app=document.getElementById('app');
+const rnd=(a,b)=>Math.floor(Math.random()*(b-a+1))+a;
+const fmt=n=>String(n).replace('-','−');
+const par=n=>n<0?'('+fmt(n)+')':String(n);
+const tm=(a,v)=>a===1?v:a===-1?'−'+v:fmt(a)+v;
+const mk=(m,k)=>({s:'slope',m,k,a:-m,b:1,c:k});
+const gen=(a,b,c)=>({s:'gen',a,b,c});
+function getBest(l){try{return +localStorage.getItem('sp02_best'+l)||0}catch(e){return 0}}
+function setBest(l,v){try{localStorage.setItem('sp02_best'+l,v)}catch(e){}}
+function txt(L){
+  if(L.s==='slope'){
+    if(L.m===0) return 'ص = '+fmt(L.k);
+    return 'ص = '+tm(L.m,'س')+(L.k===0?'':(L.k>0?' + '+L.k:' − '+Math.abs(L.k)));
+  }
+  const p=[];
+  if(L.a!==0)p.push(tm(L.a,'س'));
+  if(L.b!==0){const t=tm(Math.abs(L.b),'ص');p.push(p.length?(L.b>0?' + ':' − ')+t:(L.b<0?'−':'')+t)}
+  return p.join('')+' = '+fmt(L.c);
+}
+function chk(L,x,y){
+  if(L.s==='slope') return `${fmt(y)} = ${fmt(L.m)}×${par(x)} + ${par(L.k)}`;
+  return `${fmt(L.a)}×${par(x)} + ${par(L.b)}×${par(y)} = ${fmt(L.c)}`;
+}
+function pointSystem(){
+  for(;;){
+    const L=LV[lv],x0=rnd(-L.xr,L.xr),y0=rnd(-L.xr,L.xr);
+    if(lv<2){
+      const m1=rnd(-L.mr,L.mr),m2=rnd(-L.mr,L.mr);if(m1===m2)continue;
+      const b1=y0-m1*x0,b2=y0-m2*x0;if(Math.abs(b1)>L.br||Math.abs(b2)>L.br)continue;
+      return{l1:mk(m1,b1),l2:mk(m2,b2),x0,y0};
+    }
+    const g=()=>{let v=0;while(!v)v=rnd(-3,3);return v};
+    const a1=g(),b1=g(),a2=g(),b2=g();if(a1*b2===a2*b1)continue;
+    return{l1:gen(a1,b1,a1*x0+b1*y0),l2:gen(a2,b2,a2*x0+b2*y0),x0,y0};
+  }
+}
+function countQ(){
+  const r=rnd(0,2);
+  if(r===2){const p=pointSystem();return{t:'count',l1:p.l1,l2:p.l2,ans:'one'}}
+  let l1,l2;
+  if(lv<2){
+    const m=rnd(-2,2),b=rnd(-4,4);l1=mk(m,b);
+    if(r===0)l2=mk(m,b+(rnd(0,1)?1:-1)*rnd(2,4));
+    else{const k=[2,3,-2][rnd(0,2)];l2=gen(-m*k,k,b*k)}
+  }else{
+    let a=0,b=0;while(!a)a=rnd(-3,3);while(!b)b=rnd(-3,3);const c=rnd(-6,6),k=[2,-1,-2][rnd(0,2)];
+    l1=gen(a,b,c);l2=gen(a*k,b*k,r===0?c*k+rnd(1,3)*(rnd(0,1)?1:-1):c*k);
+  }
+  return{t:'count',l1,l2,ans:r===0?'none':'inf'};
+}
+function genQ(i){if(i%3===2)return countQ();const p=pointSystem();return{t:'point',...p}}
+function start(l){lv=l;st={i:0,score:0,streak:0,tries:0,correct:0,q:null,done:false,mark:null,hint:false};st.q=genQ(0);render()}
+function next(){
+  st.i++;if(st.i>=N)return end();
+  st.q=genQ(st.i);st.tries=0;st.done=false;st.mark=null;st.hint=false;hov=null;render();
+}
+function render(){
+  const q=st.q;
+  app.innerHTML=`<div class="card">
+   <div class="bar"><span>السؤال ${st.i+1} / ${N}</span><span class="pill">${LV[lv].e} ${LV[lv].n}</span><span class="pill">⭐ ${st.score}</span><span class="pill">🔥 ${st.streak}</span></div>
+   <div class="prog"><i style="width:${st.i/N*100}%"></i></div>
+   <div class="eqs"><div class="eq e1">${txt(q.l1)}</div><div class="eq e2">${txt(q.l2)}</div></div>
+   <div class="task">${q.t==='point'?'اضغط على نقطة تقاطع المستقيمين، فهي حل النظام 👆':'ما عدد حلول هذا النظام؟ تأمل الرسم'}</div>
+   <canvas id="cv"></canvas>
+   <div id="opts" class="opts"></div>
+   <div id="fb" class="fb info">${q.t==='point'?'لديك محاولتان. مرّر المؤشر أو اضغط لاختيار نقطة على الشبكة.':'اختر الإجابة الصحيحة.'}</div>
+   <div id="nx" class="opts"></div></div>`;
+  const cv=document.getElementById('cv'),d=window.devicePixelRatio||1;
+  cv.width=480*d;cv.height=480*d;ctx=cv.getContext('2d');ctx.setTransform(d,0,0,d,0,0);
+  draw();
+  const o=document.getElementById('opts');
+  if(q.t==='point'){
+    cv.onclick=onClick;cv.onmousemove=onMove;cv.onmouseleave=()=>{hov=null;draw()};
+    o.innerHTML='<button class="o" id="hb">💡 تلميح (يخصم 3 نقاط)</button>';
+    document.getElementById('hb').onclick=hint;
+  }else{
+    o.innerHTML=[['one','حل واحد (يتقاطعان)'],['none','لا يوجد حل (متوازيان)'],['inf','عدد لا نهائي من الحلول (منطبقان)']]
+      .map(([a,b])=>`<button class="o" data-a="${a}">${b}</button>`).join('');
+    o.querySelectorAll('button').forEach(b=>b.onclick=()=>onCount(b.dataset.a));
+  }
+}
+function drawLine(L,col){
+  ctx.strokeStyle=col;ctx.lineWidth=3.5;ctx.lineCap='round';ctx.beginPath();
+  ctx.moveTo(C-R*S,C-((L.c+L.a*R)/L.b)*S);ctx.lineTo(C+R*S,C-((L.c-L.a*R)/L.b)*S);ctx.stroke();
+}
+function draw(){
+  const q=st.q,cs=getComputedStyle(document.documentElement),v=n=>cs.getPropertyValue(n);
+  ctx.clearRect(0,0,480,480);
+  ctx.lineWidth=1;ctx.strokeStyle=v('--grid');
+  for(let k=-R;k<=R;k++){
+    ctx.beginPath();ctx.moveTo(C+k*S,0);ctx.lineTo(C+k*S,480);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(0,C+k*S);ctx.lineTo(480,C+k*S);ctx.stroke();
+  }
+  ctx.strokeStyle=v('--axis');ctx.lineWidth=2;
+  ctx.beginPath();ctx.moveTo(0,C);ctx.lineTo(480,C);ctx.moveTo(C,0);ctx.lineTo(C,480);ctx.stroke();
+  ctx.fillStyle=v('--mu');ctx.font='11px sans-serif';
+  for(let k=-R+1;k<R;k++){if(!k)continue;
+    ctx.textAlign='center';ctx.fillText(AR(fmt(k)),C+k*S,C+14);ctx.textAlign='right';ctx.fillText(AR(fmt(k)),C-5,C-k*S+4);}
+  ctx.textAlign='center';ctx.font='bold 14px sans-serif';ctx.fillText('س',468,C-8);ctx.fillText('ص',C+13,14);
+  drawLine(q.l1,v('--l1'));drawLine(q.l2,v('--l2'));
+  if(hov&&!st.done){
+    ctx.strokeStyle=v('--pr');ctx.lineWidth=2;ctx.beginPath();ctx.arc(C+hov.x*S,C-hov.y*S,9,0,7);ctx.stroke();
+    ctx.fillStyle=v('--pr');ctx.font='bold 12px sans-serif';
+    const lx=Math.min(Math.max(C+hov.x*S,30),450);ctx.fillText(AR(`(${fmt(hov.x)}، ${fmt(hov.y)})`),lx,C-hov.y*S-14);
+  }
+  if(st.mark){
+    const{x,y,ok}=st.mark;ctx.fillStyle=ok?v('--ok'):v('--bad');
+    ctx.beginPath();ctx.arc(C+x*S,C-y*S,10,0,7);ctx.fill();
+    ctx.fillStyle='#fff';ctx.font='bold 12px sans-serif';ctx.textAlign='center';ctx.fillText(ok?'✓':'✗',C+x*S,C-y*S+4);
+    if(ok){ctx.fillStyle=v('--ok');ctx.fillText(AR(`(${fmt(x)}، ${fmt(y)})`),Math.min(Math.max(C+x*S,30),450),C-y*S-16)}
+  }
+}
+function snap(e){
+  const r=e.target.getBoundingClientRect(),px=(e.clientX-r.left)*480/r.width,py=(e.clientY-r.top)*480/r.height;
+  const x=Math.round((px-C)/S),y=Math.round((C-py)/S);
+  return(Math.abs(x)>R||Math.abs(y)>R)?null:{x,y};
+}
+function onMove(e){if(st.done)return;const p=snap(e);if(!p||(hov&&hov.x===p.x&&hov.y===p.y))return;hov=p;draw()}
+function fb(t,c){const f=document.getElementById('fb');f.className='fb '+c;f.innerHTML=t}
+function nextBtn(){
+  const n=document.getElementById('nx');
+  n.innerHTML=`<button id="nb">${st.i===N-1?'عرض النتيجة 🏁':'السؤال التالي ◀'}</button>`;
+  document.getElementById('nb').onclick=next;
+}
+function hint(){
+  const q=st.q;if(st.done||st.hint)return;st.hint=true;document.getElementById('hb').disabled=true;
+  let h;
+  if(q.x0===0&&q.y0===0)h='النقطة هي نقطة الأصل (0, 0).';
+  else if(q.x0===0)h='نقطة التقاطع تقع على محور ص.';
+  else if(q.y0===0)h='نقطة التقاطع تقع على محور س.';
+  else h='نقطة التقاطع في '+(q.x0>0&&q.y0>0?'الربع الأول':q.x0<0&&q.y0>0?'الربع الثاني':q.x0<0?'الربع الثالث':'الربع الرابع')+'.';
+  fb('💡 '+h,'info');
+}
+function onClick(e){
+  if(st.done)return;const p=snap(e);if(!p)return;const q=st.q;
+  st.tries++;const ok=p.x===q.x0&&p.y===q.y0;st.mark={...p,ok};hov=null;
+  if(ok){
+    let pts=(st.tries===1?10:5)-(st.hint?3:0);pts=Math.max(pts,2);
+    st.streak++;const bonus=st.tries===1?Math.min(st.streak-1,3)*2:0;
+    st.score+=pts+bonus;st.correct++;st.done=true;draw();
+    fb(`🎉 أحسنت! +${pts+bonus} نقاط${bonus?` (منها ${bonus} مكافأة تتابع)`:''}<br>الحل: س = ${fmt(q.x0)} ، ص = ${fmt(q.y0)}<br><span dir="ltr" style="font-size:.85rem">${chk(q.l1,q.x0,q.y0)} ✓<br>${chk(q.l2,q.x0,q.y0)} ✓</span>`,'ok');
+    document.querySelector('#opts').innerHTML='';nextBtn();
+  }else if(st.tries>=2){
+    st.streak=0;st.done=true;st.mark={x:q.x0,y:q.y0,ok:true};draw();
+    fb(`❌ الحل الصحيح: س = ${fmt(q.x0)} ، ص = ${fmt(q.y0)}`,'bad');document.querySelector('#opts').innerHTML='';nextBtn();
+  }else{
+    draw();fb(`النقطة (${p.x}, ${p.y}) ليست نقطة التقاطع. ابحث عن المكان الذي يلتقي فيه المستقيمان وحاول مرة أخرى.`,'bad');
+  }
+}
+function onCount(a){
+  if(st.done)return;st.done=true;const q=st.q,ok=a===q.ans;
+  document.querySelectorAll('#opts button').forEach(b=>{b.disabled=true;
+    if(b.dataset.a===q.ans)b.style.borderColor='var(--ok)';else if(b.dataset.a===a)b.style.borderColor='var(--bad)'});
+  const why={one:'المستقيمان يتقاطعان في نقطة واحدة فقط لأن ميليهما مختلفان.',
+    none:'المستقيمان متوازيان: لهما الميل نفسه ولا يلتقيان أبدًا، فلا يوجد حل.',
+    inf:'المعادلتان متكافئتان فالمستقيمان منطبقان، وكل نقطة عليهما هي حل.'};
+  if(ok){st.streak++;const b=Math.min(st.streak-1,3)*2;st.score+=10+b;st.correct++;fb(`🎉 صحيح! +${10+b} نقاط<br>`+why[q.ans],'ok')}
+  else{st.streak=0;fb('❌ إجابة غير صحيحة.<br>'+why[q.ans],'bad')}
+  nextBtn();
+}
+function end(){
+  const p=st.correct/N,s=p>=.9?3:p>=.6?2:1;
+  const m=p>=.9?'بطل التقاطع!':p>=.7?'ممتاز!':p>=.5?'جيد، تابع التدريب':'حاول مرة أخرى وستتحسن';
+  const old=getBest(lv),nb=st.score>old;if(nb)setBest(lv,st.score);
+  // الدرجة من ٥ تذهب إلى «ركن المبدعين» فقط: (إجاباتك الصحيحة ÷ الأسئلة) × أعلى درجة للمستوى
+  const sc5=Math.round(st.correct/N*CAP[lv]*10)/10;
+  let inPlatform=false;
+  try{if(window.parent!==window){window.parent.postMessage({type:'PROJECT_COMPLETE',score:sc5},location.origin);inPlatform=true}}catch(e){}
+  app.innerHTML=`<div class="card center"><div class="stars">${'⭐'.repeat(s)}${'☆'.repeat(3-s)}</div><h2>${m}</h2>
+  <p>أجبت صحيحًا عن <b>${st.correct}</b> من ${N} أسئلة<br>نقاطك: <b>${st.score}</b>${nb?' 🎉 رقم قياسي جديد!':` &nbsp;(أفضل نتيجة: ${old})`}</p>
+  ${inPlatform?`<p class="tip">🏅 درجتك في ركن المبدعين: <b>${sc5}</b> من 5 (أعلى درجة في هذا المستوى ${CAP[lv]}؛ جرّب المستويات الأصعب لدرجة أعلى)</p>`:''}
+  <p class="tip">حل النظام بيانيًا هو إحداثيات نقطة تقاطع المستقيمين. إن كانا متوازيين فلا يوجد حل، وإن انطبقا فعدد الحلول لا نهائي.</p>
+  <div class="opts"><button id="again">🔁 العب المستوى نفسه</button><button class="o" id="menu">اختيار مستوى آخر</button></div></div>`;
+  document.getElementById('again').onclick=()=>start(lv);
+  document.getElementById('menu').onclick=menu;
+}
+function menu(){
+  app.innerHTML=`<div class="card"><p class="tip center">سيظهر مستقيمان على المستوى الإحداثي. حدد <b>نقطة تقاطعهما</b> بالضغط عليها، وأحيانًا حدد <b>عدد الحلول</b>. اختر مستواك:</p>
+  ${LV.map((l,i)=>`<button class="lv" data-i="${i}"><span class="em">${l.e}</span><span><b>${l.n}</b><small>${l.d}</small><small>أفضل نتيجة: ${getBest(i)}</small></span></button>`).join('')}</div>`;
+  app.querySelectorAll('.lv').forEach(b=>b.onclick=()=>start(+b.dataset.i));
+}
+menu();
+</script>
+</body>
+</html>

@@ -535,7 +535,7 @@ if(!f)return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 24 24" fill="
 return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 24 24" fill="'+f+'" stroke="rgba(0,0,0,.25)" stroke-width=".6" stroke-linejoin="round" aria-hidden="true" style="filter:drop-shadow(0 2px 3px rgba(0,0,0,.25))"><path d="M12 2L15 9L22 9L17 14L19 21L12 17L5 21L7 14L2 9L9 9L12 2Z"/></svg>'}
 
 var dockTasks={old:null,nw:null},student=null,curCh=0,view='home',chapterChosen=false;
-var lbData=null,lbStale=true,lbLoading=false,lbErr=false,lbTab=0,lbAll=false,sheetLesson=null;
+var lbData=null,lbStale=true,lbLoading=false,lbErr=false,lbTab=0,lbAll=false,sheetLesson=null,cbData=null,cbLoading=false,cbErr=false,cbAt=0;
 var WAVE=[0,52,0,-52],GC=['g1','g2'];
 var ST={excellent:3,good:2,improve:1};
 
@@ -845,9 +845,29 @@ function rankBadge(rank,pct){
 var c=pct>=95?'#f59e0b':pct>=80?'#94a3b8':null;
 if(!c)return '<div class="rk">#'+AR(rank)+'</div>';
 return '<div class="rk"><svg viewBox="0 0 24 24" fill="'+c+'" aria-hidden="true"><path d="M12 2L15 9L22 9L17 14L19 21L12 17L5 21L7 14L2 9L9 9L12 2Z"/></svg><i>'+AR(rank)+'</i></div>'}
+// ===== لوحة المبدعين (تبويب داخل الأوائل): من صمّم ألعاباً في «ركن المبدعين» وتفاعل زملائهم معها =====
+function lbSeg(){return '<div class="seg">'+['نجوم المنصة','فصلي','التشخيصي','المبدعون'].map(function(n,i){return '<button data-lbt="'+i+'" class="'+(i===lbTab?'on':'')+'">'+n+'</button>'}).join('')+'</div>'}
+function fetchCB(){
+if(!student||cbLoading)return;cbLoading=true;cbErr=false;
+fetch(SCRIPT_URL+'?action=getProjectsBoard&studentId='+encodeURIComponent(student.id)+'&classId='+encodeURIComponent(student.classIdentifier||'')+'&t='+Date.now())
+.then(function(r){return r.json()}).then(function(res){cbLoading=false;if(res.status==='success'&&res.data){cbData=res.data;cbAt=Date.now()}else cbErr=true;if(view==='lb'&&lbTab===3)renderLB()})
+.catch(function(){cbLoading=false;cbErr=true;if(view==='lb'&&lbTab===3)renderLB()})}
+function creatorsBoard(){
+if(cbErr&&!cbData)return '<div class="empty"><p style="color:#dc2626">تعذّر تحميل لوحة المبدعين.</p><button class="btn" data-act="cbretry">إعادة المحاولة</button></div>';
+if(!cbData)return '<div class="empty"><div class="spin" style="margin:0 auto 12px"></div>جاري تحميل لوحة المبدعين...</div>';
+var S=cbData.projects||{},mine=(cbData.me&&cbData.me.created)||[],by={};
+(window.STUDENT_PROJECTS||[]).forEach(function(p){if(!p.creator)return;var s=S[p.id]||{},o=by[p.creator]||(by[p.creator]={name:p.creator,cls:p.classLabel||'',games:[],players:0,thanks:0,me:false});o.games.push(p.title);o.players+=+s.players||0;o.thanks+=+s.thanks||0;if(mine.indexOf(p.id)>-1)o.me=true});
+var L=Object.keys(by).map(function(k){return by[k]}).sort(function(a,b){return b.players-a.players||b.thanks-a.thanks});
+var cr=1,rows=L.map(function(o,i){if(i>0&&(o.players<L[i-1].players||(o.players===L[i-1].players&&o.thanks<L[i-1].thanks)))cr=i+1;
+var rate=o.players>0?Math.round(o.thanks/o.players*100):0,pct=o.players>0?(cr===1?100:cr===2?85:0):0;
+return '<div class="lbr'+(o.me?' me':'')+'">'+rankBadge(cr,pct)+'<div class="nm">'+esc(o.name)+(o.me?' (أنت)':'')+'<small>'+(o.games.length>1?AR(o.games.length)+' ألعاب: ':'')+esc(o.games.join('، '))+'</small></div>'+
+'<div class="sc">🎮 '+AR(o.players)+' &nbsp;❤️ '+AR(o.thanks)+'<small>'+(o.players>0?'شكره '+AR(rate)+'٪ من لاعبي ألعابه':'لم يلعبها أحد بعد')+'</small></div></div>'});
+return '<div class="lbh"><span>المبدعون — مصمّمو ألعاب الزملاء</span><small>🎮 لاعبون · ❤️ شكر</small></div>'+rows.join('')+(L.length?'':'<div class="empty">لا يوجد مبدعون بعد. كن أول من ينشر لعبة!</div>')+
+'<a class="btn" href="creators.html" style="display:block;text-align:center;text-decoration:none;margin-top:6px">💡 العب ألعاب زملائك</a>'}
 function renderLB(){
 var el=$('v-lb');
 if(!student){el.innerHTML=guest('لوحة الأوائل','bars');return}
+if(lbTab===3){if(!cbLoading&&(!cbData||Date.now()-cbAt>60000))fetchCB();el.innerHTML=lbSeg()+creatorsBoard();return}
 if(lbErr&&!lbData){el.innerHTML='<div class="empty"><p style="color:#dc2626">تعذّر تحميل لوحة الأوائل.</p><button class="btn" data-act="lbretry">إعادة المحاولة</button></div>';return}
 if(!lbData){el.innerHTML='<div class="empty"><div class="spin" style="margin:0 auto 12px"></div>جاري تحميل بيانات الأوائل...</div>';if(!lbLoading)fetchLB();return}
 if(lbStale&&!lbLoading)fetchLB();
@@ -858,7 +878,7 @@ var rows=B.d.map(function(s,i){
 var me=String(s.id)===String(student.id),pct=B.dg?s.diagnosticGrade:(totalPlatformMaxScore>0?s.totalScore/totalPlatformMaxScore*100:0);
 var sc=B.dg?'<div class="sc">'+AR(fmt(s.diagnosticGrade))+'٪<small>'+AR(s.diagnosticPoints)+' نقطة</small></div>':'<div class="sc">'+AR(fmt(s.totalScore))+'</div>';
 return (i>=5&&!lbAll?'':'<div class="lbr'+(me?' me':'')+'">'+rankBadge(rk[i],pct)+'<div class="nm">'+esc(s.name)+'<small>'+esc(s.class)+'</small></div>'+sc+'</div>')}).join('');
-el.innerHTML='<div class="seg">'+['نجوم المنصة','فصلي','التشخيصي'].map(function(n,i){return '<button data-lbt="'+i+'" class="'+(i===lbTab?'on':'')+'">'+n+'</button>'}).join('')+'</div>'+
+el.innerHTML=lbSeg()+
 '<div class="lbh"><span>'+esc(B.t)+'</span><small>'+B.l+'</small></div>'+rows+
 (B.d.length>5?'<button class="more" data-act="lbmore">'+(lbAll?'إخفاء':'عرض الكل')+'</button>':'')+
 (B.r>0?'<div class="myrank">مركزك الحالي: '+AR(B.r)+'</div>':'')+(B.d.length?'':'<div class="empty">لا توجد بيانات بعد.</div>')}
@@ -901,7 +921,7 @@ function certShare(){var c=certCur;if(!c)return;certBlob(c).then(function(b){ret
 // تنبيه مرة في الجلسة إن وُجدت شهادة لم يفتحها الطالب بعد
 function certNotify(){var seen=certSeen(),n=certList().filter(function(c){return !seen[c.key]}).length;if(!n)return;try{if(sessionStorage.getItem('certN')===String(n))return;sessionStorage.setItem('certN',String(n))}catch(e){}
 setTimeout(function(){toast('🏅 لديك '+(n===1?'شهادة شكر جديدة':n===2?'شهادتا شكر جديدتان':AR(n)+(n<=10?' شهادات شكر جديدة':' شهادة شكر جديدة'))+' من معلمك — تجدها في «إنجازاتي»')},900)}
-function badgeInit(){try{if(!student||!window.Badges)return;Badges.ping(student,SCRIPT_URL);var f=Badges.fresh(student);if(f.length)setTimeout(function(){toast('🎖️ وسام جديد: '+f.map(function(b){return b.name+' ('+b.tierName+')'}).join('، ')+' — تجده في «إنجازاتي»')},3400)}catch(e){}}
+function badgeInit(){try{if(!student||!window.Badges)return;Badges.ping(student,SCRIPT_URL);var f=Badges.fresh(student);if(f.length)setTimeout(function(){toast('🎖️ وسام جديد: '+f.map(function(b){return b.tierName?b.name+' ('+b.tierName+')':b.name}).join('، ')+' — تجده في «إنجازاتي»')},3400)}catch(e){}}
 function badgeCard(){try{var h=window.Badges?Badges.html(student):'';return h?'<div class="pc"><h3>'+ic('star',20)+'أوسمة الاجتهاد</h3>'+h+'</div>':''}catch(e){return ''}}
 function arc(len,off,color,C){return len>0?'<circle cx="60" cy="60" r="52" fill="none" stroke="'+color+'" stroke-width="14" stroke-dasharray="'+len.toFixed(1)+' '+(C-len).toFixed(1)+'" stroke-dashoffset="'+(-off).toFixed(1)+'"/>':''}
 function renderMe(){
@@ -933,6 +953,7 @@ function showLogin(){$('pre').hidden=true;$('app').hidden=true;$('login').hidden
 function showApp(){$('pre').hidden=true;$('login').hidden=true;$('app').hidden=false}
 function pickChapter(){if(chapterChosen)return;chapterChosen=true;var mu=student?musaid():null;var p=mu&&mu.primaryTask;curCh=(p&&p.type!=='diagnostic')?LESSONS[taskLesson(p).id].ci:0}
 function enter(){pickChapter();lbData=null;lbStale=true;lbErr=false;showApp();setView('home');
+try{var hv=(location.hash||'').slice(1);if(hv==='lb'||hv==='me'||hv==='lbc'){if(hv==='lbc'){lbTab=3;hv='lb'}setView(hv)}}catch(e){}
 try{if(student&&!sessionStorage.getItem('wlc')){sessionStorage.setItem('wlc','1');openWelcome()}}catch(e){}certNotify();badgeInit()}
 function refresh(silent){
 if(!student)return;
@@ -980,6 +1001,7 @@ if(act==='goold'){if(dockTasks.old)goTo(dockTasks.old);return}
 if(act==='gonew'){var tt=dockTasks.nw||dockTasks.old;if(tt)goTo(tt);return}
 if(act==='oldest'){var mu=musaid();if(mu.secondaryTask)goTo(mu.secondaryTask);return}
 if(act==='lbretry'){lbErr=false;renderLB();return}
+if(act==='cbretry'){cbErr=false;renderLB();return}
 if(act==='lbmore'){lbAll=!lbAll;renderLB();return}
 if(act==='closegame'){closeGame();return}}
 var tab=t.closest('[data-tab]');if(tab){setView(tab.getAttribute('data-tab'));return}

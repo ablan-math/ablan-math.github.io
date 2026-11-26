@@ -45,14 +45,19 @@
       value: function (s) { return n(s.projects && s.projects.peerCount); },
       need: function (t) { return t === 1 ? 'العب لعبة من تصميم زميلك في «ركن المبدعين»' : 'العب ' + AR(t) + ' ألعاب من تصميم زملائك'; }
     },
+    // وسام بلا درجات: يُمنح لكل من صمّم لعبة، ويتغير اسمه بعدد ألعابه (المبدع، المبدع ٢، المبدع ٣…)
     {
-      id: 'creator', icon: '💡', name: 'المبدع', th: [1, 10, 25], show: hasProjects,
-      value: function (s) {
-        var p = s.projects;
-        if (!p || !Array.isArray(p.created) || !p.created.length) return 0;
-        return Math.max(1, n(p.reach));
-      },
-      need: function (t) { return t === 1 ? 'صمّم لعبة تُنشر في «ركن المبدعين»' : 'يلعب لعبتك ' + AR(t) + ' من زملائك'; }
+      id: 'creator', icon: '💡', name: 'المبدع', single: true, show: hasProjects,
+      value: function (s) { var p = s.projects; return p && Array.isArray(p.created) ? p.created.length : 0; },
+      title: function (v) { return v >= 2 ? 'المبدع ' + AR(v) : 'المبدع'; },
+      sub: function (v) { return v === 1 ? 'صمّمتَ لعبة في «ركن المبدعين»' : v === 2 ? 'صمّمتَ لعبتين' : 'صمّمتَ ' + AR(v) + (v <= 10 ? ' ألعاب' : ' لعبة'); },
+      need: function () { return 'صمّم لعبة تُنشر في «ركن المبدعين»'; }
+    },
+    // درجات حسب عدد الزملاء الذين لعبوا ألعابك (الاسم قابل للتغيير)
+    {
+      id: 'inspire', icon: '✨', name: 'ملهِم الزملاء', th: [1, 5, 10, 25], show: hasProjects,
+      value: function (s) { var p = s.projects; return p && Array.isArray(p.created) && p.created.length ? n(p.reach) : 0; },
+      need: function (t) { return t === 1 ? 'يلعب زميلٌ لعبتك' : 'يلعب ألعابك ' + AR(t) + ' من زملائك'; }
     }
   ];
 
@@ -75,6 +80,13 @@
       try {
         if (d.show && !d.show(student)) return;
         var v = d.value(student), tier = -1;
+        if (d.single) {
+          out.push({
+            id: d.id, icon: d.icon, name: v >= 1 ? d.title(v) : d.name, tier: v >= 1 ? 0 : -1, tierName: '', single: true,
+            key: v >= 1 ? v - 1 : -1, need: v >= 1 ? '' : d.need(), sub: v >= 1 ? d.sub(v) : '', pct: 100, progress: '', nowText: '', maxed: false
+          });
+          return;
+        }
         for (var i = 0; i < d.th.length; i++) if (v >= d.th[i]) tier = i;
         var nextT = tier + 1 < d.th.length ? d.th[tier + 1] : null;
         var c = d.cur ? d.cur(student) : null;
@@ -110,9 +122,11 @@
 
   function tile(b) {
     var on = b.tier >= 0, h = '<div class="bdg' + (on ? ' on' : '') + '"><div class="bi">' + b.icon + '</div><b>' + esc(b.name) + '</b>';
-    if (on) h += '<span class="bt" style="background:' + TIER_COLORS[b.tier] + '">' + esc(b.tierName) + '</span>';
+    if (b.single) h += on ? '<small>' + esc(b.sub) + '</small>' : '<small>لم يُكتسب بعد</small>';
+    else if (on) h += '<span class="bt" style="background:' + TIER_COLORS[b.tier] + '">' + esc(b.tierName) + '</span>';
     else h += '<small>لم يُكتسب بعد</small>';
-    if (b.need) h += '<small>' + esc(on ? 'التالي: ' + b.need : b.need) + '</small>' +
+    if (b.single && !on) h += '<small>' + esc(b.need) + '</small>';
+    else if (b.need) h += '<small>' + esc(on ? 'التالي: ' + b.need : b.need) + '</small>' +
       '<div class="bp"><i style="width:' + b.pct + '%"></i></div><small>' + b.progress + '</small>';
     else if (b.maxed) h += '<small>أعلى درجة 🎉</small>';
     if (b.nowText) h += '<small>' + esc(b.nowText) + '</small>';
@@ -136,7 +150,8 @@
       try { seen = JSON.parse(localStorage.getItem(key) || 'null'); } catch (e) {}
       var cur = {}, list = compute(student), added = [];
       list.forEach(function (b) {
-        if (b.tier >= 0) { cur[b.id] = b.tier; if (seen && (seen[b.id] === undefined || seen[b.id] < b.tier)) added.push(b); }
+        var lv = b.single ? b.key : b.tier;
+        if (b.tier >= 0) { cur[b.id] = lv; if (seen && (seen[b.id] === undefined || seen[b.id] < lv)) added.push(b); }
       });
       try { localStorage.setItem(key, JSON.stringify(cur)); } catch (e) {}
       return added;
